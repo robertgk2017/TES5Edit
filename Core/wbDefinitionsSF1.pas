@@ -17397,14 +17397,12 @@ begin
                 .SetRequired,                                                   //DTGT  uint32 // +0x90 // as an alias ID
               wbRStructs('Dialogue Topics', 'Choice', [
                 wbFormIDCk(ESCE, 'Player Choice', [DIAL,NULL]),                    //ESCE  uint32 // +0x88 array; repeated; appears to allocate a new item into the array, with the value set to item+0x00 and item+0x08; likely acts as start marker for an item in this array
-                wbFormIDCk(PPST, 'Player Dialogue Subtype', [KYWD]),                //PPST  uint32 // +0x88 array; repeated; stored in item+0x10, also sets item+0x24 to 1 (uint8/byte)
-                wbRStruct('NPC Dialogue Subtype', [
-                  wbFormIDCk(PNST, 'Subtype', [KYWD]).SetRequired,              //PNST  uint32 // +0x88 array; repeated; stored in item+0x18, also sets item+0x25 to 1 (uint8/byte)
-                  wbFormIDCk(PASP, 'Start Scene', [SCEN,NULL]),                    //PASP  uint32 // +0x88 array; repeated; stored in item+0x28
-                  wbInteger(PAPI, 'Phase Index', itU32),                            //PAPI  uint32 // +0x88 array; repeated; stored in item+0x20; some sort of parenting/hierarchy index with the items in the array
-                  wbString(PAPN, 'Phase Name'),
-                  wbUnknown(PAQO)                                                   //PAQO  uint32 // Seems to get set if a NPC dialogue subtype is present and the 'Only Parent Quest Scenes' box is unchecked. But has 4 bytes of zero.
-                ]).IncludeFlag(dfAllowAnyMember),
+                wbFormIDCk(PPST, 'Player Dialogue Subtype', [KYWD]),               //PPST  uint32 // +0x88 array; repeated; stored in item+0x10, also sets item+0x24 to 1 (uint8/byte)
+                wbFormIDCk(PNST, 'NPC Dialogue Subtype', [KYWD]),                  //PNST  uint32 // +0x88 array; repeated; stored in item+0x18, also sets item+0x25 to 1 (uint8/byte)
+                wbFormIDCk(PASP, 'Start Scene', [SCEN,NULL]),                      //PASP  uint32 // +0x88 array; repeated; stored in item+0x28
+                wbInteger(PAPI, 'Phase Index', itU32),                             //PAPI  uint32 // +0x88 array; repeated; stored in item+0x20; some sort of parenting/hierarchy index with the items in the array
+                wbString(PAPN, 'Phase Name'),
+                wbUnknown(PAQO),                                                   //PAQO  uint32 // Seems to get set if a NPC dialogue subtype is present and the 'Only Parent Quest Scenes' box is unchecked. But has 4 bytes of zero.
                 wbFormIDCk(ESCS, 'NPC Response', [DIAL,NULL]).SetRequired          //ESCS  uint32 // +0x88 array; repeated; each item is 0x30 bytes; stored in item+0x08; increases +0x88 index *after* storing the value, likely acts as end marker for an item in this array
               ]),
               wbRStruct('NPC Reaction', [
