@@ -14062,6 +14062,7 @@ begin
     wbEmpty(DATA).SetRequired,
     wbFormIDCk(ANAM, 'Base Object List', [LVLI]),
     wbFormIDCk(ENAM, 'Rank Template', [LGDI]),
+    wbFormIDCk(MNAM, 'Add Into Legendary', [LGDI]),
     wbLGDIRankSlotArray(BNAM,
       wbStruct('Mod', [
         wbLGDIRankSlot,
@@ -14117,7 +14118,6 @@ begin
         .IncludeFlag(dfSummaryNoSortKey)
         .IncludeFlag(dfCollapsed, wbCollapseItems),
     True, wbLGDIRankSlotEnum),
-    wbFormIDCk(MNAM, 'Add Into Legendary', [LGDI]),
     wbLGDIRankSlotArray(GNAM,
       wbStruct('Quality Mod', [
         wbLGDIQualityTier,
