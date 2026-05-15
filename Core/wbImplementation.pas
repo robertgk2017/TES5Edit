@@ -919,6 +919,7 @@ type
 
     function GetAllowHardcodedRangeUse: Boolean;
 
+    function HasBlueprintMaster: Boolean;
     function HasONAM: Boolean;
     procedure MarkHeaderModified;
 
@@ -4445,6 +4446,15 @@ begin
   Result := Header.IsBlueprint;
 end;
 
+function TwbFile.HasBlueprintMaster: Boolean;
+var
+  i: Integer;
+begin
+  Result := False;
+  for i := Low(flMasters) to High(flMasters) do
+    if flMasters[i].IsBlueprint then
+      Exit(True);
+end;
 
 function TwbFile.GetIsLight: Boolean;
 var
@@ -5324,6 +5334,9 @@ begin
 
       if GetIsBlueprint then
         raise Exception.Create('Saving blueprint modules is not currently supported.');
+
+      if HasBlueprintMaster then
+        raise Exception.CreateFmt('%s modules must never have any blueprint masters.', [wbGameName]);
     end;
 
     inherited;
