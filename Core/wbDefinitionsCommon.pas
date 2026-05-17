@@ -8981,7 +8981,10 @@ begin
         wbString(I0TX, 'Layer #25'),
         wbString(J0TX, 'Layer #26'),
         wbString(K0TX, 'Layer #27'),
-        wbString(L0TX, 'Layer #28')
+        wbString(L0TX, 'Layer #28'),
+        wbString(M0TX, 'Layer #29'),
+        wbString(N0TX, 'Layer #30'),
+        wbString(O0TX, 'Layer #31')
       ]).IncludeFlag(dfAllowAnyMember)
         .IncludeFlag(dfCollapsed, wbCollapseWeatherCloudTextures)
         .IncludeFlag(dfStructFirstNotRequired));
