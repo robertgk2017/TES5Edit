@@ -436,7 +436,7 @@ type
 
   TwbAssetType = (
     atNone,
-    atMesh, atTexture, atMaterial,
+    atMesh, atTexture, atMaterial, atGeometry,
     atSound, atVoice, atMusic,
     atScript, atSource, atSourceSSE,
     atStrings, atSpeedTree, atVideo, atLODSettings, atDistantLOD,
@@ -463,10 +463,11 @@ type
     end;
   const
     cDataFolders: array [0..1] of string = ('data', 'data files');
-    cBSAssets: array [0..28] of TAssetDesc = (
+    cBSAssets: array [0..29] of TAssetDesc = (
       (Typ: atMesh;           Root: 'meshes';         Ext: ['.nif', '.kf', '.kfm', '.egm', '.egt', '.tri', '.psa', '.hkt', '.hkx', '.ssf', '.btr', '.bto', '.btt', '.dtl']),
       (Typ: atTexture;        Root: 'textures';       Ext: ['.dds', '.tga', '.png']),
       (Typ: atMaterial;       Root: 'materials';      Ext: ['.bgsm', '.bgem']),
+      (Typ: atGeometry;       Root: 'geometries';     Ext: ['.mesh']),
       (Typ: atVoice;          Root: 'sound\voice';    Ext: ['.lip', '.wav', '.xwm', '.mp3', '.ogg', '.fuz']),
       (Typ: atSound;          Root: 'sound';          Ext: ['.wav', '.xwm', '.ogg']),
       (Typ: atMusic;          Root: 'music';          Ext: ['.xwm', '.mp3']),

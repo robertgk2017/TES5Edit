@@ -314,6 +314,7 @@ begin
     AddConst(cUnit, 'atDistantLOD',    ord(atDistantLOD));
     AddConst(cUnit, 'atFacegen',       ord(atFacegen));
     AddConst(cUnit, 'atFont',          ord(atFont));
+    AddConst(cUnit, 'atGeometry',      Ord(atGeometry));
     AddConst(cUnit, 'atGrass',         ord(atGrass));
     AddConst(cUnit, 'atIcon',          ord(atIcon));
     AddConst(cUnit, 'atInterface',     ord(atInterface));
