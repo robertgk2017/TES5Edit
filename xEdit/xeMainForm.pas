@@ -13854,7 +13854,7 @@ begin
                   (not FilterByRegexComparison and (Pos(AnsiUpperCase(FilterName), AnsiUpperCase(MainRecord.DisplayName[True])) < 1))
                   )
                 ) or
-                (FilterByElementValue and not CheckContainerForElementValue(MainRecord, FilterElementValue, FilterByRegexComparison)) or
+                (FilterByElementValue and not CheckContainerForElementValue(MainRecord, UpperCase(FilterElementValue), FilterByRegexComparison)) or
 
                 (FilterRequiresReference and
                   (
