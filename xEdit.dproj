@@ -273,6 +273,10 @@
             <Form>frmWorldspaceCellDetails</Form>
             <FormType>dfm</FormType>
         </DCCReference>
+        <DCCReference Include="xEdit\xeGameSelectForm.pas">
+            <Form>frmGameSelect</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

@@ -90,6 +90,7 @@ uses
   wbInterface,
   wbSteamVDFParser,
 
+  xeGameSelectForm,
   xeScriptHost;
 
 function xeCheckForValidExtension(const aFilePath : string): Boolean;
@@ -625,6 +626,8 @@ const
     'checkforerrors', 'checkforitm', 'checkfordr'];
 var
   s, p: string;
+  sl : TStringList;
+  i : Integer;
 begin
   // Detecting game mode
   // check command line params first for mode overrides
@@ -659,8 +662,26 @@ begin
         Break;
       end;
   // if still nothing, then default value
-  if AppGameMode = '' then
-    AppGameMode := 'fo4';
+  if AppGameMode = '' then begin
+    sl := TStringList.Create;
+    with TfrmGameSelect.Create(nil) do try
+      sl.Sorted := True;
+      for s in GameModes do
+        sl.Add(s);
+
+      ListBox1.Items.Assign(sl);
+
+      if ShowModal = mrOK then
+        for i := 0 to Pred(ListBox1.Items.Count) do
+          if ListBox1.Selected[i] then begin
+             AppGameMode := ListBox1.Items[i];
+             Break;
+          end;
+    finally
+      Free;
+      sl.Free;
+    end;
+  end;
 
   // the same for tool mode
   for s in ToolModes do
@@ -962,7 +983,7 @@ begin
   end
 
   else begin
-    ShowMessage('Application name must contain FNV, FO3, FO4, FO4VR, FO76, SSE, TES4, TES4R, TES5, TES5VR, Enderal, or EnderalSE, SF1 to select game.');
+    ShowMessage('Application name or game mode argument must contain FNV, FO3, FO4, FO4VR, FO76, SSE, TES4, TES4R, TES5, TES5VR, Enderal, EnderalSE, or SF1 to select game.');
     Exit(False);
   end;
 

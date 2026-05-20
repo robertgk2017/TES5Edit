@@ -117,7 +117,8 @@ uses
   xeTipForm in 'xEdit\xeTipForm.pas',
   xeViewElementsForm in 'xEdit\xeViewElementsForm.pas' {frmViewElements},
   xeWaitForm in 'xEdit\xeWaitForm.pas' {frmWait},
-  xeWorldspaceCellDetailsForm in 'xEdit\xeWorldspaceCellDetailsForm.pas' {frmWorldspaceCellDetails};
+  xeWorldspaceCellDetailsForm in 'xEdit\xeWorldspaceCellDetailsForm.pas' {frmWorldspaceCellDetails},
+  xeGameSelectForm in 'xEdit\xeGameSelectForm.pas' {frmGameSelect};
 
 {$R *.res}
 {$MAXSTACKSIZE 2097152}
