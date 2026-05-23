@@ -340,32 +340,52 @@ begin
               v.z := bigverts[i].NativeValues['Z'];
               verts := verts + [v];
             end;
+
             var transforms := shape.Elements['Chunk Transforms'];
             var chunks := shape.Elements['Chunks'];
             for var i := 0 to Pred(chunks.Count) do begin
-              var el := chunks[i].Elements['Vertices'];
+              var chunk := chunks[i];
+              var el := chunk.Elements['Vertices'];
               if el.Count < 3 then Continue;
-              var chunkt := transforms[chunks.NativeValues['Transform Index']];
-              var t: TTransform;
-              t.Translation.x := chunkt.NativeValues['Translation\X'] + chunks[i].NativeValues['Offset\X'];
-              t.Translation.y := chunkt.NativeValues['Translation\Y'] + chunks[i].NativeValues['Offset\Y'];
-              t.Translation.z := chunkt.NativeValues['Translation\Z'] + chunks[i].NativeValues['Offset\Z'];
-              t.Rotation.x := chunkt.NativeValues['Rotation\X'];
-              t.Rotation.y := chunkt.NativeValues['Rotation\Y'];
-              t.Rotation.z := chunkt.NativeValues['Rotation\Z'];
-              t.Rotation.w := chunkt.NativeValues['Rotation\W'];
-              t.Scale := 1.0;
-              for var j := 0 to Pred(el.Count div 3) do begin
-                var v: TVector3;
-                v.x := el[3*j].NativeValue;
-                v.y := el[3*j + 1].NativeValue;
-                v.z := el[3*j + 2].NativeValue;
-                v := v / 1000.0;
-                verts := verts + [v * t];
+
+              var TransformIdx := chunk.NativeValues['Transform Index'];
+              if TransformIdx <> $FFFF then begin
+                var chunkt := transforms[TransformIdx];
+                var t: TTransform;
+                t.Translation.x := chunkt.NativeValues['Translation\X'] + chunk.NativeValues['Offset\X'];
+                t.Translation.y := chunkt.NativeValues['Translation\Y'] + chunk.NativeValues['Offset\Y'];
+                t.Translation.z := chunkt.NativeValues['Translation\Z'] + chunk.NativeValues['Offset\Z'];
+                t.Rotation.x := chunkt.NativeValues['Rotation\X'];
+                t.Rotation.y := chunkt.NativeValues['Rotation\Y'];
+                t.Rotation.z := chunkt.NativeValues['Rotation\Z'];
+                t.Rotation.w := chunkt.NativeValues['Rotation\W'];
+                t.Scale := 1.0;
+
+                for var j := 0 to Pred(el.Count div 3) do begin
+                  var v: TVector3;
+                  v.x := el[3*j    ].NativeValue;
+                  v.y := el[3*j + 1].NativeValue;
+                  v.z := el[3*j + 2].NativeValue;
+                  v := v / 1000.0;
+
+                  verts := verts + [v * t];
+                end;
+              end
+              else
+              begin
+                for var j := 0 to Pred(el.Count div 3) do
+                begin
+                  var v: TVector3;
+                  v.x := el[3*j    ].NativeValue;
+                  v.y := el[3*j + 1].NativeValue;
+                  v.z := el[3*j + 2].NativeValue;
+                  v := v / 1000.0;
+
+                  verts := verts + [v];
+                end;
               end;
             end;
           end;
-
         end;
 
         if Length(verts) = 0 then
