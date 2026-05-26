@@ -148,7 +148,7 @@ type
   end;
 
 const
-  wbConditionFunctions : array[0..243] of TConditionFunction = (
+  wbConditionFunctions : array[0..271] of TConditionFunction = (
     // Added by Fallout 3
     (Index:   1; Name: 'GetDistance'; ParamType1: ptReference),
     (Index:   5; Name: 'GetLocked'),
@@ -395,7 +395,40 @@ const
     (Index: 1082; Name: 'IsKeyPressed'; ParamType1: ptInteger),
     (Index: 1165; Name: 'GetWeaponHasScope'; ParamType1: ptInventoryObject),
     (Index: 1166; Name: 'IsControlPressed'; ParamType1: ptInteger),
-    (Index: 1213; Name: 'GetFOSEBeta')
+    (Index: 1213; Name: 'GetFOSEBeta'),
+
+    // Added by ButcherPete FOSE Plugin:
+    (Index: 4640; Name: 'IsOwned'; ParamType1: ptActor),
+    (Index: 4644; Name: 'GetPCCanFastTravel'),
+    (Index: 4645; Name: 'GetRadiationLevelAlt'),
+    (Index: 4653; Name: 'GetLockedAlt'),
+    (Index: 4665; Name: 'GetIsRagdolled'),
+    (Index: 4696; Name: 'IsInWater'),
+    (Index: 4700; Name: 'IsIdlePlayingEx'; ParamType1: ptIdleForm),
+    (Index: 4715; Name: 'IsSpellTargetAlt'; ParamType1: ptEffectItem),
+    (Index: 4768; Name: 'IsNight'),
+    (Index: 4776; Name: 'GetQuestFailedAlt'; ParamType1: ptQuest),
+
+    // Added by Command Extender Plugin:
+    (Index: 8471; Name: 'GetGameDifficulty'),
+    (Index: 8473; Name: 'GetAlwaysRun'),
+    (Index: 8474; Name: 'GetAutoMove'),
+    (Index: 8486; Name: 'GetWaterImmersionPerc'),
+    (Index: 8547; Name: 'IsButtonPressed'; ParamType1: ptInteger),
+    (Index: 8548; Name: 'GetLeftStickX'),
+    (Index: 8549; Name: 'GetLeftStickY'),
+    (Index: 8550; Name: 'GetRightStickX'),
+    (Index: 8551; Name: 'GetRightStickY'),
+    (Index: 8552; Name: 'GetLeftTrigger'),
+    (Index: 8553; Name: 'GetRightTrigger'),
+    (Index: 8571; Name: 'IsRefInList'; ParamType1: ptFormList; ParamType2: ptFormType),
+    (Index: 8575; Name: 'GetNoteRead'; ParamType1: ptNote),
+    (Index: 8597; Name: 'IsInAir'),
+    (Index: 8610; Name: 'IsButtonDisabled'; ParamType1: ptInteger),
+    (Index: 8613; Name: 'IsButtonHeld'; ParamType1: ptInteger),
+    (Index: 8616; Name: 'IsTriggerDisabled'; ParamType1: ptInteger),
+    (Index: 8619; Name: 'IsTriggerHeld'; ParamType1: ptInteger)
+
   );
 
 function wbConditionDescFromIndex(aIndex: Integer): PConditionFunction;
