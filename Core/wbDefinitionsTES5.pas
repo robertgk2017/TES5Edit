@@ -2317,9 +2317,16 @@ begin
       wbStructExSK(CNTO, [0], [1], 'Item', [
         wbFormIDCk('Item', [ARMO, AMMO, APPA, MISC, WEAP, BOOK, LVLI, KEYM, ALCH, INGR, LIGH, SLGM, SCRL]),
         wbInteger('Count', itS32).SetDefaultNativeValue(1)
-      ]),
+      ])
+      .SetSummaryKeyOnValue([1, 0])
+      .SetSummaryPrefixSuffixOnValue(0, '', '')
+      .SetSummaryPrefixSuffixOnValue(1, '', 'x')
+      .SetSummaryDelimiterOnValue(' ')
+      .IncludeFlagOnValue(dfSummaryNoSortKey)
+      .IncludeFlagOnValue(dfSummaryMembersNoName)
+      .IncludeFlag(dfCollapsed, wbCollapseItems),
       wbCOED
-    ]).SetToStr(wbItemToStr).IncludeFlag(dfCollapsed, wbCollapseItems);
+    ]).IncludeFlag(dfCollapsed, wbCollapseItems);
   wbCOCT := wbInteger(COCT, 'Count', itU32, nil, cpBenign);
   wbCNTOs := wbRArrayS('Items', wbCNTO).SetCountPath('COCT');
 
@@ -2328,9 +2335,16 @@ begin
       wbStructExSK(CNTO, [0], [1], 'Item', [
         wbFormIDCkNoReach('Item', [ARMO, AMMO, APPA, MISC, WEAP, BOOK, LVLI, KEYM, ALCH, INGR, LIGH, SLGM, SCRL]),
         wbInteger('Count', itS32).SetDefaultNativeValue(1)
-      ]),
+      ])
+      .SetSummaryKeyOnValue([1, 0])
+      .SetSummaryPrefixSuffixOnValue(0, '', '')
+      .SetSummaryPrefixSuffixOnValue(1, '', 'x')
+      .SetSummaryDelimiterOnValue(' ')
+      .IncludeFlagOnValue(dfSummaryNoSortKey)
+      .IncludeFlagOnValue(dfSummaryMembersNoName)
+      .IncludeFlag(dfCollapsed, wbCollapseItems),
       wbCOED
-    ]).SetToStr(wbItemToStr).IncludeFlag(dfCollapsed, wbCollapseItems);
+    ]).IncludeFlag(dfCollapsed, wbCollapseItems);
   wbCNTOsNoReach := wbRArrayS('Items', wbCNTONoReach).SetCountPath('COCT');
 
   wbArmorTypeEnum := wbEnum([

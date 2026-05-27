@@ -3087,9 +3087,16 @@ begin
         wbStructExSK(CNTO, [0], [1], 'Item', [
           wbFormIDCk('Item', [ARMO, AMMO, MISC, WEAP, BOOK, LVLI, KEYM, ALCH, NOTE, MSTT{?}, STAT{?}]),
           wbInteger('Count', itS32).SetDefaultNativeValue(1)
-        ]),
+        ])
+        .SetSummaryKeyOnValue([1, 0])
+        .SetSummaryPrefixSuffixOnValue(0, '', '')
+        .SetSummaryPrefixSuffixOnValue(1, '', 'x')
+        .SetSummaryDelimiterOnValue(' ')
+        .IncludeFlagOnValue(dfSummaryNoSortKey)
+        .IncludeFlagOnValue(dfSummaryMembersNoName)
+        .IncludeFlag(dfCollapsed, wbCollapseItems),
         wbCOED
-      ]).SetToStr(wbItemToStr).IncludeFlag(dfCollapsed, wbCollapseItems)
+      ]).IncludeFlag(dfCollapsed, wbCollapseItems)
     );
 
   wbConditions :=
