@@ -4257,9 +4257,16 @@ begin
       wbStructExSK(CNTO, [0], [1], 'Item', [
         wbFormIDCk('Item', sigBaseObjects),
         wbInteger('Count', itS32).SetDefaultNativeValue(1)
-      ]),
+      ])
+      .SetSummaryKeyOnValue([1, 0])
+      .SetSummaryPrefixSuffixOnValue(0, '', '')
+      .SetSummaryPrefixSuffixOnValue(1, '', 'x')
+      .SetSummaryDelimiterOnValue(' ')
+      .IncludeFlagOnValue(dfSummaryNoSortKey)
+      .IncludeFlagOnValue(dfSummaryMembersNoName)
+      .IncludeFlag(dfCollapsed, wbCollapseItems),
       wbCOED
-    ]).SetToStr(wbItemToStr).IncludeFlag(dfCollapsed, wbCollapseItems);
+    ]).IncludeFlag(dfCollapsed, wbCollapseItems);
   wbCOCT := wbInteger(COCT, 'Count', itU32, nil, cpBenign);
   wbCNTOs := wbRArrayS('Items', wbCNTO).SetCountPath(COCT);
 
@@ -12843,6 +12850,13 @@ begin
         wbInteger('Count', itU32),
         wbFromVersion(152, wbFormIDCk('Curve Table', [CURV, NULL]))
       ])
+      .SetSummaryKey([1, 0])
+      .SetSummaryMemberPrefixSuffix(0, '', '')
+      .SetSummaryMemberPrefixSuffix(1, '', 'x')
+      .SetSummaryDelimiter(' ')
+      .IncludeFlag(dfCollapsed, wbCollapseItems)
+      .IncludeFlag(dfSummaryNoSortKey)
+      .IncludeFlag(dfSummaryMembersNoName)
     ),
     wbArray(CDIX, 'Component Display Indices', wbInteger('Display Index', itU8))
   ]);
@@ -12852,7 +12866,14 @@ begin
       wbFormIDCkNoReach('Component', sigBaseObjects),
       wbInteger('Count', itU32),
       wbFromVersion(152, wbFormIDCk('Curve Table', [CURV, NULL]))
-    ]).SetToStr(wbItemToStr).IncludeFlag(dfCollapsed, wbCollapseItems);
+    ])
+    .SetSummaryKey([1, 0])
+    .SetSummaryMemberPrefixSuffix(0, '', '')
+    .SetSummaryMemberPrefixSuffix(1, '', 'x')
+    .SetSummaryDelimiter(' ')
+    .IncludeFlag(dfCollapsed, wbCollapseItems)
+    .IncludeFlag(dfSummaryNoSortKey)
+    .IncludeFlag(dfSummaryMembersNoName);
 
   wbComponents := wbArrayS(FVPA, 'Components', wbComponent);
 

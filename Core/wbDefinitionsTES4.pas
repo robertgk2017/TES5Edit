@@ -1463,7 +1463,12 @@ begin
         wbFormIDCk('Item', [ALCH, AMMO, APPA, ARMO, BOOK, CLOT, INGR, KEYM, LIGH, LVLI, MISC, SGST, SLGM, WEAP]),
         wbInteger('Count', itS32)
           .SetDefaultNativeValue(1)
-      ]).SetToStr(wbItemToStr)
+      ]).SetSummaryKeyOnValue([1, 0])
+        .SetSummaryPrefixSuffixOnValue(0, '', '')
+        .SetSummaryPrefixSuffixOnValue(1, '', 'x')
+        .SetSummaryDelimiterOnValue(' ')
+        .IncludeFlagOnValue(dfSummaryNoSortKey)
+        .IncludeFlagOnValue(dfSummaryMembersNoName)
         .IncludeFlag(dfCollapsed, wbCollapseItems));
 
   wbConditions :=
