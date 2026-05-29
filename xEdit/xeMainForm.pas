@@ -1862,11 +1862,33 @@ begin
     tbsMessages.Highlighted := True;
 end;
 
+const
+  InvalidFileNameChars = '\/*?:"<>|';
+
+function IsValidWindowsFileName(const aFileName: string): Boolean;
+var
+  C: Char;
+begin
+  Result := aFileName <> '';
+
+  if not Result then
+    Exit;
+
+  for C in aFileName do
+  begin
+    if Pos(C, InvalidFileNameChars) > 0 then
+      Exit(False);
+  end;
+end;
+
 function TfrmMain.AddNewFileName(const aFileName: string; aIsLight, aIsMedium: Boolean): IwbFile;
 var
   LoadOrder : Integer;
 begin
   Result := nil;
+
+  if not IsValidWindowsFileName(aFileName) then
+    raise Exception.CreateFmt('The specified filename:'#13#10#13#10'%s'#13#10#13#10'Contains one or more invalid characters:'#13#10#13#10'%s', [aFilename, InvalidFileNameChars]);
 
   if FileExists(wbDataPath + aFileName) then begin
     ShowMessage('A file of that name exists already.');
@@ -1896,6 +1918,9 @@ var
 begin
   Result := nil;
 
+  if not IsValidWindowsFileName(aFileName) then
+    raise Exception.CreateFmt('The specified filename:'#13#10#13#10'%s'#13#10#13#10'Contains one or more invalid characters:'#13#10#13#10'%s', [aFilename, InvalidFileNameChars]);
+
   if FileExists(wbDataPath + aFileName) then begin
     ShowMessage('A file of that name exists already.');
     Exit;
@@ -1916,6 +1941,23 @@ begin
   Result._AddRef;
 end;
 
+function GetSanitizedFilename(const aFilename: string): string;
+var
+  s: string;
+begin
+  Result := '';
+  s := Trim(aFilename);
+  if s = '' then
+    Exit;
+
+  if SameText(ExtractFileExt(s), '.esp') or
+     SameText(ExtractFileExt(s), '.esm') or
+     SameText(ExtractFileExt(s), '.esl') then
+    s := ChangeFileExt(s, '');
+
+  Result := s;
+end;
+
 function TfrmMain.AddNewFile(out aFile: IwbFile; aIsLight, aIsMedium: Boolean): Boolean;
 var
   s: string;
@@ -1924,18 +1966,18 @@ begin
   Result := False;
   s := '';
   if InputQuery('New Module File', 'Filename without extension:', s) then begin
-    s := Trim(s);
+    s := GetSanitizedFilename(s);
     if s = '' then
       Exit;
-    if SameText(ExtractFileExt(s), '.esp') or
-       SameText(ExtractFileExt(s), '.esm') or
-       SameText(ExtractFileExt(s), '.esl') then
-      s := ChangeFileExt(s, '');
+
     if aIsLight then
       s := s + '.esl'
     else
       s := s + '.esp';
+
     aFile := AddNewFileName(s, aIsLight, aIsMedium);
+    if Assigned(aFile) and wbAlwaysLoadGameMaster then
+      aFile.AddMasterIfMissing(wbGameMasterESM);
     Result := Assigned(aFile);
   end;
 end;
@@ -1948,14 +1990,12 @@ begin
   Result := False;
   s := '';
   if InputQuery('New Module File', 'Filename without extension:', s) then begin
-    s := Trim(s);
+    s := GetSanitizedFilename(s);
     if s = '' then
       Exit;
-    if SameText(ExtractFileExt(s), '.esp') or
-       SameText(ExtractFileExt(s), '.esm') or
-       SameText(ExtractFileExt(s), '.esl') then
-      s := ChangeFileExt(s, '');
+
     s := s + aTemplate.miExtension.ToString;
+
     aFile := AddNewFileName(s, aTemplate);
     if Assigned(aFile) and wbAlwaysLoadGameMaster then
       aFile.AddMasterIfMissing(wbGameMasterESM);
