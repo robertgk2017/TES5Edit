@@ -4297,7 +4297,7 @@ begin
       wbFlags(wbSparseFlags([
       0, 'Is Interior Cell',
       1, 'Has Water',
-      2, 'Can Travel From Here',
+      2, 'Can''t Travel From Here',
       3, 'No LOD Water',
       5, 'Public Area',
       6, 'Hand Changed',

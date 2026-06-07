@@ -3693,8 +3693,9 @@ begin
       wbFlags([
         {0} 'Is Interior Cell',
         {1} 'Has water',
-        {2} 'Can Travel From Here',
+        {2} 'Can''t Travel From Here',
         {3} 'No LOD Water',
+        {4} '',
         {5} 'Public Area',
         {6} 'Hand changed',
         {7} 'Behave like exterior'

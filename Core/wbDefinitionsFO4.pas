@@ -6049,24 +6049,27 @@ begin
   [
     wbEDID,
     wbFULL,
-    wbInteger(DATA, 'Flags', itU16, wbFlags([
-      {0x0001} 'Is Interior Cell',
-      {0x0002} 'Has Water',
-      {0x0004} 'Can Travel From Here',
-      {0x0008} 'No LOD Water',
-      {0x0010} 'Unknown 5',
-      {0x0020} 'Public Area',
-      {0x0040} 'Hand Changed',
-      {0x0080} 'Show Sky',
-      {0x0100} 'Use Sky Lighting',
-      {0x0200} 'Unknown 10',
-      {0x0400} 'Hidden from Interior Cell List',
-      {0x0800} 'Sunlight Shadows',
-      {0x1000} 'Distant LOD only',
-      {0x2000} 'Player Followers Can''t Travel Here',
-      {0x4000} 'Unknown 15',
-      {0x8000} 'Unknown 16'
-    ]), cpNormal, True, False, nil, wbCELLDATAAfterSet).IncludeFlag(dfCollapsed, wbCollapseFlags),
+    wbInteger(DATA, 'Flags', itU16,
+      wbFlags([
+      {0}  'Is Interior Cell',
+      {1}  'Has Water',
+      {2}  'Can''t Travel From Here',
+      {3}  'No LOD Water',
+      {4}  'Unknown 4',
+      {5}  'Public Area',
+      {6}  'Hand Changed',
+      {7}  'Show Sky',
+      {8}  'Use Sky Lighting',
+      {9}  'Unknown 9',
+      {10} 'Hidden from Interior Cell List',
+      {11} 'Sunlight Shadows',
+      {12} 'Distant LOD only',
+      {13} 'Player Followers Can''t Travel Here',
+      {14} 'Unknown 14',
+      {15} 'Unknown 15'
+      ])
+    ).SetAfterSet(wbCELLDATAAfterSet)
+     .IncludeFlag(dfCollapsed, wbCollapseFlags),
 
     wbByteArray(VISI, 'PreVis Files Timestamp', 2).SetToStr(wbTimeStampToString),
     wbFormIDCk(RVIS, 'In PreVis File Of', [CELL]),

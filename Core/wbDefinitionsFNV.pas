@@ -4115,16 +4115,19 @@ begin
     ])), [
     wbEDID,
     wbFULL,
-    wbInteger(DATA, 'Flags', itU8, wbFlags([
-      {0x01} 'Is Interior Cell',
-      {0x02} 'Has water',
-      {0x04} 'Invert Fast Travel behavior',
-      {0x08} 'No LOD Water',
-      {0x10} '',
-      {0x20} 'Public place',
-      {0x40} 'Hand changed',
-      {0x80} 'Behave like exterior'
-    ]), cpNormal, True).IncludeFlag(dfCollapsed, wbCollapseFlags),
+    wbInteger(DATA, 'Flags', itU8,
+      wbFlags([
+      {0} 'Is Interior Cell',
+      {1} 'Has water',
+      {2} 'Can''t Travel From Here',
+      {3} 'No LOD Water',
+      {4} '',
+      {5} 'Public place',
+      {6} 'Hand changed',
+      {7} 'Behave like exterior'
+      ])
+    ).SetRequired
+     .IncludeFlag(dfCollapsed, wbCollapseFlags),
     wbCellGrid,
     wbStruct(XCLL, 'Lighting', [
       wbByteColors('Ambient Color'),
