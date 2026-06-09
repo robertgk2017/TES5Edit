@@ -755,13 +755,21 @@ begin
     if not Assigned(Rigid) then
       Exit;
 
-    if Rigid.NativeValues['Havok Filter\Layer'] = 2 then
+    if Rigid.NativeValues['Havok Filter\Layer'] = 2 then begin
       if Collision.NativeValues['Flags\SET_LOCAL'] = False then
-        begin
-          Collision.NativeValues['Flags\SET_LOCAL'] := True;
-          Log.Add(#9 + Collision.Name + ': Added Set_Local flag');
-          Result := True;
-        end;
+      begin
+        Collision.NativeValues['Flags\SET_LOCAL'] := True;
+        Log.Add(#9 + Collision.Name + ': Added Set_Local flag');
+        Result := True;
+      end;
+    end
+    else
+    if Collision.NativeValues['Flags\SET_LOCAL'] = True then
+    begin
+      Collision.NativeValues['Flags\SET_LOCAL'] := False;
+      Log.Add(#9 + Collision.Name + ': Removed Set_Local flag');
+      Result := True;
+    end;
   end;
 
   // collision settings
