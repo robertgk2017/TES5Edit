@@ -495,6 +495,15 @@ begin
       if not Assigned(seq) then
         Continue;
 
+      var TargetElement := Manager.Elements['Target'].LinksTo;
+      var TargetName := TargetElement.NativeValues['Name'];
+      if seq.NativeValues['Accum Root Name'] <> TargetName then
+      begin
+        seq.NativeValues['Accum Root Name'] := TargetName;
+        Log.Add(#9 + seq.Name + ': Set Accum Root to ' + TargetElement.Name);
+        Result := True;
+      end;
+
       // going over contolled blocks (in reverse, we are going to delete some)
       var blocks := seq.Elements['Controlled Blocks'];
       for var j := Pred(blocks.Count) downto 0 do begin
@@ -594,7 +603,6 @@ begin
       Log.Add(#9 + multitarget.Name + ': Updated Extra Targets');
       Result := True;
     end;
-
 
   finally
     slOld.Free;
