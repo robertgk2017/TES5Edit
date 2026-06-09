@@ -23,10 +23,6 @@ uses
 type
   TFrameOptimizeKF = class(TFrame)
     StaticText1: TStaticText;
-  private
-    { Private declarations }
-  public
-    { Public declarations }
   end;
 
   TProcOptimizeKF = class(TProcBase)
@@ -54,9 +50,9 @@ constructor TProcOptimizeKF.Create(aManager: TProcManager);
 begin
   inherited;
 
-  fTitle := 'Optimize KF animations';
-  fSupportedGames := [gtTES4, gtFO3, gtFNV];
-  fExtensions := ['kf'];
+  fTitle := 'Optimize Animations';
+  fSupportedGames := [gtTES4, gtFO3, gtFNV, gtTES5, gtSSE, gtFO4];
+  fExtensions := ['kf', 'nif'];
 end;
 
 function TProcOptimizeKF.GetFrame(aOwner: TComponent): TFrame;
@@ -112,18 +108,14 @@ function TProcOptimizeKF.ProcessFile(aFile: TProcFileObject): TBytes;
       aKeys.NativeValues[aKeysCount] := aKeys.Count;
   end;
 
-var
-  nif: TwbNifFile;
-  datalink, entries: TdfElement;
-  bChanged: Boolean;
 begin
-  bChanged := False;
-  nif := TwbNifFile.Create;
+  var bChanged := False;
+  var nif := TwbNifFile.Create;
   try
     nif.LoadFromData(aFile.GetData);
 
     for var block in nif.BlocksByType('NiKeyBasedInterpolator', True) do begin
-      datalink := block.Elements['Data'];
+      var datalink := block.Elements['Data'];
       if not Assigned(datalink) then
         Continue;
 
@@ -131,7 +123,7 @@ begin
       if not Assigned(data) then
         Continue;
 
-      entries := data.Elements['Quaternion Keys'];
+      var entries := data.Elements['Quaternion Keys'];
       if Assigned(entries) and Optimize(entries, '..\Num Rotation Keys') then
         bChanged := True;
 
@@ -158,7 +150,5 @@ begin
   end;
 
 end;
-
-
 
 end.
