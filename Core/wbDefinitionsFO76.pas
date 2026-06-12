@@ -17026,6 +17026,16 @@ begin
     wbConditions
   ]).SetSummaryKey([2]).IncludeFlag(dfSummaryNoName);
 
+  wbRecord(TEPF, 'Unknown - TEPF', [
+    wbEDID,
+    wbUnknown(EPEG),
+    wbUnknown(EPCD),
+    wbUnknown(EPPR),
+    wbUnknown(EPNQ),
+    wbUnknown(EPLA),
+    wbUnknown(EPQT)
+  ]);
+
   wbRecord(TRAP, 'Trap', [
     wbEDID,
     wbVMAD,
@@ -17850,6 +17860,7 @@ begin
   wbAddGroupOrder(PLYT);
   wbAddGroupOrder(FISH);
   wbAddGroupOrder(CMPT);
+  wbAddGroupOrder(TEPF);
   wbNexusModsUrl := 'https://www.nexusmods.com/fallout76/mods/30';
   {if wbToolMode = tmLODgen then
     wbNexusModsUrl := '';}

@@ -480,9 +480,11 @@ const
   EPFD : TwbSignature = 'EPFD';
   EPFL : TwbSignature = 'EPFL'; { New To Fallout 76 0.2.782.0 }
   EPFT : TwbSignature = 'EPFT';
+  EPLA : TwbSignature = 'EPLA'; { New To Fallout 76 }
   EPNQ : TwbSignature = 'EPNQ'; { New To Fallout 76 0.2.782.0 }
   EPPR : TwbSignature = 'EPPR'; { New To Fallout 76 0.2.782.0 }
   EPQA : TwbSignature = 'EPQA'; { New To Fallout 76 0.2.782.0 }
+  EPQT : TwbSignature = 'EPQT'; { New To Fallout 76 }
   EPSI : TwbSignature = 'EPSI'; { New To Fallout 76 0.2.782.0 }
   EQUP : TwbSignature = 'EQUP';
   EQWG : TwbSignature = 'EQWG'; { New To Fallout 76. In Exe Grup Order }
@@ -1434,6 +1436,7 @@ const
   TDUM : TwbSignature = 'TDUM';
   TEMP : TwbSignature = 'TEMP'; { New To Starfield }
   TEND : TwbSignature = 'TEND'; { New to Fallout 4 }
+  TEPF : TwbSignature = 'TEPF'; { New To Fallout 76 }
   TERM : TwbSignature = 'TERM'; { New to Fallout 4 }
   TES3 : TwbSignature = 'TES3';
   TES4 : TwbSignature = 'TES4';
