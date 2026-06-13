@@ -11,9 +11,14 @@ unit ProcReplaceAssets;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameReplaceAssets = class(TFrame)
@@ -43,7 +48,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 implementation
@@ -51,8 +56,8 @@ implementation
 {$R *.dfm}
 
 uses
-  System.NetEncoding,
   System.RegularExpressionsCore,
+
   wbDataFormat,
   wbDataFormatNif,
   wbDataFormatMaterial;
@@ -77,9 +82,10 @@ begin
   Frame.chkFixAbsolute.Checked := StorageGetBool('bFixAbsolute', Frame.chkFixAbsolute.Checked);
   Frame.chkRegExp.Checked := StorageGetBool('bRegExp', Frame.chkRegExp.Checked);
   Frame.chkReport.Checked := StorageGetBool('bReportOnly', Frame.chkReport.Checked);
-  var s := StorageGetString('sReplacements', '');
-  if s <> '' then
-    Frame.memoPairs.Lines.Text := TBase64Encoding.Base64String.Decode(s);
+  Frame.memoPairs.Lines.Text := StringToText(StorageGetString('sReplacements', TextToString(Frame.memoPairs.Lines.Text)));
+  //var s := StorageGetString('sReplacements', '');
+  //if s <> '' then
+  //  Frame.memoPairs.Lines.Text := TBase64Encoding.Base64String.Decode(s);
 end;
 
 procedure TProcReplaceAssets.OnHide;
@@ -87,7 +93,8 @@ begin
   StorageSetBool('bFixAbsolute', Frame.chkFixAbsolute.Checked);
   StorageSetBool('bRegExp', Frame.chkRegExp.Checked);
   StorageSetBool('bReportOnly', Frame.chkReport.Checked);
-  StorageSetString('sReplacements', TBase64Encoding.Base64String.Encode(Frame.memoPairs.Lines.Text));
+  StorageSetString('sReplacements', TextToString(Frame.memoPairs.Lines.Text));
+  //StorageSetString('sReplacements', TBase64Encoding.Base64String.Encode(Frame.memoPairs.Lines.Text));
 end;
 
 procedure TProcReplaceAssets.OnStart;
@@ -115,7 +122,7 @@ begin
 
 end;
 
-function TProcReplaceAssets.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcReplaceAssets.ProcessFile(aFile: TProcFileObject): TBytes;
 var
   i, k, p: integer;
   Elements: TList;
@@ -137,14 +144,14 @@ begin
   end;
   bChanged := False;
 
-  ext := ExtractFileExt(aFileName);
+  ext := ExtractFileExt(aFile.FileName);
 
   // collecting elements with assets
   try
     // *.NIF file
     if SameText(ext, '.nif') then begin
       Nif := TwbNifFile.Create;
-      Nif.LoadFromFile(aInputDirectory + aFileName);
+      Nif.LoadFromData(aFile.GetData);
       for el in Nif.GetAssets do
         Elements.Add(el);
     end
@@ -152,7 +159,7 @@ begin
     // *.BGSM file
     else if SameText(ext, '.bgsm') then begin
       BGSM := TwbBGSMFile.Create;
-      BGSM.LoadFromFile(aInputDirectory + aFileName);
+      BGSM.LoadFromData(aFile.GetData);
       el := BGSM.Elements['Textures'];
       for i := 0 to Pred(el.Count) do
         Elements.Add(el[i]);
@@ -161,7 +168,7 @@ begin
     // *.BGEM file
     else if SameText(ext, '.bgem') then begin
       BGEM := TwbBGEMFile.Create;
-      BGEM.LoadFromFile(aInputDirectory + aFileName);
+      BGEM.LoadFromData(aFile.GetData);
       el := BGEM.Elements['Textures'];
       for i := 0 to Pred(el.Count) do
         Elements.Add(el[i]);
@@ -225,7 +232,7 @@ begin
 
         // report
         if not bChanged then
-          Log.Add(#13#10 + aFileName);
+          Log.Add(#13#10 + aFile.FileName);
 
         Log.Add(#9 + el.Path + #13#10#9#9'"' + s + '"'#13#10#9#9'"' + el.EditValue + '"');
 

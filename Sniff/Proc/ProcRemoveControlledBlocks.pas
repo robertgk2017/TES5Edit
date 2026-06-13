@@ -11,9 +11,16 @@ unit ProcRemoveControlledBlocks;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Mask;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+  Vcl.Mask,
+
+  SniffProcessor;
 
 type
   TFrameRemoveControlledBlocks = class(TFrame)
@@ -40,7 +47,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 
@@ -49,7 +56,8 @@ implementation
 {$R *.dfm}
 
 uses
-  StrUtils,
+  System.StrUtils,
+
   wbDataFormat,
   wbDataFormatNif;
 
@@ -102,7 +110,7 @@ begin
   fNotMatching := Frame.chkNotMatching.Checked;
 end;
 
-function TProcRemoveControlledBlocks.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcRemoveControlledBlocks.ProcessFile(aFile: TProcFileObject): TBytes;
 var
   nif: TwbNifFile;
   entries, entry: TdfElement;
@@ -114,7 +122,7 @@ begin
   bChanged := False;
   nif := TwbNifFile.Create;
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     for var block in nif.BlocksByType('NiSequence', True) do begin
       entries := block.Elements['Controlled Blocks'];

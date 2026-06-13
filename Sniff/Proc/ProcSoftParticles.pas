@@ -3,9 +3,16 @@ unit ProcSoftParticles;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.Mask,
-  Vcl.ExtCtrls, SniffProcessor;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Mask,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameSoftParticles = class(TFrame)
@@ -28,7 +35,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 
@@ -37,7 +44,8 @@ implementation
 {$R *.dfm}
 
 uses
-  Math,
+  System.Math,
+
   wbDataFormat,
   wbDataFormatNif;
 
@@ -76,7 +84,7 @@ begin
   end;
 end;
 
-function TProcSoftParticles.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcSoftParticles.ProcessFile(aFile: TProcFileObject): TBytes;
 const
   cVPSoftScale = 'VPSoftScale';
 var
@@ -87,7 +95,7 @@ begin
   bChanged := False;
 
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     for var block in nif.BlocksByType('NiTriBasedGeom', True) do begin
 

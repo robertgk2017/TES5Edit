@@ -11,9 +11,16 @@ unit ProcHavokSettingsUpdate;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor, Vcl.Grids,
-  Vcl.ValEdit, Vcl.StdCtrls;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.Grids,
+  Vcl.StdCtrls,
+  Vcl.ValEdit,
+
+  SniffProcessor;
 
 type
   TFrameHavokSettings = class(TFrame)
@@ -61,7 +68,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 implementation
@@ -247,7 +254,7 @@ begin
   fMotionQuality := Frame.edSettings.Values['Motion Quality'];
 end;
 
-function TProcHavokSettingsUpdate.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcHavokSettingsUpdate.ProcessFile(aFile: TProcFileObject): TBytes;
 
   procedure UpdateField(const el: TdfElement; const aValue: string; var aChanged: Boolean);
   begin
@@ -269,7 +276,7 @@ begin
   bChanged := False;
   nif := TwbNifFile.Create;
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     for i := 0 to Pred(nif.BlocksCount) do begin
       block := nif.Blocks[i];
@@ -278,6 +285,10 @@ begin
         UpdateField(block.Elements['Material'], fMaterial, bChanged);
         UpdateField(block.Elements['Radius'], fRadius, bChanged);
         UpdateField(block.Elements['Radius Copy'], fRadius, bChanged);
+        var filters := block.Elements['Filters'];
+        if Assigned(filters) then
+          for var f in filters do
+            UpdateField(f.Elements['Layer'], fLayer, bChanged);
       end
 
       else if (block.BlockType = 'hkPackedNiTriStripsData') or (block.BlockType = 'bhkCompressedMeshShapeData') then begin
@@ -293,6 +304,7 @@ begin
 
       else if block.IsNiObject('bhkRigidBody', True) then begin
         UpdateField(block.Elements['Havok Filter\Layer'], fLayer, bChanged);
+        UpdateField(block.Elements['Havok Filter Copy\Layer'], fLayer, bChanged);
         UpdateField(block.Elements['Mass'], fMass, bChanged);
 
         if bChanged and (block.NativeValues['Mass'] = 0) then

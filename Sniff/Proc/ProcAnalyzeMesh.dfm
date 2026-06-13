@@ -41,7 +41,7 @@ object FrameAnalyzeMesh: TFrameAnalyzeMesh
   object StaticText1: TStaticText
     Left = 0
     Top = 0
-    Width = 540
+    Width = 270
     Height = 19
     Align = alTop
     Caption = 'Vertex cache statistics using MethOptimizer library'

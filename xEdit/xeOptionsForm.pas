@@ -13,10 +13,18 @@ unit xeOptionsForm;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, ComCtrls, ExtCtrls, wbInterface,
-  Vcl.Styles.Utils.SystemMenu, Vcl.Samples.Spin, Vcl.Themes,
-  System.Generics.Collections, Vcl.Styles.Ext, Vcl.Styles.Preview;
+  System.Classes,
+
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.ComCtrls,
+  Vcl.ExtCtrls,
+  Vcl.Samples.Spin,
+  Vcl.StdCtrls,
+  Vcl.Styles.Preview,
+  Vcl.Themes,
+
+  wbInterface;
 
 type
   TfrmOptions = class(TForm)
@@ -159,9 +167,15 @@ implementation
 {$R *.dfm}
 
 uses
-  xeMainForm,
-  xeFileSelectForm,
-  TypInfo;
+  System.Generics.Collections,
+  System.TypInfo,
+
+  Vcl.Dialogs,
+  Vcl.Styles.Utils.SystemMenu,
+
+  Winapi.Windows,
+
+  xeMainForm;
 
 var
   wbColorConflictAllDefault: TConflictAllColors;

@@ -11,8 +11,19 @@ unit frmArchiveInfo;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, VirtualTrees, Vcl.Menus;
+  System.Classes,
+
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.Menus,
+
+  VirtualTrees;
+  {
+  VirtualTrees.AncestorVCL,
+  VirtualTrees.BaseAncestorVCL,
+  VirtualTrees.BaseTree,
+  VirtualTrees.Types,
+  }
 
 type
   TFormArchiveInfo = class(TForm)
@@ -48,7 +59,12 @@ implementation
 
 uses
   System.StrUtils,
-  ClipBrd;
+  System.SysUtils,
+
+  Vcl.ClipBrd,
+  Vcl.Dialogs,
+
+  Winapi.Windows;
 
 //============================================================================
 procedure TFormArchiveInfo.mniSaveAsClick(Sender: TObject);
@@ -110,7 +126,7 @@ end;
 //============================================================================
 procedure TFormArchiveInfo.FormDeactivate(Sender: TObject);
 begin
-  Close;
+  //Close;
 end;
 
 //============================================================================

@@ -13,7 +13,7 @@ unit wbStreams;
 interface
 
 uses
-  SysUtils, Math, Classes, Windows;
+  System.Classes;
 
 type
   TwbBaseCachedFileStream = class(TBufferedFileStream)

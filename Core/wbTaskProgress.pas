@@ -11,8 +11,17 @@ unit wbTaskProgress;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, ComCtrls, ExtCtrls, SyncObjs;
+  System.Classes,
+  System.SyncObjs,
+  System.SysUtils,
+
+  Vcl.ComCtrls,
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+
+  Winapi.Messages;
 
 const
   WM_PROGRESS_UPDATE = WM_USER;
@@ -25,10 +34,12 @@ type
   TProgressBarWithText = class(TProgressBar)
   private
     FProgressText: string;
+    FProgressTextMult: Double;
   protected
     procedure WMPaint(var Message: TWMPaint); message WM_PAINT;
-  published
+  public
     property ProgressText: string read FProgressText write FProgressText;
+    property ProgressTextMult: Double read FProgressTextMult write FProgressTextMult;
   end;
 
   TFormTaskProgress = class(TForm)
@@ -46,17 +57,17 @@ type
     fLowIndex: Integer;
     fHighIndex: Integer;
     fCurrentIndex: Integer;
+    fProgressTextMult: Double;
     {$IF CompilerVersion >= 34.0} { Delphi 10.4 }
     fObjectLock: TLightweightMREW;
     {$ELSE}
     fObjectLock: IReadWriteSync;
     {$IFEND}
     fProcessProc: TProcessProc;
-    //fProgressProc: TProcessProc;
     fThreadPool: array of TwbTaskWorkerThread;
     fThreads: Integer;
-    fCancel: Boolean;
-    fError: Boolean;
+    fCancelled: Boolean;
+    fCancelCloses: Boolean;
     fExceptionIndex: Integer;
     fExceptionMessage: string;
     fHeight: Integer;
@@ -69,6 +80,7 @@ type
     function ProcessNext: Boolean;
   public
     { Public declarations }
+    TaskResult: TModalResult;
   end;
 
   TwbWorkerObjectProc = function: Boolean of object;
@@ -82,17 +94,20 @@ type
     constructor Create(aObjectProc: TwbWorkerObjectProc);
   end;
 
-
-function wbTaskProgressExecute(
-  aOwner: TComponent;
-  const aCaption: string;
-  aLowIndex: Integer;
-  aHighIndex: Integer;
-  const aProcessProc: TProcessProc;
-  out aExceptionIndex: Integer;
-  out aExceptionMessage: string;
-  aThreads: Integer = 0
-): TModalResult;
+  TwbTaskProgress = class
+  public
+    Owner: TComponent;
+    Threads: Integer;
+    ProcessProc: TProcessProc;
+    Caption: string;
+    ProgressTextMult: Double;
+    LowIndex: Integer;
+    HighIndex: Integer;
+    ErrorIndex: Integer;
+    ErrorMessage: string;
+    constructor Create(aOwner: TComponent);
+    function Execute: TModalResult;
+  end;
 
 
 implementation
@@ -100,7 +115,10 @@ implementation
 {$R *.dfm}
 
 uses
-  ComObj, ShlObj;
+  System.Win.ComObj,
+
+  WinApi.ShlObj,
+  Winapi.Windows;
 
 var
   TaskbarList: ITaskbarList;
@@ -122,7 +140,7 @@ begin
 
   s := ProgressText;
   if s = '' then
-    s := Format('%d/%d', [Position, Max]);
+    s := Format('%d/%d', [Round(Position * FProgressTextMult), Round(Max * FProgressTextMult)]);
 
   R := ClientRect;
   DC := GetWindowDC(Handle);
@@ -137,34 +155,36 @@ end;
 //============================================================================
 function CalcThreads(aCores: Integer): Integer;
 begin
-  Result:= Round(aCores * 0.9);
+  // leave one core for the system, we are generous :)
+  Result := aCores - 1;
+  // multithreading means 2 threads at least
+  if Result < 2 then
+    Result := 2;
 end;
 
 //============================================================================
-function wbTaskProgressExecute(
-  aOwner: TComponent;
-  const aCaption: string;
-  aLowIndex: Integer;
-  aHighIndex: Integer;
-  const aProcessProc: TProcessProc;
-  out aExceptionIndex: Integer;
-  out aExceptionMessage: string;
-  aThreads: Integer = 0
-): TModalResult;
+constructor TwbTaskProgress.Create(aOwner: TComponent);
+begin
+  Owner := aOwner;
+  ProgressTextMult := 1;
+end;
+
+//============================================================================
+function TwbTaskProgress.Execute: TModalResult;
 begin
   Result := mrCancel;
 
-  var Count := aHighIndex - aLowIndex + 1;
+  var Count := HighIndex - LowIndex + 1;
   if Count <= 0 then
     Exit;
 
-  with TFormTaskProgress.Create(aOwner) do try
-    Caption := aCaption;
-    fLowIndex := aLowIndex;
-    fHighIndex := aHighIndex;
-    fProcessProc := aProcessProc;
-    //fProgressProc := aProgressProc;
-    fThreads := aThreads;
+  with TFormTaskProgress.Create(Owner) do try
+    Caption := Self.Caption;
+    fLowIndex := Self.LowIndex;
+    fHighIndex := Self.HighIndex;
+    fProcessProc := Self.ProcessProc;
+    fThreads := Self.Threads;
+    fProgressTextMult := Self.ProgressTextMult;
     if fThreads = 0 then begin
       fThreads := CalcThreads(System.CPUCount);
       if fThreads <= 0 then
@@ -173,13 +193,15 @@ begin
     if fThreads > Count then
       fThreads := Count;
 
-    Result := ShowModal;
+    ShowModal;
 
-    aExceptionIndex := fExceptionIndex;
-    aExceptionMessage := fExceptionMessage;
+    Result := TaskResult;
+    Self.ErrorIndex := fExceptionIndex;
+    Self.ErrorMessage := fExceptionMessage;
   finally
     Free;
   end;
+
 end;
 
 //============================================================================
@@ -265,9 +287,7 @@ begin
   if CurIndex = -1 then
     Exit;
 
-  // Succ() proactive progress update to 100% fill progress bar
-  // for the last objects in queue
-  PostMessage(Handle, WM_PROGRESS_UPDATE, Succ(CurIndex) - fLowIndex, 0);
+  PostMessage(Handle, WM_PROGRESS_UPDATE, CurIndex, 0);
 
   try
     fProcessProc(CurIndex);
@@ -286,65 +306,62 @@ end;
 procedure TFormTaskProgress.StartProcessing;
 
   // returns the number of finished threads
-  function Poll: Integer;
-  var
-    t: TwbTaskWorkerThread;
+  function GetFinishedThreads: Integer;
   begin
     Result := 0;
-    for t in fThreadPool do
+    for var t in fThreadPool do
       if t.Finished then Inc(Result);
   end;
 
-var
-  t: TwbTaskWorkerThread;
-  i, j: integer;
 begin
+  fRunning := True;
+
+  // give time for the form to draw itself
+  Sleep(100);
+
   {$IF CompilerVersion < 34.0}
   fObjectLock := TReadWriteSync.Create;
   {$IFEND}
   fCurrentIndex := fLowIndex;
   fExceptionIndex := -1;
-  fRunning := True;
   SetLength(fThreadPool, fThreads);
 
   // create and start worker threads
-  for i := Low(fThreadPool) to High(fThreadPool) do
+  for var i := Low(fThreadPool) to High(fThreadPool) do
     fThreadPool[i] := TwbTaskWorkerThread.Create(ProcessNext);
 
   // poll threads until all have finished
-  repeat
-    Sleep(200);
-    j := Poll;
+  while GetFinishedThreads <> Length(fThreadPool) do begin
+    // stop all threads if Cancel was pressed or exception occured
+    if fCancelled or (fExceptionIndex <> -1) then
+      for var t in fThreadPool do
+        if not t.Finished and not t.Terminated then
+          t.Terminate;
 
-    // if Cancel is pressed or exception occured
-    if fCancel or (fExceptionIndex <> -1) then begin
-      // stop all threads
-      for t in fThreadPool do
-        if not t.Finished then t.Terminate;
-    end;
-  until j = Length(fThreadPool);
+    Sleep(200);
+  end;
 
   // clear threads, all have finished by now
-  for t in fThreadPool do
+  for var t in fThreadPool do
     t.Free;
 
   fRunning := False;
 
-  // do not autoclose window if error has occured
-  if fExceptionMessage <> '' then begin
+  if fExceptionIndex <> -1 then begin
+    TaskResult := mrAbort;
     PostMessage(Handle, WM_PROGRESS_ERROR, 0, 0);
-    ProgressBar.State := pbsError;
-    // Cancel button will close the window
-    fError := True;
+
+    // do not close window if error has occured, Cancel button will close
+    fCancelCloses := True;
   end
   else begin
-    // close progress window
-    PostMessage(Handle, WM_CLOSE, 0, 0);
-
-    if fCancel then
-      ModalResult := mrCancel
+    if fCancelled then
+      TaskResult := mrCancel
     else
-      ModalResult := mrOk;
+      TaskResult := mrOk;
+
+    // close window
+    PostMessage(Handle, WM_CLOSE, 0, 0);
   end;
 end;
 
@@ -362,6 +379,7 @@ end;
 procedure TFormTaskProgress.WMProgressError(var msg: TMessage);
 begin
   ProgressBar.State := pbsError;
+  ProgressBar.Position := fExceptionIndex;
   TaskbarErrorProgress(Application.MainForm.Handle);
 
   Height := fHeight;
@@ -375,8 +393,8 @@ begin
   // since window autocloses when everything is ok, there are only
   // 2 possibilities when Cancel can be pressed: while running or after error
   if fRunning then
-    fCancel := True
-  else if fError then
+    fCancelled := True
+  else if fCancelCloses then
     Close;
 end;
 
@@ -384,16 +402,12 @@ end;
 procedure TFormTaskProgress.FormClose(Sender: TObject;
   var Action: TCloseAction);
 begin
-  // closing with X is the same as Cancel while running
-  if (ModalResult = mrCancel) and fRunning then begin
+  // closing with X while running is the same as pressing Cancel
+  if fRunning then begin
     btnCancel.Click;
     Action := caNone;
     Exit;
   end;
-
-  // Pressing X sets ModalResult to mrCancel, make sure it is mrAbort if error occured
-  if fError then
-    ModalResult := mrAbort;
 
   TaskbarHideProgress(Application.MainForm.Handle);
 end;
@@ -422,8 +436,11 @@ end;
 procedure TFormTaskProgress.FormActivate(Sender: TObject);
 begin
   InitializeTaskbars;
-  ProgressBar.Min := 1;
-  ProgressBar.Max := fHighIndex - fLowIndex + 1;
+  ProgressBar.Min := fLowIndex;
+  ProgressBar.Max := fHighIndex;
+  if ProgressBar is TProgressBarWithText then
+    TProgressBarWithText(ProgressBar).ProgressTextMult := fProgressTextMult;
+
   TThread.CreateAnonymousThread(StartProcessing).Start;
 end;
 

@@ -11,9 +11,14 @@ unit ProcFixExportedKFAnim;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameFixExportedKFAnim = class(TFrame)
@@ -31,7 +36,7 @@ type
     constructor Create(aManager: TProcManager); override;
     function GetFrame(aOwner: TComponent): TFrame; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 
@@ -40,7 +45,8 @@ implementation
 {$R *.dfm}
 
 uses
-  StrUtils,
+  System.StrUtils,
+
   wbDataFormat,
   wbDataFormatNif;
 
@@ -59,7 +65,7 @@ begin
   Result := Frame;
 end;
 
-function TProcFixExportedKFAnim.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcFixExportedKFAnim.ProcessFile(aFile: TProcFileObject): TBytes;
 var
   nif: TwbNifFile;
   entries, entry: TdfElement;
@@ -71,7 +77,7 @@ begin
   bChanged := False;
   nif := TwbNifFile.Create;
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     if nif.BlocksCount = 0 then
       Exit;

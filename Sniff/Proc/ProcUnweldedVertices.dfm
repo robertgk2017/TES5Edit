@@ -20,9 +20,9 @@ object FrameUnweldedVertices: TFrameUnweldedVertices
     Left = 16
     Top = 64
     Width = 129
-    Height = 21
-    EditLabel.Width = 41
-    EditLabel.Height = 13
+    Height = 23
+    EditLabel.Width = 45
+    EditLabel.Height = 15
     EditLabel.Caption = 'Distance'
     TabOrder = 1
     Text = '0.1000'

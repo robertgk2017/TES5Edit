@@ -13,9 +13,17 @@ unit xeDeveloperMessageForm;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.ExtCtrls, Vcl.StdCtrls,
-  JvExStdCtrls, JvRichEdit, FileContainer, JvHtControls;
+  System.Classes,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+
+  FileContainer,
+
+  JvExStdCtrls,
+  JvRichEdit;
 
 type
   TdmChoice = (dmcPatreon, dmcKoFi, dmcPayPal);
@@ -60,9 +68,13 @@ implementation
 {$R *.dfm}
 
 uses
+  Vcl.Styles.Utils.SystemMenu,
+
+  Winapi.Windows,
+
   wbInterface,
-  xeMainForm,
-  Vcl.Styles.Utils.SystemMenu;
+
+  xeMainForm;
 
 procedure TfrmDeveloperMessage.FixZoom;
 var

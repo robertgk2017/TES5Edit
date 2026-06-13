@@ -1,6 +1,6 @@
 {******************************************************************************
 
-  This Source Code Form is subject to the terms of the Mozilla Public License, 
+  This Source Code Form is subject to the terms of the Mozilla Public License,
   v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain 
   one at https://mozilla.org/MPL/2.0/.
 
@@ -13,7 +13,10 @@ unit wbDataFormat;
 interface
 
 uses
-  SysUtils, StrUtils, Classes, Windows, Math, Variants, JsonDataObjects;
+  System.Classes,
+  System.SysUtils,
+
+  JsonDataObjects;
 
 type
   TdfDataType = (
@@ -147,6 +150,7 @@ type
     procedure SetElementEditValue(const aElement: TdfElement; aDataStart, aDataEnd: PByte; var aValue: string); virtual;
     procedure AddDef(const aDef: TdfDef);
     procedure InsertDefsFrom(const aDef: TdfDef; Index: Integer);
+    function SetDefaultValue(const aValue: string): TdfDef;
     function SetOnCreate(aProc: TdfOnCreateEvent): TdfDef;
     function SetOnDestroy(aProc: TdfOnDestroyEvent): TdfDef;
     function SetOnEnabled(aProc: TdfOnEnabledEvent): TdfDef;
@@ -182,6 +186,19 @@ type
     property OnLinksTo: TdfOnLinksToEvent read FOnLinksTo write FOnLinksTo;
   end;
 
+  TdfContainer = class;
+
+  TdfElementEnumerator = class
+  private
+    fIndex: Integer;
+    fContainer: TdfContainer;
+  public
+    constructor Create(aElement: TdfElement);
+    function GetCurrent: TdfElement; inline;
+    function MoveNext: Boolean; inline;
+    property Current: TdfElement read GetCurrent;
+  end;
+
   TdfElement = class
   private
     FDef: TdfDef;
@@ -214,6 +231,7 @@ type
   public
     constructor Create(const aDef: TdfDef; const aParent: TdfElement); virtual;
     destructor Destroy; override;
+    function GetEnumerator: TdfElementEnumerator; inline;
     procedure DoException(const aMessage: string);
     function ValidateData(const aDataStart, aDataEnd: Pointer; aSize: Integer): Boolean;
     function UnSerialize(const aDataStart, aDataEnd: Pointer; const aDataSize: Integer): Integer; virtual;
@@ -221,7 +239,7 @@ type
     procedure UnSerializeFromJSON(const aJSON: TJSONBaseObject); virtual;
     procedure SerializeToJSON(const aJSON: TJSONBaseObject); virtual;
     procedure LoadFromData(const aData: TBytes); virtual;
-    procedure LoadFromFile(const aFileName: string);
+    procedure LoadFromFile(const aFileName: string); virtual;
     procedure LoadFromJSONFile(const aFileName: string);
     procedure LoadFromResource(const aContainerName, aFileName: string); overload;
     procedure LoadFromResource(const aFileName: string); overload;
@@ -705,6 +723,12 @@ function dfChars(
 implementation
 
 uses
+  System.Math,
+  System.StrUtils,
+  System.Variants,
+
+  Winapi.Windows,
+
   wbHalfFloat;
 
 const
@@ -957,7 +981,7 @@ end;
 
 procedure TdfDef.InsertDefsFrom(const aDef: TdfDef; Index: Integer);
 var
-  i: integer;
+  i: Integer;
 begin
   if Length(aDef.Defs) = 0 then
     Exit;
@@ -967,10 +991,18 @@ begin
   else if (Index < Low(FDefs)) or (Index > High(FDefs)) then
     raise Exception.Create('Invalid index to insert defs');
 
+  i := SizeOf(Pointer) * (Length(FDefs) - Index);
   SetLength(FDefs, Length(FDefs) + Length(aDef.Defs));
-  Move(FDefs[Index], FDefs[Index + Length(aDef.Defs)], SizeOf(Pointer) * (Length(FDefs) - Length(aDef.Defs) - Index));
+  if i > 0 then
+    Move(FDefs[Index], FDefs[Index + Length(aDef.Defs)], i);
   for i := Low(aDef.Defs) to High(aDef.Defs) do
     FDefs[Index + i] := aDef.Defs[i].Clone;
+end;
+
+function TdfDef.SetDefaultValue(const aValue: string): TdfDef;
+begin
+  Result := Self;
+  Result.FDefaultValue := aValue;
 end;
 
 function TdfDef.SetOnCreate(aProc: TdfOnCreateEvent): TdfDef;
@@ -1052,6 +1084,27 @@ begin
 end;
 
 
+{ TdfElementEnumerator }
+
+constructor TdfElementEnumerator.Create(aElement: TdfElement);
+begin
+  inherited Create;
+  fIndex := -1;
+  fContainer := TdfContainer(aElement);
+end;
+
+function TdfElementEnumerator.GetCurrent: TdfElement;
+begin
+  Result := fContainer[fIndex];
+end;
+
+function TdfElementEnumerator.MoveNext: Boolean;
+begin
+  Result := fIndex < fContainer.Count - 1;
+  if Result then
+    Inc(fIndex);
+end;
+
 
 { TdfElement }
 
@@ -1070,6 +1123,11 @@ begin
   // check FDef in case if exception occured in constructor and FDef is not set yet
   if Assigned(FDef) and Assigned(FDef.OnDestroy) then
     FDef.OnDestroy(Self);
+end;
+
+function TdfElement.GetEnumerator: TdfElementEnumerator;
+begin
+  Result := TdfElementEnumerator.Create(Self);
 end;
 
 procedure TdfElement.DoException(const aMessage: string);
@@ -1118,7 +1176,7 @@ end;
 
 procedure TdfElement.LoadFromData(const aData: TBytes);
 begin
-  UnSerialize(@aData[0], @aData[Length(aData)], 0);
+  UnSerialize(aData, PByte(aData) + Length(aData), 0);
 end;
 
 procedure TdfElement.LoadFromFile(const aFileName: string);
@@ -1130,7 +1188,7 @@ begin
   {
   with TFileStream.Create(aFileName, fmOpenRead or fmShareDenyNone) do try
     SetLength(Buffer, Size);
-    ReadBuffer(Buffer[0], Length(Buffer));
+    ReadBuffer(Buffer, Length(Buffer));
   finally
     Free;
   end;
@@ -1233,7 +1291,7 @@ end;
 procedure TdfElement.SaveToData(var aData: TBytes);
 begin
   SetLength(aData, DataSize);
-  Serialize(@aData[0], @aData[Length(aData)]);
+  Serialize(aData, PByte(aData) + Length(aData));
 end;
 
 procedure TdfElement.SaveToFile(const aFileName: string);
@@ -1242,7 +1300,7 @@ var
 begin
   SaveToData(Buffer);
   with TFileStream.Create(aFileName, fmCreate) do try
-    WriteBuffer(Buffer[0], Length(Buffer));
+    WriteBuffer(Buffer, Length(Buffer));
   finally
     Free;
   end;
@@ -2767,7 +2825,8 @@ var
 begin
   Bytes := aValue;
   SetLength(Bytes, GetDefaultDataSize);
-  Move(Bytes[0], aDataStart^, Length(Bytes));
+  if Length(Bytes) > 0 then
+    Move(Bytes[0], aDataStart^, Length(Bytes));
 end;
 
 procedure TdfMergeDef.GetElementEditValue(const aElement: TdfElement; aDataStart, aDataEnd: PByte; var aValue: string);

@@ -2,10 +2,10 @@
     <PropertyGroup>
         <Base>True</Base>
         <AppType>Application</AppType>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">LiteDebug</Config>
         <FrameworkType>VCL</FrameworkType>
         <MainSource>xEdit.dpr</MainSource>
-        <Platform Condition="'$(Platform)'==''">Win32</Platform>
+        <Platform Condition="'$(Platform)'==''">Win64</Platform>
         <ProjectGuid>{BB5B51E2-CC9A-4404-A582-958449C5049E}</ProjectGuid>
         <ProjectName Condition="'$(ProjectName)'==''">xEdit</ProjectName>
         <ProjectVersion>20.3</ProjectVersion>
@@ -48,6 +48,13 @@
         <Cfg_2>true</Cfg_2>
         <Base>true</Base>
     </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Cfg_4)'=='true') or '$(Cfg_4_Win64)'!=''">
+        <Cfg_4_Win64>true</Cfg_4_Win64>
+        <CfgParent>Cfg_4</CfgParent>
+        <Cfg_4>true</Cfg_4>
+        <Cfg_2>true</Cfg_2>
+        <Base>true</Base>
+    </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='DebugSF' or '$(Cfg_5)'!=''">
         <Cfg_5>true</Cfg_5>
         <CfgParent>Cfg_2</CfgParent>
@@ -76,7 +83,7 @@
         <DCC_ImageBase>00400000</DCC_ImageBase>
         <DCC_LargeAddressAware>true</DCC_LargeAddressAware>
         <DCC_Namespace>System;System.Win;Xml;Data;Datasnap;Web;Soap;Winapi;Vcl;Vcl.Imaging;Vcl.Touch;Vcl.Samples;Vcl.Shell;$(DCC_Namespace)</DCC_Namespace>
-        <DCC_UnitSearchPath>.\External\jcl\jcl\source\include\jedi;.\External\jcl\jcl\source\include;.\External\jcl\jcl\source\common;.\External\jcl\jcl\source\vcl;.\External\jcl\jcl\source\windows;.\External\jvcl\jvcl\common;.\External\jvcl\jvcl\resources;.\External\jvcl\jvcl\run;.\External\ImagingLib\Source\;.\External\ImagingLib\Source\zlib;.\External\ZLibEx;.\External\lz4\lib\delphi;.\External\VirtualTrees\Source;.\External\vcl-styles-utils\Common;.\External\delphi-detours-library\Source;.\External\FileContainer;.\External\TForge\Source\Include;.\External\TForge\Source\Shared;.\External\TForge\Source\Engine\Forge;.\External\TForge\Source\Engine\Hashes;.\External\JsonDataObjects\Source;.\External\Diff;.\External\TOM2;.\External\DWScript\Source;.\External\SynEdit\Source;.\Core;.\xEdit;.\xEdit\JvI;.\xEdit\DWS;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_UnitSearchPath>.\External\delphi-detours-library\Source;.\External\Diff;.\External\DWScript\Source;.\External\FileContainer;.\External\ImagingLib\Source\;.\External\ImagingLib\Source\zlib;.\External\jcl\jcl\source\include\jedi;.\External\jcl\jcl\source\include;.\External\jcl\jcl\source\common;.\External\jcl\jcl\source\vcl;.\External\jcl\jcl\source\windows;.\External\JsonDataObjects\Source;.\External\jvcl\jvcl\common;.\External\jvcl\jvcl\resources;.\External\jvcl\jvcl\run;.\External\libdeflate-pas;.\External\lz4-delphi;.\External\SynEdit\Source;.\External\TOM2;.\External\vcl-styles-utils\Common;.\External\VirtualTrees\Source;.\Core;.\xEdit;.\xEdit\JvI;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_UseMSBuildExternally>true</DCC_UseMSBuildExternally>
         <DCC_WIDECHAR_REDUCED>false</DCC_WIDECHAR_REDUCED>
         <Icon_MainIcon>.\xEdit\xEdit_TES_Icon.ico</Icon_MainIcon>
@@ -117,7 +124,26 @@
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_4)'!=''">
         <DCC_Define>LiteVersion;$(DCC_Define)</DCC_Define>
+        <DCC_DynamicBase>true</DCC_DynamicBase>
+        <DCC_HighEntropyVa>true</DCC_HighEntropyVa>
+        <DCC_MapFileARM>2</DCC_MapFileARM>
+        <DCC_MaxStackSize>16777216</DCC_MaxStackSize>
+        <DCC_MinStackSize>4096</DCC_MinStackSize>
+        <DCC_MinimumEnumSize>4</DCC_MinimumEnumSize>
+        <DCC_OutputDRCFile>true</DCC_OutputDRCFile>
+        <DCC_OutputDependencies>true</DCC_OutputDependencies>
+        <DCC_RemoteDebug>true</DCC_RemoteDebug>
         <DCC_UseMSBuildExternally>false</DCC_UseMSBuildExternally>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_4_Win64)'!=''">
+        <DCC_DynamicBase>true</DCC_DynamicBase>
+        <DCC_HighEntropyVa>true</DCC_HighEntropyVa>
+        <DCC_Inlining>auto</DCC_Inlining>
+        <DCC_MaxStackSize>16777216</DCC_MaxStackSize>
+        <DCC_MinStackSize>4096</DCC_MinStackSize>
+        <DCC_MinimumEnumSize>4</DCC_MinimumEnumSize>
+        <DCC_OutputDRCFile>true</DCC_OutputDRCFile>
+        <DCC_RemoteDebug>true</DCC_RemoteDebug>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_5)'!=''">
         <Icon_MainIcon>xEdit\xEdit_SF_Icon.ico</Icon_MainIcon>
@@ -126,7 +152,6 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="xEdit\xeInit.pas"/>
         <DCCReference Include="Core\wbBetterStringList.pas"/>
         <DCCReference Include="Core\wbBSA.pas"/>
         <DCCReference Include="Core\wbCommandLine.pas"/>
@@ -143,6 +168,9 @@
         <DCCReference Include="Core\wbDefinitionsFO4.pas"/>
         <DCCReference Include="Core\wbDefinitionsFO4Saves.pas"/>
         <DCCReference Include="Core\wbDefinitionsFO76.pas"/>
+        <DCCReference Include="Core\wbDefinitionsReflection.pas"/>
+        <DCCReference Include="Core\wbDefinitionsSF1.pas"/>
+        <DCCReference Include="Core\wbDefinitionsSignatures.pas"/>
         <DCCReference Include="Core\wbDefinitionsTES3.pas"/>
         <DCCReference Include="Core\wbDefinitionsTES4.pas"/>
         <DCCReference Include="Core\wbDefinitionsTES4Saves.pas"/>
@@ -157,6 +185,7 @@
         <DCCReference Include="Core\wbHelpers.pas"/>
         <DCCReference Include="Core\wbImplementation.pas"/>
         <DCCReference Include="Core\wbInterface.pas"/>
+        <DCCReference Include="Core\wbLoadOrder.pas"/>
         <DCCReference Include="Core\wbLocalization.pas"/>
         <DCCReference Include="Core\wbLOD.pas"/>
         <DCCReference Include="Core\wbModGroups.pas"/>
@@ -165,6 +194,7 @@
         <DCCReference Include="Core\wbSaveInterface.pas"/>
         <DCCReference Include="Core\wbSort.pas"/>
         <DCCReference Include="Core\wbStreams.pas"/>
+        <DCCReference Include="xEdit\xeInit.pas"/>
         <DCCReference Include="xEdit\xeDeveloperMessageForm.pas">
             <Form>frmDeveloperMessage</Form>
             <FormType>dfm</FormType>
@@ -181,6 +211,19 @@
             <Form>frmFilterOptions</Form>
             <FormType>dfm</FormType>
         </DCCReference>
+        <DCCReference Include="xEdit\JvI\xejviScriptAdapter.pas"/>
+        <DCCReference Include="xEdit\JvI\xejviScriptAdapterContainer.pas"/>
+        <DCCReference Include="xEdit\JvI\xejviScriptAdapterDF.pas"/>
+        <DCCReference Include="xEdit\JvI\xejviScriptAdapterElement.pas"/>
+        <DCCReference Include="xEdit\JvI\xejviScriptAdapterFile.pas"/>
+        <DCCReference Include="xEdit\JvI\xejviScriptAdapterHost.pas"/>
+        <DCCReference Include="xEdit\JvI\xejviScriptAdapterMisc.pas"/>
+        <DCCReference Include="xEdit\JvI\xejviScriptAdapterMiscJson.pas"/>
+        <DCCReference Include="xEdit\JvI\xejviScriptAdapterMiscRegEx.pas"/>
+        <DCCReference Include="xEdit\JvI\xejviScriptAdapterMiscVcl.pas"/>
+        <DCCReference Include="xEdit\JvI\xejviScriptAdapterRecord.pas"/>
+        <DCCReference Include="xEdit\JvI\xejviScriptAdapterResource.pas"/>
+        <DCCReference Include="xEdit\JvI\xejviScriptHost.pas"/>
         <DCCReference Include="xEdit\xeLegendForm.pas">
             <Form>frmLegend</Form>
             <FormType>dfm</FormType>
@@ -213,9 +256,6 @@
             <Form>frmRichEdit</Form>
             <FormType>dfm</FormType>
         </DCCReference>
-        <DCCReference Include="xEdit\JvI\xejviScriptAdapter.pas"/>
-        <DCCReference Include="xEdit\JvI\xejviScriptAdapterDF.pas"/>
-        <DCCReference Include="xEdit\JvI\xejviScriptAdapterMisc.pas"/>
         <DCCReference Include="xEdit\xeScriptForm.pas">
             <Form>frmScript</Form>
             <FormType>dfm</FormType>
@@ -233,11 +273,10 @@
             <Form>frmWorldspaceCellDetails</Form>
             <FormType>dfm</FormType>
         </DCCReference>
-        <DCCReference Include="xEdit\xeScriptHost.pas"/>
-        <DCCReference Include="xEdit\JvI\xejviScriptHost.pas"/>
-        <DCCReference Include="Core\wbDefinitionsSF1.pas"/>
-        <DCCReference Include="Core\wbDefinitionsSignatures.pas"/>
-        <DCCReference Include="Core\wbLoadOrder.pas"/>
+        <DCCReference Include="xEdit\xeGameSelectForm.pas">
+            <Form>frmGameSelect</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

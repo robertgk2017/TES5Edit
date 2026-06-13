@@ -36,8 +36,8 @@ object FrameTangents: TFrameTangents
     AutoSize = False
     Caption = 
       'Recalculate normals before doing tangents. Check only if existin' +
-      'g normals are broken or missing since they are used for tangents' +
-      ' calculation.'
+      'g normals are broken or missing because they are used for tangen' +
+      'ts calculation.'
     TabOrder = 2
   end
   object chkAddIfMissing: TCheckBox

@@ -11,9 +11,16 @@ unit ProcAddBoundingBox;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Mask;
+  System.SysUtils,
+  System.Classes,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Mask,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameAddBoundingBox = class(TFrame)
@@ -47,7 +54,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 implementation
@@ -55,7 +62,6 @@ implementation
 {$R *.dfm}
 
 uses
-  StrUtils,
   wbDataFormat,
   wbDataFormatNif;
 
@@ -117,7 +123,7 @@ begin
   fExtentZ := GetVerifyFloat(Frame.edExtentZ.Text);
 end;
 
-function TProcAddBoundingBox.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcAddBoundingBox.ProcessFile(aFile: TProcFileObject): TBytes;
 const
   sBoundingBox = 'Bounding Box';
 var
@@ -126,7 +132,7 @@ var
 begin
   nif := TwbNifFile.Create;
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     if nif.BlocksCount = 0 then
       Exit;

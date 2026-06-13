@@ -13,8 +13,12 @@ unit xeLocalizePluginForm;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, CheckLst;
+  System.Classes,
+
+  Vcl.CheckLst,
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.StdCtrls;
 
 type
   TfrmLocalizePlugin = class(TForm)
@@ -42,6 +46,8 @@ var
 implementation
 
 uses
+  Winapi.Windows,
+
   xeMainForm;
 
 {$R *.dfm}

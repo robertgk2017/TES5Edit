@@ -17,10 +17,11 @@ procedure DefineFO3;
 implementation
 
 uses
-  Classes,
-  Math,
-  SysUtils,
-  Variants,
+  System.Classes,
+  System.Math,
+  System.SysUtils,
+  System.Variants,
+
   wbDefinitionsCommon,
   wbDefinitionsSignatures,
   wbHelpers,
@@ -148,7 +149,7 @@ type
   end;
 
 const
-  wbConditionFunctions : array[0..243] of TConditionFunction = (
+  wbConditionFunctions : array[0..271] of TConditionFunction = (
     // Added by Fallout 3
     (Index:   1; Name: 'GetDistance'; ParamType1: ptReference),
     (Index:   5; Name: 'GetLocked'),
@@ -395,7 +396,40 @@ const
     (Index: 1082; Name: 'IsKeyPressed'; ParamType1: ptInteger),
     (Index: 1165; Name: 'GetWeaponHasScope'; ParamType1: ptInventoryObject),
     (Index: 1166; Name: 'IsControlPressed'; ParamType1: ptInteger),
-    (Index: 1213; Name: 'GetFOSEBeta')
+    (Index: 1213; Name: 'GetFOSEBeta'),
+
+    // Added by ButcherPete FOSE Plugin:
+    (Index: 4640; Name: 'IsOwned'; ParamType1: ptActor),
+    (Index: 4644; Name: 'GetPCCanFastTravel'),
+    (Index: 4645; Name: 'GetRadiationLevelAlt'),
+    (Index: 4653; Name: 'GetLockedAlt'),
+    (Index: 4665; Name: 'GetIsRagdolled'),
+    (Index: 4696; Name: 'IsInWater'),
+    (Index: 4700; Name: 'IsIdlePlayingEx'; ParamType1: ptIdleForm),
+    (Index: 4715; Name: 'IsSpellTargetAlt'; ParamType1: ptEffectItem),
+    (Index: 4768; Name: 'IsNight'),
+    (Index: 4776; Name: 'GetQuestFailedAlt'; ParamType1: ptQuest),
+
+    // Added by Command Extender Plugin:
+    (Index: 8471; Name: 'GetGameDifficulty'),
+    (Index: 8473; Name: 'GetAlwaysRun'),
+    (Index: 8474; Name: 'GetAutoMove'),
+    (Index: 8486; Name: 'GetWaterImmersionPerc'),
+    (Index: 8547; Name: 'IsButtonPressed'; ParamType1: ptInteger),
+    (Index: 8548; Name: 'GetLeftStickX'),
+    (Index: 8549; Name: 'GetLeftStickY'),
+    (Index: 8550; Name: 'GetRightStickX'),
+    (Index: 8551; Name: 'GetRightStickY'),
+    (Index: 8552; Name: 'GetLeftTrigger'),
+    (Index: 8553; Name: 'GetRightTrigger'),
+    (Index: 8571; Name: 'IsRefInList'; ParamType1: ptFormList; ParamType2: ptFormType),
+    (Index: 8575; Name: 'GetNoteRead'; ParamType1: ptNote),
+    (Index: 8597; Name: 'IsInAir'),
+    (Index: 8610; Name: 'IsButtonDisabled'; ParamType1: ptInteger),
+    (Index: 8613; Name: 'IsButtonHeld'; ParamType1: ptInteger),
+    (Index: 8616; Name: 'IsTriggerDisabled'; ParamType1: ptInteger),
+    (Index: 8619; Name: 'IsTriggerHeld'; ParamType1: ptInteger)
+
   );
 
 function wbConditionDescFromIndex(aIndex: Integer): PConditionFunction;
@@ -650,55 +684,52 @@ begin
 end;
 
 function wbConditionVariableNameToInt(const aString: string; const aElement: IwbElement): Int64;
-var
-  MainRecord : IwbMainRecord;
-  Script     : IwbMainRecord;
-  LocalVars  : IwbContainerElementRef;
-  LocalVar   : IwbContainerElementRef;
 begin
   Result := StrToInt64Def(aString, Low(Cardinal));
   if Result <> Low(Cardinal) then
     Exit;
 
   if not Assigned(aElement) then
-    raise Exception.Create('aElement not specified');
+    Exit;
 
   var Container := GetContainerRefFromUnionOrValue(aElement);
   if not Assigned(Container) then
-    raise Exception.Create('Container not assigned');
+    Exit;
 
   var Param1 := Container.ElementByName['Parameter #1'];
   if not Assigned(Param1) then
-    raise Exception.Create('Could not find "Parameter #1"');
+    Exit;
 
-  if not Supports(Param1.LinksTo, IwbMainRecord, MainRecord) then
-    raise Exception.Create('"Parameter #1" does not reference a valid main record');
+  var lMainRecord : IwbMainRecord;
+  if not Supports(Param1.LinksTo, IwbMainRecord, lMainRecord) then
+    Exit;
 
-  var BaseRecord := MainRecord.BaseRecord;
+  var BaseRecord := lMainRecord.BaseRecord;
   if Assigned(BaseRecord) then
-    MainRecord := BaseRecord;
-  MainRecord := MainRecord.WinningOverride;
+    lMainRecord := BaseRecord;
+  lMainRecord := lMainRecord.WinningOverride;
 
-  var ScriptRef := MainRecord.RecordBySignature['SCRI'];
+  var ScriptRef := lMainRecord.RecordBySignature['SCRI'];
   if not Assigned(ScriptRef) then
-    raise Exception.Create('"' + MainRecord.ShortName + '" does not contain a SCRI subrecord');
+    Exit;
 
-  if not Supports(ScriptRef.LinksTo, IwbMainRecord, Script) then
-    raise Exception.Create('"' + MainRecord.ShortName + '" does not have a valid script');
+  var lScript : IwbMainRecord;
+  if not Supports(ScriptRef.LinksTo, IwbMainRecord, lScript) then
+    Exit;
 
-  Script := Script.HighestOverrideOrSelf[aElement._File.LoadOrder];
-
-  if Supports(Script.ElementByName['Local Variables'], IwbContainerElementRef, LocalVars) then begin
-    for var i := 0 to Pred(LocalVars.ElementCount) do
-      if Supports(LocalVars.Elements[i], IwbContainerElementRef, LocalVar) then begin
-        var j := LocalVar.ElementNativeValues['SLSD\Index'];
-        var s := LocalVar.ElementNativeValues['SCVR'];
+  lScript := lScript.WinningOverride;
+  var lLocalVars : IwbContainerElementRef;
+  if Supports(lScript.ElementByName['Local Variables'], IwbContainerElementRef, lLocalVars) then begin
+    for var i := 0 to Pred(lLocalVars.ElementCount) do begin
+      var lLocalVar : IwbContainerElementRef;
+      if Supports(lLocalVars.Elements[i], IwbContainerElementRef, lLocalVar) then begin
+        var j := lLocalVar.ElementNativeValues['SLSD\Index'];
+        var s := lLocalVar.ElementNativeValues['SCVR'];
         if SameText(s, Trim(aString)) then
-          Exit(j)
+          Exit(j);
       end;
+    end;
   end;
-
-  raise Exception.Create('Variable "' + aString + '" was not found in "' + MainRecord.ShortName + '"');
 end;
 
 function wbConditionVATSValueParam(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
@@ -741,7 +772,7 @@ begin
     wbRStructSK([0], 'Model', [
       wbString(MODL, 'Model FileName').SetRequired,
       wbByteArray(MODB, 'Unknown', 4, cpIgnore),
-      wbMODT,
+      wbModelInfo(MODT),
       wbMODS,
       wbMODD
     ], [], cpNormal, aRequired, aDontShow, True)
@@ -893,29 +924,6 @@ begin
   finally
     wbEndInternalEdit;
   end;
-end;
-
-procedure wbMESGDNAMAfterSet(const aElement: IwbElement; const aOldValue, aNewValue: Variant);
-var
-  OldValue, NewValue : Integer;
-  Container          : IwbContainerElementRef;
-begin
-  if VarSameValue(aOldValue, aNewValue) then
-    Exit;
-
-  if not Supports(aElement.Container, IwbContainerElementRef, Container) then
-    Exit;
-
-  OldValue := Integer(aOldValue) and 1;
-  NewValue := Integer(aNewValue) and 1;
-
-  if NewValue = OldValue then
-    Exit;
-
-  if NewValue = 1 then
-    Container.RemoveElement('TNAM')
-  else
-    Container.Add('TNAM', True);
 end;
 
 procedure wbGMSTEDIDAfterSet(const aElement: IwbElement; const aOldValue, aNewValue: Variant);
@@ -1115,7 +1123,7 @@ begin
   if not wbTryGetContainerFromUnion(aElement, Container) then
     Exit;
 
-  If (Container.ElementNativeValues['Flags'] and $20) = 32 then
+  if (Container.ElementNativeValues['Flags'] and $20) = 32 then
     Exit(1);
 end;
 
@@ -1506,22 +1514,6 @@ begin
         Result := 2
       else
         raise Exception.Create('"'+s+'" is not valid for this Entry Point');
-end;
-
-function wbMESGTNAMDontShow(const aElement: IwbElement): Boolean;
-var
-  Container  : IwbContainerElementRef;
-  MainRecord : IwbMainRecord;
-begin
-  Result := False;
-  if not Supports(aElement, IwbMainRecord, MainRecord) then
-    Exit;
-
-  if not Supports(aElement, IwbContainerElementRef, Container) then
-    Exit;
-
-  if Integer(Container.ElementNativeValues['DNAM']) and 1 <> 0 then
-    Result := True;
 end;
 
 function wbEPFDDontShow(const aElement: IwbElement): Boolean;
@@ -2403,7 +2395,7 @@ begin
 
     if lMainRecord.ElementExists['DATA - Visual Data'] then begin
 
-      If not Assigned(lMainRecord.ElementByName['DNAM - Visual Data']) then
+      if not Assigned(lMainRecord.ElementByName['DNAM - Visual Data']) then
         lMainRecord.Add('DNAM', True);
 
       var lDNAM := lMainRecord.ElementByName['DNAM - Visual Data'] as IwbContainerElementRef;
@@ -2417,7 +2409,7 @@ begin
       lMainRecord.RemoveElement('DATA - Visual Data');
     end;
   finally
-    wbEndInternalEdit
+    wbEndInternalEdit;
   end;
 end;
 
@@ -2441,34 +2433,6 @@ begin
     wbEndInternalEdit;
   end;
 end;
-
-procedure wbMESGAfterLoad(const aElement: IwbElement);
-var
-  Container    : IwbContainerElementRef;
-  MainRecord   : IwbMainRecord;
-  IsMessageBox : Boolean;
-  HasTimeDelay : Boolean;
-begin
-  if wbBeginInternalEdit then try
-    if not wbTryGetContainerWithValidMainRecord(aElement, Container, MainRecord) then
-      Exit;
-
-    IsMessageBox := (Integer(Container.ElementNativeValues['DNAM']) and 1) = 1;
-    HasTimeDelay := Container.ElementExists['TNAM'];
-
-    if IsMessageBox = HasTimeDelay then
-      if IsMessageBox then
-        Container.RemoveElement('TNAM')
-      else begin
-        if not Container.ElementExists['DNAM'] then
-          Container.Add('DNAM', True);
-        Container.ElementNativeValues['DNAM'] := Integer(Container.ElementNativeValues['DNAM']) or 1;
-      end;
-  finally
-    wbEndInternalEdit;
-  end;
-end;
-
 
 procedure wbEFSHAfterLoad(const aElement: IwbElement);
 var
@@ -2593,8 +2557,6 @@ end;
 
 procedure DefineFO3;
 begin
-  DefineCommon;
-
   wbRecordFlags := wbInteger('Record Flags', itU32, wbFlags(wbFlagsList([])));
 
   wbMainRecordHeader := wbRecordHeader(wbRecordFlags);
@@ -3042,7 +3004,7 @@ begin
     {32} wbFormIDCkNoReach('Idle', [IDLE]),
     {33} wbFormIDCkNoReach('Inventory Object', [ALCH, AMMO, ARMO, BOOK, FLST, KEYM, MISC, NOTE, WEAP]),
     {34} wbFormIDCkNoReach('Note', [NOTE]),
-    {35} wbFormIDCkNoReach('Owner', [FACT, NPC_]),
+    {35} wbFormIDCkNoReach('Owner', [FACT,NPC_,NULL]).SetToStr(wbConditionOwnerToStr),
     {36} wbFormIDCkNoReach('Package', [PACK]),
     {37} wbFormIDCkNoReach('Perk', [PERK]),
     {38} wbFormIDCkNoReach('Quest', [QUST]),
@@ -3125,9 +3087,16 @@ begin
         wbStructExSK(CNTO, [0], [1], 'Item', [
           wbFormIDCk('Item', [ARMO, AMMO, MISC, WEAP, BOOK, LVLI, KEYM, ALCH, NOTE, MSTT{?}, STAT{?}]),
           wbInteger('Count', itS32).SetDefaultNativeValue(1)
-        ]),
+        ])
+        .SetSummaryKeyOnValue([1, 0])
+        .SetSummaryPrefixSuffixOnValue(0, '', '')
+        .SetSummaryPrefixSuffixOnValue(1, '', 'x')
+        .SetSummaryDelimiterOnValue(' ')
+        .IncludeFlagOnValue(dfSummaryNoSortKey)
+        .IncludeFlagOnValue(dfSummaryMembersNoName)
+        .IncludeFlag(dfCollapsed, wbCollapseItems),
         wbCOED
-      ]).SetToStr(wbItemToStr).IncludeFlag(dfCollapsed, wbCollapseItems)
+      ]).IncludeFlag(dfCollapsed, wbCollapseItems)
     );
 
   wbConditions :=
@@ -3195,7 +3164,7 @@ begin
           .IncludeFlag(dfCollapsed, wbCollapseDestruction),
           wbRStructSK([0], 'Model', [
             wbString(DMDL, 'Model FileName'),
-            wbDMDT
+            wbModelInfo(DMDT)
           ]).SetSummaryKey([0])
             .IncludeFlag(dfCollapsed, wbCollapseModels),
           wbEmpty(DSTF, 'End Marker').SetRequired
@@ -3440,7 +3409,7 @@ begin
 
     {--- 3D Data ---}
     wbXSCL,
-    wbDATAPosRot
+    wbVec3PosRot(DATA).SetRequired
   ], True).SetAddInfo(wbPlacedAddInfo);
 
   wbRefRecord(ACRE, 'Placed Creature',
@@ -3519,7 +3488,7 @@ begin
 
     {--- 3D Data ---}
     wbXSCL,
-    wbDATAPosRot
+    wbVec3PosRot(DATA).SetRequired
   ], True).SetAddInfo(wbPlacedAddInfo);
 
   wbRecord(ACTI, 'Activator',
@@ -3724,8 +3693,9 @@ begin
       wbFlags([
         {0} 'Is Interior Cell',
         {1} 'Has water',
-        {2} 'Can Travel From Here',
+        {2} 'Can''t Travel From Here',
         {3} 'No LOD Water',
+        {4} '',
         {5} 'Public Area',
         {6} 'Hand changed',
         {7} 'Behave like exterior'
@@ -4948,7 +4918,7 @@ begin
 
     {--- 3D Data ---}
     wbXSCL,
-    wbDATAPosRot
+    wbVec3PosRot(DATA).SetRequired
   ], True).SetAddInfo(wbPlacedAddInfo);
 
   wbRefRecord(PMIS, 'Placed Missile', [
@@ -5026,7 +4996,7 @@ begin
 
     {--- 3D Data ---}
     wbXSCL,
-    wbDATAPosRot
+    wbVec3PosRot(DATA).SetRequired
   ], True).SetAddInfo(wbPlacedAddInfo);
 
   wbRefRecord(PBEA, 'Placed Beam', [
@@ -5104,7 +5074,7 @@ begin
 
     {--- 3D Data ---}
     wbXSCL,
-    wbDATAPosRot
+    wbVec3PosRot(DATA).SetRequired
   ], True).SetAddInfo(wbPlacedAddInfo);
 
    wbRecord(EXPL, 'Explosion', [
@@ -5115,39 +5085,38 @@ begin
     wbEnchantment,
     wbFormIDCk(MNAM, 'Image Space Modifier', [IMAD]),
     wbStruct(DATA, 'Data', [
-      {00} wbFloat('Force'),
-      {04} wbFloat('Damage'),
-      {08} wbFloat('Radius'),
-      {12} wbFormIDCk('Light', [LIGH, NULL]),
-      {16} wbFormIDCk('Sound 1', [SOUN, NULL]),
-      {20} wbInteger('Flags', itU32,
-             wbFlags(wbSparseFlags([
-               1, 'Always Uses World Orientation',
-               2, 'Knock Down - Always',
-               3, 'Knock Down - By Formula',
-               4, 'Ignore LOS Check',
-               5, 'Push Explosion Source Ref Only',
-               6, 'Ignore Image Space Swap'
-             ], False, 7), True)
-           ).IncludeFlag(dfCollapsed, wbCollapseFlags),
-      {24} wbFloat('IS Radius'),
-      {28} wbFormIDCk('Impact DataSet', [IPDS, NULL]),
-      {32} wbFormIDCk('Sound 2', [SOUN, NULL]),
-           wbStruct('Radiation', [
-             {36} wbFloat('Level'),
-             {40} wbFloat('Dissipation Time'),
-             {44} wbFloat('Radius')
-           ]),
-      {48} wbInteger('Sound Level', itU32, wbSoundLevelEnum)
+      wbFloat('Force'),
+      wbFloat('Damage'),
+      wbFloat('Radius'),
+      wbFormIDCk('Light', [LIGH, NULL]),
+      wbFormIDCk('Sound 1', [SOUN, NULL]),
+      wbInteger('Flags', itU32,
+        wbFlags([
+        {0} 'Radius In BS Units',
+        {1} 'Always Uses World Orientation',
+        {2} 'Knock Down - Always',
+        {3} 'Knock Down - By Formula',
+        {4} 'Ignore LOS Check',
+        {5} 'Push Explosion Source Ref Only',
+        {6} 'Ignore Image Space Swap'
+        ])
+      ).IncludeFlag(dfCollapsed, wbCollapseFlags),
+      wbFloat('IS Radius'),
+      wbFormIDCk('Impact DataSet', [IPDS, NULL]),
+      wbFormIDCk('Sound 2', [SOUN, NULL]),
+        wbStruct('Radiation', [
+          wbFloat('Level'),
+          wbFloat('Dissipation Time'),
+          wbFloat('Radius')
+        ]),
+      wbInteger('Sound Level', itU32, wbSoundLevelEnum)
     ]).SetRequired,
-    wbFormIDCk(INAM, 'Placed Impact Object', [TREE, SOUN, ACTI, DOOR, STAT, FURN,
-          CONT, ARMO, AMMO, LVLN, LVLC, MISC, WEAP, BOOK, KEYM, ALCH, LIGH, GRAS,
-          ASPC, IDLM, ARMA, MSTT, NOTE, PWAT, SCOL, TACT, TERM, TXST])
+    wbFormIDCk(INAM, 'Placed Impact Object', [ACTI,ALCH,AMMO,ARMA,ARMO,ASPC,CONT,DOOR,FURN,GRAS,IDLM,KEYM,LIGH,LVLC,LVLN,MISC,MSTT,NOTE,PWAT,SCOL,SOUN,STAT,TACT,TERM,TREE,TXST,WEAP])
   ]);
 
   wbRecord(DEBR, 'Debris', [
     wbEDIDReq,
-    wbRArray('Models', wbDebrisModel(wbMODT)).SetRequired
+    wbRArray('Models', wbDebrisModel(wbModelInfo(MODT))).SetRequired
   ]);
 
   wbRecord(IMGS, 'Image Space', [
@@ -5348,8 +5317,8 @@ begin
         wbUnion(DATA, 'Effect Data', wbPerkDATADecider, [
           wbStructSK([0, 1], 'Quest + Stage', [
             wbFormIDCk('Quest', [QUST]),
-            wbInteger('Quest Stage', itU8, wbPerkDATAQuestStageToStr, wbQuestStageToInt),
-            wbUnused(3)
+            wbInteger('Quest Stage', itU16, wbPerkDATAQuestStageToStr, wbQuestStageToInt),
+            wbUnused(2)
           ]),
           wbFormIDCk('Ability', [SPEL]),
           wbStructSK([0, 1], 'Entry Point', [
@@ -5640,24 +5609,28 @@ begin
     wbDESCReq,
     wbFULL,
     wbFormIDCk(INAM, 'Icon', [MICN, NULL]).SetRequired,
-    wbByteArray(NAM0, 'Unused', 0, cpIgnore),
-    wbByteArray(NAM1, 'Unused', 0, cpIgnore),
-    wbByteArray(NAM2, 'Unused', 0, cpIgnore),
-    wbByteArray(NAM3, 'Unused', 0, cpIgnore),
-    wbByteArray(NAM4, 'Unused', 0, cpIgnore),
-    wbByteArray(NAM5, 'Unused', 0, cpIgnore),
-    wbByteArray(NAM6, 'Unused', 0, cpIgnore),
-    wbByteArray(NAM7, 'Unused', 0, cpIgnore),
-    wbByteArray(NAM8, 'Unused', 0, cpIgnore),
-    wbByteArray(NAM9, 'Unused', 0, cpIgnore),
+    wbUnused(NAM0, 0),
+    wbUnused(NAM1, 0),
+    wbUnused(NAM2, 0),
+    wbUnused(NAM3, 0),
+    wbUnused(NAM4, 0),
+    wbUnused(NAM5, 0),
+    wbUnused(NAM6, 0),
+    wbUnused(NAM7, 0),
+    wbUnused(NAM8, 0),
+    wbUnused(NAM9, 0),
     wbInteger(DNAM, 'Flags', itU32,
       wbFlags([
-        {0} 'Message Box',
-        {1} 'Auto Display'
-      ])).SetAfterSet(wbMESGDNAMAfterSet)
-         .SetRequired
-         .IncludeFlag(dfCollapsed, wbCollapseFlags),
-    wbInteger(TNAM, 'Display Time', itU32).SetDontShow(wbMESGTNAMDontShow),
+      {0} 'Message Box',
+      {1} 'Auto Display'
+      ])
+    ).SetAfterSet(wbMESGDNAMAfterSet)
+     .SetRequired
+     .IncludeFlag(dfCollapsed, wbCollapseFlags),
+    wbInteger(TNAM, 'Display Time', itU32)
+      .SetDefaultNativeValue(2)
+      .SetDontShow(wbMESGTNAMDontShow)
+      .SetIsRemovable(wbMessageTNAMIsRemovable),
     wbRArray('Menu Buttons',
       wbRStruct('Menu Button', [
         wbStringKC(ITXT, 'Button Text', 0, cpTranslate),
@@ -6051,17 +6024,7 @@ begin
     wbEDIDReq,
     wbICONReq,
     wbDESCReq,
-    wbRArrayS('Locations',
-      wbStructSK(LNAM, [0, 1], 'Location', [
-        wbFormIDCkNoReach('Direct', [CELL, WRLD, NULL]),
-        wbStructSK([0, 1], 'Indirect', [
-          wbFormIDCkNoReach('World', [WRLD, NULL]),
-          wbStructSK([0,1], 'Grid', [
-            wbInteger('Y', itS16),
-            wbInteger('X', itS16)
-          ])
-        ])
-      ]))
+    wbLoadScreenLocations
   ]);
 
   wbRecord(LTEX, 'Landscape Texture', [
@@ -6563,27 +6526,17 @@ begin
       ])
     ], [], cpNormal, False, nil, True),
     wbStruct(PSDT, 'Schedule', [
-      wbInteger('Month', itS8),
-      wbInteger('Day of week', itU8,
-        wbEnum([
-          {0}  'Sunday',
-          {1}  'Monday',
-          {2}  'Tuesday',
-          {3}  'Wednesday',
-          {4}  'Thursday',
-          {5}  'Friday',
-          {6}  'Saturday',
-          {7}  'Weekdays',
-          {8}  'Weekends',
-          {9}  'Monday, Wednesday, Friday',
-          {10} 'Tuesday, Thursday'
-        ], [
-          255, 'Any'
-        ])),
-      wbInteger('Date', itU8),
-      wbInteger('Time', itS8),
-      wbInteger('Duration', itS32)
-    ]).SetRequired,
+      wbInteger('Month', itS8,
+        wbPackagePSDTMonthValueToStr,
+        wbPackagePSDTMonthValueToInt
+      ).SetDefaultEditValue('Any'),
+      wbInteger('Day Of Week', itS8, wbPackageScheduleDayOfWeekEnum).SetDefaultNativeValue(-1),
+      wbInteger('Date', itS8, wbPackageScheduleDayOfMonthEnum)
+        .SetAfterLoad(wbPACKDateAfterLoad)
+        .SetAfterSet(wbPACKDateAfterSet),
+      wbInteger('Time', itS8, wbPackageScheduleHoursEnum).SetDefaultNativeValue(-1),
+      wbInteger('Duration (Hours)', itU32)
+    ], cpNormal, True),
     wbStruct(PTDT, 'Target 1', [
       wbInteger('Type', itU32,
         wbEnum([
@@ -6916,9 +6869,9 @@ begin
         wbFloat('X', cpNormal, True, 2, 4),
         wbFloat('Y', cpNormal, True, 2, 4),
         wbFloat('Z', cpNormal, True, 2, 4)
-      ]).SetToStr(wbVec3ToStr).IncludeFlag(dfCollapsed, wbCollapseVec3),
-      wbFloatColors('Color'),
-      wbUnknown(4),
+      ]).SetToStr(wbVec3ToStr)
+        .IncludeFlag(dfCollapsed, wbCollapseVec3),
+      wbFloatRGBA,
       wbInteger('Type', itU32,
         wbEnum([
           {0} 'None',
@@ -6983,7 +6936,7 @@ begin
     {--- Teleport ---}
     wbStruct(XTEL, 'Teleport Destination', [
       wbFormIDCk('Door', [REFR], True),
-      wbPosRot,
+      wbVec3PosRot,
       wbInteger('No Alarm', itU32, wbBoolEnum)
     ]),
 
@@ -7177,7 +7130,7 @@ begin
 
     {--- 3D Data ---}
     wbXSCL,
-    wbDATAPosRot
+    wbVec3PosRot(DATA).SetRequired
   ], True)
     .SetAddInfo(wbPlacedAddInfo)
     .SetAfterLoad(wbREFRAfterLoad);
@@ -7207,7 +7160,7 @@ begin
           ])),
         wbInteger('Override', itU8, wbBoolEnum),
         wbInteger('Priority', itU8),
-        wbByteArray('Unused')
+        wbUnused(2)
       ]).SetRequired,
 
       {followed by one of these: }
@@ -7404,8 +7357,10 @@ begin
       wbByteArray(DATA, 'Unused', 8, cpIgnore).SetRequired
     ], [ONAM])).IncludeFlag(dfInternalEditOnly, not wbAllowMasterFilesEdit),
     wbArray(ONAM, 'Overridden Forms',
-      wbFormIDCk('Form', [REFR, ACHR, ACRE, PMIS, PBEA, PGRE, LAND, NAVM])
-    ).SetDontShow(wbTES4ONAMDontShow),
+      wbFormIDCk('Form', [ACHR,ACRE,LAND,NAVM,PBEA,PGRE,PMIS,REFR])
+    ).SetDontShow(wbTES4ONAMDontShow)
+     .IncludeFlag(dfCollapsed, wbCollapseOther)
+     .IncludeFlag(dfExcludeFromBuildRef),
     wbByteArray(SCRN, 'Screenshot')
   ], True, nil, cpNormal, True);
 

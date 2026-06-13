@@ -13,9 +13,19 @@ unit xeLocalizationForm;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, ExtCtrls, VirtualTrees, VirtualEditTree, ExtDlgs, Menus,
-  SynEdit, SynMemo, xeMainForm, IniFiles;
+  System.Classes,
+  System.IniFiles,
+
+  Vcl.Controls,
+  Vcl.Dialogs,
+  Vcl.ExtCtrls,
+  Vcl.ExtDlgs,
+  Vcl.Forms,
+  Vcl.Menus,
+  Vcl.StdCtrls,
+
+  VirtualTrees,
+  VirtualEditTree;
 
 type
   TfrmLocalization = class(TForm)
@@ -50,7 +60,7 @@ type
   public
     Settings: TMemIniFile;
     { Public declarations }
-    procedure EditValue(aFileName: string; ID: integer);
+    procedure EditValue(const aFileName: string; ID: integer);
   end;
 
 var
@@ -61,8 +71,14 @@ implementation
 {$R *.dfm}
 
 uses
+  System.SysUtils,
+
+  Vcl.Graphics,
+
   wbHelpers,
-  wbLocalization;
+  wbLocalization,
+
+  xeMainForm;
 
 type
   TTreeData = record
@@ -204,7 +220,7 @@ begin
   vetStrings.Invalidate;
 end;
 
-procedure TfrmLocalization.EditValue(aFileName: string; ID: integer);
+procedure TfrmLocalization.EditValue(const aFileName: string; ID: integer);
 var
   Data: PTreeData;
   Node: PVirtualNode;

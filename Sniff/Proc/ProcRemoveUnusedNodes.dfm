@@ -7,7 +7,7 @@ object FrameRemoveUnusedNodes: TFrameRemoveUnusedNodes
   object StaticText1: TStaticText
     Left = 0
     Top = 0
-    Width = 445
+    Width = 435
     Height = 19
     Align = alTop
     Caption = 

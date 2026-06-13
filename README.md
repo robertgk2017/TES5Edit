@@ -120,7 +120,7 @@ All xEdit executable files can support all game modes. To choose which mode to u
 | Fallout 4           | `FO4Edit.exe`       | -FO4         |
 | Fallout 4 VR        | `FO4VREdit.exe`     | -FO4VR       |
 | Fallout 76          | `FO76Edit.exe`      | -FO76        |
-| Starfield           | `SF16Edit.exe`      | -SF1         |
+| Starfield           | `SF1Edit.exe`      | -SF1         |
 
 ## xEdit Updates
 

@@ -13,8 +13,15 @@ unit xeFilterOptionsForm;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, Buttons, CheckLst, Menus, IniFiles, ExtCtrls, System.UITypes;
+  System.Classes,
+  System.IniFiles,
+
+  Vcl.CheckLst,
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Menus,
+  Vcl.StdCtrls;
 
 const
   sFilterSection = 'Filter';
@@ -77,6 +84,7 @@ type
     cbHasPrecombinedMesh: TCheckBox;
     cbByElementValue: TCheckBox;
     edElementValue: TEdit;
+    cbRegexComparison: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure mniSelectionClick(Sender: TObject);
     procedure cmbPresetSelect(Sender: TObject);
@@ -98,9 +106,9 @@ type
     procedure SetSettings(aIni: TMemIniFile);
 
     procedure FilterListPresets(aStrings: TStrings);
-    procedure FilterLoadPreset(aPresetName: string = '');
-    function FilterHasPresetChanged(aPresetName: string = ''): Boolean;
-    procedure FilterSavePreset(aPresetName: string = '');
+    procedure FilterLoadPreset(const aPresetName: string = '');
+    function FilterHasPresetChanged(const aPresetName: string = ''): Boolean;
+    procedure FilterSavePreset(const aPresetName: string = '');
 
     property RecordSignatures: string
       read GetRecordSignatures
@@ -115,10 +123,17 @@ implementation
 {$R *.dfm}
 
 uses
-  xeMainForm,
-  TypInfo,
+  System.SysUtils,
+  System.TypInfo,
+  System.UITypes,
+
+  Vcl.Dialogs,
+
+  Winapi.Windows,
+
   wbInterface,
-  wbHelpers;
+
+  xeMainForm;
 
 procedure TfrmFilterOptions.FormCreate(Sender: TObject);
 var
@@ -270,7 +285,7 @@ begin
   Settings := aIni;
 end;
 
-function TfrmFilterOptions.FilterHasPresetChanged(aPresetName: string): Boolean;
+function TfrmFilterOptions.FilterHasPresetChanged(const aPresetName: string): Boolean;
 var
   i                    : integer;
   Section              : string;
@@ -306,6 +321,8 @@ begin
 
   if cbByElementValue.Checked <> Settings.ReadBool(Section, 'ByElementValue', False) then Exit;
   if edElementValue.Text <> Settings.ReadString(Section, 'ElementValue', '') then Exit;
+
+  if cbRegexComparison.Checked <> Settings.ReadBool(Section, 'RegexComparison', False) then Exit;
 
   if cbByBaseName.Checked <> Settings.ReadBool(Section, 'ByBaseName', False) then Exit;
   if edBaseName.Text <> Settings.ReadString(Section, 'BaseName', '') then Exit;
@@ -434,7 +451,7 @@ begin
   FilterLoadPreset(cmbPreset.Text);
 end;
 
-procedure TfrmFilterOptions.FilterLoadPreset(aPresetName: string = '');
+procedure TfrmFilterOptions.FilterLoadPreset(const aPresetName: string = '');
 var
   i                    : integer;
   Section              : string;
@@ -471,6 +488,8 @@ begin
 
   cbByElementValue.Checked := Settings.ReadBool(Section, 'ByElementValue', False);
   edElementvalue.Text := Settings.ReadString(Section, 'ElementValue', '');
+
+  cbRegexComparison.Checked := Settings.ReadBool(Section, 'RegexComparison', False);
 
   cbScaledActors.Checked := Settings.ReadBool(Section, 'ScaledActors', False);
 
@@ -519,7 +538,7 @@ begin
     clbConflictThis.Checked[i] := TConflictThis(i + 2) in FilterConflictThisSet;
 end;
 
-procedure TfrmFilterOptions.FilterSavePreset(aPresetName: string = '');
+procedure TfrmFilterOptions.FilterSavePreset(const aPresetName: string = '');
 var
   i                    : integer;
   Section              : string;
@@ -557,6 +576,8 @@ begin
 
   Settings.WriteBool(Section, 'ByElementValue', cbByElementValue.Checked);
   Settings.WriteString(Section, 'ElementValue', edElementValue.Text);
+
+  Settings.WriteBool(Section, 'RegexComparison', cbRegexComparison.Checked);
 
   Settings.WriteBool(Section, 'ScaledActors', cbScaledActors.Checked);
 

@@ -1,7 +1,7 @@
 {******************************************************************************
 
-  This Source Code Form is subject to the terms of the Mozilla Public License, 
-  v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain 
+  This Source Code Form is subject to the terms of the Mozilla Public License,
+  v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain
   one at https://mozilla.org/MPL/2.0/.
 
 *******************************************************************************}
@@ -13,10 +13,20 @@ unit xeModuleSelectForm;
 interface
 
 uses
-  Windows, Messages, UITypes, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, Buttons, CheckLst, Menus,
-  Vcl.Styles.Utils.SystemMenu, VirtualTrees, VirtualEditTree,
-  wbInterface, wbLoadOrder, Vcl.ExtCtrls, System.Actions, Vcl.ActnList, Vcl.Mask;
+  System.Actions,
+  System.Classes,
+
+  Vcl.ActnList,
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Mask,
+  Vcl.Menus,
+  Vcl.StdCtrls,
+
+  VirtualTrees,
+
+  wbLoadOrder;
 
 const
   csPluginsTxt = '<plugins.txt>';
@@ -41,6 +51,7 @@ type
     acPresetLoad: TAction;
     acPresetSave: TAction;
     acPresetDelete: TAction;
+    cbRegExFilter: TCheckBox;
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
@@ -52,7 +63,7 @@ type
     procedure vstModulesGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
     procedure vstModulesBeforeGetCheckState(Sender: TBaseVirtualTree; Node: PVirtualNode);
     procedure vstModulesChecked(Sender: TBaseVirtualTree; Node: PVirtualNode);
-    procedure vstModulesHeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
+    procedure vstModulesHeaderClick(Sender: TVTHeader; const HitInfo: TVTHeaderHitInfo);
     procedure vstModulesCompareNodes(Sender: TBaseVirtualTree; Node1, Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
     procedure vstModulesPaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType);
     procedure vstModulesIncrementalSearch(Sender: TBaseVirtualTree; Node: PVirtualNode; const SearchText: string; var Result: Integer);
@@ -75,6 +86,7 @@ type
     procedure acPresetLoadExecute(Sender: TObject);
     procedure cbPresetKeyPress(Sender: TObject; var Key: Char);
     procedure btnOKClick(Sender: TObject);
+    procedure cbRegExFilterClick(Sender: TObject);
   private
     ChangingChecked : Integer;
     procedure SimulateLoad;
@@ -118,8 +130,19 @@ implementation
 {$R *.dfm}
 
 uses
-  xeMainForm,
-  StrUtils;
+  System.RegularExpressionsCore,
+  System.SysUtils,
+  System.UITypes,
+
+  Vcl.Dialogs,
+  Vcl.Graphics,
+  Vcl.Styles.Utils.SystemMenu,
+
+  Winapi.Windows,
+
+  wbInterface,
+
+  xeMainForm;
 
 procedure TfrmModuleSelect.mniInvertSelectionClick(Sender: TObject);
 var
@@ -341,24 +364,50 @@ var
   SearchText : string;
   Node       : PVirtualNode;
   NodeData   : PModuleNodeData;
+  FilterRegex: TPerlRegEx;
 begin
+  edFilter.Color := clWindow;
   SearchText := edFilter.Text;
-  SearchText := SearchText.ToLowerInvariant;
-  with vstModules do begin
+  if not cbRegExFilter.Checked then
+    SearchText := SearchText.ToLowerInvariant;
+  with vstModules do
+  begin
     BeginUpdate;
+    FilterRegex := TPerlRegEx.Create;
     try
-      Node := GetFirst;
-      while Assigned(Node) do begin
-        NodeData := GetNodeData(Node);
-        IsFiltered[Node] := (SearchText <> '') and
-          not NodeData.mndName.ToLowerInvariant.Contains(SearchText);
-        Node := GetNextSibling(Node);
+      try
+        FilterRegex.RegEx := SearchText;
+        FilterRegex.Options := [preCaseLess];
+        Node := GetFirst;
+        while Assigned(Node) do
+        begin
+          NodeData := GetNodeData(Node);
+          if (SearchText <> '') and cbRegExFilter.Checked then
+          begin
+            FilterRegex.Subject := NodeData.mndName;
+            IsFiltered[Node] := not FilterRegex.Match;
+          end
+          else
+            IsFiltered[Node] := (SearchText <> '') and
+              not NodeData.mndName.ToLowerInvariant.Contains(SearchText);
+          if IsFiltered[Node] then
+            FullCollapse(Node);
+          Node := GetNextSibling(Node);
+        end;
+      except
+        on E: ERegularExpressionError do
+        begin
+          edFilter.Color := wbLighter(clRed, 0.85);
+          // Ignore regex errors that can occur while typing
+        end;
       end;
     finally
       EndUpdate;
+      FilterRegex.Free;
     end;
   end;
 end;
+
 
 procedure TfrmModuleSelect.edFilterKeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);
@@ -443,7 +492,7 @@ begin
       end else if acPresetSave.Execute then
         vstModules.SetFocus
       else
-        Beep;
+        System.SysUtils.Beep;
       Exit;
     end;
     if (ssCtrl in Shift) or (Length(SelectedModules)=0) then
@@ -463,7 +512,7 @@ begin
       if Shift = [ssShift] then begin
         Key := 0;
         if not acPresetDelete.Execute then
-          Beep;
+          System.SysUtils.Beep;
         Exit;
       end;
     end;
@@ -636,6 +685,12 @@ procedure TfrmModuleSelect.cbPresetKeyPress(Sender: TObject; var Key: Char);
 begin
   if Key = #13 then
     Key := #0;
+end;
+
+procedure TfrmModuleSelect.cbRegExFilterClick(Sender: TObject);
+begin
+  if edFilter.Text <> '' then
+    edFilterChange(Sender);
 end;
 
 function TfrmModuleSelect.CheckStateForModule(aModule: PwbModuleInfo; aIsRootChild: Boolean): TCheckState;
@@ -852,7 +907,7 @@ begin
   end;
 end;
 
-procedure TfrmModuleSelect.vstModulesHeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
+procedure TfrmModuleSelect.vstModulesHeaderClick(Sender: TVTHeader; const HitInfo: TVTHeaderHitInfo);
 begin
   with HitInfo do begin
     if Button <> mbLeft then

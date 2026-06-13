@@ -121,6 +121,8 @@ type
   TwbFastStringList = IInterface;
   /// <summary>FIXME - DOCUMENT ME!</summary>
   TGameResourceType = IInterface;
+  /// <summary>FIXME - DOCUMENT ME! keep ordered by release date</summary>
+  TwbGameMode   = (gmTES3, gmTES4, gmTES4R, gmFO3, gmFNV, gmTES5, gmEnderal, gmFO4, gmSSE, gmTES5VR, gmEnderalSE, gmFO4VR, gmFO76, gmSF1);
 
 // ********************************************************************
 // Global Variables
@@ -129,21 +131,23 @@ type
 /// <summary>Provides the file path to the game's data folder as a String</summary>
 function DataPath: String;
 /// <summary>Provides the file path to Tes5edit's installation folder as a String</summary>
-function ProgramPath:  String;
+function ProgramPath: String;
 /// <summary>Provides the file path to Tes5Edit's 'Edit Scripts' folder as a String.</summary>
 /// <remarks>NOTE If launching TES5Edit via a .tes5pas file, ScriptsPath will change to the directory where the .te5pas file is located. (therefore if your script has any .pas file it is grabbing functions from, they also need to be in the that same directory.)</remarks>
-function ScriptsPath:  String;
+function ScriptsPath: String;
 /// <summary>Provides the number of loaded files in your current TES5Edit session</summary>
 /// <remarks>NOTE: "Skyrim.Hardcoded.keep.this..." (aka. Skyrim.exe) is considered a file and is reflected in this variable.</remarks>
-function FileCount:  Integer;
+function FileCount: Integer;
 /// <summary>xEdit app name. Examples: 'TES5','TES4','FNV','FO3','FO4'</summary>
 function wbAppName: String;
+/// <summary>The current game mode that xEdit is running in. Correlates to TwbGameMode.</summary>
+function wbGameMode: Integer;
 /// <summary>xEdit game name</summary>
 function wbGameName: String;
 /// <summary>xEdit game master file name</summary>
 function wbGameMasterEsm: String;
 /// <summary>xEdit version number.</summary>
-function wbVersionNumber:  Integer;
+function wbVersionNumber: Integer;
 
 // ********************************************************************
 // Global Functions
@@ -161,6 +165,11 @@ function ObjectToElement(akObject: TObject): IInterface;
 function FileByIndex(aiFile: integer): IwbFile;
 /// <summary>Find a file by load order.</summary>
 function FileByLoadOrder(aiLoadOrder: integer): IwbFile;
+/// <summary>Find a file by the string load order id.</summary>
+function FileByLoadOrderFileID(const asLoadOrderFileID: string): IwbFile;
+/// <summary>Find a file by the filename.</summary>
+function FileByName(const asName: string): IwbFile;
+
 /// <summary>Returns the full path to the filename asFilename.</summary>
 function FullPathToFilename(asFilename: string): string;
 /// <summary>As of xEdit 3.1.2, calling this function will corrupt saved plugins until xEdit is restarted.</summary>
@@ -220,6 +229,8 @@ function GetElementState(aeElement: IwbElement; aiState: TwbElementState): TwbEl
 function GetFile(aeElement: IwbElement): IwbFile;
 /// <summary>Returns the element's value. See also: SetNativeValue, GetElementNativeValues, SetElementNativeValues.</summary>
 function GetNativeValue(aeElement: IwbElement): Variant;
+/// <summary>Returns the display value of an element. Useful for things like decoded texture hashes and such.</summary>
+function GetValue(aElement: IwbElement): string;
 /// <summary>Returns true if the record can be edited. In some cases, xEdit will block edits to files like Skyrim.esm.</summary>
 function IsEditable(aeElement: IwbElement): boolean;
 /// <summary>Returns true if the element is an injected record.</summary>
@@ -289,6 +300,8 @@ function ElementExists(aeContainer: IwbContainer; asName: string): boolean;
 function GetElementEditValues(aeContainer: IwbContainer; asPath: string): string;
 /// <summary>Finds the element within aeContainer specified by asPath, and returns its value.</summary>
 function GetElementNativeValues(aeContainer: IwbContainer; asPath: string): Variant;
+/// <summary>Finds the element within aeContainer specified by asPath, and returns its display value. Useful for things like decoded texture hashes and such.</summary>
+function GetElementValues(aElement: IwbElement; asPath: string): string;
 /// <summary>Returns the index of aeChild in aeContainer, or -1 if aeChild is not a child element of aeContainer.</summary>
 function IndexOf(aeContainer: IwbContainer; aeChild: IwbElement): integer;
 /// <summary>Inserts aeElement as a child of aeContainer at the specified position.</summary>
@@ -318,14 +331,33 @@ procedure SetElementNativeValues(aeContainer: IwbContainer; asPath: string; avVa
 // IwbFile Functions
 // ********************************************************************
 
-/// <summary>Adds the list of masters in aMasters to aeFile. If sorting is desired an explicit call to SortMasters is necessary.</summary>
-procedure AddMasters(aeFile: IwbFile; aMasters: TStrings);
-/// <summary>Adds the specified file as a master for aeFile, if it isn't already a master. If SortMasters is true (the default) all masters will be sorted if any were added.</summary>
-procedure AddMasterIfMissing(aeFile: IwbFile; asMasterFilename: string; aSortMasters: Boolean = True);
+/// <summary>!!DEPRECATED DO NOT USE!! See AddMastersIfMissing. Adds the list of masters in aMasters to aeFile. There is no check if an entry already exists in the file's master list so you can end up with duplicate entries. If Silent is true (not the default) then a message log will be omitted.</summary>
+procedure AddMasters(aeFile: IwbFile; aMasters: TStrings; abSortMasters: boolean = True; abSilent: boolean = False);
+/// <summary>Adds the specified file as a master for aeFile, if it isn't already a master. If SortMasters is true (the default) all masters will be sorted if any were added. If Silent is true (not the default) then a message log will be omitted.</summary>
+procedure AddMasterIfMissing(aeFile: IwbFile; asMasterFilename: string; abSortMasters: boolean = True; abSilent: boolean = False);
+/// <summary>Adds the list of masters in aMasters to aeFile. If Silent is true (not the default) then a message log will be omitted.</summary>
+procedure AddMastersIfMissing(aeFile: IwbFile; akList: TStringList; abSortMasters: boolean = True; abSilent: boolean = False);
+/// <summary>Creates a new, empty plugin in the game's plugin folder (Data) and adds it to the end of the plugins list. Prompts user for the name of the file.</summary>
+/// <param name="abLight">Whether to set the light (aka ESL/small) flag.</param>
+/// <param name="abMedium">Whether to set the medium flag.</param>
+/// <remarks>Do not set both light and medium flags.</remarks>
+/// <returns>The reference to the newly created plugin as a IwbFile</returns>
+function AddNewFile(abLight: boolean = false; abMedium: boolean = false): IwbFile;
 /// <summary>Creates a new, empty plugin in the game's plugin folder (Data) and adds it to the end of the plugins list.</summary>
 /// <param name="asFileName">Name of the plugin.</param>
+/// <param name="abLight">Whether to set the light (aka ESL/small) flag.</param>
+/// <param name="abMedium">Whether to set the medium flag.</param>
+/// <remarks>Do not set both light and medium flags.</remarks>
 /// <returns>The reference to the newly created plugin as a IwbFile</returns>
-function AddNewFileName(asFileName: string): IwbFile;
+function AddNewFileName(asFileName: string; abLight: boolean = false; abMedium: boolean = false): IwbFile;
+/// <summary>Returns True if aeFile can be flagged as an ESL (aka light/small). See also: GetIsESL, SetIsESL.</summary>
+function CanBeESL(aeFile: IwbFile): boolean;
+/// <summary>Returns True if aeFile can be flagged as an ESL (aka light/small). See also: GetIsLight, SetIsLight.</summary>
+function CanBeLight(aeFile: IwbFile): boolean;
+/// <summary>Returns True if aeFile can be flagged as a medium. See also: GetIsMedium, SetIsMedium.</summary>
+function CanBeMedium(aeFile: IwbFile): boolean;
+/// <summary>Returns True if aeFile can be flagged as an ESL (aka light/small). See also: GetIsSmall, SetIsSmall.</summary>
+function CanBeSmall(aeFile: IwbFile): boolean;
 /// <summary>Appears to find unnecessary files in aeFile's master list and remove them, updating all form indices accordingly. Don't confuse this within "cleaning master files" as in "removing ITMs and UDRs from official DLCs." This function is used in "Skyrim - Book Covers Patch.pas".</summary>
 procedure CleanMasters(aeFile: IwbFile);
 /// <summary>Converts aiFormID from a form ID relative to aeFile's master list (like that returned by FixedFormID) to a load-order-relative form ID (like that returned by FormID). See also: LoadOrderFormIDtoFileFormID.</summary>
@@ -334,8 +366,16 @@ function FileFormIDtoLoadOrderFormID(aeFile: IwbFile; aiFormID: cardinal): cardi
 procedure FileWriteToStream(aeFile: IwbFile; akOutStream: TStream);
 /// <summary>Returns aeFile's filename.</summary>
 function GetFileName(aeFile: IwbFile): string;
+/// <summary>Returns True if aeFile is flagged as an ESL (aka light/small). See also: SetIsESL, CanBeESL.</summary>
+function GetIsESL(aeFile: IwbFile): boolean;
 /// <summary>Returns True if aeFile is flagged as an ESM. See also: SetIsESM.</summary>
 function GetIsESM(aeFile: IwbFile): boolean;
+/// <summary>Returns True if aeFile is flagged as an ESL (aka light/small). See also: SetIsLight, CanBeLight.</summary>
+function GetIsLight(aeFile: IwbFile): boolean;
+/// <summary>Returns True if aeFile is flagged as a medium file. See also: SetIsMedium, CanBeMedium.</summary>
+function GetIsMedium(aeFile: IwbFile): boolean;
+/// <summary>Returns True if aeFile is flagged as an ESL (aka light/small). See also: SetIsLight, CanBeSmall.</summary>
+function GetIsSmall(aeFile: IwbFile): boolean;
 /// <summary>Returns aeFile's index in the load order, or -1 if called on something that is not an IwbFile.</summary>
 function GetLoadOrder(aeFile: IwbFile): integer;
 /// <summary>Returns a new form ID, the same way that Add(..., ..., True) does.</summary>
@@ -360,8 +400,20 @@ function RecordByFormID(aeFile: IwbFile; aiFormID: integer; abAllowInjected: boo
 function RecordByIndex(aeFile: IwbFile; aiIndex: integer): IwbMainRecord;
 /// <summary>Returns the number of records that aeFile has.</summary>
 function RecordCount(aeFile: IwbFile): cardinal;
+/// <summary>Returns the main record in aeFile that has the specified form ID, or Nil if no records match.</summary>
+/// <param name="aeFile">A file interface or a string of the filename.</param>
+/// <param name="aFormID">A hexadecimal string of the ID, or an integer value. The module prefix will be ignored.</param>
+function RecordFromFileByFormID(const aFile: Variant; const aFormID: Variant): IwbMainRecord;
+/// <summary>Modifies the ESL (aka light/small) flag for aeFile. See also: GetIsESL, CanBeESL.</summary>
+procedure SetIsESL(aeFile: IwbFile; abFlag: boolean);
 /// <summary>Modifies the ESM flag for aeFile. See also: GetIsESM.</summary>
 procedure SetIsESM(aeFile: IwbFile; abFlag: boolean);
+/// <summary>Modifies the ESL (aka light/small) flag for aeFile. See also: GetIsLight, CanBeLight.</summary>
+procedure SetIsLight(aeFile: IwbFile; abFlag: boolean);
+/// <summary>Modifies the medium flag for aeFile. See also: GetIsMedium, CanBeMedium.</summary>
+procedure SetIsMedium(aeFile: IwbFile; abFlag: boolean);
+/// <summary>Modifies the ESL (aka light/small) flag for aeFile. See also: GetIsSmall, CanBeSmall.</summary>
+procedure SetIsSmall(aeFile: IwbFile; abFlag: boolean);
 /// <summary>Attempts to sort the masters for aeFile by their place in the current load order.</summary>
 procedure SortMasters(aeFile: IwbFile);
 
@@ -410,7 +462,7 @@ function GetRotation(aeRecord: IwbMainRecord): TwbVector;
 /// <summary>Checks whether aeRecord is a Fallout 4 reference that has precombined mesh data generated. See also: PrecombinedMesh.</summary>
 function HasPrecombinedMesh(aeRecord: IwbMainRecord): boolean;
 /// <summary>See also: WinningOverride.</summary>
-function HighestOverrideOrSelf(): IwbMainRecord;
+function HighestOverrideOrSelf(aeRecord: IwbMainRecord; aiMaxIndex: integer): IwbMainRecord;
 /// <summary>Returns True if aeRecord is a master, and false if it is an override or not an IwbMainRecord. See also: Master, MasterOrSelf.</summary>
 function IsMaster(aeRecord: IwbMainRecord): boolean;
 /// <summary>Returns True if aeRecord is the last loaded override for its master. See also: Master, MasterOrSelf.</summary>
@@ -453,7 +505,7 @@ procedure SetFormVCS2(aeRecord: IwbMainRecord; aiValue: cardinal);
 /// <remarks>If element doesn't have a signature, an empty string is returned</remarks>
 function Signature(aeRecord: IwbMainRecord): string;
 /// <summary>Appears to be the same as BuildRef, except that it aborts if references are already in the middle of being built.</summary>
-procedure UpdateRefs();
+procedure UpdateRefs(aeRecord: IwbMainRecord);
 /// <summary>Returns the last loaded override for aeRecord. See also: HighestOverrideOrSelf.</summary>
 /// <param name="aeRecord">A record</param>
 /// <returns>Winning override record</returns>
@@ -470,7 +522,7 @@ function FindChildGroup(aeGroup: IwbGroupRecord; aiType: integer; aeMainRecord: 
 /// <summary>Returns the raw group label, as specified in the file format.</summary>
 function GroupLabel(aeGroup: IwbGroupRecord): cardinal;
 /// <summary>Returns the raw group type, as specified in the file format.</summary>
-function GroupType(): integer;
+function GroupType(aeGroup: IwbGroupRecord): integer;
 /// <summary>Searches aeGroup for a main record whose editor ID is asEditorID and returns the matching record or Nil. This is not a performant function.</summary>
 function MainRecordByEditorID(aeGroup: IwbGroupRecord; asEditorID: string): IwbMainRecord;
 
@@ -568,22 +620,22 @@ implementation
 // Global Variables
 // ********************************************************************
 
-function DataPath:String;
+function DataPath: String;
 begin
   Result := '';
 end;
 
-function ProgramPath:  String;
+function ProgramPath: String;
 begin
   Result := '';
 end;
 
-function ScriptsPath:  String;
+function ScriptsPath: String;
 begin
   Result := '';
 end;
 
-function FileCount:  Integer;
+function FileCount: Integer;
 begin
   Result := 0;
 end;
@@ -591,6 +643,11 @@ end;
 function wbAppName: String;
 begin
   Result := '';
+end;
+
+function wbGameMode: Integer;
+begin
+  Result := 0;
 end;
 
 function wbGameName: String;
@@ -603,7 +660,7 @@ begin
   Result := '';
 end;
 
-function wbVersionNumber:  Integer;
+function wbVersionNumber: Integer;
 begin
   Result := 0;
 end;
@@ -637,6 +694,16 @@ begin
 end;
 
 function FileByLoadOrder(aiLoadOrder: integer): IwbFile;
+begin
+  Result := Nil;
+end;
+
+function FileByLoadOrderFileID(const asLoadOrderFileID: string): IwbFile;
+begin
+  Result := Nil;
+end;
+
+function FileByName(const asName: string): IwbFile;
 begin
   Result := Nil;
 end;
@@ -771,6 +838,11 @@ end;
 function GetNativeValue(aeElement: IwbElement): Variant;
 begin
   Result := 0;
+end;
+
+function GetValue(aElement: IwbElement): string;
+begin
+  Result := '';
 end;
 
 function IsEditable(aeElement: IwbElement): boolean;
@@ -931,6 +1003,11 @@ begin
   Result := 0;
 end;
 
+function GetElementValues(aElement: IwbElement; asPath: string): string;
+begin
+  Result := '';
+end;
+
 function IndexOf(aeContainer: IwbContainer; aeChild: IwbElement): integer;
 begin
   Result := 0;
@@ -977,17 +1054,46 @@ end;
 // IwbFile Functions
 // ********************************************************************
 
-procedure AddMasters(aeFile: IwbFile; aMasters: TStrings);
+procedure AddMasters(aeFile: IwbFile; aMasters: TStrings; abSortMasters: boolean = True; abSilent: boolean = False);
 begin
 end;
 
-procedure AddMasterIfMissing(aeFile: IwbFile; asMasterFilename: string; aSortMasters: Boolean = True);
+procedure AddMasterIfMissing(aeFile: IwbFile; asMasterFilename: string; abSortMasters: boolean = True; abSilent: boolean = False);
 begin
 end;
 
-function AddNewFileName(asFileName: string): IwbFile;
+procedure AddMastersIfMissing(aeFile: IwbFile; akList: TStringList; abSortMasters: boolean = True; abSilent: boolean = False);
+begin
+end;
+
+function AddNewFile(abLight: boolean = false; abMedium: boolean = false): IwbFile;
 begin
   Result := Nil;
+end;
+
+function AddNewFileName(asFileName: string; abLight: boolean = false; abMedium: boolean = false): IwbFile;
+begin
+  Result := Nil;
+end;
+
+function CanBeESL(aeFile: IwbFile): boolean;
+begin
+  Result := false;
+end;
+
+function CanBeLight(aeFile: IwbFile): boolean;
+begin
+  Result := false;
+end;
+
+function CanBeMedium(aeFile: IwbFile): boolean;
+begin
+  Result := false;
+end;
+
+function CanBeSmall(aeFile: IwbFile): boolean;
+begin
+  Result := false;
 end;
 
 procedure CleanMasters(aeFile: IwbFile);
@@ -1008,7 +1114,27 @@ begin
   Result := '';
 end;
 
+function GetIsESL(aeFile: IwbFile): boolean;
+begin
+  Result := false;
+end;
+
 function GetIsESM(aeFile: IwbFile): boolean;
+begin
+  Result := false;
+end;
+
+function GetIsLight(aeFile: IwbFile): boolean;
+begin
+  Result := false;
+end;
+
+function GetIsMedium(aeFile: IwbFile): boolean;
+begin
+  Result := false;
+end;
+
+function GetIsSmall(aeFile: IwbFile): boolean;
 begin
   Result := false;
 end;
@@ -1073,7 +1199,23 @@ begin
   Result := 0;
 end;
 
+procedure SetIsESL(aeFile: IwbFile; abFlag: boolean);
+begin
+end;
+
 procedure SetIsESM(aeFile: IwbFile; abFlag: boolean);
+begin
+end;
+
+procedure SetIsLight(aeFile: IwbFile; abFlag: boolean);
+begin
+end;
+
+procedure SetIsMedium(aeFile: IwbFile; abFlag: boolean);
+begin
+end;
+
+procedure SetIsSmall(aeFile: IwbFile; abFlag: boolean);
 begin
 end;
 
@@ -1184,7 +1326,7 @@ begin
   Result := false;
 end;
 
-function HighestOverrideOrSelf(): IwbMainRecord;
+function HighestOverrideOrSelf(aeRecord: IwbMainRecord; aiMaxIndex: integer): IwbMainRecord;
 begin
   Result := Nil;
 end;
@@ -1281,7 +1423,7 @@ begin
   Result := '';
 end;
 
-procedure UpdateRefs();
+procedure UpdateRefs(aeRecord: IwbMainRecord);
 begin
 end;
 
@@ -1309,7 +1451,7 @@ begin
   Result := 0;
 end;
 
-function GroupType(): integer;
+function GroupType(aeGroup: IwbGroupRecord): integer;
 begin
   Result := 0;
 end;

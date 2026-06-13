@@ -24,12 +24,15 @@ object FormMain: TFormMain
     BevelKind = bkTile
     BevelOuter = bvNone
     TabOrder = 0
+    DesignSize = (
+      1024
+      39)
     object lblAssets: TLabel
-      Left = 375
+      Left = 636
       Top = 13
-      Width = 57
+      Width = 38
       Height = 13
-      Caption = '                   '
+      Caption = '0/0 files'
     end
     object edFilter: TLabeledEdit
       Left = 40
@@ -37,7 +40,7 @@ object FormMain: TFormMain
       Width = 329
       Height = 21
       EditLabel.Width = 24
-      EditLabel.Height = 13
+      EditLabel.Height = 21
       EditLabel.Caption = 'Filter'
       LabelPosition = lpLeft
       TabOrder = 0
@@ -45,7 +48,7 @@ object FormMain: TFormMain
       OnKeyPress = edFilterKeyPress
     end
     object rbAll: TRadioButton
-      Left = 522
+      Left = 385
       Top = 12
       Width = 41
       Height = 17
@@ -56,7 +59,7 @@ object FormMain: TFormMain
       OnClick = rbAllClick
     end
     object rbCompressed: TRadioButton
-      Left = 569
+      Left = 432
       Top = 12
       Width = 88
       Height = 17
@@ -65,7 +68,7 @@ object FormMain: TFormMain
       OnClick = rbAllClick
     end
     object rbUncompressed: TRadioButton
-      Left = 663
+      Left = 526
       Top = 12
       Width = 90
       Height = 17
@@ -74,19 +77,20 @@ object FormMain: TFormMain
       OnClick = rbAllClick
     end
     object btnFilterReset: TButton
-      Left = 776
-      Top = 8
-      Width = 90
-      Height = 25
-      Caption = 'Reset'
+      Left = 765
+      Top = 7
+      Width = 108
+      Height = 24
+      Caption = 'Show All'
       TabOrder = 4
       OnClick = btnFilterResetClick
     end
     object btnClearList: TButton
-      Left = 873
-      Top = 8
-      Width = 90
+      Left = 907
+      Top = 7
+      Width = 108
       Height = 25
+      Anchors = [akTop, akRight]
       Caption = 'Clear List'
       TabOrder = 5
       OnClick = btnClearListClick
@@ -106,9 +110,9 @@ object FormMain: TFormMain
       1024
       47)
     object btnPack: TButton
-      Left = 823
-      Top = 8
-      Width = 90
+      Left = 785
+      Top = 10
+      Width = 108
       Height = 27
       Anchors = [akTop, akRight]
       Caption = 'Pack'
@@ -116,9 +120,9 @@ object FormMain: TFormMain
       OnClick = btnPackClick
     end
     object btnExit: TButton
-      Left = 919
-      Top = 8
-      Width = 90
+      Left = 907
+      Top = 10
+      Width = 108
       Height = 27
       Anchors = [akTop, akRight]
       Caption = 'Exit'
@@ -148,9 +152,6 @@ object FormMain: TFormMain
       PopupMenu = mnAssets
       ShowAccelChar = False
       Layout = tlCenter
-      ExplicitTop = 40
-      ExplicitWidth = 977
-      ExplicitHeight = 112
     end
   end
   object vtAssets: TVirtualStringTree
@@ -163,8 +164,9 @@ object FormMain: TFormMain
     BevelOuter = bvRaised
     BorderStyle = bsNone
     Colors.SelectionTextColor = clWindowText
+    DefaultNodeHeight = 17
     Header.AutoSizeIndex = 1
-    Header.Height = 21
+    Header.Height = 17
     Header.Options = [hoAutoResize, hoColumnResize, hoHotTrack, hoShowImages, hoShowSortGlyphs, hoVisible]
     IncrementalSearch = isAll
     IncrementalSearchStart = ssAlwaysStartOver
@@ -207,9 +209,17 @@ object FormMain: TFormMain
     OnPopup = mnAssetsPopup
     Left = 384
     Top = 208
+    object mniAssetOpen: TMenuItem
+      Caption = 'Open'
+      OnClick = mniAssetOpenClick
+    end
     object mniAssetEdit: TMenuItem
       Caption = 'Edit'
       OnClick = mniAssetEditClick
+    end
+    object mniArchiveInfo: TMenuItem
+      Caption = 'Asset Archive Information'
+      OnClick = mniArchiveInfoClick
     end
     object mniAssetReplace: TMenuItem
       Caption = 'Search and Replace'
@@ -224,18 +234,18 @@ object FormMain: TFormMain
       Caption = 'Remove Unselected'
       OnClick = mniAssetRemoveUnselectedClick
     end
-    object N2: TMenuItem
+    object N1: TMenuItem
       Caption = '-'
     end
-    object mniAssetCompressed: TMenuItem
-      Caption = 'Compressed'
-      OnClick = mniAssetCompressedClick
+    object mniAssetCompress: TMenuItem
+      Caption = 'Set Compressed Where Applicable'
+      OnClick = mniAssetCompressClick
     end
-    object mniAssetUncompressed: TMenuItem
-      Caption = 'Uncompressed'
-      OnClick = mniAssetUncompressedClick
+    object mniAssetFindIdentical: TMenuItem
+      Caption = 'Find Identical Assets'
+      OnClick = mniAssetFindIdenticalClick
     end
-    object N1: TMenuItem
+    object N2: TMenuItem
       Caption = '-'
     end
     object mniAssetUnpack: TMenuItem
@@ -245,10 +255,6 @@ object FormMain: TFormMain
     object mniAssetUnpackSaveAs: TMenuItem
       Caption = 'Unpack Asset and Save As'
       OnClick = mniAssetUnpackSaveAsClick
-    end
-    object mniArchiveInfo: TMenuItem
-      Caption = 'Archive Info'
-      OnClick = mniArchiveInfoClick
     end
     object N3: TMenuItem
       Caption = '-'
@@ -314,5 +320,34 @@ object FormMain: TFormMain
     OnTimer = timerFilterTimer
     Left = 384
     Top = 120
+  end
+  object dlgIdenticalFiles: TTaskDialog
+    Buttons = <
+      item
+        Caption = 'Group Identical'
+        CommandLinkHint = 
+          'Reorder list to group identical files and increase their chance ' +
+          'to end up in the same archive'
+        ModalResult = 100
+      end
+      item
+        Caption = 'Filter By Identical'
+        CommandLinkHint = 'Show identical assets in the list'
+        ModalResult = 101
+      end
+      item
+        Caption = 'Show Identical Assets'
+        CommandLinkHint = 'Preview in separate window as text'
+        ModalResult = 102
+      end>
+    Caption = 'Identical Assets'
+    CommonButtons = [tcbCancel]
+    ExpandedText = 
+      'Group Identical files before packing and check Shared Data optio' +
+      'n to take advantage of packing same files together'
+    Flags = [tfUseHiconMain, tfAllowDialogCancellation, tfUseCommandLinks, tfExpandedByDefault, tfPositionRelativeToWindow, tfSizeToContent]
+    RadioButtons = <>
+    Left = 384
+    Top = 376
   end
 end

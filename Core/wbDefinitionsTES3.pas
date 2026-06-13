@@ -17,35 +17,11 @@ procedure DefineTES3;
 implementation
 
 uses
-  SysUtils,
+  System.SysUtils,
+
   wbDefinitionsCommon,
   wbDefinitionsSignatures,
   wbInterface;
-
-var
-  wbAttributeEnum,
-  wbDialogTypeEnum,
-  wbMagicEffectEnum,
-  wbSkillEnum,
-  wbSpecializationEnum: IwbEnumDef;
-
-  wbLeveledFlags: IwbFlagsDef;
-
-  wbAIData,
-  wbBipedObjects,
-  wbDeleted,
-  wbDescription,
-  wbEditorID,
-  wbEffects,
-  wbEnchantment,
-  wbFullName,
-  wbIcon,
-  wbInventory,
-  wbModel,
-  wbPackages,
-  wbScript,
-  wbSpells,
-  wbTravelServices: IwbRecordMemberDef;
 
 const
   wbKnownSubRecordSignaturesNoFNAM : TwbKnownSubRecordSignatures = (
@@ -164,7 +140,7 @@ begin
     1,2: Result := True;
   end;
   if aElement.ContainingMainRecord.Signature = ALCH then
-    Result := True
+    Result := True;
 end;
 
 function wbEffectAttributeDontShow(const aElement: IwbElement): Boolean;
@@ -203,7 +179,7 @@ begin
       Container.ElementNativeValues['Range'] := 1;
 
   finally
-    wbEndInternalEdit
+    wbEndInternalEdit;
   end;
 end;
 
@@ -362,7 +338,7 @@ begin
 
     var i : integer;
     for i := 0 to 3 do begin
-      case (Container.ElementNativeValues['IRDT\Effects\Magic Effects\Magic Effect #' + IntToStr(i)]) of
+      case Container.ElementNativeValues['IRDT\Effects\Magic Effects\Magic Effect #' + IntToStr(i)] of
         17, 22, 74, 79: Container.ElementNativeValues['IRDT\Effects\Skills\Skill #' + IntToStr(i)] := -1;
         21, 26, 78, 83: Container.ElementNativeValues['IRDT\Effects\Attributes\Attribute #' + IntToStr(i)] := -1;
       else
@@ -433,34 +409,9 @@ begin
   end;
 end;
 
-procedure DefineTES3;
+function wbAttributeEnum: IwbEnumDef;
 begin
-  DefineCommon;
-  wbHeaderSignature := 'TES3';
-
-  wbRecordFlags :=
-    wbInteger('Record Flags', itU32,
-      wbFlags([
-      {0} 'ESM'
-      ]));
-
-  wbMainRecordHeader := wbStruct('Record Header', [
-    wbString('Signature', 4, cpCritical),
-    wbInteger('Data Size', itU32, nil, cpIgnore),
-    wbByteArray('Version Control Info', 4, cpIgnore).SetToStr(wbVCI1ToStrBeforeFO4),
-    wbRecordFlags
-  ]);
-
-  wbSizeOfMainRecordStruct := 16;
-
-  wbKnownSubRecordSignatures[ksrEditorID] := 'NAME';
-  wbKnownSubRecordSignatures[ksrFullName] := 'FNAM';
-  wbKnownSubRecordSignatures[ksrBaseRecord] := '____';
-  wbKnownSubRecordSignatures[ksrGridCell] := 'DATA';
-
-  {>>> Enums <<<}
-
-  wbAttributeEnum :=
+  Result :=
     wbEnum([
     {0} 'Strength',
     {1} 'Intelligence',
@@ -473,8 +424,11 @@ begin
     ], [
     -1, 'None'
     ]);
+end;
 
-  wbDialogTypeEnum :=
+function wbDialogTypeEnum: IwbEnumDef;
+begin
+  Result :=
     wbEnum([
     {0} 'Regular Topic',
     {1} 'Voice',
@@ -482,8 +436,11 @@ begin
     {3} 'Persuasion',
     {4} 'Journal'
     ]);
+end;
 
-  wbMagicEffectEnum :=
+function wbMagicEffectEnum: IwbEnumDef;
+begin
+  Result :=
     wbEnum([
     {0}   'Water Breathing',
     {1}   'Swift Swim',
@@ -631,8 +588,11 @@ begin
     ], [
     -1, 'None'
     ]);
+end;
 
-  wbSkillEnum :=
+function wbSkillEnum: IwbEnumDef;
+begin
+  Result :=
     wbEnum([
     {0}  'Block',
     {1}  'Armorer',
@@ -664,38 +624,32 @@ begin
     ], [
     -1, 'None'
     ]);
+end;
 
-  wbSpecializationEnum :=
+function wbSpecializationEnum: IwbEnumDef;
+begin
+  Result :=
     wbEnum([
     {0} 'Combat',
     {1} 'Magic',
     {2} 'Stealth'
     ]);
+end;
 
-  {>>> Flags <<<}
 
-  wbLeveledFlags :=
+function wbLeveledFlags: IwbFlagsDef;
+begin
+  Result :=
     wbFlags([
     {0} 'Calculate from all levels <= player''s level',
     {1} 'Calculate for each item in count'
     ]);
+end;
 
-  {>>> Common Defs <<<}
 
-  wbDeleted := wbInteger(DELE, 'Deleted', itU32, wbEnum(['True']));
-  wbDescription := wbString(DESC, 'Description');
-  wbEditorID := wbString(NAME, 'Editor ID')
-    .SetRequired
-    .IncludeFlag(dfSummarySelfAsShortName);
-  wbEnchantment := wbString(ENAM, 'Enchantment');
-  wbFullName := wbString(FNAM, 'Name');
-  wbIcon := wbString(ITEX, 'Icon Filename');
-  wbModel := wbString(MODL, 'Model').SetDefaultEditValue('Add Art File');
-  wbScript := wbString(SCRI, 'Script');
-
-  {>>> Record Members <<<}
-
-  wbAIData :=
+function wbAIData: IwbRecordMemberDef;
+begin
+  Result :=
     wbStruct(AIDT, 'AI Data', [
       wbInteger('Hello', itU16).SetDefaultNativeValue(30),
       wbInteger('Fight', itU8).SetDefaultNativeValue(30),
@@ -704,8 +658,11 @@ begin
       wbUnused(3),
       wbInteger('Service Flags', itU32, wbServiceFlags).IncludeFlag(dfCollapsed, wbCollapseFlags)
     ]).SetRequired;
+end;
 
-  wbBipedObjects :=
+function wbBipedObjects: IwbRecordMemberDef;
+begin
+  Result :=
     wbRArray('Biped Objects',
       wbRStruct('Biped Object', [
         wbInteger(INDX, 'Body Part', itU8,
@@ -747,8 +704,29 @@ begin
         .IncludeFlag(dfSummaryMembersNoName)
         .IncludeFlag(dfSummaryNoSortKey)
         .IncludeFlag(dfCollapsed, wbCollapseBodyParts));
+end;
 
-  wbEffects :=
+function wbDeleted: IwbRecordMemberDef;
+begin
+  Result := wbInteger(DELE, 'Deleted', itU32, wbEnum(['True']));
+end;
+
+function wbDescription: IwbRecordMemberDef;
+begin
+  Result := wbString(DESC, 'Description');
+end;
+
+function wbEditorID: IwbRecordMemberDef;
+begin
+  Result :=
+    wbString(NAME, 'Editor ID')
+      .SetRequired
+      .IncludeFlag(dfSummarySelfAsShortName);
+end;
+
+function wbEffects: IwbRecordMemberDef;
+begin
+  Result :=
     wbRArray('Effects',
       wbStructSK(ENAM, [0], 'Effect', [
         wbInteger('Magic Effect', itS16, wbMagicEffectEnum)
@@ -785,8 +763,26 @@ begin
         .SetAfterLoad(wbEffectRangeAfterLoad)
         .IncludeFlag(dfSummaryMembersNoName)
         .IncludeFlag(dfSummaryNoSortKey));
+end;
 
-  wbInventory :=
+function wbEnchantment: IwbRecordMemberDef;
+begin
+  Result := wbString(ENAM, 'Enchantment');
+end;
+
+function wbFullName: IwbRecordMemberDef;
+begin
+  Result := wbString(FNAM, 'Name');
+end;
+
+function wbIcon: IwbRecordMemberDef;
+begin
+  Result := wbString(ITEX, 'Icon Filename');
+end;
+
+function wbInventory: IwbRecordMemberDef;
+begin
+  Result :=
     wbRArray('Inventory',
       wbStruct(NPCO, 'Item Entry', [
         wbInteger('Count', itU32),
@@ -795,8 +791,16 @@ begin
         .SetSummaryPrefixSuffixOnValue(0, 'x', '}')
         .SetSummaryPrefixSuffixOnValue(1, '{', '')
         .IncludeFlag(dfCollapsed, wbCollapseItems));
+end;
 
-  wbPackages :=
+function wbModel: IwbRecordMemberDef;
+begin
+  Result := wbString(MODL, 'Model').SetDefaultEditValue('Add Art File');
+end;
+
+function wbPackages: IwbRecordMemberDef;
+begin
+  Result :=
     wbRArray('Packages',
       wbRUnion('Packages', [
         wbStruct(AI_W, 'Wander', [
@@ -843,18 +847,55 @@ begin
           wbInteger('Reset', itU8, wbBoolEnum).SetDefaultNativeValue(1)
         ])
       ]));
+end;
 
-  wbSpells :=
+function wbScript: IwbRecordMemberDef;
+begin
+  Result := wbString(SCRI, 'Script');
+end;
+
+function wbSpells: IwbRecordMemberDef;
+begin
+  Result :=
     wbRArrayS('Spells',
       wbString(NPCS, 'Spell', 32) //[SPEL]
     );
+end;
 
-  wbTravelServices :=
+function wbTravelServices: IwbRecordMemberDef;
+begin
+  Result :=
     wbRArray('Travel Services',
       wbRStruct('Travel Service', [
         wbVec3PosRot(DODT, 'Destination').SetRequired,
         wbStringForward(DNAM, 'Cell', 64)
       ]));
+end;
+
+
+procedure DefineTES3;
+begin
+  wbHeaderSignature := 'TES3';
+
+  wbRecordFlags :=
+    wbInteger('Record Flags', itU32,
+      wbFlags([
+      {0} 'ESM'
+      ]));
+
+  wbMainRecordHeader := wbStruct('Record Header', [
+    wbString('Signature', 4, cpCritical),
+    wbInteger('Data Size', itU32, nil, cpIgnore),
+    wbByteArray('Version Control Info', 4, cpIgnore).SetToStr(wbVCI1ToStrBeforeFO4),
+    wbRecordFlags
+  ]);
+
+  wbSizeOfMainRecordStruct := 16;
+
+  wbKnownSubRecordSignatures[ksrEditorID] := 'NAME';
+  wbKnownSubRecordSignatures[ksrFullName] := 'FNAM';
+  wbKnownSubRecordSignatures[ksrBaseRecord] := '____';
+  wbKnownSubRecordSignatures[ksrGridCell] := 'DATA';
 
   {>>> Records <<<}
 
@@ -880,8 +921,8 @@ begin
 
   wbRecord(ACTI, 'Activator',
     wbFlags(wbFlagsList([
-      10, 'References Persist',
-      13, 'Blocked'
+    10, 'References Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -892,8 +933,8 @@ begin
 
   wbRecord(ALCH, 'Alchemy',
     wbFlags(wbFlagsList([
-      10, 'References Persist',
-      13, 'Blocked'
+    10, 'References Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -911,8 +952,8 @@ begin
 
   wbRecord(APPA, 'Apparatus',
     wbFlags(wbFlagsList([
-      10, 'References Persist',
-      13, 'Blocked'
+    10, 'References Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -936,8 +977,8 @@ begin
 
   wbRecord(ARMO, 'Armor',
     wbFlags(wbFlagsList([
-      10, 'References Persist',
-      13, 'Blocked'
+    10, 'References Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -972,7 +1013,7 @@ begin
 
   wbRecord(BODY, 'Body Part', @wbKnownSubRecordSignaturesNoFNAM,
     wbFlags(wbFlagsList([
-      13, 'Blocked'
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -983,16 +1024,16 @@ begin
     wbStruct(BYDT, 'Data', [
       wbInteger('Body Part', itU8,
         wbEnum([
-        {0} 'Head',
-        {1} 'Hair',
-        {2} 'Neck',
-        {3} 'Chest',
-        {4} 'Groin',
-        {5} 'Hand',
-        {6} 'Wrist',
-        {7} 'Forearm',
-        {8} 'Upperarm',
-        {9} 'Foot',
+        {0}  'Head',
+        {1}  'Hair',
+        {2}  'Neck',
+        {3}  'Chest',
+        {4}  'Groin',
+        {5}  'Hand',
+        {6}  'Wrist',
+        {7}  'Forearm',
+        {8}  'Upperarm',
+        {9}  'Foot',
         {10} 'Ankle',
         {11} 'Knee',
         {12} 'Upperleg',
@@ -1021,8 +1062,8 @@ begin
 
   wbRecord(BOOK, 'Book',
     wbFlags(wbFlagsList([
-      10, 'References Persist',
-      13, 'Blocked'
+    10, 'References Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -1127,8 +1168,8 @@ begin
 
   wbRecord(CLOT, 'Clothing',
     wbFlags(wbFlagsList([
-      10, 'References Persist',
-      13, 'Blocked'
+    10, 'References Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -1159,8 +1200,8 @@ begin
 
   wbRecord(CONT, 'Container',
     wbFlags(wbFlagsList([
-      10, 'Corpses Persist',
-      13, 'Blocked'
+    10, 'Corpses Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -1182,8 +1223,8 @@ begin
 
   wbRecord(CREA, 'Creature',
     wbFlags(wbFlagsList([
-      10, 'Corpses Persist',
-      13, 'Blocked'
+    10, 'Corpses Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -1263,8 +1304,8 @@ begin
 
   wbRecord(DOOR, 'Door',
     wbFlags(wbFlagsList([
-      10, 'References Persist',
-      13, 'Blocked'
+    10, 'References Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -1277,7 +1318,7 @@ begin
 
   wbRecord(ENCH, 'Enchantment',
     wbFlags(wbFlagsList([
-      13, 'Blocked'
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -1298,7 +1339,8 @@ begin
       wbUnused(3)
     ]).SetRequired,
     wbEffects
-  ]).SetFormIDBase($04).SetSummaryKey([3]);
+  ]).SetFormIDBase($04)
+    .SetSummaryKey([3]);
 
   wbRecord(FACT, 'Faction', [
     wbEditorID,
@@ -1338,10 +1380,10 @@ begin
     wbDeleted,
     wbInteger(FNAM, 'Variable Type', itU8,
       wbEnum([], [
-      $66, 'Float',
-      $6C, 'Long',
-      $73, 'Short'
-      ])).SetDefaultNativeValue($73),
+      102, 'Float',
+      108, 'Long',
+      115, 'Short'
+      ])).SetDefaultNativeValue(115),
     wbFloat(FLTV, 'Value', cpNormal, False, 1, 2)
   ]).SetFormIDBase($58)
     .SetSummaryKey([3])
@@ -1384,12 +1426,12 @@ begin
         wbStruct(SCVR, 'Condition', [
           wbInteger('Position', itU8,
             wbEnum([], [
-            48, '1st', //0
-            49, '2nd', //1
-            50, '3rd', //2
-            51, '4th', //3
-            52, '5th', //4
-            53, '6th' //5
+            48, '1st',
+            49, '2nd',
+            50, '3rd',
+            51, '4th',
+            52, '5th',
+            53, '6th'
             ])),
           wbInteger('Type', itU8,
             wbEnum([], [
@@ -1527,10 +1569,10 @@ begin
             wbEnum([], [
             48, 'Equal To',
             49, 'Not Equal To',
-            50, 'Less Than',
-            51, 'Less Than Or Equal To',
-            52, 'Greater Than',
-            53, 'Greater Than Or Equal To'
+            50, 'Greater Than',
+            51, 'Greater Than Or Equal To',
+            52, 'Less Than',
+            53, 'Less Than Or Equal To'
             ])),
           wbString('Variable/Object')
         ]),
@@ -1549,8 +1591,8 @@ begin
 
   wbRecord(INGR, 'Ingredient',
     wbFlags(wbFlagsList([
-      10, 'References Persist',
-      13, 'Blocked'
+    10, 'References Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -1665,12 +1707,12 @@ begin
       Result := '';
       var GridCell: TwbGridCell;
       if aMainRecord.GetGridCell(GridCell) then
-        Result := GridCell.SortKey
+        Result := GridCell.SortKey;
     end);
 
   wbRecord(LEVC, 'Leveled Creature',
     wbFlags(wbFlagsList([
-      13, 'Blocked'
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -1695,7 +1737,7 @@ begin
 
   wbRecord(LEVI, 'Leveled Item',
     wbFlags(wbFlagsList([
-      13, 'Blocked'
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -1720,8 +1762,8 @@ begin
 
   wbRecord(LIGH, 'Light',
     wbFlags(wbFlagsList([
-      10, 'References Persist',
-      13, 'Blocked'
+    10, 'References Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -1753,8 +1795,8 @@ begin
 
   wbRecord(LOCK, 'Lockpick',
     wbFlags(wbFlagsList([
-      10, 'References Persist',
-      13, 'Blocked'
+    10, 'References Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -1823,8 +1865,8 @@ begin
 
   wbRecord(MISC, 'Misc. Item',
     wbFlags(wbFlagsList([
-      10, 'References Persist',
-      13, 'Blocked'
+    10, 'References Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -1842,8 +1884,8 @@ begin
 
   wbRecord(NPC_, 'Non-Player Character',
     wbFlags(wbFlagsList([
-      10, 'Corpses Persist',
-      13, 'Blocked'
+    10, 'Corpses Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -1983,7 +2025,8 @@ begin
           wbInteger('Point', itU32),
         wbCalcPGRCSize)).IncludeFlag(dfCollapsed, wbCollapseNavmesh))
   ]).SetFormIDBase($F0)
-    .SetFormIDNameBase($B0).SetGetGridCellCallback(function(const aSubRecord: IwbSubRecord; out aGridCell: TwbGridCell): Boolean begin
+    .SetFormIDNameBase($B0)
+    .SetGetGridCellCallback(function(const aSubRecord: IwbSubRecord; out aGridCell: TwbGridCell): Boolean begin
       with aGridCell, aSubRecord do begin
         X := ElementNativeValues['Grid\X'];
         Y := ElementNativeValues['Grid\Y'];
@@ -2004,8 +2047,8 @@ begin
 
   wbRecord(PROB, 'Probe',
     wbFlags(wbFlagsList([
-      10, 'References Persist',
-      13, 'Blocked'
+    10, 'References Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -2160,14 +2203,13 @@ begin
       ]).SetSummaryKeyOnValue([0,1])
         .SetSummaryPrefixSuffixOnValue(0, 'Sound: ', ',')
         .SetSummaryPrefixSuffixOnValue(1, 'Chance: ', '')
-        .IncludeFlag(dfCollapsed, wbCollapseSounds)
-      )
+        .IncludeFlag(dfCollapsed, wbCollapseSounds))
   ]).SetFormIDBase($70);
 
   wbRecord(REPA, 'Repair Item',
     wbFlags(wbFlagsList([
-      10, 'References Persist',
-      13, 'Blocked'
+    10, 'References Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -2322,7 +2364,7 @@ begin
 
   wbRecord(SPEL, 'Spellmaking',
     wbFlags(wbFlagsList([
-      13, 'Blocked'
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -2357,8 +2399,8 @@ begin
 
   wbRecord(STAT, 'Static',
     wbFlags(wbFlagsList([
-      10, 'References Persist',
-      13, 'Blocked'
+    10, 'References Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -2368,8 +2410,8 @@ begin
 
   wbRecord(WEAP, 'Weapon',
     wbFlags(wbFlagsList([
-      10, 'References Persist',
-      13, 'Blocked'
+    10, 'References Persist',
+    13, 'Blocked'
     ])), [
     wbEditorID,
     wbDeleted,
@@ -2469,4 +2511,5 @@ begin
   wbNexusModsUrl := 'https://www.nexusmods.com/morrowind/mods/54508';
   wbHEDRVersion := 1.30;
 end;
+
 end.

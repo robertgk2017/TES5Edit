@@ -1,7 +1,7 @@
 object FormArchiveInfo: TFormArchiveInfo
   Left = 0
   Top = 0
-  BorderIcons = [biSystemMenu]
+  BorderIcons = [biSystemMenu, biMaximize]
   Caption = 'Archive Info'
   ClientHeight = 528
   ClientWidth = 988
@@ -12,14 +12,12 @@ object FormArchiveInfo: TFormArchiveInfo
   Font.Name = 'Tahoma'
   Font.Style = []
   KeyPreview = True
-  OldCreateOrder = False
   Position = poMainFormCenter
   OnClose = FormClose
   OnDestroy = FormDestroy
   OnDeactivate = FormDeactivate
   OnKeyDown = FormKeyDown
   OnShow = FormShow
-  PixelsPerInch = 96
   TextHeight = 13
   object vtText: TVirtualStringTree
     Left = 0
@@ -35,7 +33,7 @@ object FormArchiveInfo: TFormArchiveInfo
     Font.Name = 'Courier New'
     Font.Style = []
     Header.AutoSizeIndex = 0
-    Header.Height = 21
+    Header.Height = 18
     Header.Options = [hoAutoResize, hoColumnResize, hoHotTrack, hoShowImages, hoShowSortGlyphs]
     IncrementalSearch = isAll
     IncrementalSearchStart = ssAlwaysStartOver

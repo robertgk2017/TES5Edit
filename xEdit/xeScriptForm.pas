@@ -13,9 +13,19 @@ unit xeScriptForm;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, ExtCtrls, IOUtils, StrUtils, Vcl.ComCtrls, System.UITypes,
-  SynEdit, SynMemo, SynEditKeyCmds, xeMainForm, SynHighlighterPas;
+  System.Classes,
+
+  Vcl.Controls,
+  Vcl.Dialogs,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+
+  Winapi.Messages,
+
+  SynHighlighterPas,
+
+  xeMainForm;
 
 const
   sNewScript = '<new script>';
@@ -23,7 +33,7 @@ const
   sScriptExt = '.pas';
 
 type
-  TComboBox = class(StdCtrls.TComboBox)
+  TComboBox = class(Vcl.StdCtrls.TComboBox)
   protected {private}
     FOnBeforeWheel: TNotifyEvent;
     FOnAfterWheel: TNotifyEvent;
@@ -78,8 +88,8 @@ type
     ScriptSelectionChangedOnDropDown : Boolean;
     SelectionOnEnter: string;
     SaveOverride: string;
-    function Indent(aText: string; aPrefix: string): string;
-    function Dedent(aText: string; aPrefix: string): string;
+    function Indent(const aText, aPrefix: string): string;
+    function Dedent(const aText, aPrefix: string): string;
     procedure DoScriptSelectionChange;
   public
     { Public declarations }
@@ -96,6 +106,13 @@ var
 implementation
 
 {$R *.dfm}
+
+uses
+  System.IOUtils,
+  System.SysUtils,
+  System.UITypes,
+
+  Winapi.Windows;
 
 procedure TfrmScript.btnSaveClick(Sender: TObject);
 var
@@ -273,7 +290,7 @@ begin
   UpdateCaretPos;
 end;
 
-function TfrmScript.Indent(aText: string; aPrefix: string): String;
+function TfrmScript.Indent(const aText, aPrefix: string): String;
 begin
   var lines := TStringList.Create;
   try
@@ -289,7 +306,7 @@ begin
   end;
 end;
 
-function TfrmScript.Dedent(aText: string; aPrefix: string): String;
+function TfrmScript.Dedent(const aText, aPrefix: string): String;
 begin
   var lines := TStringList.Create;
   try

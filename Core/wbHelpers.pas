@@ -13,103 +13,43 @@ unit wbHelpers;
 interface
 
 uses
-  Classes,
-  Windows,
-  System.UITypes,
-  System.AnsiStrings,
-  SysUtils,
-  Graphics,
-  Controls,
-  Forms,
-  ShellAPI,
-  ShlObj,
-  IniFiles,
-  Registry,
-  RegularExpressionsCore,
-  wbInterface,
-  Imaging,
-  ImagingTypes;
+  System.Classes,
+  System.IniFiles,
+  System.SysUtils,
 
-Const
-  CRCSeed = $ffffffff;
-//{$IFDEF WIN64}
-  CRC32tab : Array[0..255] of DWord = (
-      $00000000, $77073096, $ee0e612c, $990951ba, $076dc419, $706af48f,
-      $e963a535, $9e6495a3, $0edb8832, $79dcb8a4, $e0d5e91e, $97d2d988,
-      $09b64c2b, $7eb17cbd, $e7b82d07, $90bf1d91, $1db71064, $6ab020f2,
-      $f3b97148, $84be41de, $1adad47d, $6ddde4eb, $f4d4b551, $83d385c7,
-      $136c9856, $646ba8c0, $fd62f97a, $8a65c9ec, $14015c4f, $63066cd9,
-      $fa0f3d63, $8d080df5, $3b6e20c8, $4c69105e, $d56041e4, $a2677172,
-      $3c03e4d1, $4b04d447, $d20d85fd, $a50ab56b, $35b5a8fa, $42b2986c,
-      $dbbbc9d6, $acbcf940, $32d86ce3, $45df5c75, $dcd60dcf, $abd13d59,
-      $26d930ac, $51de003a, $c8d75180, $bfd06116, $21b4f4b5, $56b3c423,
-      $cfba9599, $b8bda50f, $2802b89e, $5f058808, $c60cd9b2, $b10be924,
-      $2f6f7c87, $58684c11, $c1611dab, $b6662d3d, $76dc4190, $01db7106,
-      $98d220bc, $efd5102a, $71b18589, $06b6b51f, $9fbfe4a5, $e8b8d433,
-      $7807c9a2, $0f00f934, $9609a88e, $e10e9818, $7f6a0dbb, $086d3d2d,
-      $91646c97, $e6635c01, $6b6b51f4, $1c6c6162, $856530d8, $f262004e,
-      $6c0695ed, $1b01a57b, $8208f4c1, $f50fc457, $65b0d9c6, $12b7e950,
-      $8bbeb8ea, $fcb9887c, $62dd1ddf, $15da2d49, $8cd37cf3, $fbd44c65,
-      $4db26158, $3ab551ce, $a3bc0074, $d4bb30e2, $4adfa541, $3dd895d7,
-      $a4d1c46d, $d3d6f4fb, $4369e96a, $346ed9fc, $ad678846, $da60b8d0,
-      $44042d73, $33031de5, $aa0a4c5f, $dd0d7cc9, $5005713c, $270241aa,
-      $be0b1010, $c90c2086, $5768b525, $206f85b3, $b966d409, $ce61e49f,
-      $5edef90e, $29d9c998, $b0d09822, $c7d7a8b4, $59b33d17, $2eb40d81,
-      $b7bd5c3b, $c0ba6cad, $edb88320, $9abfb3b6, $03b6e20c, $74b1d29a,
-      $ead54739, $9dd277af, $04db2615, $73dc1683, $e3630b12, $94643b84,
-      $0d6d6a3e, $7a6a5aa8, $e40ecf0b, $9309ff9d, $0a00ae27, $7d079eb1,
-      $f00f9344, $8708a3d2, $1e01f268, $6906c2fe, $f762575d, $806567cb,
-      $196c3671, $6e6b06e7, $fed41b76, $89d32be0, $10da7a5a, $67dd4acc,
-      $f9b9df6f, $8ebeeff9, $17b7be43, $60b08ed5, $d6d6a3e8, $a1d1937e,
-      $38d8c2c4, $4fdff252, $d1bb67f1, $a6bc5767, $3fb506dd, $48b2364b,
-      $d80d2bda, $af0a1b4c, $36034af6, $41047a60, $df60efc3, $a867df55,
-      $316e8eef, $4669be79, $cb61b38c, $bc66831a, $256fd2a0, $5268e236,
-      $cc0c7795, $bb0b4703, $220216b9, $5505262f, $c5ba3bbe, $b2bd0b28,
-      $2bb45a92, $5cb36a04, $c2d7ffa7, $b5d0cf31, $2cd99e8b, $5bdeae1d,
-      $9b64c2b0, $ec63f226, $756aa39c, $026d930a, $9c0906a9, $eb0e363f,
-      $72076785, $05005713, $95bf4a82, $e2b87a14, $7bb12bae, $0cb61b38,
-      $92d28e9b, $e5d5be0d, $7cdcefb7, $0bdbdf21, $86d3d2d4, $f1d4e242,
-      $68ddb3f8, $1fda836e, $81be16cd, $f6b9265b, $6fb077e1, $18b74777,
-      $88085ae6, $ff0f6a70, $66063bca, $11010b5c, $8f659eff, $f862ae69,
-      $616bffd3, $166ccf45, $a00ae278, $d70dd2ee, $4e048354, $3903b3c2,
-      $a7672661, $d06016f7, $4969474d, $3e6e77db, $aed16a4a, $d9d65adc,
-      $40df0b66, $37d83bf0, $a9bcae53, $debb9ec5, $47b2cf7f, $30b5ffe9,
-      $bdbdf21c, $cabac28a, $53b39330, $24b4a3a6, $bad03605, $cdd70693,
-      $54de5729, $23d967bf, $b3667a2e, $c4614ab8, $5d681b02, $2a6f2b94,
-      $b40bbe37, $c30c8ea1, $5a05df1b, $2d02ef8d  );
-//{$ENDIF}
+  Vcl.Graphics,
+
+  JSonDataObjects,
+
+  wbHash,
+  wbInterface;
 
 function wbDistance(const a, b: TwbVector): Single; overload
 function wbDistance(const a, b: IwbMainRecord): Single; overload;
-function wbStringToSignatures(aSignatures: string): TwbSignatures;
+function wbStringToSignatures(const aSignatures: string): TwbSignatures;
 function wbGetSiblingREFRsWithin(const aMainRecord: IwbMainRecord; aDistance: Single): TDynMainRecords;
 function wbGetSiblingRecords(const aElement: IwbElement; aSignatures: TwbSignatures; aOverrides: Boolean): TDynMainRecords;
 function FindMatchText(Strings: TStrings; const Str: string): Integer;
 function IsFileCC(const aFileName: string): Boolean;
 procedure DeleteDirectory(const DirName: string);
-function FullPathToFilename(aString: string): string;
-procedure wbFlipBitmap(aBitmap: TBitmap; MirrorType: Integer); // MirrorType: 1 - horizontal, 2 - vertical, 0 - both
+function FullPathToFilename(const aString: string): string;
+procedure wbFlipBitmap(aBitmap: Vcl.Graphics.TBitmap; MirrorType: Integer); // MirrorType: 1 - horizontal, 2 - vertical, 0 - both
 function wbAlphaBlend(DestDC, X, Y, Width, Height,
   SrcDC, SrcX, SrcY, SrcWidth, SrcHeight, Alpha: integer): Boolean;
-procedure SaveFont(aIni: TMemIniFile; aSection, aName: string; aFont: TFont);
-procedure LoadFont(aIni: TMemIniFile; aSection, aName: string; aFont: TFont);
-function wbDDSDataToBitmap(aData: TBytes; Bitmap: TBitmap): Boolean;
-function wbDDSStreamToBitmap(aStream: TStream; Bitmap: TBitmap): Boolean;
-function wbCRC32Ptr(aData: Pointer; aSize: Integer): TwbCRC32;
-function wbCRC32Data(aData: TBytes): TwbCRC32;
-function wbCRC32File(aFileName: string): TwbCRC32;
+procedure SaveFont(aIni: TMemIniFile; const aSection, aName: string; aFont: TFont);
+procedure LoadFont(aIni: TMemIniFile; const aSection, aName: string; aFont: TFont);
+function wbDDSDataToBitmap(const aData: TBytes; Bitmap: Vcl.Graphics.TBitmap): Boolean;
+function wbDDSStreamToBitmap(aStream: TStream; Bitmap: Vcl.Graphics.TBitmap): Boolean;
 function wbCRC32App: TwbCRC32;
-function bscrc32(const aText: string): Cardinal; // hashing func used in Fallout 4
-function wbDecodeCRCList(const aList: string): TDynCardinalArray;
-function wbSHA1Data(aData: TBytes): string;
-function wbSHA1File(aFileName: string): string;
-function wbMD5Data(aData: TBytes): string;
-function wbMD5File(aFileName: string): string;
-function wbIsAssociatedWithExtension(aExt: string): Boolean;
-function wbAssociateWithExtension(aExt, aName, aDescr: string): Boolean;
+function wbIsAssociatedWithExtension(const aExt: string): Boolean;
+function wbAssociateWithExtension(aExt: string; const aName, aDescr: string): Boolean;
 function ExecuteCaptureConsoleOutput(const aCommandLine: string): Cardinal;
 function wbExpandFileName(const aFileName: string): string;
 
+procedure SerializeArray(const aElement: IwbElement; const aJsonArray: TJsonArray);
+procedure SerializeElement(const aElement: IwbElement; const aJsonObj: TJsonObject);
+function  SerializeElementToJson(const aElement: IwbElement): TJsonObject;
+procedure SerializeStreamArray(const aElement: IwbElement; const aJsonArray: TJsonArray);
 
 type
   PnxLeveledListCheckCircularStack = ^TnxLeveledListCheckCircularStack;
@@ -120,20 +60,15 @@ type
 
 procedure wbLeveledListCheckCircular(const aMainRecord: IwbMainRecord; aStack: PnxLeveledListCheckCircularStack);
 
-function wbExtractNameFromPath(aPathName: String): String;
-
-function wbCounterAfterSet(aCounterName: String; const aElement: IwbElement): Boolean;
-function wbCounterByPathAfterSet(aCounterName: String; const aElement: IwbElement): Boolean;
-function wbCounterContainerAfterSet(aCounterName: String; anArrayName: String; const aElement: IwbElement): Boolean;
-function wbCounterContainerByPathAfterSet(aCounterName: String; anArrayName: String; const aElement: IwbElement): Boolean;
+function wbExtractNameFromPath(const aPathName: String): String;
 
 // BSA helper
 
-function MakeDataFileName(FileName, DataPath: String): String;
-function CheckAddFilesToString(var mIni: TIniFile; var cIni: TIniFile; Section, Ident: String): String;
-function FindBSAs(IniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; overload;
-function FindBSAs(IniName, CustomIniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; overload;
-function HasBSAs(ModName, DataPath: String; Exact, modini: Boolean; var bsaNames: TStringList; var bsaMissing: TStringList): Integer;
+function MakeDataFileName(const FileName, DataPath: String): String;
+function CheckAddFilesToString(var mIni: TIniFile; var cIni: TIniFile; const Section, Ident: String): String;
+function FindBSAs(const IniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; overload;
+function FindBSAs(const IniName, CustomIniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; overload;
+function HasBSAs(ModName : string; const DataPath: String; Exact, modini: Boolean; var bsaNames: TStringList; var bsaMissing: TStringList): Integer;
 
 function wbStripDotGhost(const aFileName: string): string;
 
@@ -171,14 +106,27 @@ procedure wbCodeBlock(const aProc: TProc);
 
 function wbVarArray(const aElements: array of Variant): Variant;
 
-procedure wbTwiddleHeight(aControl: TControl);
-
 implementation
 
 uses
-  System.SyncObjs,
+  System.AnsiStrings,
   System.IOUtils,
-  StrUtils,
+  System.RegularExpressionsCore,
+  System.StrUtils,
+  System.SyncObjs,
+  System.UITypes,
+  System.Variants,
+  System.Win.Registry,
+
+  Vcl.Forms,
+
+  Winapi.ShellAPI,
+  Winapi.ShlObj,
+  Winapi.Windows,
+
+  Imaging,
+  ImagingTypes,
+
   wbSort;
 
 function TStringArrayHelper.AddPrefix(const aPrefix: string): TArray<string>;
@@ -371,7 +319,7 @@ begin
   Result := wbDistance(PosA, PosB);
 end;
 
-function wbStringToSignatures(aSignatures: string): TwbSignatures;
+function wbStringToSignatures(const aSignatures: string): TwbSignatures;
 var
   i: integer;
   s: AnsiString;
@@ -557,7 +505,7 @@ begin
   SHFileOperation(FileOp);
 end;
 
-function FullPathToFilename(aString: string): string;
+function FullPathToFilename(const aString: string): string;
 var
   i: Integer;
   s: string;
@@ -580,15 +528,15 @@ begin
   Result := s;
 end;
 
-procedure wbFlipBitmap(aBitmap: TBitmap; MirrorType: Integer);
+procedure wbFlipBitmap(aBitmap: Vcl.Graphics.TBitmap; MirrorType: Integer);
 var
-  MemBmp: TBitmap;
+  MemBmp: Vcl.Graphics.TBitmap;
   Dest: TRect;
 begin
   if not Assigned(aBitmap) then
     Exit;
 
-  MemBmp := TBitmap.Create;
+  MemBmp := Vcl.Graphics.TBitmap.Create;
   try
     MemBmp.Assign(aBitmap);
     case MirrorType of
@@ -635,10 +583,10 @@ begin
     BlendFunc.AlphaFormat := AC_SRC_ALPHA
   else
     BlendFunc.AlphaFormat := 0;
-  Result := Windows.AlphaBlend(DestDC, X, Y, Width, Height, SrcDC, SrcX, SrcY, SrcWidth, SrcHeight, BlendFunc);
+  Result := AlphaBlend(DestDC, X, Y, Width, Height, SrcDC, SrcX, SrcY, SrcWidth, SrcHeight, BlendFunc);
 end;
 
-procedure SaveFont(aIni: TMemIniFile; aSection, aName: string; aFont: TFont);
+procedure SaveFont(aIni: TMemIniFile; const aSection, aName: string; aFont: TFont);
 begin
   aIni.WriteString(aSection, aName + 'Name', aFont.Name);
   aIni.WriteInteger(aSection, aName + 'CharSet', aFont.CharSet);
@@ -647,7 +595,7 @@ begin
   aIni.WriteInteger(aSection, aName + 'Style', Byte(aFont.Style));
 end;
 
-procedure LoadFont(aIni: TMemIniFile; aSection, aName: string; aFont: TFont);
+procedure LoadFont(aIni: TMemIniFile; const aSection, aName: string; aFont: TFont);
 begin
   aFont.Name    := aIni.ReadString(aSection, aName + 'Name', aFont.Name);
   aFont.CharSet := TFontCharSet(aIni.ReadInteger(aSection, aName + 'CharSet', aFont.CharSet));
@@ -662,200 +610,6 @@ begin
     Result := wbDataPath + ExtractFileName(aFileName)
   else
     Result := aFileName;
-end;
-
-
-var
-  crctbl: array[0..7] of array[0..255] of cardinal;
-
-procedure CRCInit;
-var
-  c: cardinal;
-  i, j: integer;
-begin;
-  for i:=0 to 255 do begin;
-    c:=i;
-    for j:=1 to 8 do if odd(c)
-                     then c:=(c shr 1) xor $EDB88320
-                     else c:=(c shr 1);
-    crctbl[0][i]:=c;
-    end;
-
-  for i:=0 to 255 do begin;
-    c:=crctbl[0][i];
-    for j:=1 to 7 do begin;
-      c:=(c shr 8) xor crctbl[0][byte(c)];
-      crctbl[j][i]:=c;
-      end;
-    end;
-end;
-
-{$IFDEF WIN64}
-function crc32_update(inbuffer: pointer; buffersize, crc: DWord): DWord;
-// crc-32.  Processes 4 bytes at a time.
-type
-  PDWord = ^DWord;
-  PByte = ^Byte;
-var
-  currptr: pointer;
-  i: byte;
-begin
-  currptr := inbuffer;
-  Result := crc;
-  while buffersize > 4 do
-    begin
-      Result := Result xor PDWord(currptr)^;
-      inc(PByte(currptr), 4);
-      Result := (Result shr 8) xor Crc32Tab[Byte(Result)];
-      Result := (Result shr 8) xor Crc32Tab[Byte(Result)];
-      Result := (Result shr 8) xor CRC32Tab[Byte(Result)];
-      Result := (Result shr 8) xor crc32Tab[Byte(Result)];
-      dec(buffersize, 4);
-    end;
-  for i := 1 to buffersize do
-    begin
-      Result := CRC32tab[Byte(Result xor DWord(PByte(currptr)^))] xor (Result shr 8);
-      inc(PByte(currptr), 1);
-    end;
-end;
-{$ENDIF}
-
-Function CRCend( crc : DWord ): DWord;
-begin
-  CRCend := (crc xor CRCSeed);
-end;
-
-function ShaCrcRefresh(OldCRC: cardinal; BufPtr: pointer; BufLen: integer): cardinal;
-// Fast CRC32 calculator
-// (c) Aleksandr Sharahov 2009
-// Free for any use
-{$IFDEF WIN64}
-begin
-  Result := crc32_update(BufPtr, BufLen, OldCRC);
-{$ENDIF WIN64}
-{$IFDEF WIN32}
-asm
-  test edx, edx
-  jz   @ret
-  neg  ecx
-  jz   @ret
-  push ebx
-@head:
-  test dl, 3
-  jz   @bodyinit
-  movzx ebx, byte [edx]
-  inc  edx
-  xor  bl, al
-  shr  eax, 8
-  xor  eax, [ebx*4 + crctbl]
-  inc  ecx
-  jnz  @head
-  pop  ebx
-@ret:
-  ret
-@bodyinit:
-  sub  edx, ecx
-  add  ecx, 8
-  jg   @bodydone
-  push esi
-  push edi
-  mov  edi, edx
-  mov  edx, eax
-@bodyloop:
-  mov ebx, [edi + ecx - 4]
-  xor edx, [edi + ecx - 8]
-  movzx esi, bl
-  mov eax, [esi*4 + crctbl + 1024*3]
-  movzx esi, bh
-  xor eax, [esi*4 + crctbl + 1024*2]
-  shr ebx, 16
-  movzx esi, bl
-  xor eax, [esi*4 + crctbl + 1024*1]
-  movzx esi, bh
-  xor eax, [esi*4 + crctbl + 1024*0]
-
-  movzx esi, dl
-  xor eax, [esi*4 + crctbl + 1024*7]
-  movzx esi, dh
-  xor eax, [esi*4 + crctbl + 1024*6]
-  shr edx, 16
-  movzx esi, dl
-  xor eax, [esi*4 + crctbl + 1024*5]
-  movzx esi, dh
-  xor eax, [esi*4 + crctbl + 1024*4]
-
-  add ecx, 8
-  jg  @done
-
-  mov ebx, [edi + ecx - 4]
-  xor eax, [edi + ecx - 8]
-  movzx esi, bl
-  mov edx, [esi*4 + crctbl + 1024*3]
-  movzx esi, bh
-  xor edx, [esi*4 + crctbl + 1024*2]
-  shr ebx, 16
-  movzx esi, bl
-  xor edx, [esi*4 + crctbl + 1024*1]
-  movzx esi, bh
-  xor edx, [esi*4 + crctbl + 1024*0]
-
-  movzx esi, al
-  xor edx, [esi*4 + crctbl + 1024*7]
-  movzx esi, ah
-  xor edx, [esi*4 + crctbl + 1024*6]
-  shr eax, 16
-  movzx esi, al
-  xor edx, [esi*4 + crctbl + 1024*5]
-  movzx esi, ah
-  xor edx, [esi*4 + crctbl + 1024*4]
-
-  add ecx, 8
-  jle @bodyloop
-  mov eax, edx
-@done:
-  mov edx, edi
-  pop edi
-  pop esi
-@bodydone:
-  sub ecx, 8
-  jl @tail
-  pop ebx
-  ret
-@tail:
-  movzx ebx, byte [edx + ecx];
-  xor bl,al;
-  shr eax,8;
-  xor eax, [ebx*4 + crctbl];
-  inc ecx;
-  jnz @tail;
-  pop ebx
-  ret
-{$ENDIF WIN32}
-end;
-
-function wbCRC32Ptr(aData: Pointer; aSize: Integer): TwbCRC32;
-begin
-  Result := not ShaCrcRefresh($FFFFFFFF, aData, aSize);
-end;
-
-function wbCRC32Data(aData: TBytes): TwbCRC32;
-begin
-  Result := not ShaCrcRefresh($FFFFFFFF, @aData[0], Length(aData));
-end;
-
-function wbCRC32File(aFileName: string): TwbCRC32;
-var
-  Data: TBytes;
-begin
-  Result := 0;
-  if FileExists(aFileName) then
-    with TFileStream.Create(aFileName, fmOpenRead + fmShareDenyNone) do try
-      SetLength(Data, Size);
-      ReadBuffer(Data[0], Length(Data));
-      Result := wbCRC32Data(Data);
-    finally
-      Free;
-    end;
 end;
 
 var
@@ -873,7 +627,7 @@ begin
     try
       Result := _CRC32App;
       if Result = 0 then begin
-        Result := wbCRC32File(ParamStr(0));
+        Result := TwbHash.CRC32(ParamStr(0));
         _CRC32App := Result;
       end;
     finally
@@ -882,271 +636,16 @@ begin
   end;
 end;
 
-function wbDecodeCRCList(const aList: string): TDynCardinalArray;
-var
-  i: Integer;
-  s: string;
-  j: Int64;
-begin
-  Result := nil;
-  try
-    with TStringList.Create do try
-      CommaText := aList;
-      for i := 0 to Pred(Count) do begin
-        s := Trim(Strings[i]);
-        if Length(s) <> 8 then
-          Abort;
-        j := StrToInt64('$'+s);
-        if (j < Low(Cardinal)) or (j > High(Cardinal)) then
-          Abort;
-        SetLength(Result, Succ(Length(Result)));
-        Result[High(Result)] := j;
-      end;
-    finally
-      Free;
-    end;
-  except
-    SetLength(Result, 1);
-    Result[0] := $FFFFFFFF;
-  end;
-end;
-
-function bscrc32(const aText: string): Cardinal;
-var
-  i: Integer;
-begin
-  Result := 0;
-  for i := 1 to Length(aText) do
-    Result := (Result shr 8) xor CRC32tab[(Result xor Byte(AnsiChar(aText[i]))) and $FF];
-end;
-
-
-function CryptAcquireContext(var phProv: DWORD;
-  pszContainer, pszProvider: LPCSTR; dwProvType, dwFlags: DWORD): BOOL;
-  stdcall; external advapi32 name 'CryptAcquireContextA';
-function CryptCreateHash(hProv,Algid,hKey,dwFlags: DWORD;
-  var phHash: DWORD): BOOL; stdcall; external advapi32;
-function CryptHashData(hHash: DWORD; pbData: PBYTE; dwDataLen,
-  dwFlags: DWORD): BOOL; stdcall; external advapi32;
-function CryptGetHashParam(hHash, dwParam: DWORD; pbData: PBYTE;
-  var pdwDataLen: DWORD; dwFlags: DWORD): BOOL; stdcall; external advapi32;
-function CryptDestroyHash(hHash: DWORD): BOOL; stdcall; external advapi32;
-function CryptReleaseContext(hProv: DWORD; dwFlags: DWORD): BOOL; stdcall; external advapi32;
-
-function CryptoAPIGetHash(Data: Pointer; nSize: Cardinal; HashType: Cardinal): TBytes;
-const
-  HP_HASHVAL           = $0002; {hash value}
-  PROV_RSA_FULL        = 1;
-  CRYPT_VERIFYCONTEXT  = $F0000000;
-var
-  hProv, hHash: Cardinal;
-begin
-  if CryptAcquireContext(hProv, nil, nil, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT) then try
-    if CryptCreateHash(hProv, HashType, 0, 0, hHash) then try
-      if CryptHashData(hHash, Data, nSize, 0) then begin
-        if CryptGetHashParam(hHash, HP_HASHVAL, nil, nSize, 0) then begin
-          SetLength(Result, nSize);
-          if not CryptGetHashParam(hHash, HP_HASHVAL, @Result[0], nSize, 0) then
-            SetLength(Result, 0);
-        end;
-      end;
-    finally
-      CryptDestroyHash(hHash);
-    end;
-  finally
-    CryptReleaseContext(hProv, 0);
-  end;
-end;
-
-const
-  ALG_CRC32 = $0001;
-  ALG_MD2 = $8001;
-  ALG_MD4 = $8002;
-  ALG_MD5 = $8003;
-  ALG_SHA = $8004;
-
-function wbCryptoApiHashData(aData: TBytes; aALG: Cardinal): string;
-  function BytesToHexStr(aBytes: TBytes): string;
-  var
-    i: Cardinal;
-    bt: Byte;
-  const
-    Hex = '0123456789abcdef';
-  begin
-    Result:= '';
-    for i:= Low(aBytes) to High(aBytes) do begin
-      bt := aBytes[i];
-      Result:= Result + Hex[bt shr $4 + 1] + Hex[bt and $0f + 1]
-    end;
-  end;
-begin
-  Result := BytesToHexStr(CryptoAPIGetHash(@aData[0], Length(aData), aALG));
-end;
-
-function wbSHA1Data(aData: TBytes): string;
-begin
-  Result := wbCryptoApiHashData(aData, ALG_SHA);
-end;
-
-function wbSHA1File(aFileName: string): string;
-var
-  Data: TBytes;
-begin
-  Result := '';
-  if FileExists(aFileName) then
-    with TFileStream.Create(aFileName, fmOpenRead + fmShareDenyNone) do try
-      SetLength(Data, Size);
-      ReadBuffer(Data[0], Length(Data));
-      Result := wbSHA1Data(Data);
-    finally
-      Free;
-    end;
-end;
-
-function wbMD5Data(aData: TBytes): string;
-begin
-  Result := wbCryptoApiHashData(aData, ALG_MD5);
-end;
-
-function wbMD5File(aFileName: string): string;
-var
-  Data: TBytes;
-begin
-  Result := '';
-  if FileExists(aFileName) then
-    with TFileStream.Create(aFileName, fmOpenRead + fmShareDenyNone) do try
-      SetLength(Data, Size);
-      ReadBuffer(Data[0], Length(Data));
-      Result := wbMD5Data(Data);
-    finally
-      Free;
-    end;
-end;
-
-function wbExtractNameFromPath(aPathName: String): String;
+function wbExtractNameFromPath(const aPathName: String): String;
 begin
   Result := aPathName;
   while Pos('\', Result) > 0 do
     Delete(Result, 1, Pos('\', Result))
 end;
 
-function wbCounterAfterSet(aCounterName: String; const aElement: IwbElement): Boolean;
-var
-  Element         : IwbElement;
-  Container       : IwbContainer;
-  SelfAsContainer : IwbContainer;
-begin
-  Result := False;
-  if wbBeginInternalEdit(True) then try
-    if (Length(aCounterName) >= 4) and Supports(aElement.Container, IwbContainer, Container) and
-      Supports(aElement, IwbContainer, SelfAsContainer) then begin
-      Element := Container.ElementByName[aCounterName];
-      if not Assigned(Element) then  // Signatures not listed in mrDef cannot be added
-        Element := Container.Add(Copy(aCounterName, 1, 4));
-      if Assigned(Element) and (SameText(Element.Name, aCounterName)) then try
-        if Element.GetNativeValue <> SelfAsContainer.GetElementCount then
-          // if count = 0 and counter element is not required, then just remove it
-          if (SelfAsContainer.GetElementCount = 0) and Element.IsRemovable then
-            Element.Remove
-          else
-            Element.SetNativeValue(SelfAsContainer.GetElementCount);
-
-        Result := True;
-      except
-        // No exception if the value cannot be set, expected non value
-      end;
-    end;
-  finally
-    wbEndInternalEdit;
-  end;
-end;
-
-function wbCounterByPathAfterSet(aCounterName: String; const aElement: IwbElement): Boolean;
-var
-  Element         : IwbElement;
-  Container       : IwbContainer;
-  SelfAsContainer : IwbContainer;
-begin
-  Result := False;
-  if wbBeginInternalEdit(True) then try
-    if (Length(aCounterName) >= 4) and Supports(aElement.Container, IwbContainer, Container) and
-      Supports(aElement, IwbContainer, SelfAsContainer) then begin
-      Element := Container.ElementByPath[aCounterName];
-//      if not Assigned(Element) then  // Signatures not listed in mrDef cannot be added
-//        Element := Container.Add(Copy(aCounterName, 1, 4));
-      if Assigned(Element) and (SameText(Element.Name, wbExtractNameFromPath(aCounterName))) then try
-        if Element.GetNativeValue <> SelfAsContainer.GetElementCount then
-          // if count = 0 and counter element is not required, then just remove it
-          if (SelfAsContainer.GetElementCount = 0) and not Element.Def.Required then
-            Element.Remove
-          else
-            Element.SetNativeValue(SelfAsContainer.GetElementCount);
-
-        Result := True;
-      except
-        // No exception if the value cannot be set, expected non value
-      end;
-    end;
-  finally
-    wbEndInternalEdit;
-  end;
-end;
-
-function wbCounterContainerAfterSet(aCounterName: String; anArrayName: String; const aElement: IwbElement): Boolean;
-var
-  Element         : IwbElement;
-  Elems           : IwbElement;
-  Container       : IwbContainer;
-begin
-  Result := False;  // You may need to check alternative counter name
-  if wbBeginInternalEdit(True) then try
-    if not Supports(aElement, IwbContainer, Container) then
-      Exit;
-
-    Element := Container.ElementByName[aCounterName];
-    if not Assigned(Element) then
-      Exit;
-
-    Elems   := Container.ElementByName[anArrayName];
-    if not Assigned(Elems) then
-      if Element.GetNativeValue <> 0 then
-        Element.SetNativeValue(0)
-      // if count = 0 and counter element is not required, then just remove it
-      else if not Element.Def.Required then
-        Container.RemoveElement(aCounterName);
-
-    Result := True; // Counter member exists
-  finally
-    wbEndInternalEdit;
-  end;
-end;
-
-function wbCounterContainerByPathAfterSet(aCounterName: String; anArrayName: String; const aElement: IwbElement): Boolean;
-var
-  Element         : IwbElement;
-  Elems           : IwbElement;
-  Container       : IwbContainer;
-begin
-  Result := False;  // You may need to check alterative counter name
-  if wbBeginInternalEdit(True) then try
-    if Supports(aElement, IwbContainer, Container) then begin
-      Element := Container.ElementByPath[aCounterName];
-      Elems   := Container.ElementByName[anArrayName];
-      if Assigned(Element) then begin
-        if not Assigned(Elems) then
-          if Element.GetNativeValue <> 0 then
-            Element.SetNativeValue(0);
-        Result := True; // Counter member exists
-      end;
-    end;
-  finally
-    wbEndInternalEdit;
-  end;
-end;
-
 // BSA helper
 
-function MakeDataFileName(FileName, DataPath: String): String;
+function MakeDataFileName(const FileName, DataPath: String): String;
 begin
   // MO uses 3 chars aliases
   if Length(FileName) < 3 then
@@ -1157,7 +656,7 @@ begin
     Result := FileName;
 end;
 
-function CheckAddFilesToString(var mIni: TIniFile; var cIni: TIniFile; Section, Ident: String): String;
+function CheckAddFilesToString(var mIni: TIniFile; var cIni: TIniFile; const Section, Ident: String): String;
 begin
   Result := '';
   if cIni.ValueExists(Section, Ident) then
@@ -1166,7 +665,7 @@ begin
     Result := StringReplace(mIni.ReadString(Section, Ident, ''), ',' ,#10, [rfReplaceAll]);
 end;
 
-function FindBSAs(IniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer;
+function FindBSAs(const IniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer;
 var
   i: Integer;
   j: Integer;
@@ -1228,7 +727,7 @@ begin
     end;
 end;
 
-function FindBSAs(IniName, CustomIniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer;
+function FindBSAs(const IniName, CustomIniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer;
 var
   i: Integer;
   j: Integer;
@@ -1302,7 +801,7 @@ begin
     end;
 end;
 
-function HasBSAs(ModName, DataPath: String; Exact, modini: Boolean; var bsaNames: TStringList; var bsaMissing: TStringList): Integer;
+function HasBSAs(ModName: string; const DataPath: String; Exact, modini: Boolean; var bsaNames: TStringList; var bsaMissing: TStringList): Integer;
 var
   j: Integer;
   t: String;
@@ -1337,11 +836,11 @@ begin
     until FindNext(F) <> 0;
     Result := bsaNames.Count  + bsaMissing.Count - j;
   finally
-    FindClose(F);
+    System.SysUtils.FindClose(F);
   end;
 end;
 
-function wbDDSDataToBitmap(aData: TBytes; Bitmap: TBitmap): Boolean;
+function wbDDSDataToBitmap(const aData: TBytes; Bitmap: Vcl.Graphics.TBitmap): Boolean;
 var
   img: TImageData;
   ms: TMemoryStream;
@@ -1362,7 +861,7 @@ begin
   end;
 end;
 
-function wbDDSStreamToBitmap(aStream: TStream; Bitmap: TBitmap): Boolean;
+function wbDDSStreamToBitmap(aStream: TStream; Bitmap: Vcl.Graphics.TBitmap): Boolean;
 var
   img: TImageData;
   ms: TMemoryStream;
@@ -1383,7 +882,7 @@ begin
   end;
 end;
 
-function wbIsAssociatedWithExtension(aExt: string): Boolean;
+function wbIsAssociatedWithExtension(const aExt: string): Boolean;
 var
   Name: string;
 begin
@@ -1401,7 +900,7 @@ begin
   end;
 end;
 
-function wbAssociateWithExtension(aExt, aName, aDescr: string): Boolean;
+function wbAssociateWithExtension(aExt: string; const aName, aDescr: string): Boolean;
 begin
   Result := False;
 
@@ -1557,7 +1056,7 @@ begin
   if FindFirst(s, faAnyFile, F) = 0 then try
     Result := F.TimeStamp;
   finally
-    FindClose(F);
+    System.SysUtils.FindClose(F);
   end else
     Result := TFile.GetLastWriteTime(s);
 end;
@@ -1586,15 +1085,135 @@ begin
   Result := Elements;
 end;
 
-procedure wbTwiddleHeight(aControl: TControl);
+// **************** PERK Challenge JSON serialization support
+procedure SerializeStreamArray(const aElement: IwbElement; const aJsonArray: TJsonArray);
+var
+  lContainer: IwbContainer;
+  i: Integer;
 begin
-  var lHeight := aControl.Height;
-  aControl.Height := Succ(lHeight);
-  aControl.Height := lHeight;
+  if not Supports(aElement, IwbContainer, lContainer) then Exit;
+
+  aJsonArray.Clear;
+
+  for i := 0 to Pred(lContainer.ElementCount) do
+  begin
+    var lChild := lContainer.Elements[i];
+    if Assigned(lChild) and (lChild.ElementType = etValue) then
+      aJsonArray.Add(IntToStr(lChild.NativeValue))
+    else
+      aJsonArray.AddObject(nil);
+  end;
 end;
 
+procedure SerializeArray(const aElement: IwbElement; const aJsonArray: TJsonArray);
+var
+  lContainer: IwbContainer;
+  lChild: IwbElement;
+  i: Integer;
+begin
+  if not Supports(aElement, IwbContainer, lContainer) then Exit;
+
+  for i := 0 to Pred(lContainer.ElementCount) do
+  begin
+    lChild := lContainer.Elements[i];
+
+    if not Assigned(lChild) then
+    begin
+      aJsonArray.AddObject(nil);
+      Continue;
+    end;
+
+    case lChild.ElementType of
+      etValue:
+        if VarIsNull(lChild.EditValue) or (lChild.EditValue = '') or
+           (lChild.EditValue = '<null>') then
+          aJsonArray.AddObject(nil)
+        else
+          aJsonArray.Add(lChild.EditValue);
+
+      etStruct, etArray:
+        aJsonArray.AddObject(SerializeElementToJson(lChild));
+    else
+      aJsonArray.Add(lChild.EditValue);
+    end;
+  end;
+end;
+
+procedure SerializeElement(const aElement: IwbElement; const aJsonObj: TJsonObject);
+var
+  lContainer: IwbContainer;
+  lChild: IwbElement;
+  i: Integer;
+  lName: string;
+begin
+  if not Assigned(aElement) or not Assigned(aJsonObj) then Exit;
+
+  if not Supports(aElement, IwbContainer, lContainer) then
+  begin
+    aJsonObj.S[aElement.Name] := aElement.EditValue;
+    Exit;
+  end;
+
+  for i := 0 to Pred(lContainer.ElementCount) do
+  begin
+    lChild := lContainer.Elements[i];
+    if not Assigned(lChild) then Continue;
+
+    lName := lChild.Name;
+
+    // ==================== SPECIAL HANDLING ====================
+    if SameText(lName, 'Type') then
+    begin
+      aJsonObj.S['Type'] := lChild.EditValue;
+      Continue;
+    end;
+
+    if SameText(lName, 'Stream') then
+    begin
+      SerializeStreamArray(lChild, aJsonObj.A['Stream']);
+      Continue;
+    end;
+    // ========================================================
+
+    case lChild.ElementType of
+      etValue:
+        begin
+          if VarIsNull(lChild.EditValue) or (lChild.EditValue = '') or
+             (lChild.EditValue = '<null>') or (lChild.EditValue = 'NULL') then
+            aJsonObj.O[lName] := nil
+          else
+            aJsonObj.S[lName] := lChild.EditValue;
+        end;
+
+      etStruct:
+        begin
+          // Most "Data" fields are structs
+          if SameText(lName, 'Data') then
+            aJsonObj.O[lName] := SerializeElementToJson(lChild)
+          else
+            aJsonObj.O[lName] := SerializeElementToJson(lChild);
+        end;
+
+      etArray:
+        begin
+          if not SameText(lName, 'Stream') then   // already handled above
+            SerializeArray(lChild, aJsonObj.A[lName]);
+        end
+    else
+      aJsonObj.S[lName] := lChild.EditValue;
+    end;
+  end;
+end;
+
+function SerializeElementToJson(const aElement: IwbElement): TJsonObject;
+begin
+  Result := TJsonObject.Create;
+  if Assigned(aElement) then
+    SerializeElement(aElement, Result);
+end;
+// **************** End PERK Challenge JSON serialization support
+
 initialization
-  CRCInit;
   _CRC32AppLock.Initialize;
 finalization
   _CRC32AppLock.Destroy;

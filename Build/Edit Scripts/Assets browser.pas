@@ -20,7 +20,7 @@ var
   lblItems: TLabel;
   cmbContainer: TComboBox;
   lvAssets: TListView;
-  mInfo: TMemo;
+  mInfo: TRichEdit;
   mnPopup: TPopupMenu;
   MenuItem: TMenuItem;
 
@@ -456,7 +456,7 @@ begin
     sp.Align := alTop;
     sp.Height := 5;
 
-    mInfo := TMemo.Create(frm); mInfo.Parent := frm;
+    mInfo := TRichEdit.Create(frm); mInfo.Parent := frm;
     mInfo.Align := alClient;
     mInfo.BorderStyle := bsNone;
     mInfo.ScrollBars := ssVertical;

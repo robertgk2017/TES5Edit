@@ -13,9 +13,12 @@ unit xeWorldspaceCellDetailsForm;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.Samples.Spin;
+  System.Classes,
 
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.Samples.Spin,
+  Vcl.StdCtrls;
 type
   TfrmWorldspaceCellDetails = class(TForm)
     rbPersistent: TRadioButton;
@@ -39,8 +42,9 @@ implementation
 {$R *.dfm}
 
 uses
-  xeMainForm,
-  wbInterface;
+  wbInterface,
+
+  xeMainForm;
 
 procedure TfrmWorldspaceCellDetails.FormCreate(Sender: TObject);
 begin

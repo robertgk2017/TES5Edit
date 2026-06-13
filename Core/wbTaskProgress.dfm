@@ -11,12 +11,10 @@ object FormTaskProgress: TFormTaskProgress
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   Position = poOwnerFormCenter
   OnActivate = FormActivate
   OnClose = FormClose
   OnCreate = FormCreate
-  PixelsPerInch = 96
   TextHeight = 13
   object ProgressBar: TProgressBar
     Left = 16

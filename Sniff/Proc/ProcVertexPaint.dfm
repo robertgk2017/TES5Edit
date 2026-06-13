@@ -6,7 +6,7 @@ object FrameVertexPaint: TFrameVertexPaint
   TabOrder = 0
   object Label1: TLabel
     Left = 27
-    Top = 169
+    Top = 193
     Width = 111
     Height = 15
     Margins.Left = 5
@@ -16,7 +16,7 @@ object FrameVertexPaint: TFrameVertexPaint
   end
   object lblColor2: TLabel
     Left = 298
-    Top = 169
+    Top = 193
     Width = 64
     Height = 15
     Margins.Left = 5
@@ -26,7 +26,7 @@ object FrameVertexPaint: TFrameVertexPaint
   end
   object lblHelper: TLabel
     Left = 517
-    Top = 80
+    Top = 104
     Width = 21
     Height = 13
     Cursor = crHandPoint
@@ -56,14 +56,14 @@ object FrameVertexPaint: TFrameVertexPaint
     Align = alTop
     AutoSize = False
     Caption = 
-      'Fill vertex colors in NiTriShapeData and NiTriStripsData with th' +
-      'e specified one, adjust with HSL modifiers, or remove completely' +
-      '.'
+      'Fill vertex colors in BSTriShape, NiTriShapeData and NiTriStrips' +
+      'Data with the specified one, adjust with HSL modifiers, or remov' +
+      'e completely.'
     TabOrder = 0
   end
   object rbSetColors: TRadioButton
     Left = 24
-    Top = 48
+    Top = 72
     Width = 153
     Height = 17
     Margins.Left = 5
@@ -78,7 +78,7 @@ object FrameVertexPaint: TFrameVertexPaint
   end
   object rbRemoveColors: TRadioButton
     Left = 24
-    Top = 108
+    Top = 132
     Width = 153
     Height = 17
     Margins.Left = 5
@@ -91,7 +91,7 @@ object FrameVertexPaint: TFrameVertexPaint
   end
   object chkAllWhite: TCheckBox
     Left = 183
-    Top = 108
+    Top = 132
     Width = 290
     Height = 17
     Margins.Left = 5
@@ -103,7 +103,7 @@ object FrameVertexPaint: TFrameVertexPaint
   end
   object edColor: TEdit
     Left = 163
-    Top = 166
+    Top = 190
     Width = 73
     Height = 23
     Margins.Left = 5
@@ -115,7 +115,7 @@ object FrameVertexPaint: TFrameVertexPaint
   end
   object btnColorSelect: TButton
     Left = 242
-    Top = 165
+    Top = 189
     Width = 34
     Height = 25
     Margins.Left = 5
@@ -128,7 +128,7 @@ object FrameVertexPaint: TFrameVertexPaint
   end
   object chkAddIfMissing: TCheckBox
     Left = 183
-    Top = 48
+    Top = 72
     Width = 145
     Height = 17
     Margins.Left = 5
@@ -140,7 +140,7 @@ object FrameVertexPaint: TFrameVertexPaint
   end
   object rbAdjustColors: TRadioButton
     Left = 24
-    Top = 78
+    Top = 102
     Width = 153
     Height = 17
     Margins.Left = 5
@@ -153,7 +153,7 @@ object FrameVertexPaint: TFrameVertexPaint
   end
   object cbAdjustMod: TComboBox
     Left = 183
-    Top = 76
+    Top = 100
     Width = 74
     Height = 23
     Margins.Left = 5
@@ -170,7 +170,7 @@ object FrameVertexPaint: TFrameVertexPaint
   end
   object edAdjustH: TLabeledEdit
     Left = 282
-    Top = 76
+    Top = 100
     Width = 36
     Height = 23
     Margins.Left = 5
@@ -190,7 +190,7 @@ object FrameVertexPaint: TFrameVertexPaint
   end
   object edAdjustS: TLabeledEdit
     Left = 346
-    Top = 76
+    Top = 100
     Width = 36
     Height = 23
     Margins.Left = 5
@@ -210,7 +210,7 @@ object FrameVertexPaint: TFrameVertexPaint
   end
   object edAdjustL: TLabeledEdit
     Left = 410
-    Top = 76
+    Top = 100
     Width = 36
     Height = 23
     Margins.Left = 5
@@ -230,7 +230,7 @@ object FrameVertexPaint: TFrameVertexPaint
   end
   object edAdjustA: TLabeledEdit
     Left = 475
-    Top = 76
+    Top = 100
     Width = 36
     Height = 23
     Margins.Left = 5
@@ -250,7 +250,7 @@ object FrameVertexPaint: TFrameVertexPaint
   end
   object rbReplaceColor: TRadioButton
     Left = 24
-    Top = 137
+    Top = 161
     Width = 153
     Height = 17
     Margins.Left = 5
@@ -263,7 +263,7 @@ object FrameVertexPaint: TFrameVertexPaint
   end
   object edColor2: TEdit
     Left = 373
-    Top = 166
+    Top = 190
     Width = 73
     Height = 23
     Margins.Left = 5
@@ -275,7 +275,7 @@ object FrameVertexPaint: TFrameVertexPaint
   end
   object btnColor2Select: TButton
     Left = 452
-    Top = 165
+    Top = 189
     Width = 34
     Height = 25
     Margins.Left = 5
@@ -285,5 +285,49 @@ object FrameVertexPaint: TFrameVertexPaint
     Caption = '...'
     TabOrder = 15
     OnClick = btnColorSelectClick
+  end
+  object edName: TLabeledEdit
+    Left = 131
+    Top = 41
+    Width = 105
+    Height = 23
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
+    EditLabel.Width = 92
+    EditLabel.Height = 23
+    EditLabel.Margins.Left = 5
+    EditLabel.Margins.Top = 5
+    EditLabel.Margins.Right = 5
+    EditLabel.Margins.Bottom = 5
+    EditLabel.Caption = 'Shape name filter'
+    LabelPosition = lpLeft
+    TabOrder = 16
+    Text = ''
+  end
+  object chkSkipColor: TCheckBox
+    Left = 253
+    Top = 44
+    Width = 112
+    Height = 17
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
+    Caption = 'don'#39't alter color'
+    TabOrder = 17
+  end
+  object edSkipColor: TEdit
+    Left = 373
+    Top = 41
+    Width = 73
+    Height = 23
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
+    TabOrder = 18
+    Text = 'FFFFFFFF'
   end
 end

@@ -11,9 +11,16 @@ unit ProcAnimQuadraticToLinear;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Mask;
+  System.SysUtils,
+  System.Classes,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Mask,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameAnimQuadraticToLinear = class(TFrame)
@@ -40,7 +47,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 implementation
@@ -48,7 +55,8 @@ implementation
 {$R *.dfm}
 
 uses
-  StrUtils,
+  System.StrUtils,
+
   wbDataFormat,
   wbDataFormatNif;
 
@@ -101,7 +109,7 @@ begin
   fNotMatching := Frame.chkNotMatching.Checked;
 end;
 
-function TProcAnimQuadraticToLinear.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcAnimQuadraticToLinear.ProcessFile(aFile: TProcFileObject): TBytes;
 var
   nif: TwbNifFile;
   Interpolator: TwbNifBlock;
@@ -112,7 +120,7 @@ begin
   bChanged := False;
   nif := TwbNifFile.Create;
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     if nif.BlocksCount = 0 then
       Exit;

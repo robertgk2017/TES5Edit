@@ -15,23 +15,17 @@ interface
 implementation
 
 uses
-  Classes,
-  SysUtils,
-  StrUtils,
-  System.Generics.Collections,
-  Variants,
-  Forms,
+  System.Classes,
   System.RegularExpressionsCore,
-  wbInterface,
-  xeInit,
-  xeScriptHost,
-  VirtualTrees,
-  xeMainForm,
-  xeFileSelectForm,
-  wbLOD,
-  wbHelpers,
+  System.SysUtils,
+
+  JvInterpreter,
+
   wbDataFormat,
-  JvInterpreter;
+  wbInterface,
+
+  xeMainForm,
+  xeScriptHost;
 
 type
   TxejviScript = class(TInterfacedObject, IxeScript)
@@ -40,7 +34,6 @@ type
     FScript     : string;
     FProgram    : TJvInterpreterProgram;
 
-    procedure JvInterpreterProgramGetValue(Sender: TObject; Identifier: string; var Value: Variant; Args: TJvInterpreterArgs; var Done: Boolean);
     procedure JvInterpreterProgramGetUnitSource(UnitName: string; var Source: string; var Done: Boolean);
     procedure JvInterpreterProgramStatement(Sender: TObject);
     procedure JvInterpreterProgramSetValue(Sender: TObject; Identifier: string; const Value: Variant; Args: TJvInterpreterArgs; var Done: Boolean);
@@ -50,6 +43,7 @@ type
     { IxeScript }
     function CallFunction(const aName: string; const aParams: array of Variant): Variant;
     function FunctionExists(const aName: string): Boolean;
+    function FunctionIsEmpty(const aName: string): Boolean;
     function GetLastErrorLocation: string;
   public
     destructor Destroy; override;
@@ -62,472 +56,6 @@ type
   public
     constructor Create; override;
   end;
-
-procedure TxejviScript.JvInterpreterProgramGetValue(Sender: TObject;
-  Identifier: string; var Value: Variant; Args: TJvInterpreterArgs;
-  var Done: Boolean);
-var
-  Element             : IwbElement;
-  MainRecord          : IwbMainRecord;
-  Container           : IwbContainerElementRef;
-  _File               : IwbFile;
-  NodeDatas           : TDynViewNodeDatas;
-  ConflictThis        : TConflictThis;
-  ConflictAll         : TConflictAll;
-  List                : TList;
-  i                   : Integer;
-begin
-  with frmMain do
-  if SameText(Identifier, 'wbGameMode') and (Args.Count = 0) then begin
-    Value := wbGameMode;
-    Done := True;
-  end
-  else if SameText(Identifier, 'wbGameName') and (Args.Count = 0) then begin
-    Value := wbGameName;
-    Done := True;
-  end
-  else if SameText(Identifier, 'wbGameMasterEsm') and (Args.Count = 0) then begin
-    Value := wbGameMasterEsm;
-    Done := True;
-  end
-  else if SameText(Identifier, 'wbGameName2') and (Args.Count = 0) then begin
-    Value := wbGameName2;
-    Done := True;
-  end
-  else if SameText(Identifier, 'wbAppName') and (Args.Count = 0) then begin
-    Value := wbAppName;
-    Done := True;
-  end
-  else if SameText(Identifier, 'wbLoadBSAs') and (Args.Count = 0) then begin
-    Value := wbLoadBSAs;
-    Done := True;
-  end
-  else if SameText(Identifier, 'wbSimpleRecords') and (Args.Count = 0) then begin
-    Value := wbSimpleRecords;
-    Done := True;
-  end
-  else if SameText(Identifier, 'wbDecodeTextureHashes') and (Args.Count = 0) then begin
-    Value := wbDecodeTextureHashes;
-    Done := True;
-  end
-  else if SameText(Identifier, 'wbTrackAllEditorID') and (Args.Count = 0) then begin
-    Value := wbTrackAllEditorID;
-    Done := True;
-  end
-  else if SameText(Identifier, 'wbRecordDefMap') and (Args.Count = 0) then begin
-    Value := O2V(_wbRecordDefMap);
-    Done := True;
-  end
-  else if (SameText(Identifier,   'ProgramPath') and (Args.Count = 0)) or
-     (SameText(Identifier, 'wbProgramPath') and (Args.Count = 0)) then begin
-    Value := wbProgramPath;
-    Done := True;
-  end
-  else if (SameText(Identifier,   'ScriptsPath') and (Args.Count = 0)) or
-     (SameText(Identifier, 'wbScriptsPath') and (Args.Count = 0)) then begin
-    Value := wbScriptsPath;
-    Done := True;
-  end
-  else if (SameText(Identifier, 'wbDataPath') and (Args.Count = 0)) or
-     (SameText(Identifier, 'DataPath') and (Args.Count = 0)) then begin
-    Value := wbDataPath;
-    Done := True;
-  end
-  else if (SameText(Identifier, 'wbTempPath') and (Args.Count = 0)) or
-     (SameText(Identifier, 'TempPath') and (Args.Count = 0)) then begin
-    Value := wbTempPath;
-    Done := True;
-  end
-  else if SameText(Identifier, 'wbOutputPath') and (Args.Count = 0) then begin
-    Value := wbOutputPath;
-    Done := True;
-  end
-  else if (SameText(Identifier, 'wbSettingsFileName') and (Args.Count = 0)) then begin
-    Value := xeSettingsFileName;
-    Done := True;
-  end
-  else if (SameText(Identifier, 'wbSettings') and (Args.Count = 0)) then begin
-    Value := O2V(Settings);
-    Done := True;
-  end
-  else if SameText(Identifier, 'FilterApplied') and (Args.Count = 0) then begin
-    Value := FilterApplied;
-    Done := True;
-  end
-  else if SameText(Identifier, 'frmMain') and (Args.Count = 0) then begin
-    Value := O2V(frmMain);
-    Done := True;
-  end
-  else if SameText(Identifier, 'AddMessage') then begin
-    if (Args.Count = 1) and VarIsStr(Args.Values[0]) then begin
-      wbProgress(Args.Values[0]);
-      Done := True;
-    end else
-      JvInterpreterError(ieDirectInvalidArgument, 0);
-  end
-  else if SameText(Identifier, 'ClearMessages') and (Args.Count = 0) then begin
-    mmoMessages.Clear;
-    Done := True;
-    DoProcessMessages;
-  end
-  else if SameText(Identifier, 'FileCount') and (Args.Count = 0) then begin
-    Value := Length(Files);
-    Done := True;
-  end
-  else if SameText(Identifier, 'FileByIndex') then begin
-    if (Args.Count = 1) and VarIsNumeric(Args.Values[0]) and (Args.Values[0] < Length(Files)) then begin
-      Value := Files[Integer(Args.Values[0])];
-      Done := True;
-    end else
-      JvInterpreterError(ieDirectInvalidArgument, 0); // or  ieNotEnoughParams, ieIncompatibleTypes or others.
-  end
-  else if SameText(Identifier, 'FileByLoadOrderFileID') then begin
-    if (Args.Count = 1) and VarIsStr(Args.Values[0]) then begin
-      for i := Low(Files) to High(Files) do
-        if Files[i].LoadOrderFileID.ToString = Args.Values[0] then begin
-          Value := Files[i];
-          Break;
-        end;
-      Done := True;
-    end else
-      JvInterpreterError(ieDirectInvalidArgument, 0);
-  end
-  else if SameText(Identifier, 'FileByLoadOrder') then begin
-    if (Args.Count = 1) and VarIsNumeric(Args.Values[0]) and (Args.Values[0] < Length(Files)) then begin
-      for i := Low(Files) to High(Files) do
-        if Files[i].LoadOrder = Integer(Args.Values[0]) then begin
-          Value := Files[i];
-          Break;
-        end;
-      Done := True;
-    end else
-      JvInterpreterError(ieDirectInvalidArgument, 0);
-  end
-  else if SameText(Identifier, 'FileByName') then begin
-    if (Args.Count = 1) and VarIsStr(Args.Values[0]) then begin
-      for i := Low(Files) to High(Files) do
-        if SameText(Args.Values[0], Files[i].FileName) then begin
-          Value := Files[i];
-          Break;
-        end;
-      Done := True;
-    end else
-      JvInterpreterError(ieDirectInvalidArgument, 0); // or  ieNotEnoughParams, ieIncompatibleTypes or others.
-  end
-  else if SameText(Identifier, 'RecordFromFileByFormID') then begin
-    var lFile: IwbFile;
-    var lFormID: TwbFormID;
-    case Args.Count of
-    0, 1: JvInterpreterError(ieNotEnoughParams, -1);
-    2:
-      begin
-        // detect if first arg is file by name or interface
-        if VarIsStr(Args.Values[0]) then
-        begin
-          for i := Low(Files) to High(Files) do
-            if SameText(Args.Values[0], Files[i].FileName) then
-            begin
-              lFile := Files[i];
-              Break;
-            end;
-            if not Assigned(lFile) then
-              JvInterpreterErrorN(ieUnitNotFound, -1, Args.Values[0]);
-        end
-        else if not Supports(IInterface(Args.Values[0]), IwbFile, lFile) then
-          JvInterpreterError(ieTypeMistmatch, -1);
-
-        // determine if second arg is form id as integer or string
-        if VarIsStr(Args.Values[1]) then
-          lFormID := TwbFormID.FromStr(string(Args.Values[1]))
-        else if VarIsNumeric(Args.Values[1]) then
-          lFormID := TwbFormID.FromVar(Args.Values[1]);
-
-        if lFile.IsLight then
-          lFormID.ObjectID := lFormID.ObjectID and $FFF
-        else if lFile.IsMedium then
-          lFormID.ObjectID := lFormID.ObjectID and $FFFF
-        else
-          lFormID.ObjectID := lFormID.ObjectID and $FFFFFF;
-
-        lFormID.FileID := lFile.LoadOrderFileID;
-
-        Value := lFile.RecordByFormID[lformID, True, True];
-        Done := True;
-      end
-    else
-      JvInterpreterError(ieTooManyParams, -1);
-    end;
-  end
-  else if SameText(Identifier, 'RecordByHexFormID') then begin
-    if (Args.Count = 1) and VarIsStr(Args.Values[0]) then begin
-      Value := Null;
-      var aFormID: TwbFormID := TwbFormID.FromStr(string(Args.Values[0]));
-      for i := Low(Files) to High(Files) do
-        if Files[i].LoadOrderFileID = aFormID.FileID then begin
-          Value := Files[i].RecordByFormID[aFormID, True, True];
-          Break;
-        end;
-      Done := True;
-    end else
-      JvInterpreterError(ieDirectInvalidArgument, 0); // or  ieNotEnoughParams, ieIncompatibleTypes or others.
-  end
-  else if SameText(Identifier, 'IsPositionChanged') and (Args.Count = 1) then begin
-    if Supports(IInterface(Args.Values[0]), IwbMainRecord, MainRecord) then begin
-      Value := IsPositionChanged(MainRecord);
-      Done := True;
-    end else
-      JvInterpreterError(ieDirectInvalidArgument, 0);
-  end
-  else if SameText(Identifier, 'AddNewFile') and (Args.Count = 0) then begin
-    AddNewFile(_File, False, False);
-    Value := _File;
-    Done := True;
-  end
-  else if SameText(Identifier, 'AddNewFile') and (Args.Count = 1) then begin
-    AddNewFile(_File, Args.Values[0], False);
-    Value := _File;
-    Done := True;
-  end
-  else if SameText(Identifier, 'AddNewFile') and (Args.Count = 2) then begin
-    AddNewFile(_File, Args.Values[0], Args.Values[1]);
-    Value := _File;
-    Done := True;
-  end
-  else if SameText(Identifier, 'AddNewFileName') and (Args.Count = 1) then begin
-    Value := AddNewFileName(Args.Values[0], False, False);
-    Done := True;
-  end
-  else if SameText(Identifier, 'AddNewFileName') and (Args.Count = 2) then begin
-    Value := AddNewFileName(Args.Values[0], Args.Values[1], False);
-    Done := True;
-  end
-  else if SameText(Identifier, 'AddNewFileName') and (Args.Count = 3) then begin
-    Value := AddNewFileName(Args.Values[0], Args.Values[1], Args.Values[2]);
-    Done := True;
-  end
-  else if SameText(Identifier, 'AddRequiredElementMasters') and (Args.Count in [3, 4]) then begin
-    Value := false;
-    if Supports(IInterface(Args.Values[0]), IwbElement, Element) then
-      if Supports(IInterface(Args.Values[1]), IwbFile, _File) then begin
-        var Silent := False;
-        if Args.Count >= 4 then
-          Silent := Args.Values[3];
-        Value := AddRequiredMasters(Element, _File, Args.Values[2], Silent);
-      end;
-    Done := True;
-  end
-  else if SameText(Identifier, 'RemoveNode') and (Args.Count = 1) then begin
-    Value := False;
-    if Supports(IInterface(Args.Values[0]), IwbElement, Element) then begin
-      var Node: PVirtualNode := FindNodeForElement(Element);
-      if Assigned(Node) then begin
-        var NodeData: PNavNodeData := vstNav.GetNodeData(Node);
-        if Supports(Element, IwbMainRecord, MainRecord) then begin
-          CheckHistoryRemove(BackHistory, MainRecord);
-          CheckHistoryRemove(ForwardHistory, MainRecord);
-        end;
-        DoSetActiveRecord(nil);
-        if Element.Equals(NodeData.Container) then
-          NodeData.Container := nil;
-        if Assigned(NodeData.Container) then
-          NodeData.Container.Remove;
-        Element.Remove;
-        NodeData.Element := nil;
-        NodeData.Container := nil;
-        Element := nil;
-        vstNav.DeleteNode(Node);
-        Value := True;
-      end;
-    end;
-    Done := True;
-  end
-  else if SameText(Identifier, 'ConflictThisForMainRecord') and (Args.Count = 1) then begin
-    if Supports(IInterface(Args.Values[0]), IwbMainRecord, MainRecord) then begin
-      ConflictLevelForMainRecord(MainRecord, ConflictAll, ConflictThis);
-      Value := ConflictThis;
-      Done := True;
-    end else
-      JvInterpreterError(ieDirectInvalidArgument, 0);
-  end
-  else if SameText(Identifier, 'ConflictAllForMainRecord') and (Args.Count = 1) then begin
-    if Supports(IInterface(Args.Values[0]), IwbMainRecord, MainRecord) then begin
-      ConflictLevelForMainRecord(MainRecord, ConflictAll, ConflictThis);
-      Value := ConflictAll;
-      Done := True;
-    end else
-      JvInterpreterError(ieDirectInvalidArgument, 0);
-  end
-  else if SameText(Identifier, 'ConflictThisForNode') and (Args.Count = 1) then begin
-    if Supports(IInterface(Args.Values[0]), IwbElement, Element) then begin
-      var Node: PVirtualNode := FindNodeForElement(Element);
-      if Assigned(Node) then begin
-        var NodeData: PNavNodeData := vstNav.GetNodeData(Node);
-        Value := NodeData.ConflictThis;
-      end;
-      Done := True;
-    end else
-      JvInterpreterError(ieDirectInvalidArgument, 0);
-  end
-  else if SameText(Identifier, 'ConflictAllForNode') and (Args.Count = 1) then begin
-    if Supports(IInterface(Args.Values[0]), IwbElement, Element) then begin
-      var Node: PVirtualNode := FindNodeForElement(Element);
-      if Assigned(Node) then begin
-        var NodeData: PNavNodeData := vstNav.GetNodeData(Node);
-        Value := NodeData.ConflictAll;
-      end;
-      Done := True;
-    end else
-      JvInterpreterError(ieDirectInvalidArgument, 0);
-  end
-  else if SameText(Identifier, 'ConflictAllForElements') and ((Args.Count = 3) or (Args.Count = 4)) then begin
-    if Args.Count = 3 then begin
-      Value := caNone;
-      List := TList(V2O(Args.Values[0]));
-      if Assigned(List) then
-      for i := 0 to Pred(List.Count) do begin
-        if not Supports(IInterface(Pointer(List[i])), IwbElement, Element) then
-          Continue;
-        SetLength(NodeDatas, Succ(Length(NodeDatas)));
-        NodeDatas[Pred(Length(NodeDatas))].Element := Element;
-        if Supports(Element, IwbContainerElementRef, Container) and (Container.ElementCount > 0) then
-          NodeDatas[Pred(Length(NodeDatas))].Container := Container;
-      end;
-      i := 0;
-    end
-    else if Args.Count = 4 then begin
-      for i := 0 to 1 do begin
-        if not Supports(IInterface(Args.Values[i]), IwbElement, Element) then
-          Continue;
-        SetLength(NodeDatas, Succ(Length(NodeDatas)));
-        NodeDatas[Pred(Length(NodeDatas))].Element := Element;
-        if Supports(Element, IwbContainerElementRef, Container) and (Container.ElementCount > 0) then
-          NodeDatas[Pred(Length(NodeDatas))].Container := Container;
-      end;
-      i := 1;
-    end else
-      i := 0;
-    Value := caNone;
-    if Length(NodeDatas) > 0 then
-      if Assigned(NodeDatas[0].Container) then
-        Value := ConflictLevelForChildNodeDatas(NodeDatas, Args.Values[i+1], Args.Values[i+2])
-      else
-        Value := ConflictLevelForNodeDatas(@NodeDatas[0], Length(NodeDatas), Args.Values[i+1], Args.Values[i+2]);
-    Done := True;
-  end
-  else if SameText(Identifier, 'JumpTo') and (Args.Count = 2) then begin
-    if Supports(IInterface(Args.Values[0]), IwbMainRecord, MainRecord) then begin
-      vstNav.EndUpdate;
-      if not vstNav.Enabled then vstNav.Enabled := True;
-      JumpTo(MainRecord, Boolean(Args.Values[1]));
-      Done := True;
-    end else
-      JvInterpreterError(ieDirectInvalidArgument, 0);
-  end
-  else if SameText(Identifier, 'ApplyFilter') and (Args.Count = 0) then begin
-    FilterPreset := True; // skip filter dialog
-    try
-      mniNavFilterApplyClick(Sender);
-    finally
-      FilterPreset := False;
-      Done := True;
-    end;
-  end
-  else if SameText(Identifier, 'RemoveFilter') and (Args.Count = 0) then begin
-    DoSetActiveRecord(nil);
-    mniNavFilterRemoveClick(nil);
-    Done := True;
-  end
-  else if SameText(Identifier, 'frmFileSelect') and (Args.Count = 0) then begin
-    Value := O2V(TfrmFileSelect.Create(nil));
-    Done := True;
-  end
-  else if SameText(Identifier, 'ExecuteCaptureConsoleOutput') and (Args.Count = 1) then begin
-    Value := ExecuteCaptureConsoleOutput(Args.Values[0]);
-    Done := True;
-  end
-  else if SameText(Identifier, 'GenerateLODTES4') and (Args.Count = 1) then begin
-    if Supports(IInterface(Args.Values[0]), IwbMainRecord, MainRecord) then begin
-      if wbGameMode = gmTES4 then
-        wbGenerateLODTES4(MainRecord, Settings);
-      Done := True;
-    end else
-      JvInterpreterError(ieDirectInvalidArgument, 0);
-  end
-  else if SameText(Identifier, 'GenerateLODTES5Trees') and (Args.Count = 1) then begin
-    if Supports(IInterface(Args.Values[0]), IwbMainRecord, MainRecord) then begin
-      if wbIsSkyrim then
-        wbGenerateLODTES5(MainRecord, [lodTrees], Files, Settings);
-      Done := True;
-    end else
-      JvInterpreterError(ieDirectInvalidArgument, 0);
-  end
-  else if SameText(Identifier, 'GenerateLODTES5Objects') and (Args.Count = 1) then begin
-    if Supports(IInterface(Args.Values[0]), IwbMainRecord, MainRecord) then begin
-      if wbIsSkyrim then
-        wbGenerateLODTES5(MainRecord, [lodObjects], Files, Settings);
-      Done := True;
-    end else
-      JvInterpreterError(ieDirectInvalidArgument, 0);
-  end
-  else if SameText(Identifier, 'wbGetUVRangeTexturesList') and (Args.Count = 3) then begin
-    wbGetUVRangeTexturesList(
-      TStrings(V2O(Args.Values[0])),  // TStrings list of meshes
-      TStrings(V2O(Args.Values[1])),  // TStrings list of textures, output
-      Single(Args.Values[2])          // UVRange
-    );
-    Done := True;
-  end
-  else if SameText(Identifier, 'wbBuildAtlasFromTexturesList') and (Args.Count = 7) then begin
-    wbBuildAtlasFromTexturesList(
-      TStrings(V2O(Args.Values[0])),  // TStrings list of textures
-      Args.Values[1], // max texture size
-      Args.Values[2], // max tile size
-      Args.Values[3], // atlas width
-      Args.Values[4], // atlas height
-      Args.Values[5], // atlas file name
-      Args.Values[6], // atlas map file name
-      Settings
-    );
-    Done := True;
-  end
-  else if SameText(Identifier, 'wbBuildAtlasFromAtlasMap') and (Args.Count = 5) then begin
-    wbBuildAtlasFromAtlasMap(
-      TStrings(V2O(Args.Values[0])),  // TStrings atlas map
-      Args.Values[1],                // brightness
-      Args.Values[2],                // GammaR
-      Args.Values[3],                // GammaG
-      Args.Values[4],                // GammaB
-      Settings
-    );
-    Done := True;
-  end
-  else if SameText(Identifier, 'dfFloatDecimalDigits') and (Args.Count = 0) then begin
-    Value := dfFloatDecimalDigits;
-    Done := True;
-  end
-  else if SameText(Identifier, 'wbSelectedFilesToFileNames') then begin
-    if (Args.Count = 1) then
-    begin
-      var Nodes: TNodeArray := vstNav.GetSortedSelection(True);
-
-      for i := Low(Nodes) to High(Nodes) do begin
-        var NodeData: PNavNodeData := vstNav.GetNodeData(Nodes[i]);
-        if not Assigned(NodeData) then
-          Continue;
-        Element := NodeData.Element;
-        if Supports(Element, IwbFile, _File) then
-          if TStrings(V2O(Args.Values[0])).IndexOf(_File.FileName) = -1 then
-            TStrings(V2O(Args.Values[0])).Add(_File.FileName)
-        else if Supports(Element, IwbMainRecord, MainRecord) then
-          if TStrings(V2O(Args.Values[0])).IndexOf(MainRecord._File.FileName) = -1 then
-            TStrings(V2O(Args.Values[0])).Add(MainRecord._File.FileName);
-      end;
-
-      Done := True;
-    end else
-      JvInterpreterError(ieDirectInvalidArgument, 0); // or  ieNotEnoughParams, ieIncompatibleTypes or others.
-  end;
-end;
 
 procedure TxejviScript.JvInterpreterProgramSetValue(Sender: TObject;
   Identifier: string; const Value: Variant; Args: TJvInterpreterArgs;
@@ -544,6 +72,22 @@ begin
         Include(ScriptProcessElements, TwbElementType(i));
     if ScriptProcessElements = [] then
       ScriptProcessElements := [etMainRecord];
+    Done := True;
+  end else
+  if SameText(Identifier, 'ScriptProcessSignatures') then begin
+    var sl := TStringList.Create;
+    try
+      sl.CommaText := Value;
+      for i := 0 to Pred(sl.Count) do begin
+        var s := Trim(sl[i]);
+        if Length(s) <> 4 then
+          JvInterpreterErrorN(ieDirectInvalidArgument, 0, Format('ScriptProcessSignatures expects a comma separated list of 4 character signatures. The signature "%s" is not a valid candidate.', [s])); // or ieNotEnoughParams, ieIncompatibleTypes or others.
+        sl[i] := UpperCase(s); // trimmed and semi-validated so set uppercase to simplify check later
+      end;
+      ScriptProcessSignatures := sl.CommaText;
+    finally
+      sl.free;
+    end;
     Done := True;
   end else
   if SameText(Identifier, 'wbOutputPath') then begin
@@ -625,6 +169,10 @@ begin
   if SameText(Identifier, 'FilterElementValue') then begin
     FilterElementValue := Value;
     Done := True;
+  end else
+  if SameText(Identifier, 'FilterByRegexComparison') then begin
+    FilterByRegexComparison := Value;
+	Done := True;
   end else
   if SameText(Identifier, 'FilterByBaseEditorID') then begin
     FilterByBaseEditorID := Value;
@@ -817,7 +365,6 @@ begin
   FScript := aScript;
 
   FProgram := TJvInterpreterProgram.Create(nil);
-  FProgram.OnGetValue := JvInterpreterProgramGetValue;
   FProgram.OnSetValue := JvInterpreterProgramSetValue;
   FProgram.OnGetUnitSource := JvInterpreterProgramGetUnitSource;
   FProgram.OnStatement := JvInterpreterProgramStatement;
@@ -834,6 +381,50 @@ end;
 function TxejviScript.FunctionExists(const aName: string): Boolean;
 begin
   Result := FProgram.FunctionExists('', aName);
+end;
+
+function TxejviScript.FunctionIsEmpty(const aName: string): Boolean;
+var
+  FunctionDesc: TJvInterpreterFunctionDesc;
+  Body: string;
+  P, I: Integer;
+begin
+  Result := False;
+  FunctionDesc := nil;
+  for I := FProgram.Adapter.SrcFunctionList.Count - 1 downto 0 do begin
+    var SrcFun := TJvInterpreterSrcFunction(FProgram.Adapter.SrcFunctionList.Items[I]);
+    if SameText(SrcFun.FunctionDesc.Identifier, aName) then begin
+      FunctionDesc := SrcFun.FunctionDesc;
+      Break;
+    end;
+  end;
+  if not Assigned(FunctionDesc) then
+    Exit;
+
+  Body := Copy(FScript, FunctionDesc.PosBeg, FunctionDesc.PosEnd - FunctionDesc.PosBeg);
+  Body := LowerCase(Body);
+
+  // skip any var section before begin
+  P := Pos('begin', Body);
+  if P = 0 then
+    Exit;
+  Body := Copy(Body, P, Length(Body) - P + 1);
+
+  // strip all whitespace to normalize
+  I := 1;
+  while I <= Length(Body) do
+    if CharInSet(Body[I], [' ', #9, #10, #13]) then
+      Delete(Body, I, 1)
+    else
+      Inc(I);
+
+  // trivially empty: no statements, or only Result := 0
+  Result := (Body = 'beginend') or
+            (Body = 'beginend;') or
+            (Body = 'beginend.') or
+            (Body = 'beginresult:=0;end') or
+            (Body = 'beginresult:=0;end;') or
+            (Body = 'beginresult:=0;end.');
 end;
 
 function TxejviScript.GetLastErrorLocation: string;

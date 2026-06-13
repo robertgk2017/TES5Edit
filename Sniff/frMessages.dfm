@@ -9,6 +9,10 @@ object FrameMessages: TFrameMessages
     Top = 196
     Width = 431
     Height = 105
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Align = alBottom
     Center = True
     Picture.Data = {
@@ -2224,15 +2228,16 @@ object FrameMessages: TFrameMessages
     Proportional = True
     Stretch = True
     Visible = False
-    ExplicitLeft = 144
-    ExplicitTop = 144
-    ExplicitWidth = 105
   end
   object memoMessages: TMemo
     Left = 0
     Top = 0
     Width = 431
     Height = 196
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Align = alClient
     BorderStyle = bsNone
     Lines.Strings = (
@@ -2241,8 +2246,5 @@ object FrameMessages: TFrameMessages
     ScrollBars = ssBoth
     TabOrder = 0
     WordWrap = False
-    ExplicitLeft = 24
-    ExplicitTop = -24
-    ExplicitHeight = 301
   end
 end

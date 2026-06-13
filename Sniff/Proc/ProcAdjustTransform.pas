@@ -11,9 +11,16 @@ unit ProcAdjustTransform;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Mask;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Mask,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameAdjustTransform = class(TFrame)
@@ -54,7 +61,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 
@@ -63,7 +70,8 @@ implementation
 {$R *.dfm}
 
 uses
-  StrUtils,
+  System.StrUtils,
+
   wbDataFormat,
   wbDataFormatNif;
 
@@ -159,7 +167,7 @@ begin
     raise Exception.Create('No adjustment values set');
 end;
 
-function TProcAdjustTransform.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcAdjustTransform.ProcessFile(aFile: TProcFileObject): TBytes;
 
 
   function AdjustFloat(val: Extended; m: Integer; const v: string): Extended;
@@ -227,15 +235,14 @@ function TProcAdjustTransform.ProcessFile(const aInputDirectory, aOutputDirector
 var
   nif: TwbNifFile;
   block: TdfElement;
-  name: string;
   bChanged: Boolean;
 begin
   bChanged := False;
   nif := TwbNifFile.Create;
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
-    for var i: Integer := 0 to Pred(nif.BlocksCount) do begin
+    for var i := 0 to Pred(nif.BlocksCount) do begin
       block := nif.Blocks[i];
 
       // root block if no names
@@ -244,8 +251,8 @@ begin
         Break;
       end;
 
-      name := block.EditValues['Name'];
-      for var s: String in fNames do
+      var name := block.EditValues['Name'];
+      for var s in fNames do
         if ( fExactMatch and SameText(name, s) ) or ( not fExactMatch and ContainsText(name, s) ) then begin
           bChanged := Transform(block.Elements['Transform']) or bChanged;
           Break;

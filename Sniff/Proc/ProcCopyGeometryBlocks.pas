@@ -11,9 +11,18 @@ unit ProcCopyGeometryBlocks;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Mask;
+  System.SysUtils,
+  System.Classes,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Mask,
+  Vcl.StdCtrls,
+
+  wbDataFormatNif,
+
+  SniffProcessor;
 
 type
   TFrameCopyGeometryBlocks = class(TFrame)
@@ -22,6 +31,10 @@ type
     btnBrowse: TButton;
     chkCopyGeom: TCheckBox;
     chkCopyTransform: TCheckBox;
+    rbMatchingFiles: TRadioButton;
+    rbSingleFile: TRadioButton;
+    chkCopyShader: TCheckBox;
+    chkCopyTextureSet: TCheckBox;
     procedure btnBrowseClick(Sender: TObject);
   private
     { Private declarations }
@@ -34,7 +47,10 @@ type
     Frame: TFrameCopyGeometryBlocks;
     fSourceDirectory: string;
     fCopyTransform: Boolean;
+    fCopyShader: Boolean;
+    fCopyTextureSet: Boolean;
     fCopyGeom: Boolean;
+    fSourceFile: TwbNifFile;
   public
     constructor Create(aManager: TProcManager); override;
     function GetFrame(aOwner: TComponent): TFrame; override;
@@ -42,7 +58,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 implementation
@@ -50,8 +66,9 @@ implementation
 {$R *.dfm}
 
 uses
-  wbDataFormat,
-  wbDataFormatNif;
+  Vcl.Dialogs,
+
+  wbDataFormat;
 
 procedure TFrameCopyGeometryBlocks.btnBrowseClick(Sender: TObject);
 var
@@ -62,8 +79,20 @@ begin
   if path = '' then
     path := ExtractFilePath(Application.ExeName);
 
-  if SelectFolder(path) then
-    edSourceDirectory.Text := Path;
+  if rbMatchingFiles.Checked then begin
+    if SelectFolder(path) then
+      edSourceDirectory.Text := Path;
+  end
+  else begin
+    with TFileOpenDialog.Create(Application.MainForm) do begin
+      Options := [fdoFileMustExist];
+      with FileTypes.Add do begin DisplayName := 'NIF Files'; FileMask := '*.nif'; end;
+      with FileTypes.Add do begin DisplayName := 'All Files'; FileMask := '*.*'; end;
+      FileName := path;
+      if Execute then
+        edSourceDirectory.Text := FileName;
+    end;
+  end;
 end;
 
 constructor TProcCopyGeometryBlocks.Create(aManager: TProcManager);
@@ -83,35 +112,54 @@ end;
 
 procedure TProcCopyGeometryBlocks.OnShow;
 begin
+  Frame.rbMatchingFiles.Checked := StorageGetBool('bMatchingFiles', Frame.rbMatchingFiles.Checked);
+  Frame.rbSingleFile.Checked := not Frame.rbMatchingFiles.Checked;
   Frame.edSourceDirectory.Text := StorageGetString('sSourceDirectory', Frame.edSourceDirectory.Text);
   Frame.chkCopyGeom.Checked := StorageGetBool('bCopyGeom', Frame.chkCopyGeom.Checked);
   Frame.chkCopyTransform.Checked := StorageGetBool('bCopyTransform', Frame.chkCopyTransform.Checked);
+  Frame.chkCopyShader.Checked := StorageGetBool('bCopyShader', Frame.chkCopyShader.Checked);
+  Frame.chkCopyTextureSet.Checked := StorageGetBool('bCopyTextureSet', Frame.chkCopyTextureSet.Checked);
 end;
 
 procedure TProcCopyGeometryBlocks.OnHide;
 begin
+  StorageSetBool('bMatchingFiles', Frame.rbMatchingFiles.Checked);
   StorageSetString('sSourceDirectory', Frame.edSourceDirectory.Text);
   StorageSetBool('bCopyGeom', Frame.chkCopyGeom.Checked);
   StorageSetBool('bCopyTransform', Frame.chkCopyTransform.Checked);
+  StorageSetBool('bCopyShader', Frame.chkCopyShader.Checked);
+  StorageSetBool('bCopyTextureSet', Frame.chkCopyTextureSet.Checked);
+  FreeAndNil(fSourceFile);
 end;
 
 procedure TProcCopyGeometryBlocks.OnStart;
 begin
   fCopyGeom := Frame.chkCopyGeom.Checked;
   fCopyTransform := Frame.chkCopyTransform.Checked;
+  fCopyShader := Frame.chkCopyShader.Checked;
+  fCopyTextureSet := Frame.chkCopyTextureSet.Checked;
 
-  if not fCopyGeom and not fCopyTransform then
+  if not fCopyGeom and not fCopyTransform and not fCopyShader then
     raise Exception.Create('Nothing to copy');
 
   fSourceDirectory := Frame.edSourceDirectory.Text;
 
-  if (fSourceDirectory = '') or not DirectoryExists(fSourceDirectory) then
+  if Frame.rbMatchingFiles.Checked and ( (fSourceDirectory = '') or not DirectoryExists(fSourceDirectory) ) then
     raise Exception.Create('Source directory not found');
 
-  fSourceDirectory := IncludeTrailingPathDelimiter(fSourceDirectory);
+  if Frame.rbSingleFile.Checked and ( (fSourceDirectory = '') or not FileExists(fSourceDirectory) ) then
+    raise Exception.Create('Source file not found');
+
+  if Frame.rbMatchingFiles.Checked then
+    fSourceDirectory := IncludeTrailingPathDelimiter(fSourceDirectory)
+  else begin
+    FreeAndNil(fSourceFile);
+    fSourceFile := TwbNifFile.Create;
+    fSourceFile.LoadFromFile(fSourceDirectory);
+  end;
 end;
 
-function TProcCopyGeometryBlocks.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcCopyGeometryBlocks.ProcessFile(aFile: TProcFileObject): TBytes;
 var
   Nif, SrcNif: TwbNifFile;
   j: Integer;
@@ -119,16 +167,21 @@ var
   bChanged: Boolean;
   links, extras: array of Integer;
 begin
-  if not FileExists(fSourceDirectory + aFileName) then
+  if not Assigned(fSourceFile) and not FileExists(fSourceDirectory + aFile.FileName) then
     Exit;
 
   Nif := TwbNifFile.Create;
-  SrcNif := TwbNifFile.Create;
+  SrcNif := nil; // suppress compiler warning
+  if not Assigned(fSourceFile) then
+    SrcNif := TwbNifFile.Create;
   bChanged := False;
 
   try
-    Nif.LoadFromFile(aInputDirectory + aFileName);
-    SrcNif.LoadFromFile(fSourceDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
+    if not Assigned(fSourceFile) then
+      SrcNif.LoadFromFile(fSourceDirectory + aFile.FileName)
+    else
+      SrcNif := fSourceFile;
 
     for Block in Nif.BlocksByType('NiAVObject', True) do begin
       var name := Block.EditValues['Name'];
@@ -148,6 +201,31 @@ begin
         Block.Elements['Transform'].Assign(SrcBlock.Elements['Transform']);
         // always force copy
         bChanged := True;
+      end;
+
+      // copy Shader and Texture Set
+      if fCopyShader and Block.IsNiObject('NiGeometry', True) then begin
+        var SrcShader := SrcBlock.PropertyByType('BSShaderProperty', True);
+        var DstShader := Block.PropertyByType('BSShaderProperty', True);
+        if Assigned(SrcShader) and Assigned(DstShader) and (SrcShader.BlockType = DstShader.BlockType) then begin
+          for var el in DstShader do
+            if not el.Name.StartsWith('Extra Data') and (el.Name <> 'Name') and (el.Name <> 'Controller') and (el.Name <> 'Texture Set') then
+              el.Assign(SrcShader.Elements[el.Name]);
+
+          if fCopyTextureSet then begin
+            var SrcSet := SrcShader.Elements['Texture Set'];
+            var DstSet := DstShader.Elements['Texture Set'];
+            if Assigned(SrcSet) and Assigned(DstSet) then begin
+              SrcSet := SrcSet.LinksTo;
+              DstSet := DstSet.LinksTo;
+              if Assigned(SrcSet) and Assigned(DstSet) then
+                DstSet.Assign(SrcSet);
+            end;
+          end;
+
+          // always force copy
+          bChanged := True;
+        end;
       end;
 
       // copy geometry
@@ -218,7 +296,8 @@ begin
 
   finally
     Nif.Free;
-    SrcNif.Free;
+    if not Assigned(fSourceFile) then
+      SrcNif.Free;
   end;
 
 end;

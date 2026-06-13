@@ -7,8 +7,8 @@ object FrameWeiExplosion: TFrameWeiExplosion
   object StaticText1: TStaticText
     Left = 0
     Top = 0
-    Width = 444
-    Height = 225
+    Width = 1705
+    Height = 19
     Align = alClient
     Caption = 
       'NIF postprocessing for blowing up animation. Add all root NiNode' +

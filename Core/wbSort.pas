@@ -13,7 +13,7 @@ unit wbSort;
 interface
 
 uses
-  Classes, wbInterface;
+  System.Classes;
 
 type
   TListSortComparePtr = TListSortCompare;
@@ -43,6 +43,9 @@ type
   end;
 
 implementation
+
+uses
+  wbInterface;
 
 type
   TwbMove = procedure(const Source; var Dest; Count : Integer);

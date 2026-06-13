@@ -11,9 +11,14 @@ unit ProcConvertRootNode;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameConvertRootNode = class(TFrame)
@@ -43,7 +48,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 
@@ -52,7 +57,6 @@ implementation
 {$R *.dfm}
 
 uses
-  wbDataFormat,
   wbDataFormatNif;
 
 constructor TProcConvertRootNode.Create(aManager: TProcManager);
@@ -60,7 +64,7 @@ begin
   inherited;
 
   fTitle := 'Convert block type';
-  fSupportedGames := [gtTES3, gtTES4, gtFO3, gtFNV, gtTES5, gtSSE, gtFO4];
+  fSupportedGames := [gtTES4, gtFO3, gtFNV, gtTES5, gtSSE, gtFO4];
   fExtensions := ['nif'];
 end;
 
@@ -117,7 +121,7 @@ begin
   fRoot := Frame.chkRoot.Checked;
 end;
 
-function TProcConvertRootNode.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcConvertRootNode.ProcessFile(aFile: TProcFileObject): TBytes;
 var
   nif: TwbNifFile;
   bChanged: Boolean;
@@ -125,7 +129,7 @@ begin
   bChanged := False;
   nif := TwbNifFile.Create;
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     var blocks: TwbNifBlocks;
     if not fRoot then

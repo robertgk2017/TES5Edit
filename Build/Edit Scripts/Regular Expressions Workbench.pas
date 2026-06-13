@@ -8,7 +8,7 @@ var
   frm: TForm;
   pnlTop, pnlBottom: TPanel;
   spl: TSplitter;
-  mText, mFound: TMemo;
+  mText, mFound: TRichEdit;
   lblText, lblLink: TLabel;
   edExp: TLabeledEdit;
   chkCaseLess, chkMultiLine, chkSingleLine, chkExtended, chkAnchored, chkUnGreedy: TCheckBox;
@@ -88,7 +88,7 @@ begin
     lblText.Left := 8;
     lblText.Caption := 'Source text';
 
-    mText := TMemo.Create(frm);
+    mText := TRichEdit.Create(frm);
     mText.Parent := pnlTop;
     mText.Left := 0;
     mText.Top := 22;
@@ -181,7 +181,7 @@ begin
     btnFind.Anchors := [akTop, akRight];
     btnFind.OnClick := FindClick;
 
-    mFound := TMemo.Create(frm);
+    mFound := TRichEdit.Create(frm);
     mFound.Parent := pnlBottom;
     mFound.Left := 0;
     mFound.Top := 60;

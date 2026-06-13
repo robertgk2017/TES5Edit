@@ -13,7 +13,7 @@ unit wbCommandLine;
 interface
 
 uses
-  SysUtils;
+  System.SysUtils;
 
 function wbFindCmdLineParam(const aSwitch     : string;
                             const aChars      : TSysCharSet;
@@ -48,7 +48,7 @@ begin
   aValue := '';
   for i := 1 to ParamCount do begin
     s := ParamStr(i);
-    if (aChars = []) or (s[1] in aChars) then begin
+    if (aChars = []) or CharInSet(s[1], aChars) then begin
       Delete(s, 1, 1);
       if s.StartsWith(aSwitch + ':', aIgnoreCase) then begin
         aValue := Copy(s, Length(aSwitch) + 2, High(Integer));
@@ -76,7 +76,7 @@ begin
   aValue := '';
   for i := aStartIndex to ParamCount do begin
     s := ParamStr(i);
-    if (aChars = []) or (s[1] in aChars) then // skipped
+    if (aChars = []) or CharInSet(s[1], aChars) then // skipped
       Inc(aStartIndex)
     else begin
       aValue := ParamStr(i);

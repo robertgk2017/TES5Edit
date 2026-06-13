@@ -13,23 +13,20 @@ unit wbBSA;
 interface
 
 uses
-  System.Classes,
-  System.IOUtils,
-  System.SysUtils,
-  System.Diagnostics,
-  System.Generics.Defaults,
-  System.Generics.Collections,
-  ImagingDds,
-  lz4io,
-  zlibEx,
-  wbBSArchive,
-  wbInterface,
-  wbSort,
-  wbStreams;
+  wbInterface;
 
 function wbCreateContainerHandler: IwbContainerHandler;
 
 implementation
+
+uses
+  System.Classes,
+  System.Generics.Collections,
+  System.IOUtils,
+  System.SysUtils,
+
+  wbBSArchive,
+  wbHash;
 
 type
   TwbHashToStringDict = TDictionary<Int64, string>;
@@ -65,8 +62,8 @@ type
     function OpenResource(const aFileName: string): TDynResources;
     function OpenResourceData(const aContainerName, aFileName: string): TBytes;
 
-    function ContainerExists(aContainerName: string): Boolean; overload;
-    function ContainerExists(aContainerName: string; out aContainer: IwbResourceContainer): Boolean; overload;
+    function ContainerExists(const aContainerName: string): Boolean; overload;
+    function ContainerExists(const aContainerName: string; out aContainer: IwbResourceContainer): Boolean; overload;
     procedure ContainerList(const aList: TStrings);
     procedure ContainerResourceList(const aContainerName: string; const aList: TStrings; const aFolder: string = '');
     procedure ContainerResourceDict(const aContainerName: string; const aDict: TwbResourceDict; const aFolder: string = '');
@@ -81,7 +78,7 @@ type
 
   IwbBSAFileInternal = interface(IwbBSAFile)
     ['{A360B348-8F6B-4FC1-A869-9D5B833DCA5F}']
-    function GetData(aFileRecord: Pointer): TBytes;
+    function GetData(aFileEntry: TwbBSFileEntry): TBytes;
   end;
 
   TwbBSAFile = class(TInterfacedObject, IwbResourceContainer, IwbBSAFile, IwbBSAFileInternal)
@@ -100,7 +97,7 @@ type
     function GetFileName: string;
 
     {---IwbBSAFileInternal---}
-    function GetData(aFileRecord: Pointer): TBytes;
+    function GetData(aFileEntry: TwbBSFileEntry): TBytes;
   public
     constructor Create(const aFileName: string);
     destructor Destroy; override;
@@ -175,7 +172,7 @@ begin
   chContainers[High(chContainers)] := aContainer;
 end;
 
-function TwbContainerHandler.ContainerExists(aContainerName: string): Boolean;
+function TwbContainerHandler.ContainerExists(const aContainerName: string): Boolean;
 var
   i: Integer;
 begin
@@ -186,7 +183,7 @@ begin
   Result := False;
 end;
 
-function TwbContainerHandler.ContainerExists(aContainerName: string; out aContainer: IwbResourceContainer): Boolean;
+function TwbContainerHandler.ContainerExists(const aContainerName: string; out aContainer: IwbResourceContainer): Boolean;
 var
   i: Integer;
 begin
@@ -228,10 +225,17 @@ const
   _OtherCount = 500000;
 
 procedure TwbContainerHandler.BuildCache;
+  function CalcHash(const aStr: string): Int64;
+  begin
+    if wbGameMode >= gmTES5 then
+      Result := TwbHash.BSCRC32(aStr)
+    else
+      Result := TwbHash.TES4(aStr, True);
+  end;
+
 begin
   InvalidateCache;
   with chCache do begin
-
     ccAll := TwbResourceDict.Create(_AllCount);
     ccFiles := TwbResourceDict.Create(_OtherCount);
     ccFolders := TwbResourceDict.Create(_OtherCount);
@@ -259,12 +263,7 @@ begin
     for var lFullName in ccAll.Keys do begin
       var lFolder := ExcludeTrailingBackslash(ExtractFilePath(lFullName)).ToLowerInvariant.Replace('/', '\');
       if ccFolders.TryAdd(lFolder, wbNothing) then begin
-        var lFolderHash: Int64;
-        if wbGameMode >= gmTES5 then
-          lFolderHash := CreateHashFO4(lFolder)
-        else
-          lFolderHash := CreateHashTES4(lFolder);
-        ccFolderHashes.TryAdd(lFolderHash, lFolder);
+        ccFolderHashes.TryAdd(CalcHash(lFolder), lFolder);
       end;
 
       var lFile := ExtractFileName(lFullName).ToLowerInvariant;
@@ -272,22 +271,13 @@ begin
         lFile := ChangeFileExt(lFile, '');
 
       if ccFiles.TryAdd(lFile, wbNothing) then begin
-        var lFileHash: Int64;
-        if wbGameMode >= gmTES5 then
-          lFileHash := CreateHashFO4(lFile)
-        else
-          lFileHash := CreateHashTES4(lFile);
-        ccFileHashes.TryAdd(lFileHash, lFile);
+        ccFileHashes.TryAdd(CalcHash(lFile), lFile);
 
         if wbGameMode < gmTES5 then
           if ExtractFileExt(lFile) = '.dds' then
             lFile := ChangeFileExt(lFile, '.ddx');
             if ccFiles.TryAdd(lFile, wbNothing) then begin
-              if wbGameMode >= gmTES5 then
-                lFileHash := CreateHashFO4(lFile)
-              else
-                lFileHash := CreateHashTES4(lFile);
-              ccFileHashes.TryAdd(lFileHash, lFile);
+              ccFileHashes.TryAdd(CalcHash(lFile), lFile);
             end;
       end;
     end;
@@ -477,11 +467,11 @@ begin
   inherited;
 end;
 
-function TwbBSAFile.GetData(aFileRecord: Pointer): TBytes;
+function TwbBSAFile.GetData(aFileEntry: TwbBSFileEntry): TBytes;
 begin
   Result := nil;
-  if Assigned(aFileRecord) then
-    Result := bfArchive.ExtractFileData(aFileRecord);
+  if Assigned(aFileEntry) then
+    Result := bfArchive.Unpack(aFileEntry);
 end;
 
 function TwbBSAFile.GetFileName: string;
@@ -499,24 +489,26 @@ var
   FileRecord: Pointer;
 begin
   Result := nil;
-  FileRecord := bfArchive.FindFileRecord(aFileName);
+  FileRecord := bfArchive.FileByName(aFileName);
   if Assigned(FileRecord) then
     Result := TwbBSAResource.Create(Self, FileRecord);
 end;
 
 procedure TwbBSAFile.ResourceDict(const aDict: TwbResourceDict; aFolder: string);
 begin
-  bfArchive.ResourceDict(aDict, aFolder);
+for var f in bfArchive.FilesByFolder(aFolder) do
+  aDict.TryAdd(f.Name, wbNothing);
 end;
 
 function TwbBSAFile.ResourceExists(const aFileName: string): Boolean;
 begin
-  Result := Assigned(bfArchive.FindFileRecord(aFileName));
+  Result := Assigned(bfArchive.FileByName(aFileName));
 end;
 
 procedure TwbBSAFile.ResourceList(const aList: TStrings; aFolder: string = '');
 begin
-  bfArchive.ResourceList(aList, aFolder);
+  for var f in bfArchive.FilesByFolder(aFolder) do
+    aList.Add(f.Name);
 end;
 
 { TwbBSAResource }

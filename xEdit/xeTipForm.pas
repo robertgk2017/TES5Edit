@@ -13,8 +13,16 @@ unit xeTipForm;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, ExtCtrls, FileContainer;
+  System.Classes,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+
+  Winapi.Windows,
+
+  FileContainer;
 
 type
   TfrmTip = class(TForm)
@@ -47,6 +55,8 @@ implementation
 {$R *.dfm}
 
 uses
+  System.SysUtils,
+
   wbInterface;
 
 procedure ShowTip;

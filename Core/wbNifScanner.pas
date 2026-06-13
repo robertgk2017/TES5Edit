@@ -11,8 +11,8 @@ unit wbNifScanner;
 interface
 
 uses
-  SysUtils,
-  Classes;
+  System.Classes,
+  System.SysUtils;
 
 const
   SLSF1_Environment_Mapping = 1 shl 7;
@@ -183,9 +183,9 @@ type
     function GetNode(aRef: TNodeRef): TBaseNiNode;
   end;
 
-function NifBlockList(aNifData: TBytes; aBlocks: TStrings): Boolean;
-function NifTextures(aNifData: TBytes; aTextures: TStrings): Boolean;
-function NifTexturesUVRange(aNifData: TBytes; UVRange: Single; aTextures: TStrings): Boolean;
+function NifBlockList(const aNifData: TBytes; aBlocks: TStrings): Boolean;
+function NifTextures(const aNifData: TBytes; aTextures: TStrings): Boolean;
+function NifTexturesUVRange(const aNifData: TBytes; UVRange: Single; aTextures: TStrings): Boolean;
 
 var
   wbWarningCallback: procedure(aCheck: TNifCheck; aNode: TBaseNiNode; aMessage: string);
@@ -666,7 +666,7 @@ end;
 
 //===========================================================================
 // Get the list of all blocks: index, name and type
-function NifBlockList(aNifData: TBytes; aBlocks: TStrings): Boolean;
+function NifBlockList(const aNifData: TBytes; aBlocks: TStrings): Boolean;
 var
   bs: TBytesStream;
   nif: TNiFile;
@@ -700,7 +700,7 @@ end;
 //===========================================================================
 // Get the list of all textures from Nif data into aTextures
 // from all nif nodes that can contain texture file names
-function NifTextures(aNifData: TBytes; aTextures: TStrings): Boolean;
+function NifTextures(const aNifData: TBytes; aTextures: TStrings): Boolean;
 var
   bs: TBytesStream;
   nif: TNiFile;
@@ -744,7 +744,7 @@ end;
 
 //===========================================================================
 // Get the list of textures within UV range from Nif data into aTextures
-function NifTexturesUVRange(aNifData: TBytes; UVRange: Single; aTextures: TStrings): Boolean;
+function NifTexturesUVRange(const aNifData: TBytes; UVRange: Single; aTextures: TStrings): Boolean;
 var
   bs: TBytesStream;
   nif: TNiFile;

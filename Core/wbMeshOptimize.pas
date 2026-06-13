@@ -124,8 +124,7 @@ function meshopt_remapIndices(const indices: TTriIndices; const remap: TTriIndic
 implementation
 
 uses
-  Math;
-
+  System.Math;
 
 function IfThen(aCond: Boolean; v1, v2: Byte): Byte; overload; inline;
 begin

@@ -3,8 +3,14 @@ unit ProcUnskinMesh;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, SniffProcessor;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameUnskinMesh = class(TFrame)
@@ -22,7 +28,7 @@ type
     constructor Create(aManager: TProcManager); override;
     function GetFrame(aOwner: TComponent): TFrame; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 
@@ -39,7 +45,7 @@ begin
   inherited;
 
   fTitle := 'Unskin mesh';
-  fSupportedGames := [gtTES4, gtFO3, gtFNV, gtTES5, gtSSE, gtFO4];
+  fSupportedGames := [gtTES4, gtFO3, gtFNV, gtTES5];
   fExtensions := ['nif'];
 end;
 
@@ -49,7 +55,7 @@ begin
   Result := Frame;
 end;
 
-function TProcUnskinMesh.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcUnskinMesh.ProcessFile(aFile: TProcFileObject): TBytes;
 var
   nif: TwbNifFile;
   bChanged: Boolean;
@@ -78,7 +84,7 @@ begin
   bChanged := False;
 
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     for var b in nif.BlocksByType('NiNode') do
       if b.IsBone then begin
@@ -89,7 +95,7 @@ begin
     for var b in nif.BlocksByType('NiTriBasedGeom', True) do
       UnSkin(b);
 
-    for var b in nif.BlocksByType('BSTriShape', True) do begin
+    {for var b in nif.BlocksByType('BSTriShape', True) do begin
       UnSkin(b);
 
       if b.NativeValues['VertexDesc\VF\VF_SKINNED'] then begin
@@ -101,7 +107,7 @@ begin
         nif.ConvertBlock(b.Index, 'BSTriShape');
         bChanged := True;
       end;
-    end;
+    end;}
 
     if bChanged then
       nif.SaveToData(Result);
@@ -110,6 +116,5 @@ begin
     nif.Free;
   end;
 end;
-
 
 end.

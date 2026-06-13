@@ -11,8 +11,7 @@ unit wbDDS;
 interface
 
 uses
-  System.SysUtils,
-  System.Classes;
+  System.SysUtils;
 
 type
   TMagic4 = array [0..3] of AnsiChar;
@@ -134,12 +133,49 @@ type
     DXGI_FORMAT_IA44,
     DXGI_FORMAT_P8,
     DXGI_FORMAT_A8P8,
-    DXGI_FORMAT_B4G4R4A4_UNORM,
-    DXGI_FORMAT_P208,
-    DXGI_FORMAT_V208,
-    DXGI_FORMAT_V408
+    DXGI_FORMAT_B4G4R4A4_UNORM
+    //DXGI_FORMAT_P208 = 130,
+    //DXGI_FORMAT_V208 = 131,
+    //DXGI_FORMAT_V408 = 132
   );
   TDXGIs = set of TDXGI;
+
+  TD3DFORMAT = (
+    D3DFMT_UNKNOWN              =  0,
+
+    D3DFMT_R8G8B8               = 20,
+    D3DFMT_A8R8G8B8             = 21,
+    D3DFMT_X8R8G8B8             = 22,
+    D3DFMT_R5G6B5               = 23,
+    D3DFMT_X1R5G5B5             = 24,
+    D3DFMT_A1R5G5B5             = 25,
+    D3DFMT_A4R4G4B4             = 26,
+    D3DFMT_R3G3B2               = 27,
+    D3DFMT_A8                   = 28,
+    D3DFMT_A8R3G3B2             = 29,
+    D3DFMT_X4R4G4B4             = 30,
+    D3DFMT_A2B10G10R10          = 31,
+    D3DFMT_A8B8G8R8             = 32,
+    D3DFMT_X8B8G8R8             = 33,
+    D3DFMT_G16R16               = 34,
+    D3DFMT_A2R10G10B10          = 35,
+    D3DFMT_A16B16G16R16         = 36,
+
+    D3DFMT_A8P8                 = 40,
+    D3DFMT_P8                   = 41,
+
+    D3DFMT_L8                   = 50,
+    D3DFMT_A8L8                 = 51,
+    D3DFMT_A4L4                 = 52,
+
+    D3DFMT_V8U8                 = 60,
+    D3DFMT_L6V5U5               = 61,
+    D3DFMT_X8L8V8U8             = 62,
+    D3DFMT_Q8W8V8U8             = 63,
+    D3DFMT_V16U16               = 64,
+    D3DFMT_A2W10V10U10          = 67
+  );
+  TD3DFORMATs = set of TD3DFORMAT;
 
   TDDSHeader = packed record
     Magic: TMagic4;
@@ -178,19 +214,126 @@ type
   end;
   PDDSHeaderDX10 = ^TDDSHeaderDX10;
 
-const
-  DXGI_DX10: TDXGIs = [
-    DXGI_FORMAT_BC1_UNORM_SRGB,
-    DXGI_FORMAT_BC2_UNORM_SRGB, DXGI_FORMAT_BC3_UNORM_SRGB,
-    DXGI_FORMAT_BC6H_UF16, DXGI_FORMAT_BC6H_SF16,
-    DXGI_FORMAT_BC7_UNORM, DXGI_FORMAT_BC7_UNORM_SRGB,
-    DXGI_FORMAT_B8G8R8A8_UNORM_SRGB, DXGI_FORMAT_B8G8R8X8_UNORM_SRGB,
-    DXGI_FORMAT_R8G8B8A8_SINT, DXGI_FORMAT_R8G8B8A8_UINT, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
-    DXGI_FORMAT_R8G8_SINT, DXGI_FORMAT_R8G8_UINT,
-    DXGI_FORMAT_R8_SINT, DXGI_FORMAT_R8_SNORM, DXGI_FORMAT_R8_UINT
-  ];
+  TDDSHeaderXBOX = packed record
+    tileMode: Cardinal; // see XG_TILE_MODE / XG_SWIZZLE_MODE
+    baseAlignment: Cardinal;
+    dataSize: Cardinal;
+    xdkVer: Cardinal; // matching _XDK_VER / _GXDK_VER  end;
+  end;
+  PDDSHeaderXBOX = ^TDDSHeaderXBOX;
 
-  MAGIC_DX10: TMagic4 = 'DX10';
+  TwbDDS = class abstract
+  public
+    class function IsDDS(aDDSData: Pointer; aSize: Integer): Boolean;
+    class function IsXBOX(aDDSData: Pointer): Boolean;
+    class function IsCubeMap(aDDSData: Pointer): Boolean;
+    class function HasAlpha(aDXGI: TDXGI): Boolean;
+    class function IsCompressed(aDXGI: TDXGI): Boolean;
+    class function HeaderDX10(aDDSData: Pointer): PDDSHeaderDX10;
+    class function HeaderXBOX(aDDSData: Pointer): PDDSHeaderXBOX;
+    class function GetHeaderSize(aDDSData: Pointer): Integer;
+    class function GetMipSize(aDDSData: Pointer): Integer;
+    class function GetTileMode(aDDSData: Pointer): Integer;
+    class function GetDXGIFormatName(aDXGI: TDXGI): string;
+    class function GetDXGI(aDDSData: Pointer): TDXGI;
+    class function GetD3DFMT(aDDSData: Pointer): TD3DFORMAT;
+    class function GetD3DFMTFormatName(aD3DFMT: TD3DFORMAT): string;
+    class procedure SetUpHeader(aDDSData: Pointer; aDXGI: TDXGI;
+      aWidth, aHeight, aMipMapCount: Integer; aCubeMap: Boolean; aXBox: Boolean);
+    class function GetBitsPerPixel(aDXGI: TDXGI): Byte; overload;
+    class function GetBitsPerPixel(aDDSData: Pointer): Byte; overload;
+    class function ConvertR8G8B8toB8G8R8X8(aDDSData: Pointer; aSize: Integer): TBytes;
+  const
+    MaxHeaderSize = SizeOf(TDDSHeader) + SizeOf(TDDSHeaderDX10) + SizeOf(TDDSHeaderXBOX);
+    // formats which don't use additional DX10 header by SetUpHeader()
+    DXGI_DX9: TDXGIs = [
+      DXGI_FORMAT_BC1_UNORM,
+      DXGI_FORMAT_BC2_UNORM,
+      DXGI_FORMAT_BC3_UNORM,
+      DXGI_FORMAT_BC4_SNORM,
+      DXGI_FORMAT_BC4_UNORM,
+      DXGI_FORMAT_BC5_SNORM,
+      DXGI_FORMAT_BC5_UNORM,
+      DXGI_FORMAT_R8G8B8A8_UNORM,
+      DXGI_FORMAT_B8G8R8A8_UNORM,
+      DXGI_FORMAT_B8G8R8X8_UNORM,
+      DXGI_FORMAT_B5G6R5_UNORM,
+      DXGI_FORMAT_B5G5R5A1_UNORM,
+      DXGI_FORMAT_R8G8_UNORM,
+      DXGI_FORMAT_A8_UNORM,
+      DXGI_FORMAT_R8_UNORM
+    ];
+    // formats which use BC Block Compression
+    DXGI_COMPRESSED: TDXGIs = [
+      DXGI_FORMAT_BC1_UNORM, DXGI_FORMAT_BC1_UNORM_SRGB, DXGI_FORMAT_BC1_TYPELESS,
+      DXGI_FORMAT_BC2_UNORM, DXGI_FORMAT_BC2_UNORM_SRGB, DXGI_FORMAT_BC2_TYPELESS,
+      DXGI_FORMAT_BC3_UNORM, DXGI_FORMAT_BC3_UNORM_SRGB, DXGI_FORMAT_BC3_TYPELESS,
+      DXGI_FORMAT_BC4_UNORM, DXGI_FORMAT_BC4_SNORM, DXGI_FORMAT_BC4_TYPELESS,
+      DXGI_FORMAT_BC5_UNORM, DXGI_FORMAT_BC5_SNORM, DXGI_FORMAT_BC5_TYPELESS,
+      DXGI_FORMAT_BC6H_UF16, DXGI_FORMAT_BC6H_SF16, DXGI_FORMAT_BC6H_TYPELESS,
+      DXGI_FORMAT_BC7_UNORM, DXGI_FORMAT_BC7_UNORM_SRGB, DXGI_FORMAT_BC7_TYPELESS
+    ];
+    // formats with alpha channel
+    DXGI_ALPHA: TDXGIs = [
+      DXGI_FORMAT_R32G32B32A32_TYPELESS,
+      DXGI_FORMAT_R32G32B32A32_FLOAT,
+      DXGI_FORMAT_R32G32B32A32_UINT,
+      DXGI_FORMAT_R32G32B32A32_SINT,
+      DXGI_FORMAT_R16G16B16A16_TYPELESS,
+      DXGI_FORMAT_R16G16B16A16_FLOAT,
+      DXGI_FORMAT_R16G16B16A16_UNORM,
+      DXGI_FORMAT_R16G16B16A16_UINT,
+      DXGI_FORMAT_R16G16B16A16_SNORM,
+      DXGI_FORMAT_R16G16B16A16_SINT,
+      DXGI_FORMAT_R10G10B10A2_TYPELESS,
+      DXGI_FORMAT_R10G10B10A2_UNORM,
+      DXGI_FORMAT_R10G10B10A2_UINT,
+      DXGI_FORMAT_R8G8B8A8_TYPELESS,
+      DXGI_FORMAT_R8G8B8A8_UNORM,
+      DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+      DXGI_FORMAT_R8G8B8A8_UINT,
+      DXGI_FORMAT_R8G8B8A8_SNORM,
+      DXGI_FORMAT_R8G8B8A8_SINT,
+      DXGI_FORMAT_A8_UNORM,
+      DXGI_FORMAT_BC1_TYPELESS,
+      DXGI_FORMAT_BC1_UNORM,
+      DXGI_FORMAT_BC1_UNORM_SRGB,
+      DXGI_FORMAT_BC2_TYPELESS,
+      DXGI_FORMAT_BC2_UNORM,
+      DXGI_FORMAT_BC2_UNORM_SRGB,
+      DXGI_FORMAT_BC3_TYPELESS,
+      DXGI_FORMAT_BC3_UNORM,
+      DXGI_FORMAT_BC3_UNORM_SRGB,
+      DXGI_FORMAT_B5G5R5A1_UNORM,
+      DXGI_FORMAT_B8G8R8A8_UNORM,
+      DXGI_FORMAT_R10G10B10_XR_BIAS_A2_UNORM,
+      DXGI_FORMAT_B8G8R8A8_TYPELESS,
+      DXGI_FORMAT_B8G8R8A8_UNORM_SRGB,
+      DXGI_FORMAT_BC7_TYPELESS,
+      DXGI_FORMAT_BC7_UNORM,
+      DXGI_FORMAT_BC7_UNORM_SRGB,
+      DXGI_FORMAT_AYUV,
+      DXGI_FORMAT_Y410,
+      DXGI_FORMAT_Y416,
+      DXGI_FORMAT_AI44,
+      DXGI_FORMAT_IA44,
+      DXGI_FORMAT_A8P8,
+      DXGI_FORMAT_B4G4R4A4_UNORM
+    ];
+    // D3D formats not supported by DXGI
+    // https://learn.microsoft.com/windows/win32/direct3d10/d3d10-graphics-programming-guide-resources-legacy-formats
+    D3D_NODXGI: TD3DFORMATs = [
+      D3DFMT_R8G8B8,
+      D3DFMT_X1R5G5B5,
+      D3DFMT_R3G3B2,
+      D3DFMT_A8R3G3B2,
+      D3DFMT_X4R4G4B4,
+      D3DFMT_X8B8G8R8,
+      D3DFMT_A2R10G10B10
+    ];
+  end;
+
+const
   MAGIC_DDS : TMagic4 = 'DDS ';
   MAGIC_DXT1: TMagic4 = 'DXT1';
   MAGIC_DXT3: TMagic4 = 'DXT3';
@@ -201,6 +344,8 @@ const
   MAGIC_BC4U: TMagic4 = 'BC4U';
   MAGIC_BC5S: TMagic4 = 'BC5S';
   MAGIC_BC5U: TMagic4 = 'BC5U';
+  MAGIC_DX10: TMagic4 = 'DX10';
+  MAGIC_XBOX: TMagic4 = 'XBOX';
 
   DDSD_CAPS        = $00000001;
   DDSD_HEIGHT      = $00000002;
@@ -238,112 +383,204 @@ const
   // DX10
   DDS_DIMENSION_TEXTURE2D       = $00000003;
   DDS_RESOURCE_MISC_TEXTURECUBE = $00000004;
-
-
-function IsDDS(aDDSData: Pointer): Boolean;
-function GetDDSHeaderSize(aDDSData: Pointer): Integer;
-function GetDXGIFormatName(aDXGI: TDXGI): string;
-function GetDXGI(aDDSData: Pointer): TDXGI;
-procedure SetDDSHeader(aDDSData: Pointer; aDXGI: TDXGI;
-  aWidth, aHeight, aMipMapCount: Integer; aCubeMap: Boolean);
-function GetBitsPerPixel(aDXGI: TDXGI): Byte;
-function IsDDSCubeMap(aDDSData: Pointer): Boolean;
+  DDS_ALPHA_MODE_UNKNOWN        = $00000000;
+  DDS_ALPHA_MODE_STRAIGHT       = $00000001;
+  DDS_ALPHA_MODE_PREMULTIPLIED  = $00000002;
+  DDS_ALPHA_MODE_OPAQUE         = $00000003;
+  DDS_ALPHA_MODE_CUSTOM         = $00000004;
 
 
 implementation
 
 uses
-  TypInfo;
+  System.TypInfo;
 
-
-function IsDDS(aDDSData: Pointer): Boolean;
+class function TwbDDS.IsDDS(aDDSData: Pointer; aSize: Integer): Boolean;
 begin
-  Result := Assigned(aDDSData) and (PDDSHeader(aDDSData).Magic = MAGIC_DDS);
+  Result := Assigned(aDDSData) and
+    (aSize >= SizeOf(TDDSHeader)) and
+    (PDDSHeader(aDDSData).Magic = MAGIC_DDS) and
+    (aSize >= GetHeaderSize(aDDSData));
 end;
 
-function GetDDSHeaderSize(aDDSData: Pointer): Integer;
+class function TwbDDS.IsXBOX(aDDSData: Pointer): Boolean;
+begin
+  Result := PDDSHeader(aDDSData).ddspf.dwFourCC = MAGIC_XBOX;
+end;
+
+class function TwbDDS.IsCubeMap(aDDSData: Pointer): Boolean;
+begin
+  Result := PDDSHeader(aDDSData).dwCaps2 and DDSCAPS2_CUBEMAP <> 0;
+end;
+
+class function TwbDDS.HasAlpha(aDXGI: TDXGI): Boolean;
+begin
+  Result := aDXGI in DXGI_ALPHA;
+end;
+
+class function TwbDDS.IsCompressed(aDXGI: TDXGI): Boolean;
+begin
+  Result := aDXGI in DXGI_COMPRESSED;
+end;
+
+class function TwbDDS.GetHeaderSize(aDDSData: Pointer): Integer;
 var
   DDSHeader: PDDSHeader;
 begin
   DDSHeader := aDDSData;
   Result := SizeOf(TDDSHeader);
-  if DDSHeader.ddspf.dwFourCC = MAGIC_DX10 then
+  if (DDSHeader.ddspf.dwFourCC = MAGIC_DX10) or (DDSHeader.ddspf.dwFourCC = MAGIC_XBOX) then
     Inc(Result, SizeOf(TDDSHeaderDX10));
+  if DDSHeader.ddspf.dwFourCC = MAGIC_XBOX then
+    Inc(Result, SizeOf(TDDSHeaderXBOX));
 end;
 
-function GetDXGIFormatName(aDXGI: TDXGI): string;
+class function TwbDDS.HeaderDX10(aDDSData: Pointer): PDDSHeaderDX10;
 begin
-  Result := GetEnumName(TypeInfo(TDXGI), Integer(aDXGI)).Replace('DXGI_FORMAT_', '') ;
+  Result := PDDSHeaderDX10(PByte(aDDSData) + SizeOf(TDDSHeader));
 end;
 
-function GetDXGI(aDDSData: Pointer): TDXGI;
+class function TwbDDS.HeaderXBOX(aDDSData: Pointer): PDDSHeaderXBOX;
+begin
+  Result := PDDSHeaderXBOX(PByte(aDDSData) + SizeOf(TDDSHeader) + SizeOf(TDDSHeaderDX10));
+end;
+
+class function TwbDDS.GetMipSize(aDDSData: Pointer): Integer;
+var
+  DDSHeader: PDDSHeader;
+begin
+  DDSHeader := aDDSData;
+  Result := (DDSHeader.dwWidth * DDSHeader.dwHeight * GetBitsPerPixel(DDSHeader)) shr 3;
+end;
+
+class function TwbDDS.GetTileMode(aDDSData: Pointer): Integer;
+begin
+  if IsXBOX(aDDSData) then
+    Result := HeaderXBOX(aDDSData).tileMode
+  else
+    Result := 8;
+end;
+
+class function TwbDDS.GetDXGIFormatName(aDXGI: TDXGI): string;
+begin
+  Result := GetEnumName(TypeInfo(TDXGI), Integer(aDXGI)).Replace('DXGI_FORMAT_', '');
+end;
+
+class function TwbDDS.GetD3DFMTFormatName(aD3DFMT: TD3DFORMAT): string;
+begin
+  case aD3DFMT of
+    D3DFMT_UNKNOWN      : Result := 'UNKNOWN';
+    D3DFMT_R8G8B8       : Result := 'R8G8B8';
+    D3DFMT_A8R8G8B8     : Result := 'A8R8G8B8';
+    D3DFMT_X8R8G8B8     : Result := 'X8R8G8B8';
+    D3DFMT_R5G6B5       : Result := 'R5G6B5';
+    D3DFMT_X1R5G5B5     : Result := 'X1R5G5B5';
+    D3DFMT_A1R5G5B5     : Result := 'A1R5G5B5';
+    D3DFMT_A4R4G4B4     : Result := 'A4R4G4B4';
+    D3DFMT_R3G3B2       : Result := 'R3G3B2';
+    D3DFMT_A8           : Result := 'A8';
+    D3DFMT_A8R3G3B2     : Result := 'A8R3G3B2';
+    D3DFMT_X4R4G4B4     : Result := 'X4R4G4B4';
+    D3DFMT_A2B10G10R10  : Result := 'A2B10G10R10';
+    D3DFMT_A8B8G8R8     : Result := 'A8B8G8R8';
+    D3DFMT_X8B8G8R8     : Result := 'X8B8G8R8';
+    D3DFMT_G16R16       : Result := 'G16R16';
+    D3DFMT_A2R10G10B10  : Result := 'A2R10G10B10';
+    D3DFMT_A16B16G16R16 : Result := 'A16B16G16R16';
+    else
+      Result := 'UNKNOWN';
+  end;
+end;
+
+class function TwbDDS.GetDXGI(aDDSData: Pointer): TDXGI;
 var
   DDSHeader: PDDSHeader;
   DDSHeaderDX10: PDDSHeaderDX10;
 begin
+  Result := DXGI_FORMAT_UNKNOWN;
   DDSHeader := aDDSData;
 
   with DDSHeader.ddspf do
-  if dwFourCC = MAGIC_DXT1 then
-    Result := DXGI_FORMAT_BC1_UNORM
-  else if dwFourCC = MAGIC_DXT3 then
-    Result := DXGI_FORMAT_BC2_UNORM
-  else if dwFourCC = MAGIC_DXT5 then
-    Result := DXGI_FORMAT_BC3_UNORM
-  else if dwFourCC = MAGIC_ATI1 then
-    Result := DXGI_FORMAT_BC4_UNORM
-  else if dwFourCC = MAGIC_BC4U then
-    Result := DXGI_FORMAT_BC4_UNORM
-  else if dwFourCC = MAGIC_BC4S then
-    Result := DXGI_FORMAT_BC4_SNORM
-  else if dwFourCC = MAGIC_ATI2 then
-    Result := DXGI_FORMAT_BC5_UNORM
-  else if dwFourCC = MAGIC_BC5U then
-    Result := DXGI_FORMAT_BC5_UNORM
-  else if dwFourCC = MAGIC_BC5S then
-    Result := DXGI_FORMAT_BC5_SNORM
-  else if dwFourCC = MAGIC_DX10 then begin
+  if dwFourCC = MAGIC_DXT1 then Result := DXGI_FORMAT_BC1_UNORM else
+  if dwFourCC = MAGIC_DXT3 then Result := DXGI_FORMAT_BC2_UNORM else
+  if dwFourCC = MAGIC_DXT5 then Result := DXGI_FORMAT_BC3_UNORM else
+  if dwFourCC = MAGIC_ATI1 then Result := DXGI_FORMAT_BC4_UNORM else
+  if dwFourCC = MAGIC_BC4U then Result := DXGI_FORMAT_BC4_UNORM else
+  if dwFourCC = MAGIC_BC4S then Result := DXGI_FORMAT_BC4_SNORM else
+  if dwFourCC = MAGIC_ATI2 then Result := DXGI_FORMAT_BC5_UNORM else
+  if dwFourCC = MAGIC_BC5U then Result := DXGI_FORMAT_BC5_UNORM else
+  if dwFourCC = MAGIC_BC5S then Result := DXGI_FORMAT_BC5_SNORM else
+  if (dwFourCC = MAGIC_DX10) or (dwFourCC = MAGIC_XBOX) then begin
     DDSHeaderDX10 := Pointer(PByte(DDSHeader) + SizeOf(DDSHeader^));
     Result := TDXGI(DDSHeaderDX10.dxgiFormat);
-  end
-  else begin
-    if dwRGBBitCount = 32 then
+  end else
+  if dwFlags and (DDPF_RGB or DDPF_LUMINANCE) <> 0 then case dwRGBBitCount of
+    32:
       if dwFlags and DDPF_ALPHAPIXELS = 0 then
         Result := DXGI_FORMAT_B8G8R8X8_UNORM
       else if dwRBitMask = $000000FF then
         Result := DXGI_FORMAT_R8G8B8A8_UNORM
       else
-        Result := DXGI_FORMAT_B8G8R8A8_UNORM
-
-    else if dwRGBBitCount = 16 then
-      if (dwRBitMask = $F800) and (dwGBitMask = $07E0) and
-         (dwBBitMask = $001F) and (dwABitMask = $0000) then
+        Result := DXGI_FORMAT_B8G8R8A8_UNORM;
+    16:
+      if (dwRBitMask = $F800) and (dwGBitMask = $07E0) and (dwBBitMask = $001F) and (dwABitMask = $0000) then
         Result := DXGI_FORMAT_B5G6R5_UNORM
-      else if (dwRBitMask = $7C00) and (dwGBitMask = $03E0) and
-              (dwBBitMask = $001F) and (dwABitMask = $8000) then
+      else if (dwRBitMask = $7C00) and (dwGBitMask = $03E0) and (dwBBitMask = $001F) and (dwABitMask = $8000) then
         Result := DXGI_FORMAT_B5G5R5A1_UNORM
       else
-        Result := DXGI_FORMAT_R8G8_UNORM
-
-    else if dwRGBBitCount = 8 then
+        Result := DXGI_FORMAT_R8G8_UNORM;
+    8:
       if dwFlags and DDPF_ALPHA <> 0 then
         Result := DXGI_FORMAT_A8_UNORM
       else
-        Result := DXGI_FORMAT_R8_UNORM
-
-    else
-      raise Exception.Create('Unsupported uncompressed DDS format');
+        Result := DXGI_FORMAT_R8_UNORM;
   end;
 end;
 
-procedure SetDDSHeader(aDDSData: Pointer; aDXGI: TDXGI;
-  aWidth, aHeight, aMipMapCount: Integer; aCubeMap: Boolean);
+class function TwbDDS.GetD3DFMT(aDDSData: Pointer): TD3DFORMAT;
+var
+  DDSHeader: PDDSHeader;
+begin
+  // https://learn.microsoft.com/windows/win32/direct3ddds/dx-graphics-dds-pguide
+  Result := D3DFMT_UNKNOWN;
+  DDSHeader := aDDSData;
+
+  with DDSHeader.ddspf do
+  if dwFlags and DDPF_RGB <> 0 then case dwRGBBitCount of
+    32:
+      if (dwFlags and DDPF_ALPHA <> 0) and (dwRBitMask = $FF0000) and (dwGBitMask = $FF00) and (dwBBitMask = $FF) and (dwABitMask = $FF000000) then
+        Result := D3DFMT_A8R8G8B8
+      else if (dwFlags and DDPF_ALPHA = 0) and (dwRBitMask = $FF0000) and (dwGBitMask = $FF00) and (dwBBitMask = $FF) then
+        Result := D3DFMT_X8R8G8B8
+      else if (dwFlags and DDPF_ALPHA = 0) and (dwRBitMask = $FF) and (dwGBitMask = $FF00) and (dwBBitMask = $FF0000) then
+        Result := D3DFMT_X8B8G8R8
+      else if (dwFlags and DDPF_ALPHA <> 0) and (dwRBitMask = $3FF00000) and (dwGBitMask = $FFC00) and (dwBBitMask = $3FF) and (dwABitMask = $C0000000) then
+        Result := D3DFMT_A2R10G10B10;
+    24:
+      if (dwRBitMask = $FF0000) and (dwGBitMask = $FF00) and (dwBBitMask = $FF) and (dwABitMask = $00) then
+        Result := D3DFMT_R8G8B8;
+    16:
+      if (dwRBitMask = $7C00) and (dwGBitMask = $03E0) and (dwBBitMask = $001F) and (dwABitMask = $8000) then
+        Result := D3DFMT_X1R5G5B5
+      else if (dwRBitMask = $F00) and (dwGBitMask = $F0) and (dwBBitMask = $F) and (dwABitMask = $F000) then
+        Result := D3DFMT_A4R4G4B4
+      else if (dwRBitMask = $F00) and (dwGBitMask = $F0) and (dwBBitMask = $F) and (dwABitMask = $0000) then
+        Result := D3DFMT_X4R4G4B4
+      else if (dwRBitMask = $E0) and (dwGBitMask = $1C) and (dwBBitMask = $3) and (dwABitMask = $FF00) then
+        Result := D3DFMT_A8R3G3B2
+  end;
+end;
+
+class procedure TwbDDS.SetUpHeader(aDDSData: Pointer; aDXGI: TDXGI;
+  aWidth, aHeight, aMipMapCount: Integer; aCubeMap: Boolean; aXBox: Boolean);
 var
   DDSHeader: PDDSHeader;
   DDSHeaderDX10: PDDSHeaderDX10;
+  DDSHeaderXBOX: PDDSHeaderXBOX;
 begin
   DDSHeader := aDDSData;
-  DDSHeaderDX10 := Pointer(PByte(aDDSData) + SizeOf(TDDSHeader));
+  DDSHeaderDX10 := HeaderDX10(aDDSData);
+  DDSHeaderXBOX := HeaderXBOX(aDDSData);
 
   // header
   with DDSHeader^ do begin
@@ -370,8 +607,7 @@ begin
   end;
 
   // DXGI specific settings
-  with DDSHeader^ do
-  case aDXGI of
+  with DDSHeader^ do case aDXGI of
     DXGI_FORMAT_BC1_UNORM: begin
       dwFlags := dwFlags or DDSD_LINEARSIZE;
       ddspf.dwFlags := DDPF_FOURCC;
@@ -429,23 +665,12 @@ begin
       dwPitchOrLinearSize := dwWidth * dwHeight;
     end;
     DXGI_FORMAT_B8G8R8A8_UNORM_SRGB, DXGI_FORMAT_B8G8R8X8_UNORM_SRGB,
-    DXGI_FORMAT_R8G8B8A8_SINT, DXGI_FORMAT_R8G8B8A8_UINT, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB: begin
+    DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+    DXGI_FORMAT_R8G8B8A8_SINT, DXGI_FORMAT_R8G8B8A8_UINT: begin
       dwFlags := dwFlags or DDSD_PITCH;
       ddspf.dwFlags := DDPF_FOURCC;
       ddspf.dwFourCC := MAGIC_DX10;
       dwPitchOrLinearSize := dwWidth * 4;
-    end;
-    DXGI_FORMAT_R8G8_SINT, DXGI_FORMAT_R8G8_UINT: begin
-      dwFlags := dwFlags or DDSD_PITCH;
-      ddspf.dwFlags := DDPF_FOURCC;
-      ddspf.dwFourCC := MAGIC_DX10;
-      dwPitchOrLinearSize := dwWidth * 2;
-    end;
-    DXGI_FORMAT_R8_SINT, DXGI_FORMAT_R8_SNORM, DXGI_FORMAT_R8_UINT: begin
-      dwFlags := dwFlags or DDSD_PITCH;
-      ddspf.dwFlags := DDPF_FOURCC;
-      ddspf.dwFourCC := MAGIC_DX10;
-      dwPitchOrLinearSize := dwWidth;
     end;
     DXGI_FORMAT_R8G8B8A8_UNORM: begin
       dwFlags := dwFlags or DDSD_PITCH;
@@ -503,6 +728,18 @@ begin
       ddspf.dwABitMask := $0000FF00;
       dwPitchOrLinearSize := dwWidth * 2;
     end;
+    DXGI_FORMAT_R8G8_SINT, DXGI_FORMAT_R8G8_UINT: begin
+      dwFlags := dwFlags or DDSD_PITCH;
+      ddspf.dwFlags := DDPF_FOURCC;
+      ddspf.dwFourCC := MAGIC_DX10;
+      dwPitchOrLinearSize := dwWidth * 2;
+    end;
+    DXGI_FORMAT_R8_SINT, DXGI_FORMAT_R8_SNORM, DXGI_FORMAT_R8_UINT: begin
+      dwFlags := dwFlags or DDSD_PITCH;
+      ddspf.dwFlags := DDPF_FOURCC;
+      ddspf.dwFourCC := MAGIC_DX10;
+      dwPitchOrLinearSize := dwWidth;
+    end;
     DXGI_FORMAT_A8_UNORM: begin
       dwFlags := dwFlags or DDSD_PITCH;
       ddspf.dwFlags := DDPF_ALPHA;
@@ -516,50 +753,206 @@ begin
       ddspf.dwRGBBitCount := 8;
       ddspf.dwRBitMask := $000000FF;
       dwPitchOrLinearSize := dwWidth;
+    end
+    // the rest of DXGI formats, unsupported by Bethesda?
+    else begin
+      dwFlags := dwFlags or DDSD_PITCH;
+      ddspf.dwFlags := DDPF_FOURCC;
+      ddspf.dwFourCC := MAGIC_DX10;
+      dwPitchOrLinearSize := (dwWidth * TwbDDS.GetBitsPerPixel(aDXGI)) shr 3;
     end;
   end;
 
   // additional DX10 header
-  if DDSHeader.ddspf.dwFourCC = MAGIC_DX10 then begin
+  if (DDSHeader.ddspf.dwFourCC = MAGIC_DX10) or aXBox then begin
     DDSHeaderDX10.dxgiFormat := Integer(aDXGI);
     DDSHeaderDX10.resourceDimension := DDS_DIMENSION_TEXTURE2D;
     DDSHeaderDX10.arraySize := 1;
-    if DDSHeader.dwCaps2 and DDSCAPS2_CUBEMAP <> 0 then
+    if aCubeMap then
       DDSHeaderDX10.miscFlags := DDS_RESOURCE_MISC_TEXTURECUBE;
   end;
-end;
 
-function GetBitsPerPixel(aDXGI: TDXGI): Byte;
-begin
-  case aDXGI of
-    DXGI_FORMAT_BC1_UNORM, DXGI_FORMAT_BC1_UNORM_SRGB,
-    DXGI_FORMAT_BC4_UNORM, DXGI_FORMAT_BC4_SNORM:
-      Result := 4;
-    DXGI_FORMAT_BC2_UNORM, DXGI_FORMAT_BC2_UNORM_SRGB,
-    DXGI_FORMAT_BC3_UNORM, DXGI_FORMAT_BC3_UNORM_SRGB,
-    DXGI_FORMAT_BC5_UNORM, DXGI_FORMAT_BC5_SNORM,
-    DXGI_FORMAT_BC6H_SF16, DXGI_FORMAT_BC6H_UF16,
-    DXGI_FORMAT_BC7_UNORM, DXGI_FORMAT_BC7_UNORM_SRGB,
-    DXGI_FORMAT_A8_UNORM,
-    DXGI_FORMAT_R8_SINT, DXGI_FORMAT_R8_SNORM,
-    DXGI_FORMAT_R8_UINT, DXGI_FORMAT_R8_UNORM:
-      Result := 8;
-    DXGI_FORMAT_B5G6R5_UNORM, DXGI_FORMAT_B5G5R5A1_UNORM,
-    DXGI_FORMAT_R8G8_SINT, DXGI_FORMAT_R8G8_UINT, DXGI_FORMAT_R8G8_UNORM:
-      Result := 16;
-    DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_B8G8R8A8_UNORM_SRGB,
-    DXGI_FORMAT_B8G8R8X8_UNORM, DXGI_FORMAT_B8G8R8X8_UNORM_SRGB,
-    DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A8_SINT,
-    DXGI_FORMAT_R8G8B8A8_UINT, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
-      Result := 32;
-    else
-      raise Exception.Create('Unsupported DDS format');
+  // additional XBOX header
+  if aXBox then begin
+    DDSHeader.ddspf.dwFlags := DDPF_FOURCC;
+    DDSHeader.ddspf.dwFourCC := MAGIC_XBOX;
+    DDSHeader.ddspf.dwRGBBitCount := 0;
+    DDSHeader.ddspf.dwRBitMask := 0;
+    DDSHeader.ddspf.dwGBitMask := 0;
+    DDSHeader.ddspf.dwBBitMask := 0;
+    DDSHeader.ddspf.dwABitMask := 0;
+    DDSHeaderXBOX.xdkVer := 10705; // used by Archive2 when extracting xbox textures
   end;
 end;
 
-function IsDDSCubeMap(aDDSData: Pointer): Boolean;
+class function TwbDDS.GetBitsPerPixel(aDXGI: TDXGI): Byte;
 begin
-  Result := PDDSHeader(aDDSData).dwCaps2 and DDSCAPS2_CUBEMAP <> 0;
+  case aDXGI of
+    DXGI_FORMAT_R32G32B32A32_TYPELESS,
+    DXGI_FORMAT_R32G32B32A32_FLOAT,
+    DXGI_FORMAT_R32G32B32A32_UINT,
+    DXGI_FORMAT_R32G32B32A32_SINT:
+      Result := 128;
+
+    DXGI_FORMAT_R32G32B32_TYPELESS,
+    DXGI_FORMAT_R32G32B32_FLOAT,
+    DXGI_FORMAT_R32G32B32_UINT,
+    DXGI_FORMAT_R32G32B32_SINT:
+      Result := 96;
+
+    DXGI_FORMAT_R16G16B16A16_TYPELESS,
+    DXGI_FORMAT_R16G16B16A16_FLOAT,
+    DXGI_FORMAT_R16G16B16A16_UNORM,
+    DXGI_FORMAT_R16G16B16A16_UINT,
+    DXGI_FORMAT_R16G16B16A16_SNORM,
+    DXGI_FORMAT_R16G16B16A16_SINT,
+    DXGI_FORMAT_R32G32_TYPELESS,
+    DXGI_FORMAT_R32G32_FLOAT,
+    DXGI_FORMAT_R32G32_UINT,
+    DXGI_FORMAT_R32G32_SINT,
+    DXGI_FORMAT_R32G8X24_TYPELESS,
+    DXGI_FORMAT_D32_FLOAT_S8X24_UINT,
+    DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS,
+    DXGI_FORMAT_X32_TYPELESS_G8X24_UINT,
+    DXGI_FORMAT_Y416,
+    DXGI_FORMAT_Y210,
+    DXGI_FORMAT_Y216:
+      Result := 64;
+
+    DXGI_FORMAT_R10G10B10A2_TYPELESS,
+    DXGI_FORMAT_R10G10B10A2_UNORM,
+    DXGI_FORMAT_R10G10B10A2_UINT,
+    DXGI_FORMAT_R11G11B10_FLOAT,
+    DXGI_FORMAT_R8G8B8A8_TYPELESS,
+    DXGI_FORMAT_R8G8B8A8_UNORM,
+    DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
+    DXGI_FORMAT_R8G8B8A8_UINT,
+    DXGI_FORMAT_R8G8B8A8_SNORM,
+    DXGI_FORMAT_R8G8B8A8_SINT,
+    DXGI_FORMAT_R16G16_TYPELESS,
+    DXGI_FORMAT_R16G16_FLOAT,
+    DXGI_FORMAT_R16G16_UNORM,
+    DXGI_FORMAT_R16G16_UINT,
+    DXGI_FORMAT_R16G16_SNORM,
+    DXGI_FORMAT_R16G16_SINT,
+    DXGI_FORMAT_R32_TYPELESS,
+    DXGI_FORMAT_D32_FLOAT,
+    DXGI_FORMAT_R32_FLOAT,
+    DXGI_FORMAT_R32_UINT,
+    DXGI_FORMAT_R32_SINT,
+    DXGI_FORMAT_R24G8_TYPELESS,
+    DXGI_FORMAT_D24_UNORM_S8_UINT,
+    DXGI_FORMAT_R24_UNORM_X8_TYPELESS,
+    DXGI_FORMAT_X24_TYPELESS_G8_UINT,
+    DXGI_FORMAT_R9G9B9E5_SHAREDEXP,
+    DXGI_FORMAT_R8G8_B8G8_UNORM,
+    DXGI_FORMAT_G8R8_G8B8_UNORM,
+    DXGI_FORMAT_B8G8R8A8_UNORM,
+    DXGI_FORMAT_B8G8R8X8_UNORM,
+    DXGI_FORMAT_R10G10B10_XR_BIAS_A2_UNORM,
+    DXGI_FORMAT_B8G8R8A8_TYPELESS,
+    DXGI_FORMAT_B8G8R8A8_UNORM_SRGB,
+    DXGI_FORMAT_B8G8R8X8_TYPELESS,
+    DXGI_FORMAT_B8G8R8X8_UNORM_SRGB,
+    DXGI_FORMAT_AYUV,
+    DXGI_FORMAT_Y410,
+    DXGI_FORMAT_YUY2:
+      Result := 32;
+
+    DXGI_FORMAT_P010,
+    DXGI_FORMAT_P016:
+      Result := 24;
+
+    DXGI_FORMAT_R8G8_TYPELESS,
+    DXGI_FORMAT_R8G8_UNORM,
+    DXGI_FORMAT_R8G8_UINT,
+    DXGI_FORMAT_R8G8_SNORM,
+    DXGI_FORMAT_R8G8_SINT,
+    DXGI_FORMAT_R16_TYPELESS,
+    DXGI_FORMAT_R16_FLOAT,
+    DXGI_FORMAT_D16_UNORM,
+    DXGI_FORMAT_R16_UNORM,
+    DXGI_FORMAT_R16_UINT,
+    DXGI_FORMAT_R16_SNORM,
+    DXGI_FORMAT_R16_SINT,
+    DXGI_FORMAT_B5G6R5_UNORM,
+    DXGI_FORMAT_B5G5R5A1_UNORM,
+    DXGI_FORMAT_A8P8,
+    DXGI_FORMAT_B4G4R4A4_UNORM:
+      Result := 16;
+
+    DXGI_FORMAT_NV12,
+    DXGI_FORMAT_420_OPAQUE,
+    DXGI_FORMAT_NV11:
+      Result := 12;
+
+    DXGI_FORMAT_R8_TYPELESS,
+    DXGI_FORMAT_R8_UNORM,
+    DXGI_FORMAT_R8_UINT,
+    DXGI_FORMAT_R8_SNORM,
+    DXGI_FORMAT_R8_SINT,
+    DXGI_FORMAT_A8_UNORM,
+    DXGI_FORMAT_BC2_TYPELESS,
+    DXGI_FORMAT_BC2_UNORM,
+    DXGI_FORMAT_BC2_UNORM_SRGB,
+    DXGI_FORMAT_BC3_TYPELESS,
+    DXGI_FORMAT_BC3_UNORM,
+    DXGI_FORMAT_BC3_UNORM_SRGB,
+    DXGI_FORMAT_BC5_TYPELESS,
+    DXGI_FORMAT_BC5_UNORM,
+    DXGI_FORMAT_BC5_SNORM,
+    DXGI_FORMAT_BC6H_TYPELESS,
+    DXGI_FORMAT_BC6H_UF16,
+    DXGI_FORMAT_BC6H_SF16,
+    DXGI_FORMAT_BC7_TYPELESS,
+    DXGI_FORMAT_BC7_UNORM,
+    DXGI_FORMAT_BC7_UNORM_SRGB,
+    DXGI_FORMAT_AI44,
+    DXGI_FORMAT_IA44,
+    DXGI_FORMAT_P8:
+      Result := 8;
+
+    DXGI_FORMAT_R1_UNORM:
+      Result := 1;
+
+    DXGI_FORMAT_BC1_TYPELESS,
+    DXGI_FORMAT_BC1_UNORM,
+    DXGI_FORMAT_BC1_UNORM_SRGB,
+    DXGI_FORMAT_BC4_TYPELESS,
+    DXGI_FORMAT_BC4_UNORM,
+    DXGI_FORMAT_BC4_SNORM:
+      Result := 4;
+
+    else
+      Result := 0;
+  end;
+end;
+
+class function TwbDDS.GetBitsPerPixel(aDDSData: Pointer): Byte;
+begin
+  Result := GetBitsPerPixel(GetDXGI(aDDSData));
+end;
+
+class function TwbDDS.ConvertR8G8B8toB8G8R8X8(aDDSData: Pointer; aSize: Integer): TBytes;
+var
+  DDSHeader: PDDSHeader;
+  headersize, pixels: Integer;
+  src, dst: PByte;
+begin
+  headersize := GetHeaderSize(aDDSData);
+  pixels := (aSize - headersize) div 3;
+  SetLength(Result, aSize + pixels); // extra byte per pixel
+  System.Move(aDDSData^, Pointer(Result)^, headersize);
+  DDSHeader := Pointer(Result);
+  DDSHeader.ddspf.dwRGBBitCount := 32;
+  DDSHeader.dwPitchOrLinearSize := DDSHeader.dwWidth * 4;
+  src := PByte(aDDSData) + headersize;
+  dst := @Result[headersize];
+  for var i := 1 to pixels do begin
+    PCardinal(dst)^ := PCardinal(src)^ or $FF000000;
+    Inc(src, 3);
+    Inc(dst, 4);
+  end;
 end;
 
 

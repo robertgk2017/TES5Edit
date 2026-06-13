@@ -13,12 +13,19 @@ unit xeFileSelectForm;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, Buttons, CheckLst, Menus,
+  Winapi.Windows,
+
+  System.Classes,
+
+  Vcl.CheckLst,
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.Menus,
+  Vcl.StdCtrls,
   Vcl.Styles.Utils.SystemMenu;
 
 type
-  TCheckListBox = class(CheckLst.TCheckListbox)
+  TCheckListBox = class(Vcl.CheckLst.TCheckListbox)
   protected
     procedure DrawItem(Index: Integer; Rect: TRect; State: TOwnerDrawState);
       override;
@@ -52,9 +59,14 @@ implementation
 {$R *.dfm}
 
 uses
+  System.StrUtils,
+  System.SysUtils,
+
+  Vcl.Graphics,
+
   wbInterface,
-  xeMainForm,
-  StrUtils;
+
+  xeMainForm;
 
 procedure TCheckListBox.DrawItem(Index: Integer; Rect: TRect;
   State: TOwnerDrawState);

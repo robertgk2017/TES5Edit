@@ -13,9 +13,14 @@ unit xeLegendForm;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Grids, System.IniFiles,
-  wbInterface;
+  System.Classes,
+  System.IniFiles,
+
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.Grids,
+
+  Winapi.Windows;
 
 type
   TfrmLegend = class(TForm)
@@ -40,7 +45,12 @@ implementation
 {$R *.dfm}
 
 uses
-  Math,
+  System.Math,
+
+  Vcl.Graphics,
+
+  wbInterface,
+
   xeMainForm;
 
 procedure TfrmLegend.dgLegendDrawCell(Sender: TObject; ACol, ARow: Integer; Rect: TRect; State: TGridDrawState);

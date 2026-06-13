@@ -13,8 +13,7 @@ unit xeElementDetailForm;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs;
+  Vcl.Forms;
 
 type
   TForm1 = class(TForm)

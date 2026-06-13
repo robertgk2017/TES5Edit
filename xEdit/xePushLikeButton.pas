@@ -13,18 +13,14 @@ unit xePushLikeButton;
 interface
 
 uses
-  Windows,
-  Messages,
-  Classes,
-  SysUtils,
-  Graphics,
-  Controls,
-  StdCtrls,
-  Themes,
-  Styles;
+  Winapi.Messages,
+
+  Vcl.Graphics,
+  Vcl.Controls,
+  Vcl.StdCtrls;
 
 type
-  TButton = class(StdCtrls.TButton)
+  TButton = class(Vcl.StdCtrls.TButton)
   private
     FChecked: Boolean;
     FPushLike: Boolean;
@@ -52,6 +48,11 @@ type
   end;
 
 implementation
+
+uses
+  Vcl.Themes,
+
+  Winapi.Windows;
 
 procedure TButton.SetButtonStyle(ADefault: Boolean);
 begin

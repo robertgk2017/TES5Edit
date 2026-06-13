@@ -11,8 +11,14 @@ unit ProcSetMissingNames;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, SniffProcessor;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameSetMissingNames = class(TFrame)
@@ -36,7 +42,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 implementation
@@ -77,7 +83,7 @@ begin
   fRenameRoot := Frame.chkRenameRoot.Checked;
 end;
 
-function TProcSetMissingNames.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcSetMissingNames.ProcessFile(aFile: TProcFileObject): TBytes;
 var
   nif: TwbNifFile;
   fname, newname: string;
@@ -88,12 +94,12 @@ begin
   bChanged := False;
   nif := TwbNifFile.Create;
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     if nif.BlocksCount = 0 then
       Exit;
 
-    fname := ChangeFileExt(ExtractFileName(aFileName), '');
+    fname := ChangeFileExt(ExtractFileName(aFile.FileName), '');
 
     if fRenameRoot and nif.RootNode.IsNiObject('NiAVObject') and not SameText(nif.RootNode.EditValues['Name'], fname) then begin
       nif.RootNode.EditValues['Name'] := nif.GetUniqueName(fname);

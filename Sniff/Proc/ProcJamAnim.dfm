@@ -7,7 +7,7 @@ object FrameJamAnim: TFrameJamAnim
   object StaticText1: TStaticText
     Left = 0
     Top = 0
-    Width = 490
+    Width = 516
     Height = 19
     Align = alTop
     Caption = 

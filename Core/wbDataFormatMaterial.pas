@@ -11,7 +11,7 @@ unit wbDataFormatMaterial;
 interface
 
 uses
-  SysUtils, wbDataFormat, wbDataFormatNifTypes, JsonDataObjects;
+  wbDataFormat;
 
 type
   TwbBGSMFile = class(TdfStruct)
@@ -29,6 +29,13 @@ type
   end;
 
 implementation
+
+uses
+  System.SysUtils,
+
+  JsonDataObjects,
+
+  wbDataFormatNifTypes;
 
 type
   TMagic = array [0..3] of AnsiChar;

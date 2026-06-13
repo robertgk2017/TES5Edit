@@ -11,8 +11,13 @@ unit wbDataFormatNif;
 interface
 
 uses
-  Types, SysUtils, StrUtils, Classes, Variants, wbDataFormat, JsonDataObjects,
-  wbNifMath, wbMeshOptimize;
+  System.Classes,
+  System.Types,
+
+  JsonDataObjects,
+
+  wbDataFormat,
+  wbNifMath;
 
 type
   TwbNifVersion = (nfUnknown, nfTES3, nfTES4, nfFO3, nfTES5, nfSSE, nfFO4);
@@ -112,9 +117,9 @@ type
     function GetStrips(aElement: TdfElement = nil): TStripArray;
     function SetStrips(const aStrips: TStripArray; aElement: TdfElement = nil): Boolean;
     function GetTransform(var aTransform: TTransform): Boolean;
-    function SetTransform(aTransform: TTransform): Boolean;
+    function SetTransform(const aTransform: TTransform): Boolean;
     function GetBoundSphere(var aSphere: TBoundSphere): Boolean;
-    function SetBoundSphere(aSphere: TBoundSphere): Boolean;
+    function SetBoundSphere(const aSphere: TBoundSphere): Boolean;
     function GetSkin: TwbNifBlock;
     function GetCollision: TwbNifBlock;
     function GetController(const aBlockType: string = ''; aChained: Boolean = False): TwbNifBlock;
@@ -139,6 +144,7 @@ type
 
   TwbNifFile = class(TdfContainer)
   private
+    FFileName: string;
     FNifVersion: TwbNifVersion;
     FOptions: TwbNifOptions;
     FInternalUpdates: Boolean;
@@ -161,6 +167,7 @@ type
     function Serialize(const aDataStart, aDataEnd: Pointer): Integer; override;
     procedure SerializeToJSON(const aJSON: TJSONBaseObject); override;
     procedure UnSerializeFromJSON(const aJSON: TJSONBaseObject); override;
+    procedure LoadFromFile(const aFileName: string); override;
     procedure Delete(Index: Integer); override;
     procedure Move(CurIndex, NewIndex: Integer); override;
     procedure UpdateNifVersion;
@@ -184,6 +191,7 @@ type
     function SpellFaceNormals: Boolean;
     function SpellUpdateTangents: Boolean;
     function SpellAddUpdateTangents: Boolean;
+    property FileName: string read FFileName;
     property NifVersion: TwbNifVersion read FNifVersion write SetNifVersion;
     property Options: TwbNifOptions read FOptions write FOptions;
     property Header: TwbNifBlock read GetHeader;
@@ -202,12 +210,21 @@ function wbNiObjectExists(const aNiObject: string): Boolean;
 procedure wbNiObjectCheckDups;
 }
 function wbNiObjectList: TArray<string>;
+function wbIsNiObject(const aNiObject, aTemplate: string): Boolean;
 function nifblk(const e: TdfElement): TwbNifBlock;
+function GetControlledBlockName(aControlledBlock: TdfElement; const aField: string): string;
+
 
 implementation
 
 uses
-  wbDataFormatNifTypes, Math, SyncObjs;
+  System.Math,
+  System.StrUtils,
+  System.SyncObjs,
+  System.SysUtils,
+
+  wbDataFormatNifTypes,
+  wbMeshOptimize;
 
 const
   sNifMagicGamebryo = 'Gamebryo File Format, Version ';
@@ -315,6 +332,19 @@ begin
   while Assigned(Element) and not (Element is TwbNifBlock) do
     Element := Element.Parent;
   Result := TwbNifBlock(Element);
+end;
+
+function GetControlledBlockName(aControlledBlock: TdfElement; const aField: string): string;
+begin
+  Result := '';
+
+  // Oblivion meshes store names in string palette
+  if Assigned(aControlledBlock.Elements['String Palette']) then begin
+    var p := TwbNifBlock(aControlledBlock.Elements['String Palette'].LinksTo);
+    if Assigned(p) then
+      Result := p.GetStringPaletteString(aControlledBlock.NativeValues[aField + ' Offset']);
+  end else
+    Result := aControlledBlock.EditValues[aField];
 end;
 
 procedure wbGetVector2(var Vector: TVector2; const aElement: TdfElement; asText: Boolean = False); inline;
@@ -725,15 +755,17 @@ begin
   var ms := EditValues['Motion System'];
   var mq := EditValues['Motion Quality'];
 
-  Result :=
-    // not undefined, static or animstatic layer
-    (layer > 2) and
-    (ms <> 'MO_SYS_INVALID') and
-    (ms <> 'MO_SYS_FIXED') and
-    (mq <> 'MO_QUAL_INVALID') and
-    (mq <> 'MO_QUAL_FIXED') and
-    // keyframed biped layer is dynamic
-    ( (ms <> 'MO_SYS_KEYFRAMED') or (layer = 8) );
+  Result := (ms <> 'MO_SYS_INVALID') and (ms <> 'MO_SYS_FIXED')
+      // keyframed biped layer is dynamic
+      and ( (ms <> 'MO_SYS_KEYFRAMED') or (layer = 8) );
+
+  // In Skyrim not only motion system defines static
+  if NifFile.NifVersion >= nfTES5 then
+    Result := Result and
+      // not undefined, static or animstatic layer
+      (layer > 2) and
+      (mq <> 'MO_QUAL_INVALID') and
+      (mq <> 'MO_QUAL_FIXED');
 end;
 
 function TwbNifBlock.GetIsEditorMarker: Boolean;
@@ -1320,29 +1352,38 @@ var
 begin
   Result := False;
 
-  if not IsNiObject('NiAVObject') then
-    Exit;
+  if IsNiObject('NiAVObject') then begin
+    t := Elements['Transform'];
+    if not Assigned(t) then
+      Exit;
 
-  t := Elements['Transform'];
-  if not Assigned(t) then
-    Exit;
+    aTransform.Scale := t.NativeValues['Scale'];
+    aTransform.Translation.X := t.NativeValues['Translation\X'];
+    aTransform.Translation.Y := t.NativeValues['Translation\Y'];
+    aTransform.Translation.Z := t.NativeValues['Translation\Z'];
 
-  aTransform.Scale := t.NativeValues['Scale'];
-  aTransform.Translation.X := t.NativeValues['Translation\X'];
-  aTransform.Translation.Y := t.NativeValues['Translation\Y'];
-  aTransform.Translation.Z := t.NativeValues['Translation\Z'];
+    r := t.Elements['Rotation'];
+    for i := 0 to 2 do
+      for j := 0 to 2 do
+        m[j, i] := r.NativeValues['m' + IntToStr(i+1) + IntToStr(j+1)];
 
-  r := t.Elements['Rotation'];
-  for i := 0 to 2 do
-    for j := 0 to 2 do
-      m[j, i] := r.NativeValues['m' + IntToStr(i+1) + IntToStr(j+1)];
-
-  M33ToQuaternion(m, aTransform.Rotation);
+    M33ToQuaternion(m, aTransform.Rotation);
+  end
+  else if BlockType = 'bhkRigidBodyT' then begin
+    aTransform.Translation.X := NativeValues['Translation\X'];
+    aTransform.Translation.Y := NativeValues['Translation\Y'];
+    aTransform.Translation.Z := NativeValues['Translation\Z'];
+    aTransform.Rotation.X := NativeValues['Rotation\X'];
+    aTransform.Rotation.Y := NativeValues['Rotation\Y'];
+    aTransform.Rotation.Z := NativeValues['Rotation\Z'];
+    aTransform.Rotation.W := NativeValues['Rotation\W'];
+    aTransform.Scale := 1.0;
+  end;
 
   Result := True;
 end;
 
-function TwbNifBlock.SetTransform(aTransform: TTransform): Boolean;
+function TwbNifBlock.SetTransform(const aTransform: TTransform): Boolean;
 var
   i, j: integer;
   t, r: TdfElement;
@@ -1390,7 +1431,7 @@ begin
   Result := True;
 end;
 
-function TwbNifBlock.SetBoundSphere(aSphere: TBoundSphere): Boolean;
+function TwbNifBlock.SetBoundSphere(const aSphere: TBoundSphere): Boolean;
 var
   e: TdfElement;
 begin
@@ -1495,6 +1536,9 @@ function TwbNifBlock.ApplyTransform(aRecursive: Boolean = False; aOptions: TwbAp
 
   function CanTransform(aBlock: TwbNifBlock): Boolean;
   begin
+    if aBlock = aBlock.NifFile.RootNode then
+      Exit(False);
+
     // skip skinned, animated and nodes with collision
     // also BSFurnitureMarker in extradata because it contains positions
     Result :=
@@ -1511,7 +1555,7 @@ function TwbNifBlock.ApplyTransform(aRecursive: Boolean = False; aOptions: TwbAp
         (aBlock.NifFile.BlockByType('BSSkin::Instance', True) = nil);
   end;
 
-  procedure UpdateRotation(entries: TdfElement; var t: TTransform);
+  procedure UpdateRotation(entries: TdfElement; const t: TTransform);
   begin
     if not Assigned(entries) then
       Exit;
@@ -1584,12 +1628,8 @@ begin
   // BSTriShape
   else if IsNiObject('BSTriShape') then begin
 
-    if (NativeValues['Num Vertices'] = 0) and (GetSkin <> nil) then begin
-      t.SetNone;
-      SetTransform(t);
-      Result := True;
+    if (NativeValues['Num Vertices'] = 0) and (GetSkin <> nil) then
       Exit;
-    end;
 
     if not CanTransform(Self) then
       Exit;
@@ -2207,6 +2247,12 @@ begin
   end;
 end;
 
+procedure TwbNifFile.LoadFromFile(const aFileName: string);
+begin
+  inherited;
+  FFileName := aFileName;
+end;
+
 procedure TwbNifFile.RemapBlocks(const aMap: array of Integer);
 var
   i, j, b: integer;
@@ -2329,6 +2375,9 @@ var
   Entries: TdfElement;
 begin
   Block := Blocks[Index];
+  if Block.BlockType = aBlockType then
+    Exit;
+
   NewBlock := TwbNifBlock(wbNiObjectDef(aBlockType).CreateElement(Self));
   NewBlock.SetToDefault;
 
@@ -2338,6 +2387,21 @@ begin
 
   try
     NewBlock.Assign(Block);
+
+    if NewBlock.BlockType = 'bhkMalleableConstraint' then begin
+      var tname := '';
+      if Block.BlockType = 'bhkBallAndSocketConstraint' then tname := 'Ball and Socket' else
+      if Block.BlockType = 'bhkHingeConstraint'         then tname := 'Hinge' else
+      if Block.BlockType = 'bhkLimitedHingeConstraint'  then tname := 'Limited Hinge' else
+      if Block.BlockType = 'bhkPrismaticConstraint'     then tname := 'Prismatic' else
+      if Block.BlockType = 'bhkRagdollConstraint'       then tname := 'Ragdoll' else
+      if Block.BlockType = 'bhkStiffSpringConstraint'   then tname := 'Stiff Spring';
+      if tname <> '' then begin
+        NewBlock.EditValues['Hinge\Type'] := tname;
+        NewBlock.Elements['Hinge'].Assign(Block); // copy of Entities and Priority
+        NewBlock.Elements['Hinge\' + tname].Assign(Block.Elements[tname]);
+      end;
+    end;
   except
     NewBlock.Free;
     DoException('Incompatible block type: ' + aBlockType);
@@ -2454,6 +2518,14 @@ function TwbNifFile.GetAssets: TdfElements;
     Result[Pred(Length(Result))] := el;
   end;
 
+  function IsMaterial(el: TdfElement): Boolean;
+  begin
+    Result := False;
+    if not Assigned(el) then Exit;
+    var s := el.EditValue;
+    Result := s.EndsWith('.bgsm', True) or s.EndsWith('.bgem', True);
+  end;
+
 var
   i, j: Integer;
   el: TdfElement;
@@ -2469,7 +2541,7 @@ begin
     end
 
     // BGSM/BGEM file in the Name field of FO4 meshes
-    else if (NifVersion = nfFO4) and (Block.BlockType = 'BSLightingShaderProperty') then
+    else if (NifVersion = nfFO4) and (Block.BlockType = 'BSLightingShaderProperty') and IsMaterial(Block.Elements['Name']) then
       AddAsset(Block.Elements['Name'])
 
     else if Block.BlockType = 'BSEffectShaderProperty' then begin
@@ -2479,7 +2551,7 @@ begin
       AddAsset(Block.Elements['Normal Texture']);
       AddAsset(Block.Elements['Env Mask Texture']);
       // BGSM/BGEM file in the Name field of FO4 meshes
-      if NifVersion = nfFO4 then
+      if (NifVersion = nfFO4) and IsMaterial(Block.Elements['Name']) then
         AddAsset(Block.Elements['Name']);
     end
 
@@ -2700,7 +2772,7 @@ begin
   if (dynbodies > 0) then Result := Result or (1 shl 6);
 
   // Articulated. Applies velocity equally to all bones of a grabbed object. Makes objects like armor ground models move cleanly.
-  if (dynbodies > 0) then Result := Result or (1 shl 7);
+  if (dynbodies > IfThen(NifVersion = nfFO3, 1, 0)) then Result := Result or (1 shl 7);
 
   // Transform updates, runtime only
   // 1 shl 8
@@ -3241,6 +3313,8 @@ begin
     FNifVersion := nfTES4
   else if (Version = v10200) and (UserVersion = 10) and (UserVersion2 in [6, 7, 8, 9, 11]) then
     FNifVersion := nfTES4
+  //else if (Version = v10012) and (UserVersion = 0) and (UserVersion2 = 1) then
+  //  FNifVersion := nfTES4
   //else if (Version = v10010) then
   //  FNifVersion := nfTES4
   else if (Version = v20207) and (UserVersion = 11) then
@@ -4145,7 +4219,7 @@ begin
     wbStiffSpringDescriptor('Stiff Spring', [DF_OnGetEnabled, @wbMalleableDescriptor_EnType8]),
     dfFloat('Tau', [DF_OnGetEnabled, @EnBefore20005]),
     dfFloat('Damping', [DF_OnGetEnabled, @EnBefore20005]),
-    dfFloat('Strength', [DF_OnGetEnabled, @EnSince20207])
+    dfFloat('Strength', '1.0', [DF_OnGetEnabled, @EnSince20207])
   ], aEvents);
 end;
 
@@ -4178,27 +4252,20 @@ end;
 //===========================================================================
 { Basic NIF data structures: NIF, Header, Footer }
 
+function NiHeader_EnBSHeader(const e: TdfElement): Boolean; begin
+  var v := Cardinal(e.NativeValues['..\Version']);
+  var uv := Cardinal(e.NativeValues['..\User Version']);
+  Result := (v = v10012) or ((v = v20207) or (v = v20005) or ((v >= v10100) and (v <= v20004) and (uv <= 11))) and (uv >= 3);
+end;
+function NiHeader_EnExportUnknownInt(const e: TdfElement): Boolean; begin Result := e.NativeValues['..\..\User Version 2'] > 130; end;
+function NiHeader_EnExportProccessScript(const e: TdfElement): Boolean; begin Result := e.NativeValues['..\..\User Version 2'] < 131; end;
+function NiHeader_EnExportMaxFilepath(const e: TdfElement): Boolean; begin Result := e.NativeValues['..\..\User Version 2'] >= 103; end;
 function NiHeader_EnSince20004(const e: TdfElement): Boolean; begin Result := e.NativeValues['..\Version'] >= v20004; end;
 function NiHeader_EnSince10018(const e: TdfElement): Boolean; begin Result := e.NativeValues['..\Version'] >= v10018; end;
 function NiHeader_EnSince5001(const e: TdfElement): Boolean; begin Result := e.NativeValues['..\Version'] >= v5001; end;
-
-function NiHeader_EnUserVersion2(const e: TdfElement): Boolean;
-var
-  Version, UserVersion: Cardinal;
-begin
-  Version := e.NativeValues['..\Version'];
-  UserVersion := e.NativeValues['..\User Version'];
-  Result := (Version >= v10010) and ((UserVersion >= 10) or ((UserVersion = 1) and (Version <> v10200)));
-  //Result := (Version = v10012) or ((Version = v20207) or (Version = v20005) or ((Version >= v10100) and (Version <= v20004) and (UserVersion <= 11))) and (UserVersion >= 3);
-end;
-
-function NiHeader_EnExportInfo(const e: TdfElement): Boolean; begin Result := (e.NativeValues['..\Version'] >= v10010) and(e.NativeValues['..\User Version'] >= 3); end;
-function NiHeader_EnBefore10012(const e: TdfElement): Boolean; begin Result := e.NativeValues['..\..\Version'] <= v10012; end;
-function NiHeader_EnMaxFilepath(const e: TdfElement): Boolean; begin Result := (e.NativeValues['..\Version'] = v20207) and (Integer(e.NativeValues['..\User Version 2']) in [130,132]); end;
 function NiHeader_EnSince20207(const e: TdfElement): Boolean; begin Result := e.NativeValues['..\Version'] >= v20207; end;
 function NiHeader_EnSince20103(const e: TdfElement): Boolean; begin Result := e.NativeValues['..\Version'] >= v20103; end;
-function NiHeader_EnProccessScript(const e: TdfElement): Boolean; begin Result := e.NativeValues['..\..\User Version 2'] <= 130; end;
-function NiHeader_EnUnknownExportInt(const e: TdfElement): Boolean; begin Result := e.NativeValues['..\..\User Version 2'] >= 131; end;
+function NiHeader_EnBefore10012(const e: TdfElement): Boolean; begin Result := e.NativeValues['..\..\Version'] <= v10012; end;
 procedure NiHeader_GetTextVersion(const e: TdfElement; var aText: string); begin aText := wbIntToNifVersion(e.NativeValue); end;
 procedure NiHeader_SetTextVersion(const e: TdfElement; var aText: string); begin aText := IntToStr(wbNifVersionToInt(aText)); end;
 
@@ -4240,47 +4307,41 @@ begin
   { NiHeader }
   wbNiObject(wbNifBlock('NiHeader', [
     dfChars('Magic', 0, sNifMagicGamebryo + '20.2.0.7', #$0A, True, []),
-    dfInteger('Version', dtU32, '20.2.0.7', [
-        DF_OnGetText, @NiHeader_GetTextVersion,
-        DF_OnSetText, @NiHeader_SetTextVersion
-    ]),
+    dfInteger('Version', dtU32, '20.2.0.7')
+      .SetOnGetText(NiHeader_GetTextVersion)
+      .SetOnSetText(NiHeader_SetTextVersion),
     dfEnum('Endian Type', dtU8, [
       0, 'ENDIAN_BIG',
       1, 'ENDIAN_LITTLE'
-    ], 'ENDIAN_LITTLE', [DF_OnGetEnabled, @NiHeader_EnSince20004]),
+    ], 'ENDIAN_LITTLE').SetOnEnabled(NiHeader_EnSince20004),
     dfInteger('User Version', dtU32, '12').SetOnEnabled(NiHeader_EnSince10018),
     dfInteger('Num Blocks', dtU32),
     // BSStreamHeader
-    dfInteger('User Version 2', dtU32, '83', [DF_OnGetEnabled, @NiHeader_EnUserVersion2]),
+    dfInteger('User Version 2', dtU32, '83').SetOnEnabled(NiHeader_EnBSHeader),
     dfStruct('Export Info', [
-      dfInteger('Unknown Int', dtU32, '3', [DF_OnGetEnabled, @NiHeader_EnBefore10012]),
       wbShortString('Author'),
-      wbShortString('Process Script').SetOnEnabled(NiHeader_EnProccessScript),
-      dfInteger('Unknown Int 2', dtU32, '0').SetOnEnabled(NiHeader_EnUnknownExportInt),
-      wbShortString('Export Script')
-    ], [DF_OnGetEnabled, @NiHeader_EnExportInfo]),
-    wbShortString('Max Filepath', [DF_OnGetEnabled, @NiHeader_EnMaxFilepath]),
+      dfInteger('Unknown Int', dtU32, '0').SetOnEnabled(NiHeader_EnExportUnknownInt),
+      wbShortString('Process Script').SetOnEnabled(NiHeader_EnExportProccessScript),
+      wbShortString('Export Script'),
+      wbShortString('Max Filepath').SetOnEnabled(NiHeader_EnExportMaxFilepath)
+    ]).SetOnEnabled(NiHeader_EnBSHeader),
     // BSStreamHeader
-    dfArray('Block Types', wbSizedString('Type'), -2, '', [DF_OnGetEnabled, @NiHeader_EnSince5001]),
-    dfArray(
-      'Block Type Index',
-      dfInteger('Block', dtU16, [
-        DF_OnGetText, @NiHeader_GetTextBlockType,
-        DF_OnSetText, @NiHeader_SetTextBlockType
-      ]),
-      0, 'Num Blocks',
-      [DF_OnGetEnabled, @NiHeader_EnSince5001]
-    ),
-    dfArray('Block Size', dfInteger('Size', dtU32), 0, 'Num Blocks', [DF_OnGetEnabled, @NiHeader_EnSince20207]),
-    dfInteger('Num Strings', dtU32, [DF_OnGetEnabled, @NiHeader_EnSince20103]),
-    dfInteger('Max String Length', dtU32, [DF_OnGetEnabled, @NiHeader_EnSince20103]),
-    dfArray('Strings', wbSizedString('String'), 0, 'Num Strings', [DF_OnGetEnabled, @NiHeader_EnSince20103]),
-    dfInteger('Num Groups', dtU32, [DF_OnGetEnabled, @NiHeader_EnSince5001])
-  ], [DF_OnAfterLoad, @NiHeader_AfterLoad]));
+    dfArray('Block Types', wbSizedString('Type'), -2, '').SetOnEnabled(NiHeader_EnSince5001),
+    dfArray('Block Type Index',
+      dfInteger('Block', dtU16)
+        .SetOnGetText(NiHeader_GetTextBlockType)
+        .SetOnSetText(NiHeader_SetTextBlockType),
+      0, 'Num Blocks').SetOnEnabled(NiHeader_EnSince5001),
+    dfArray('Block Size', dfInteger('Size', dtU32), 0, 'Num Blocks').SetOnEnabled(NiHeader_EnSince20207),
+    dfInteger('Num Strings', dtU32).SetOnEnabled(NiHeader_EnSince20103),
+    dfInteger('Max String Length', dtU32).SetOnEnabled(NiHeader_EnSince20103),
+    dfArray('Strings', wbSizedString('String'), 0, 'Num Strings').SetOnEnabled(NiHeader_EnSince20103),
+    dfInteger('Num Groups', dtU32).SetOnEnabled(NiHeader_EnSince5001)
+  ]).SetOnAfterLoad(NiHeader_AfterLoad));
 
   { NiFooter }
   wbNiObject(wbNifBlock('NiFooter', [
-    dfArray('Roots', wbNiRef('Roots', 'NiObject'), -4, '', [DF_OnBeforeSave, @RemoveNoneLinks])
+    dfArray('Roots', wbNiRef('Roots', 'NiObject'), -4).SetOnBeforeSave(RemoveNoneLinks)
   ]));
 end;
 
@@ -4298,11 +4359,10 @@ procedure wbDefineNiObjectNET;
 begin
   wbNiObject(wbNifBlock('NiObjectNET', [
     wbString('Name'),
-    wbNiRef('Extra Data', 'NiExtraData', [DF_OnGetEnabled, @EnBefore4220]),
-    dfArray('Extra Data List', wbNiRef('Extra Data List', 'NiExtraData'), -4, '', [
-      DF_OnGetEnabled, @EnSince10010,
-      DF_OnBeforeSave, @RemoveNoneLinks
-    ]),
+    wbNiRef('Extra Data', 'NiExtraData').SetOnEnabled(EnBefore4220),
+    dfArray('Extra Data List', wbNiRef('Extra Data List', 'NiExtraData'), -4)
+      .SetOnEnabled(EnSince10010)
+      .SetOnBeforeSave(RemoveNoneLinks),
     wbNiRef('Controller', 'NiTimeController')
   ]), 'NiObject', True);
 end;
@@ -4319,16 +4379,15 @@ begin
     dfUnion([
       dfInteger('Flags', dtU16),
       dfInteger('Flags', dtU32, '14')
-    ], [DF_OnDecide, @NiAVObject_DecideFlags]),
+    ]).SetOnDecide(NiAVObject_DecideFlags),
     wbMTransform('Transform'),
-    wbVector3('Velocity', [DF_OnGetEnabled, @EnBefore4220]),
-    dfArray('Properties', wbNiRef('Properties', 'NiProperty'), -4, '', [
-      DF_OnGetEnabled, @NiAVObject_EnProperties,
-      DF_OnBeforeSave, @RemoveNoneLinks
-    ]),
-    wbBool('Has Bounding Volume', [DF_OnGetEnabled, @EnBefore4220]),
-    wbBoundingVolume('Bounding Volume', [DF_OnGetEnabled, @NiAVObject_EnBoundingVolume]),
-    wbNiRef('Collision Object', 'NiCollisionObject', [DF_OnGetEnabled, @EnSince10010])
+    wbVector3('Velocity').SetOnEnabled(EnBefore4220),
+    dfArray('Properties', wbNiRef('Properties', 'NiProperty'), -4)
+      .SetOnEnabled(NiAVObject_EnProperties)
+      .SetOnBeforeSave(RemoveNoneLinks),
+    wbBool('Has Bounding Volume').SetOnEnabled(EnBefore4220),
+    wbBoundingVolume('Bounding Volume').SetOnEnabled(NiAVObject_EnBoundingVolume),
+    wbNiRef('Collision Object', 'NiCollisionObject').SetOnEnabled(EnSince10010)
   ]), 'NiObjectNET', True);
 end;
 
@@ -6146,7 +6205,7 @@ function NiSkinPartition_EnVertexData(const e: TdfElement): Boolean;
 begin
   Result := enSSE(e) and (e.NativeValues['..\Data Size'] > 0);
   if Result then e.UserData := e.NativeValues['..\VertexDesc\VF']; // cache VF
- end;
+end;
 
 procedure NiSkinPartition_GetCountVertexData(const e: TdfElement; var aCount: Integer);
 begin
@@ -6193,7 +6252,7 @@ begin
     wbPropagationMode('Propagation Mode', '', []),
     wbCollisionMode('Collision Mode', '', [DF_OnGetEnabled, @EnSince10100]),
     dfInteger('Use ABV', dtU8),
-    wbBoundingVolume('Bounding Volume', [DF_OnGetEnabled, @NiCollisionData_EnBoundingVolume])
+    wbBoundingVolume('Bounding Volume').SetOnEnabled(NiCollisionData_EnBoundingVolume)
   ]), 'NiCollisionObject', False);
 end;
 

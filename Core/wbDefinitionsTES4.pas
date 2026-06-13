@@ -17,9 +17,10 @@ procedure DefineTES4;
 implementation
 
 uses
-  Classes,
-  SysUtils,
-  Variants,
+  System.Classes,
+  System.SysUtils,
+  System.Variants,
+
   wbDefinitionsCommon,
   wbDefinitionsSignatures,
   wbInterface;
@@ -568,55 +569,52 @@ begin
 end;
 
 function wbConditionVariableNameToInt(const aString: string; const aElement: IwbElement): Int64;
-var
-  MainRecord : IwbMainRecord;
-  Script     : IwbMainRecord;
-  LocalVars  : IwbContainerElementRef;
-  LocalVar   : IwbContainerElementRef;
 begin
   Result := StrToInt64Def(aString, Low(Cardinal));
   if Result <> Low(Cardinal) then
     Exit;
 
   if not Assigned(aElement) then
-    raise Exception.Create('aElement not specified');
+    Exit;
 
   var Container := GetContainerRefFromUnionOrValue(aElement);
   if not Assigned(Container) then
-    raise Exception.Create('Container not assigned');
+    Exit;
 
   var Param1 := Container.ElementByName['Parameter #1'];
   if not Assigned(Param1) then
-    raise Exception.Create('Could not find "Parameter #1"');
+    Exit;
 
-  if not Supports(Param1.LinksTo, IwbMainRecord, MainRecord) then
-    raise Exception.Create('"Parameter #1" does not reference a valid main record');
+  var lMainRecord : IwbMainRecord;
+  if not Supports(Param1.LinksTo, IwbMainRecord, lMainRecord) then
+    Exit;
 
-  var BaseRecord := MainRecord.BaseRecord;
+  var BaseRecord := lMainRecord.BaseRecord;
   if Assigned(BaseRecord) then
-    MainRecord := BaseRecord;
-  MainRecord := MainRecord.WinningOverride;
+    lMainRecord := BaseRecord;
+  lMainRecord := lMainRecord.WinningOverride;
 
-  var ScriptRef := MainRecord.RecordBySignature['SCRI'];
+  var ScriptRef := lMainRecord.RecordBySignature['SCRI'];
   if not Assigned(ScriptRef) then
-    raise Exception.Create('"' + MainRecord.ShortName + '" does not contain a SCRI subrecord');
+    Exit;
 
-  if not Supports(ScriptRef.LinksTo, IwbMainRecord, Script) then
-    raise Exception.Create('"' + MainRecord.ShortName + '" does not have a valid script');
+  var lScript : IwbMainRecord;
+  if not Supports(ScriptRef.LinksTo, IwbMainRecord, lScript) then
+    Exit;
 
-  Script := Script.HighestOverrideOrSelf[aElement._File.LoadOrder];
-
-  if Supports(Script.ElementByName['Local Variables'], IwbContainerElementRef, LocalVars) then begin
-    for var i := 0 to Pred(LocalVars.ElementCount) do
-      if Supports(LocalVars.Elements[i], IwbContainerElementRef, LocalVar) then begin
-        var j := LocalVar.ElementNativeValues['SLSD\Index'];
-        var s := LocalVar.ElementNativeValues['SCVR'];
+  lScript := lScript.WinningOverride;
+  var lLocalVars : IwbContainerElementRef;
+  if Supports(lScript.ElementByName['Local Variables'], IwbContainerElementRef, lLocalVars) then begin
+    for var i := 0 to Pred(lLocalVars.ElementCount) do begin
+      var lLocalVar : IwbContainerElementRef;
+      if Supports(lLocalVars.Elements[i], IwbContainerElementRef, lLocalVar) then begin
+        var j := lLocalVar.ElementNativeValues['SLSD\Index'];
+        var s := lLocalVar.ElementNativeValues['SCVR'];
         if SameText(s, Trim(aString)) then
           Exit(j);
       end;
+    end;
   end;
-
-  raise Exception.Create('Variable "' + aString + '" was not found in "' + MainRecord.ShortName + '"');
 end;
 
 function wbCalcPGRRSize(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Cardinal;
@@ -1044,8 +1042,6 @@ end;
 
 procedure DefineTES4;
 begin
-  DefineCommon;
-
   wbRecordFlags := wbInteger('Record Flags', itU32, wbFlags(wbFlagsList([])));
 
   wbMainRecordHeader := wbStruct('Record Header', [
@@ -1400,7 +1396,7 @@ begin
   {21} wbFormIDCkNoReach('Inventory Object', [ALCH, AMMO, APPA, ARMO, BOOK, CLOT, INGR, KEYM, LIGH, LVLI, MISC, SGST, SLGM, WEAP]),
   {22} wbFormIDCkNoReach('Magic Effect', [MGEF]),
   {23} wbFormIDCkNoReach('Magic Item', [ALCH, ENCH, INGR, SPEL]),
-  {24} wbFormIDCkNoReach('Owner', [FACT, NPC_]),
+  {24} wbFormIDCkNoReach('Owner', [FACT,NPC_,NULL]).SetToStr(wbConditionOwnerToStr),
   {25} wbFormIDCkNoReach('Package', [PACK]),
   {26} wbFormIDCkNoReach('Quest', [QUST]),
   {27} wbFormIDCkNoReach('Race', [RACE]),
@@ -1467,7 +1463,12 @@ begin
         wbFormIDCk('Item', [ALCH, AMMO, APPA, ARMO, BOOK, CLOT, INGR, KEYM, LIGH, LVLI, MISC, SGST, SLGM, WEAP]),
         wbInteger('Count', itS32)
           .SetDefaultNativeValue(1)
-      ]).SetToStr(wbItemToStr)
+      ]).SetSummaryKeyOnValue([1, 0])
+        .SetSummaryPrefixSuffixOnValue(0, '', '')
+        .SetSummaryPrefixSuffixOnValue(1, '', 'x')
+        .SetSummaryDelimiterOnValue(' ')
+        .IncludeFlagOnValue(dfSummaryNoSortKey)
+        .IncludeFlagOnValue(dfSummaryMembersNoName)
         .IncludeFlag(dfCollapsed, wbCollapseItems));
 
   wbConditions :=
@@ -1723,7 +1724,7 @@ begin
     wbFormIDCk(XHRS, 'Horse', [ACRE], True),
     wbRagdoll,
     wbXSCL,
-    wbDATAPosRot
+    wbVec3PosRot(DATA).SetRequired
   ], True).SetAddInfo(wbPlacedAddInfo)
           .SetAfterLoad(wbREFRAfterLoad);
 
@@ -1740,7 +1741,7 @@ begin
     wbXLOD,
     wbXESP,
     wbXSCL,
-    wbDATAPosRot
+    wbVec3PosRot(DATA).SetRequired
   ], True).SetAddInfo(wbPlacedAddInfo);
 
   wbRecord(ACTI, 'Activator',
@@ -2251,7 +2252,7 @@ begin
       wbUnused(3),
       wbFloat('Rushing Attack Distance Mult').SetDefaultNativeValue(1),
       wbInteger('Do Not Acquire', itU32, wbBoolEnum)
-    ], cpNormal, True, nil, 30),
+    ], cpNormal, True, nil, 25),
     wbStruct(CSAD, 'Advanced', [
       wbFloat('Dodge Fatigue Mod Mult').SetDefaultNativeValue(-20),
       wbFloat('Dodge Fatigue Mod Base'),
@@ -2715,17 +2716,7 @@ begin
     wbEDID,
     wbICON,
     wbDESC.SetRequired,
-    wbRArrayS('Locations',
-      wbStructSK(LNAM, [0, 1], 'Location', [
-        wbFormIDCkNoReach('Direct', [CELL, WRLD, NULL]),
-        wbStructSK([0, 1], 'Indirect', [
-          wbFormIDCkNoReach('World', [WRLD, NULL]),
-          wbStructSK([0,1], 'Grid', [
-            wbInteger('Y', itS16),
-            wbInteger('X', itS16)
-          ])
-        ])
-      ]))
+    wbLoadScreenLocations
   ]).SetSummaryKey([2]);
 
   wbRecord(LTEX, 'Landscape Texture', [
@@ -2825,7 +2816,10 @@ begin
     .SetAfterLoad(wbLVLAfterLoad);
 
   wbRecord(MGEF, 'Magic Effect', [
-    wbStringMgefCode(EDID, 'Magic Effect Code', 4).SetRequired,
+    wbStringMgefCode(EDID, 'Magic Effect Code', 4)
+      .IncludeFlagOnValue(dfHasZeroTerminator)
+      .IncludeFlagOnValue(dfNeedsPrepareSave)
+      .SetRequired,
     {wbStruct(OBME, 'Oblivion Magic Extender', [
       wbInteger('Record Version', itU8),
       wbOBMEVersion,
@@ -3090,47 +3084,17 @@ begin
       .IncludeFlagOnValue(dfSummaryMembersNoName)
       .IncludeFlag(dfSummaryMembersNoName),
     wbStruct(PSDT, 'Schedule', [
-      wbInteger('Month', itU8,
-        wbEnum([
-          {0}  'January',
-          {1}  'February',
-          {2}  'March',
-          {3}  'April',
-          {4}  'May',
-          {5}  'June',
-          {6}  'July',
-          {7}  'August',
-          {8}  'September',
-          {9}  'October',
-          {10} 'November',
-          {11} 'December',
-          {12} 'Spring (MAM)',
-          {13} 'Summer (JJA)',
-          {14} 'Autumn (SON)',
-          {15} 'Winter (DJF)'
-        ], [
-          255, 'Any'
-        ])).SetDefaultNativeValue(255),
-      wbInteger('Day of week', itU8,
-        wbEnum([
-          {0}  'Sunday',
-          {1}  'Monday',
-          {2}  'Tuesday',
-          {3}  'Wednesday',
-          {4}  'Thursday',
-          {5}  'Friday',
-          {6}  'Saturday',
-          {7}  'Weekdays',
-          {8}  'Weekends',
-          {9}  'Monday, Wednesday, Friday',
-          {10} 'Tuesday, Thursday'
-        ], [
-          255, 'Any'
-        ])).SetDefaultNativeValue(255),
-      wbInteger('Date', itU8),
-      wbInteger('Time', itU8),
-      wbInteger('Duration', itU32)
-    ]).SetRequired,
+      wbInteger('Month', itS8,
+        wbPackagePSDTMonthValueToStr,
+        wbPackagePSDTMonthValueToInt
+      ).SetDefaultEditValue('Any'),
+      wbInteger('Day Of Week', itS8, wbPackageScheduleDayOfWeekEnum).SetDefaultNativeValue(-1),
+      wbInteger('Date', itS8, wbPackageScheduleDayOfMonthEnum)
+        .SetAfterLoad(wbPACKDateAfterLoad)
+        .SetAfterSet(wbPACKDateAfterSet),
+      wbInteger('Time', itS8, wbPackageScheduleHoursEnum).SetDefaultNativeValue(-1),
+      wbInteger('Duration (Hours)', itU32)
+    ], cpNormal, True),
     wbStruct(PTDT, 'Target', [
       wbInteger('Type', itU32,
         wbEnum([
@@ -3367,7 +3331,7 @@ begin
     wbFormIDCk(NAME, 'Base', [ACTI, ALCH, AMMO, APPA, ARMO, BOOK, CLOT, CONT, DOOR, FLOR, FURN, GRAS, INGR, KEYM, LIGH, LVLC, MISC, SBSP, SGST, SLGM, SOUN, STAT, TREE, WEAP], False, cpNormal, True),
     wbStruct(XTEL, 'Teleport Destination', [
       wbFormIDCk('Door', [REFR], True),
-      wbPosRot
+      wbVec3PosRot
     ]),
     wbStruct(XLOC, 'Lock information', [
       wbInteger('Lock Level', itU8),
@@ -3437,7 +3401,7 @@ begin
     wbInteger(XSOL, 'Contained Soul', itU8, wbSoulGemEnum),
     IsTES4R(wbGUID(XAAG), nil),
     IsTES4R(wbStringForward(XACN, 'Unknown', 128).IncludeFlag(dfHasZeroTerminator), nil),
-    wbDATAPosRot
+    wbVec3PosRot(DATA).SetRequired
   ], True).SetAddInfo(wbPlacedAddInfo)
           .SetAfterLoad(wbREFRAfterLoad);
 

@@ -11,9 +11,16 @@ unit ProcUniversalFixer;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls, System.SyncObjs, WinAPI.ShellAPI;
+  System.Classes,
+  System.SyncObjs,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.Dialogs,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameUniversalFixer = class(TFrame)
@@ -43,7 +50,7 @@ type
     procedure OnStart; override;
     procedure OnStop; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 implementation
@@ -51,11 +58,14 @@ implementation
 {$R *.dfm}
 
 uses
-  wbDataFormat,
-  wbDataFormatNif,
-  Math,
+  System.Math,
   System.IOUtils,
-  System.StrUtils;
+
+  Winapi.ShellAPI,
+  Winapi.Windows,
+
+  wbDataFormat,
+  wbDataFormatNif;
 
 constructor TProcUniversalFixer.Create(aManager: TProcManager);
 begin
@@ -99,7 +109,7 @@ begin
     Clear;
     Add('- Update invalid string indices');
     Add('- Remove empty and invalid links from link arrays (children, extradatas, properties, etc.)');
-    Add('- Remove absolute path from asset names');
+    Add('- Remove absolute path and double slashes from assets');
     Add('- Remove useless redundant blocks including empty geometry shapes');
     //Add('- Add Hidden flag to EditorMarker blocks in Skyrim meshes');
     Add('- Update BSXFlags, add if missing when needed');
@@ -227,6 +237,18 @@ begin
 
     var delim := '';
 
+    // beth slop
+    if Pos(#8'NOR', newname) <> 0 then
+      newname := '';
+
+    // remove invalid chars
+    for var i := High(newname) downto Low(newname) do
+      if CharInSet(newname[i], [
+        #0, #1, #2, #3, #4, #5, #6, #7, #8, #9, #10, #11, #12, #13, #14, #15, #16,
+        #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30, #31
+      ]) then
+        Delete(newname, i, 1);
+
     // detecting used delimiter
     // edge case when path contains both slashes \ and /, don't even ask why...
     if (Pos('\', newname) <> 0) and (Pos('/', newname) <> 0) then begin
@@ -234,6 +256,9 @@ begin
       newname := StringReplace(newname, '/', delim, [rfReplaceAll]);
     end else
       if Pos('/', newname) <> 0 then delim := '/' else delim := '\';
+
+    // fix double slashes
+    newname := StringReplace(newname, delim + delim, delim, [rfReplaceAll]);
 
     // fix absolute paths
     if TPath.IsPathRooted(newname) then begin
@@ -470,6 +495,15 @@ begin
       if not Assigned(seq) then
         Continue;
 
+      var TargetElement := Manager.Elements['Target'].LinksTo;
+      var TargetName := TargetElement.NativeValues['Name'];
+      if seq.NativeValues['Accum Root Name'] <> TargetName then
+      begin
+        seq.NativeValues['Accum Root Name'] := TargetName;
+        Log.Add(#9 + seq.Name + ': Set Accum Root to ' + TargetElement.Name);
+        Result := True;
+      end;
+
       // going over contolled blocks (in reverse, we are going to delete some)
       var blocks := seq.Elements['Controlled Blocks'];
       for var j := Pred(blocks.Count) downto 0 do begin
@@ -569,7 +603,6 @@ begin
       Log.Add(#9 + multitarget.Name + ': Updated Extra Targets');
       Result := True;
     end;
-
 
   finally
     slOld.Free;
@@ -706,7 +739,37 @@ begin
         Result := True;
       end;
     end;
+  end;
 
+  for var Collision in nif.BlocksByType('bhkCollisionObject', False) do
+  begin
+    if nif.NifVersion in [nfTES5, nfSSE, nfFO4] then
+      if Collision.NativeValues['Flags\SYNC_ON_UPDATE'] = False then
+      begin
+        Collision.NativeValues['Flags\SYNC_ON_UPDATE'] := True;
+        Log.Add(#9 + Collision.Name + ': Added Sync_On_Update flag');
+        Result := True;
+      end;
+
+    var Rigid := Collision.ElementByName('Body').LinksTo;
+    if not Assigned(Rigid) then
+      Exit;
+
+    if Rigid.NativeValues['Havok Filter\Layer'] = 2 then begin
+      if Collision.NativeValues['Flags\SET_LOCAL'] = False then
+      begin
+        Collision.NativeValues['Flags\SET_LOCAL'] := True;
+        Log.Add(#9 + Collision.Name + ': Added Set_Local flag');
+        Result := True;
+      end;
+    end
+    else
+    if Collision.NativeValues['Flags\SET_LOCAL'] = True then
+    begin
+      Collision.NativeValues['Flags\SET_LOCAL'] := False;
+      Log.Add(#9 + Collision.Name + ': Removed Set_Local flag');
+      Result := True;
+    end;
   end;
 
   // collision settings
@@ -714,6 +777,8 @@ begin
   for var rigid in nif.BlocksByType('bhkRigidBody', True) do begin
     var layer: Integer := rigid.NativeValues['Havok Filter\Layer'];
     var S := rigid.EditValues['Havok Filter\Layer'];
+
+    Result := UpdateElement(rigid, 'Havok Filter Copy\Layer', S, S) or Result;
 
     // static, tree and noncollidable layer
     if layer in  [1, 9, 15] then begin
@@ -742,7 +807,7 @@ begin
 
     // animstatic layer
     else if (nif.NifVersion >= nfTES5) and (layer = 2) and (rigid.EditValues['Motion System'] <> 'MO_SYS_KEYFRAMED') then begin
-      Result := UpdateElement(rigid, 'Motion System', 'MO_SYS_BOX_STABILIZED', 'MO_SYS_BOX_INERTIA') or Result;
+      Result := UpdateElement(rigid, 'Motion System', 'MO_SYS_BOX_INERTIA') or Result;
       Result := UpdateElement(rigid, 'Motion Quality', 'MO_QUAL_FIXED') or Result;
       Result := UpdateElement(rigid, 'Deactivator Type', 'DEACTIVATOR_NEVER') or Result;
       Result := UpdateElement(rigid, 'Enable Deactivation', 'no') or Result;
@@ -777,7 +842,13 @@ begin
       end;
       Result := UpdateElement(rigid, 'Deactivator Type', 'DEACTIVATOR_SPATIAL') or Result;
       Result := UpdateElement(rigid, 'Enable Deactivation', 'yes') or Result;
-      Result := UpdateElement(rigid, 'Solver Deactivation', 'SOLVER_DEACTIVATION_LOW') or Result;
+
+      Result := UpdateElement(rigid,
+        'Solver Deactivation',
+        'SOLVER_DEACTIVATION_LOW',
+        'SOLVER_DEACTIVATION_MEDIUM, SOLVER_DEACTIVATION_HIGH, SOLVER_DEACTIVATION_MAX'
+      ) or Result;
+
       if SameValue(rigid.NativeValues['Mass'], 0.0) then begin
         rigid.NativeValues['Mass'] := 1.0;
         Log.Add(#9 + rigid.Name + ': Changed Mass to 1.0 because of ' + S + ' collision layer and Mass was 0.0');
@@ -892,7 +963,7 @@ begin
   if not (nif.NifVersion in [nfTES4, nfFO3, nfTES5]) then
     Exit;
 
-  for var shape in nif.BlocksByType('NiTriBasedGeom', True) do begin
+  for var shape in nif.BlocksByType('NiGeometry', True) do begin
     var data := shape.Elements['Data'].LinksTo;
     if not Assigned(data) then
       Continue;
@@ -900,8 +971,10 @@ begin
     if not Assigned(data.Elements['Consistency Flags']) then
       Continue;
 
-    var controller := TwbNifBlock(shape.Elements['Controller'].LinksTo);
-    if Assigned(controller) and (controller.IsNiObject('NiGeomMorpherController', True) or controller.IsNiObject('NiUVController', True)) then
+    var controller := shape.GetController;
+    if shape.IsNiObject('NiParticles', True) or
+       ( Assigned(controller) and (controller.IsNiObject('NiGeomMorpherController', True) or controller.IsNiObject('NiUVController', True)) )
+    then
       f := 'CT_MUTABLE'
     else
       f := 'CT_STATIC';
@@ -1421,7 +1494,7 @@ begin
 end;
 
 
-function TProcUniversalFixer.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcUniversalFixer.ProcessFile(aFile: TProcFileObject): TBytes;
 var
   nif: TwbNifFile;
   Log: TStringList;
@@ -1431,7 +1504,7 @@ begin
   nif := TwbNifFile.Create;
   nif.Options := [nfoCollapseLinkArrays, nfoRemoveUnusedStrings];
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     bChanged := False;
     bChanged := FixStringIndices(nif, Log) or bChanged;
@@ -1457,7 +1530,7 @@ begin
 
       Sync.BeginWrite;
       try
-        LogFile.Add(aFileName);
+        LogFile.Add(aFile.FileName);
         LogFile.AddStrings(Log);
         LogFile.Add('');
       finally

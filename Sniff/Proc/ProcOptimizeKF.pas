@@ -11,17 +11,18 @@ unit ProcOptimizeKF;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameOptimizeKF = class(TFrame)
     StaticText1: TStaticText;
-  private
-    { Private declarations }
-  public
-    { Public declarations }
   end;
 
   TProcOptimizeKF = class(TProcBase)
@@ -31,7 +32,7 @@ type
     constructor Create(aManager: TProcManager); override;
     function GetFrame(aOwner: TComponent): TFrame; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 
@@ -40,7 +41,8 @@ implementation
 {$R *.dfm}
 
 uses
-  StrUtils,
+  System.StrUtils,
+
   wbDataFormat,
   wbDataFormatNif;
 
@@ -48,9 +50,9 @@ constructor TProcOptimizeKF.Create(aManager: TProcManager);
 begin
   inherited;
 
-  fTitle := 'Optimize KF animations';
-  fSupportedGames := [gtTES4, gtFO3, gtFNV];
-  fExtensions := ['kf'];
+  fTitle := 'Optimize Animations';
+  fSupportedGames := [gtTES4, gtFO3, gtFNV, gtTES5, gtSSE, gtFO4];
+  fExtensions := ['kf', 'nif'];
 end;
 
 function TProcOptimizeKF.GetFrame(aOwner: TComponent): TFrame;
@@ -59,7 +61,7 @@ begin
   Result := Frame;
 end;
 
-function TProcOptimizeKF.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcOptimizeKF.ProcessFile(aFile: TProcFileObject): TBytes;
 
   function KeyValue(aKey: TdfElement): string;
   begin
@@ -106,48 +108,36 @@ function TProcOptimizeKF.ProcessFile(const aInputDirectory, aOutputDirectory: st
       aKeys.NativeValues[aKeysCount] := aKeys.Count;
   end;
 
-var
-  nif: TwbNifFile;
-  block: TwbNifBlock;
-  datalink, entries: TdfElement;
-  bChanged: Boolean;
 begin
-  bChanged := False;
-  nif := TwbNifFile.Create;
+  var bChanged := False;
+  var nif := TwbNifFile.Create;
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
-    for var i: Integer := 0 to Pred(nif.BlocksCount) do begin
-      block := nif.Blocks[i];
-      //fManager.AddMessage('Processing block ' + block.Name);
-
-      if not block.IsNiObject('NiKeyBasedInterpolator', True) then
-        Continue;
-
-      datalink := block.Elements['Data'];
+    for var block in nif.BlocksByType('NiKeyBasedInterpolator', True) do begin
+      var datalink := block.Elements['Data'];
       if not Assigned(datalink) then
         Continue;
 
-      block := TwbNifBlock(datalink.LinksTo);
-
-      if not Assigned(block) then
+      var data := TwbNifBlock(datalink.LinksTo);
+      if not Assigned(data) then
         Continue;
 
-      entries := block.Elements['Quaternion Keys'];
+      var entries := data.Elements['Quaternion Keys'];
       if Assigned(entries) and Optimize(entries, '..\Num Rotation Keys') then
         bChanged := True;
 
-      entries := block.Elements['Translations\Keys'];
+      entries := data.Elements['Translations\Keys'];
       if Assigned(entries) and Optimize(entries, '..\Num Keys') then
         bChanged := True;
 
-      entries := block.Elements['Scales\Keys'];
+      entries := data.Elements['Scales\Keys'];
       if Assigned(entries) and Optimize(entries, '..\Num Keys') then
         bChanged := True;
 
-      entries := block.Elements['XYZ Rotations'];
+      entries := data.Elements['XYZ Rotations'];
       if Assigned(entries) then
-        for var j: Integer := 0 to Pred(entries.Count) do
+        for var j := 0 to Pred(entries.Count) do
           if Optimize(entries[j].Elements['Keys'], '..\Num Keys') then
             bChanged := True;
     end;
@@ -160,7 +150,5 @@ begin
   end;
 
 end;
-
-
 
 end.

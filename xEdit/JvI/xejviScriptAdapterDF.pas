@@ -20,11 +20,12 @@ procedure RegisterJvInterpreterAdapter(JvInterpreterAdapter: TJvInterpreterAdapt
 implementation
 
 uses
-  Classes,
+  System.Classes,
+
   wbDataFormat,
-  wbDataFormatNif,
   wbDataFormatMaterial,
-  wbDataFormatMisc;
+  wbDataFormatMisc,
+  wbDataFormatNif;
 
 const
   sDFUnitName = 'wbDataFormat';

@@ -9,6 +9,9 @@ object FrameConvertRootNode: TFrameConvertRootNode
     Top = 37
     Width = 28
     Height = 15
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
     Caption = 'From'
   end
   object Label2: TLabel
@@ -16,6 +19,9 @@ object FrameConvertRootNode: TFrameConvertRootNode
     Top = 37
     Width = 12
     Height = 15
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
     Caption = 'To'
   end
   object StaticText1: TStaticText
@@ -23,19 +29,26 @@ object FrameConvertRootNode: TFrameConvertRootNode
     Top = 0
     Width = 477
     Height = 25
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Align = alTop
     AutoSize = False
     Caption = 
       'Convert blocks type including necessary updates in the new block' +
       's.'
     TabOrder = 0
-    ExplicitWidth = 435
   end
   object cmbNodeFrom: TComboBox
     Left = 16
     Top = 56
     Width = 217
     Height = 23
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Style = csDropDownList
     TabOrder = 1
     OnSelect = cmbNodeFromSelect
@@ -45,6 +58,10 @@ object FrameConvertRootNode: TFrameConvertRootNode
     Top = 56
     Width = 217
     Height = 23
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Style = csDropDownList
     TabOrder = 2
   end
@@ -53,6 +70,10 @@ object FrameConvertRootNode: TFrameConvertRootNode
     Top = 85
     Width = 145
     Height = 17
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
     Caption = 'Root node only'
     TabOrder = 3
   end

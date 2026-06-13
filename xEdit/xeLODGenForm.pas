@@ -13,8 +13,16 @@ unit xeLODGenForm;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, ExtCtrls, CheckLst, Menus, IniFiles, wbInterface, StrUtils;
+  System.Classes,
+
+  Vcl.CheckLst,
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Menus,
+  Vcl.StdCtrls,
+
+  wbInterface;
 
 type
   TfrmLODGen = class(TForm)
@@ -94,8 +102,16 @@ implementation
 {$R *.dfm}
 
 uses
-  xeMainForm,
-  wbLOD;
+  System.StrUtils,
+  System.SysUtils,
+
+  Vcl.Dialogs,
+
+  Winapi.Windows,
+
+  wbLOD,
+
+  xeMainForm;
 
 procedure TfrmLODGen.btnSplitTreesLODClick(Sender: TObject);
 var

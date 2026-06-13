@@ -13,8 +13,10 @@ unit wbLocalization;
 interface
 
 uses
-  Classes, SysUtils, StrUtils, Math,
-  wbInterface, wbBSA;
+  System.Classes,
+  System.SysUtils,
+
+  wbInterface;
 
 const
   sStringID = 'STRINGID:';
@@ -38,7 +40,7 @@ type
     fNextID      : Cardinal;
 
     procedure Init;
-    function FileStringType(aFileName: string): TwbLStringType;
+    function FileStringType(const aFileName: string): TwbLStringType;
     function ReadZString(aStream: TMemoryStream): string;
     function ReadLenZString(aStream: TMemoryStream): string;
     procedure WriteZString(aStream: TMemoryStream; const aString: string);
@@ -55,7 +57,7 @@ type
     property Modified: Boolean read fModified write fModified;
     property NextID: Cardinal read fNextID;
     constructor Create(const aFileName: string); overload;
-    constructor Create(const aFileName: string; aData: TBytes); overload;
+    constructor Create(const aFileName: string; const aData: TBytes); overload;
     destructor Destroy; override;
     function Count: Integer;
     function IndexToID(Index: Integer): Cardinal;
@@ -86,15 +88,15 @@ type
     function LocalizedValueDecider(aElement: IwbElement): TwbLStringType;
     procedure AvailableLanguages(aLanguages : TStringList);
     procedure AvailableLocalizationFiles(aFiles: TStringList);
-    procedure LoadForFile(aFileName: string);
+    procedure LoadForFile(const aFileName: string);
     function AddLocalization(const aFileName: string): TwbLocalizationFile; overload;
-    function AddLocalization(const aFileName: string; aData: TBytes): TwbLocalizationFile; overload;
+    function AddLocalization(const aFileName: string; const aData: TBytes): TwbLocalizationFile; overload;
     function GetValue(ID: Cardinal; aElement: IwbElement; out aValue: string): Boolean;
-    function SetValue(ID: Cardinal; aElement: IwbElement; aValue: string): Cardinal;
-    function AddValue(aValue: string; aElement: IwbElement): Cardinal;
+    function SetValue(ID: Cardinal; aElement: IwbElement; const aValue: string): Cardinal;
+    function AddValue(const aValue: string; aElement: IwbElement): Cardinal;
     function GetLocalizationFileNameByElement(aElement: IwbElement): string;
-    function GetLocalizationFileNameByType(aPluginFile: string; ls: TwbLStringType): string;
-    procedure GetStringsFromFile(aFileName: string; const aList: TStrings);
+    function GetLocalizationFileNameByType(const aPluginFile: string; ls: TwbLStringType): string;
+    procedure GetStringsFromFile(const aFileName: string; const aList: TStrings);
   end;
 
 const
@@ -108,9 +110,6 @@ var
   wbLocalizationHandler: TwbLocalizationHandler;
 
 implementation
-
-uses
-  WideStrUtils;
 
 constructor TwbLocalizationFile.Create(const aFileName: string);
 var
@@ -139,7 +138,7 @@ begin
   end;
 end;
 
-constructor TwbLocalizationFile.Create(const aFileName: string; aData: TBytes);
+constructor TwbLocalizationFile.Create(const aFileName: string; const aData: TBytes);
 var
   fStream: TMemoryStream;
 begin
@@ -215,7 +214,7 @@ begin
   fNextID := 1;
 end;
 
-function TwbLocalizationFile.FileStringType(aFileName: string): TwbLStringType;
+function TwbLocalizationFile.FileStringType(const aFileName: string): TwbLStringType;
 var
   ext: string;
   i: TwbLStringType;
@@ -532,7 +531,7 @@ begin
   end;
 end;
 
-function TwbLocalizationHandler.AddLocalization(const aFileName: string; aData: TBytes): TwbLocalizationFile;
+function TwbLocalizationHandler.AddLocalization(const aFileName: string; const aData: TBytes): TwbLocalizationFile;
 var
   i: Integer;
   s: string;
@@ -669,7 +668,7 @@ begin
   end;
 end;
 
-procedure TwbLocalizationHandler.LoadForFile(aFileName: string);
+procedure TwbLocalizationHandler.LoadForFile(const aFileName: string);
 var
   ls   : TwbLStringType;
   i    : Integer;
@@ -694,7 +693,7 @@ begin
   end;
 end;
 
-function TwbLocalizationHandler.GetLocalizationFileNameByType(aPluginFile: string; ls: TwbLStringType): string;
+function TwbLocalizationHandler.GetLocalizationFileNameByType(const aPluginFile: string; ls: TwbLStringType): string;
 begin
   Result := Format('%s_%s%s', [
     ChangeFileExt(aPluginFile, ''),
@@ -716,7 +715,7 @@ begin
 end;
 
 // create a new lstring from aValue for aElement
-function TwbLocalizationHandler.AddValue(aValue: string; aElement: IwbElement): Cardinal;
+function TwbLocalizationHandler.AddValue(const aValue: string; aElement: IwbElement): Cardinal;
 var
   ls: TwbLStringType;
   FileName: string;
@@ -768,7 +767,7 @@ begin
   end;
 end;
 
-function TwbLocalizationHandler.SetValue(ID: Cardinal; aElement: IwbElement; aValue: string): Cardinal;
+function TwbLocalizationHandler.SetValue(ID: Cardinal; aElement: IwbElement; const aValue: string): Cardinal;
 var
   idx: integer;
   FileName: string;
@@ -843,7 +842,7 @@ begin
   end;
 end;
 
-procedure TwbLocalizationHandler.GetStringsFromFile(aFileName: string; const aList: TStrings);
+procedure TwbLocalizationHandler.GetStringsFromFile(const aFileName: string; const aList: TStrings);
 var
   i: integer;
 begin

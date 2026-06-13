@@ -13,11 +13,19 @@ unit xeModGroupEditForm;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, Buttons, CheckLst, Menus,
-  Vcl.Styles.Utils.SystemMenu, VirtualTrees, VirtualEditTree,
-  wbInterface, wbLoadOrder, wbModGroups, Vcl.ExtCtrls,
-  System.UITypes, Vcl.Mask;
+  System.Classes,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Mask,
+  Vcl.Menus,
+  Vcl.StdCtrls,
+
+  VirtualTrees,
+
+  wbModGroups,
+  wbHash;
 
 type
   TfrmModGroupEdit = class(TForm)
@@ -62,11 +70,22 @@ implementation
 {$R *.dfm}
 
 uses
+  System.SysUtils,
+  System.UITypes,
+
   Vcl.Clipbrd,
+  Vcl.Dialogs,
+  Vcl.Graphics,
+  Vcl.Styles.Utils.SystemMenu,
+
+  Winapi.Windows,
+
   wbHelpers,
-  xeModuleSelectForm,
+  wbInterface,
+  wbLoadOrder,
+
   xeMainForm,
-  StrUtils;
+  xeModuleSelectForm;
 
 procedure TfrmModGroupEdit.FormClose(Sender: TObject; var Action: TCloseAction);
 begin

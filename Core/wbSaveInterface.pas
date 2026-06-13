@@ -11,7 +11,6 @@ unit wbSaveInterface;
 interface
 
 uses
-  SysUtils,
   wbInterface;
 
 var
@@ -37,7 +36,7 @@ function GetSaveRefID(aIndex: Cardinal): Cardinal;
 
 function QueryCountForVMArrayHandle(anArrayHandle: Int64): Int64;
 
-function wbFindSaveElement(aName: String; aElement: IwbElement): IwbElement;
+function wbFindSaveElement(const aName: String; aElement: IwbElement): IwbElement;
 function wbDontShowBranch(const aElement: IwbElement): Boolean;
 
 // CoSave shared data
@@ -62,6 +61,9 @@ function ToBeDeterminedCounter(aBasePtr: Pointer; aEndPtr: Pointer; const aEleme
 function ToBeDeterminedCountCallback(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Cardinal;
 
 implementation
+
+uses
+  System.SysUtils;
 
 { wbVMType }
 
@@ -296,11 +298,11 @@ begin
   Result := wbCallback(TwbSaveWorldspaceIndexFormaterToString, nil);
 end;
 
-function wbFindSaveElement(aName: String; aElement: IwbElement): IwbElement;
+function wbFindSaveElement(const aName: String; aElement: IwbElement): IwbElement;
 var
   Container : IwbContainer;
 
-  function FindOurself(aName: String; aContainer: IwbContainer; var aElement: IwbElement): Boolean;
+  function FindOurself(const aName: String; aContainer: IwbContainer; var aElement: IwbElement): Boolean;
   var
     i          : Integer;
     tContainer : IwbContainer;

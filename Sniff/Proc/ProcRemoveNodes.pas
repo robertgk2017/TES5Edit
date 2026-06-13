@@ -11,9 +11,16 @@ unit ProcRemoveNodes;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Mask;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Mask,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameRemoveNodes = class(TFrame)
@@ -43,7 +50,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 
@@ -52,7 +59,8 @@ implementation
 {$R *.dfm}
 
 uses
-  StrUtils,
+  System.StrUtils,
+
   wbDataFormat,
   wbDataFormatNif;
 
@@ -131,7 +139,7 @@ begin
   fType := Frame.cmbType.Text;
 end;
 
-function TProcRemoveNodes.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcRemoveNodes.ProcessFile(aFile: TProcFileObject): TBytes;
 var
   nif: TwbNifFile;
   block, removeblock: TwbNifBlock;
@@ -148,12 +156,12 @@ var
     end;
   end;
 
-  begin
+begin
   bChanged := False;
   nif := TwbNifFile.Create;
   nif.Options := [nfoCollapseLinkArrays, nfoRemoveUnusedStrings];
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     // removing blocks will shift indexes, so iterate over the nif until nothing left to remove
     repeat

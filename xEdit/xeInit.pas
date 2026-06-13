@@ -14,7 +14,7 @@ unit xeInit;
 interface
 
 uses
-  Classes;
+  System.Classes;
 
 var
   xeScriptToRun            : string;
@@ -33,6 +33,7 @@ var
   xeQuickClean             : Boolean;
   xeQuickEdit              : Boolean;
   xeQuickCleanAutoSave     : Boolean;
+  xeQuickSEQ               : Boolean;
   xeAutoLoad               : Boolean;
   xeAutoExit               : Boolean;
   xeAutoGameLink           : Boolean;
@@ -59,23 +60,19 @@ procedure xeInitStyles;
 implementation
 
 uses
+  System.IniFiles,
+  System.IOUtils,
+  System.SysUtils,
   System.UITypes,
-  SysUtils,
-  Windows,
-  Registry,
-  ShellApi,
-  Dialogs,
-  ShlObj,
-  IOUtils,
-  IniFiles,
+  System.Win.Registry,
+
+  Vcl.Dialogs,
   Vcl.Themes,
-  Vcl.Styles,
-  wbHelpers,
-  wbInterface,
-  wbImplementation,
+
+  Winapi.ShlObj,
+  Winapi.Windows,
+
   wbCommandLine,
-  wbLocalization,
-  wbDefinitionsCommon,
   wbDefinitionsFNV,
   wbDefinitionsFNVSaves,
   wbDefinitionsFO3,
@@ -83,13 +80,17 @@ uses
   wbDefinitionsFO4,
   wbDefinitionsFO4Saves,
   wbDefinitionsFO76,
+  wbDefinitionsSF1,
   wbDefinitionsTES3,
   wbDefinitionsTES4,
   wbDefinitionsTES4Saves,
   wbDefinitionsTES5,
   wbDefinitionsTES5Saves,
-  wbDefinitionsSF1,
+  wbHelpers,
+  wbInterface,
   wbSteamVDFParser,
+
+  xeGameSelectForm,
   xeScriptHost;
 
 function xeCheckForValidExtension(const aFilePath : string): Boolean;
@@ -625,6 +626,8 @@ const
     'checkforerrors', 'checkforitm', 'checkfordr'];
 var
   s, p: string;
+  sl : TStringList;
+  i : Integer;
 begin
   // Detecting game mode
   // check command line params first for mode overrides
@@ -659,8 +662,26 @@ begin
         Break;
       end;
   // if still nothing, then default value
-  if AppGameMode = '' then
-    AppGameMode := 'fo4';
+  if AppGameMode = '' then begin
+    sl := TStringList.Create;
+    with TfrmGameSelect.Create(nil) do try
+      sl.Sorted := True;
+      for s in GameModes do
+        sl.Add(s);
+
+      ListBox1.Items.Assign(sl);
+
+      if ShowModal = mrOK then
+        for i := 0 to Pred(ListBox1.Items.Count) do
+          if ListBox1.Selected[i] then begin
+             AppGameMode := ListBox1.Items[i];
+             Break;
+          end;
+    finally
+      Free;
+      sl.Free;
+    end;
+  end;
 
   // the same for tool mode
   for s in ToolModes do
@@ -951,8 +972,7 @@ begin
     ToolSources        := [tsPlugins];
     wbLightName        := 'Small';
 
-    if    wbStarfieldIsABugInfestedHellhole
-      and FindCmdLineSwitch('ItJustWorksTM')
+    if    FindCmdLineSwitch('ItJustWorksTM')
       and FindCmdLineSwitch('ThisIsFine')
       and FindCmdLineSwitch('GiveMeTheRedPill')
     then begin
@@ -963,7 +983,7 @@ begin
   end
 
   else begin
-    ShowMessage('Application name must contain FNV, FO3, FO4, FO4VR, FO76, SSE, TES4, TES4R, TES5, TES5VR, Enderal, or EnderalSE, SF1 to select game.');
+    ShowMessage('Application name or game mode argument must contain FNV, FO3, FO4, FO4VR, FO76, SSE, TES4, TES4R, TES5, TES5VR, Enderal, EnderalSE, or SF1 to select game.');
     Exit(False);
   end;
 
@@ -1018,11 +1038,15 @@ begin
       wbVWDInTemporary      := True;
       wbLoadBSAs            := False;
       wbCanSortINFO         := True;
+      wbAllowESPMasters     := True;
+      wbAllowESPMastersOnSave := True;
     end;
     gmFO3: begin
       wbVWDInTemporary      := True;
       wbLoadBSAs            := False;
       wbCanSortINFO         := True;
+      wbAllowESPMasters     := True;
+      wbAllowESPMastersOnSave := True;
     end;
     gmTES3: begin
       wbLoadBSAs            := False;
@@ -1033,6 +1057,8 @@ begin
       wbBuildRefs           := False;
       wbVWDInTemporary      := True;
       wbCreateContainedIn   := False;
+      wbAllowESPMasters     := True;
+      wbAllowESPMastersOnSave := True;
     end;
     gmTES4: begin
       if (not FileExists(wbDataPath + 'Oblivion.esm')) and FileExists(wbDataPath + 'Nehrim.esm') then begin
@@ -1042,12 +1068,16 @@ begin
       wbLoadBSAs            := True;
       wbAllowInternalEdit   := false;
       wbCanSortINFO         := True;
+      wbAllowESPMasters     := True;
+      wbAllowESPMastersOnSave := True;
       wbOBME                := FileExists(wbDataPath + 'OBSE\Plugins\OBME.dll');
     end;
     gmTES4R: begin
       wbLoadBSAs            := False;
       wbAllowInternalEdit   := False;
       wbCanSortINFO         := True;
+      wbAllowESPMasters     := True;
+      wbAllowESPMastersOnSave := True;
     end;
     gmTES5, gmEnderal, gmTES5VR, gmSSE, gmEnderalSE: begin
       wbVWDInTemporary      := True;
@@ -1058,6 +1088,8 @@ begin
       wbHasAddedLightSupport := wbVRESL;
       wbHasAddedUpdateSupport := wbVRESL;
       wbCS                  := wbIsSkyrimSE and FileExists(wbDataPath + 'SKSE\Plugins\CommunityShaders.dll');
+      wbAllowESPMasters     := True;
+      wbAllowESPMastersOnSave := True;
     end;
     gmFO4, gmFO4VR: begin
       wbVWDInTemporary      := True;
@@ -1069,6 +1101,8 @@ begin
       wbVRESL               := (wbGameMode in [gmFO4VR]) and FileExists(wbDataPath + 'F4SE\Plugins\falloutvresl.dll');
       wbHasAddedLightSupport := wbVRESL;
       wbHasAddedUpdateSupport := wbVRESL;
+      wbAllowESPMasters     := True;
+      wbAllowESPMastersOnSave := True;
     end;
     gmFO76: begin
       wbVWDInTemporary      := True;
@@ -1080,6 +1114,7 @@ begin
     end;
     gmSF1: begin
       wbComplexFileFileID   := True;
+      wbEnforceAllMasters   := True;
       wbVWDInTemporary      := True;
       wbVWDAsQuestChildren  := True;
       wbLoadBSAs            := True;  // localization won't work otherwise
@@ -1174,6 +1209,9 @@ begin
         wbStripMasters := False;
       end;
     end;
+
+    if FindCmdLineSwitch('AllowESPMaster') then
+      wbAllowESPMasters := True;
   end;
 
   if wbToolMode = tmEdit then begin
@@ -1353,7 +1391,7 @@ begin
       tsPlugins: DefineTES4;
     end;
     gmTES4R: case wbToolSource of
-      tsPlugins: DefineTES4;           
+      tsPlugins: DefineTES4;
     end;
     gmTES5, gmTES5VR, gmEnderal, gmSSE, gmEnderalSE: case wbToolSource of
       tsSaves:   DefineTES5Saves;
@@ -1379,9 +1417,8 @@ begin
   if FindCmdLineSwitch('MoreInfoForIndex') then
     wbMoreInfoForIndex := true;
 
-  if not (wbIsStarfield and wbStarfieldIsABugInfestedHellhole) then
-    if wbIKnowWhatImDoing and FindCmdLineSwitch('IKnowIllBreakMyGameWithThis') then
-      wbAllowEditGameMaster := True;
+  if wbIKnowWhatImDoing and FindCmdLineSwitch('IKnowIllBreakMyGameWithThis') then
+    wbAllowEditGameMaster := True;
 
   if FindCmdLineSwitch('TrackAllEditorID') then
     wbTrackAllEditorID := True;
@@ -1404,24 +1441,32 @@ begin
   else
     if FindCmdLineSwitch('PseudoUpdate') then
       wbPseudoUpdate := True;
-	  
+
   if wbComplexFileFileID then begin
     wbIgnoreLight := False;
-	wbPseudoLight := False;
-	wbIgnoreMedium := False;
-	wbPseudoMedium := False;
-	wbIgnoreUpdate := False;
+    wbPseudoLight := False;
+    wbIgnoreMedium := False;
+    wbPseudoMedium := False;
+    wbIgnoreUpdate := False;
     wbPseudoUpdate := False;
   end;
 
   if FindCmdLineSwitch('SimpleFormIDs') then
     wbPrettyFormID := False;
 
+  if FindCmdLineSwitch('EnforceAllMasters') then
+    wbEnforceAllMasters := True;
+
   if wbFindCmdLineParam('quickedit', xePluginToUse) then begin
     if not (wbToolMode = tmEdit) then
       ShowMessage(wbToolName+' is incompatible with quickedit request!')
     else
       xeQuickEdit := True;
+  end;
+
+  if wbFindCmdLineParam('generateseq', xePluginToUse) then begin
+    xeAutoLoad := True;
+    xeQuickSEQ := True;
   end;
 
   if wbToolMode in wbPluginModes then // look for the file name
@@ -1578,5 +1623,4 @@ begin
     end;
 end;
 
-initialization
 end.

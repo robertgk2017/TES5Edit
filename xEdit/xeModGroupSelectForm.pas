@@ -13,11 +13,21 @@ unit xeModGroupSelectForm;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, Buttons, CheckLst, Menus,
-  Vcl.Styles.Utils.SystemMenu, VirtualTrees, VirtualEditTree,
-  wbInterface, wbLoadOrder, wbModGroups, Vcl.ExtCtrls, System.Actions, Vcl.ActnList,
-  Vcl.Mask, System.UITypes;
+  System.Actions,
+  System.Classes,
+
+  Vcl.ActnList,
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Mask,
+  Vcl.Menus,
+  Vcl.StdCtrls,
+
+  VirtualTrees,
+
+  wbHash,
+  wbModGroups;
 
 const
   csLast = '<Last>';
@@ -117,8 +127,18 @@ implementation
 {$R *.dfm}
 
 uses
-  xeMainForm,
-  StrUtils;
+  System.SysUtils,
+  System.UITypes,
+
+  Vcl.Dialogs,
+  Vcl.Graphics,
+  Vcl.Styles.Utils.SystemMenu,
+
+  Winapi.Windows,
+
+  wbInterface,
+
+  xeMainForm;
 
 procedure TfrmModGroupSelect.mniInvertSelectionClick(Sender: TObject);
 var
@@ -417,7 +437,7 @@ begin
       end else if acPresetSave.Execute then
         vstModGroups.SetFocus
       else
-        Beep;
+        System.SysUtils.Beep;
       Exit;
     end;
 
@@ -438,7 +458,7 @@ begin
       if Shift = [ssShift] then begin
         Key := 0;
         if not acPresetDelete.Execute then
-          Beep;
+          System.SysUtils.Beep;
         Exit;
       end;
     end;

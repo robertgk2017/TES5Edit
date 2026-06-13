@@ -127,6 +127,7 @@ object frmMain: TfrmMain
             OnDragDrop = vstViewDragDrop
             OnEditing = vstViewEditing
             OnExpanded = vstViewExpanded
+            OnExpanding = vstViewExpanding
             OnFocusChanged = vstViewFocusChanged
             OnFocusChanging = vstViewFocusChanging
             OnFreeNode = vstViewFreeNode
@@ -327,9 +328,9 @@ object frmMain: TfrmMain
           object lvReferencedBy: TListView
             AlignWithMargins = True
             Left = 0
-            Top = 0
+            Top = 25
             Width = 894
-            Height = 570
+            Height = 545
             Margins.Left = 0
             Margins.Top = 0
             Margins.Right = 0
@@ -349,18 +350,130 @@ object frmMain: TfrmMain
               item
                 AutoSize = True
                 Caption = 'File'
+              end
+              item
+                Caption = 'FormID'
+                Width = 0
+              end
+              item
+                Caption = 'RawFileName'
+                Width = 0
               end>
             GridLines = True
+            HideSelection = False
             MultiSelect = True
+            OwnerData = True
             ReadOnly = True
             RowSelect = True
             PopupMenu = pmuRefBy
             TabOrder = 0
             ViewStyle = vsReport
             OnColumnClick = lvReferencedByColumnClick
-            OnCompare = lvReferencedByCompare
+            OnData = lvReferencedByLoadData
+            OnDataStateChange = lvReferencedByOnDataStateChange
             OnDblClick = lvReferencedByDblClick
             OnKeyDown = lvReferencedByKeyDown
+            OnSelectItem = lvReferencedByOnSelect
+          end
+          object pnlReferencedByTop: TPanel
+            Left = 0
+            Top = 0
+            Width = 894
+            Height = 25
+            Align = alTop
+            BevelOuter = bvNone
+            TabOrder = 1
+            object fpnlReferencedByFilter: TFlowPanel
+              Left = 0
+              Top = 0
+              Width = 894
+              Height = 25
+              Align = alClient
+              BevelOuter = bvNone
+              TabOrder = 0
+              OnResize = fpnlViewFilterResize
+              object lblReferencedByFilterName: TLabel
+                AlignWithMargins = True
+                Left = 3
+                Top = 7
+                Width = 80
+                Height = 13
+                Margins.Top = 7
+                Caption = 'Filter by &Record:'
+                FocusControl = edReferencedByFilterName
+              end
+              object edReferencedByFilterName: TEdit
+                AlignWithMargins = True
+                Left = 89
+                Top = 3
+                Width = 121
+                Height = 21
+                TabOrder = 0
+                OnChange = edReferencedByFilterChange
+                OnKeyDown = edReferencedByFilterNameKeyDown
+                OnKeyPress = edFilterNoBeepOnEnterKeyPress
+              end
+              object cobReferencedByFilter: TComboBox
+                AlignWithMargins = True
+                Left = 216
+                Top = 3
+                Width = 53
+                Height = 21
+                AutoDropDown = True
+                AutoCloseUp = True
+                Style = csDropDownList
+                ItemIndex = 0
+                TabOrder = 1
+                Text = 'and'
+                OnChange = edReferencedByFilterChange
+                OnKeyDown = edReferencedByFilterNameKeyDown
+                Items.Strings = (
+                  'and'
+                  'or')
+              end
+              object lblReferencedByFilterSignature: TLabel
+                AlignWithMargins = True
+                Left = 275
+                Top = 7
+                Width = 65
+                Height = 13
+                Margins.Top = 7
+                Caption = 'by &Signature:'
+                FocusControl = edReferencedByFilterSignature
+              end
+              object edReferencedByFilterSignature: TEdit
+                AlignWithMargins = True
+                Left = 346
+                Top = 3
+                Width = 121
+                Height = 21
+                TabOrder = 2
+                OnChange = edReferencedByFilterChange
+                OnKeyDown = edReferencedByFilterNameKeyDown
+                OnKeyPress = edFilterNoBeepOnEnterKeyPress
+              end
+              object lblReferencedByFilterFileName: TLabel
+                AlignWithMargins = True
+                Left = 473
+                Top = 7
+                Width = 86
+                Height = 13
+                Margins.Top = 7
+                Caption = 'AND by File&Name:'
+                FocusControl = edReferencedByFilterFileName
+              end
+              object edReferencedByFilterFileName: TEdit
+                AlignWithMargins = True
+                Left = 565
+                Top = 3
+                Width = 121
+                Height = 21
+                TabOrder = 3
+                OnChange = edReferencedByFilterChange
+                OnKeyDown = edReferencedByFilterNameKeyDown
+                OnKeyPress = edFilterNoBeepOnEnterKeyPress
+              end
+            end
           end
         end
         object tbsMessages: TTabSheet
@@ -2156,7 +2269,7 @@ object frmMain: TfrmMain
           object edFileNameFilter: TLabeledEdit
             Left = 98
             Top = 6
-            Width = 356
+            Width = 306
             Height = 21
             Anchors = [akLeft, akTop, akRight]
             EditLabel.AlignWithMargins = True
@@ -2166,9 +2279,20 @@ object frmMain: TfrmMain
             LabelPosition = lpLeft
             TabOrder = 0
             Text = ''
+            StyleElements = [seFont, seBorder]
             OnChange = edFileNameFilterChange
             OnKeyDown = edFileNameFilterKeyDown
             OnKeyPress = edFilterNoBeepOnEnterKeyPress
+          end
+          object cbRegExFilter: TCheckBox
+            Left = 408
+            Top = 7
+            Width = 50
+            Height = 17
+            Anchors = [akTop, akRight]
+            Caption = '&RegEx'
+            TabOrder = 1
+            OnClick = cbRegExFilterClick
           end
         end
       end
@@ -5844,5 +5968,19 @@ object frmMain: TfrmMain
       Caption = 'Shrink Buttons'
       OnClick = mniBtnShrinkButtonsClick
     end
+  end
+  object tmrReferencedByFilterApply: TTimer
+    Enabled = False
+    Interval = 250
+    OnTimer = tmrReferencedByFilterApplyTimer
+    Left = 192
+    Top = 360
+  end
+  object tmrViewFilterApply: TTimer
+    Enabled = False
+    Interval = 250
+    OnTimer = tmrViewFilterApplyTimer
+    Left = 56
+    Top = 352
   end
 end

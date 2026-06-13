@@ -12,12 +12,10 @@ object FormSearchReplace: TFormSearchReplace
   Font.Name = 'Tahoma'
   Font.Style = []
   KeyPreview = True
-  OldCreateOrder = False
   Position = poOwnerFormCenter
   OnClose = FormClose
   OnKeyDown = FormKeyDown
   OnShow = FormShow
-  PixelsPerInch = 96
   TextHeight = 13
   object edSearch: TLabeledEdit
     Left = 14
@@ -28,6 +26,7 @@ object FormSearchReplace: TFormSearchReplace
     EditLabel.Height = 13
     EditLabel.Caption = 'Search'
     TabOrder = 0
+    Text = ''
   end
   object edReplace: TLabeledEdit
     Left = 14
@@ -38,6 +37,7 @@ object FormSearchReplace: TFormSearchReplace
     EditLabel.Height = 13
     EditLabel.Caption = 'Replace with'
     TabOrder = 1
+    Text = ''
   end
   object Button1: TButton
     Left = 278

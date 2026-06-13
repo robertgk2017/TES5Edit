@@ -13,9 +13,7 @@ unit wbBetterStringList;
 interface
 
 uses
-  System.Types,
-  System.Classes,
-  System.SysUtils;
+  System.Classes;
 
 type
   TStringListHelper = class helper for TStringList
@@ -25,7 +23,10 @@ type
 implementation
 
 uses
+  System.SysUtils,
+
   DDetours,
+
   wbInterface,
   wbSort;
 

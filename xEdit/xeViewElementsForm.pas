@@ -13,9 +13,20 @@ unit xeViewElementsForm;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, wbInterface, ComCtrls, ExtCtrls, StdCtrls, Buttons, Menus, IniFiles,
-  SynEdit, SynMemo, xeMainForm, Clipbrd, System.UITypes;
+  System.Classes,
+  System.IniFiles,
+
+  Vcl.ComCtrls,
+  Vcl.Controls,
+  Vcl.Dialogs,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Menus,
+  Vcl.StdCtrls,
+
+  wbInterface,
+
+  xeMainForm;
 
 type
   TwbEdit = record
@@ -72,7 +83,14 @@ implementation
 {$R *.dfm}
 
 uses
-  wbHelpers, ShellApi;
+  System.SysUtils,
+  System.UITypes,
+
+  Vcl.Clipbrd,
+
+  Winapi.Windows,
+
+  wbHelpers;
 
 { TfrmViewElements }
 
@@ -216,8 +234,8 @@ begin
       finally
         FreeAndNil(sl);
       end;
-      DeleteFile(aFile1);
-      DeleteFile(aFile2);
+      System.SysUtils.DeleteFile(aFile1);
+      System.SysUtils.DeleteFile(aFile2);
     end else
       raise Exception.Create(SysErrorMessage(GetLastError));
   except

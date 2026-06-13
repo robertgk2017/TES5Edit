@@ -11,9 +11,13 @@ unit frMessages;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls,
-  Vcl.Imaging.jpeg, Vcl.ExtCtrls;
+  System.Classes,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Imaging.jpeg,
+  Vcl.StdCtrls;
 
 type
   TFrameMessages = class(TFrame)

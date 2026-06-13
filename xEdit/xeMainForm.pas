@@ -13,67 +13,46 @@ unit xeMainForm;
 interface
 
 uses
-  Windows,
-  Messages,
-  SysUtils,
-  Variants,
-  Classes,
-  Graphics,
-  Controls,
-  Forms,
-  Dialogs,
-  CommCtrl,
-  ExtCtrls,
-  ComCtrls,
-  StdCtrls,
-  Menus,
-  Math,
-  IniFiles,
-  ClipBrd,
-  TypInfo,
-  ActiveX,
-  Buttons,
-  ActnList,
-  ShellAPI,
-  IOUtils,
-  Actions,
-  System.Generics.Defaults,
+  System.Actions,
   System.Generics.Collections,
-{$IFDEF USE_PARALLEL_BUILD_REFS}
-  System.Threading,
-  System.SyncObjs,
-{$ENDIF}
-  System.Diagnostics,
-  pngimage,
-  RegularExpressionsCore,
-  VirtualTrees,
-  VTEditors,
-  VirtualEditTree,
+  System.Generics.Defaults,
+  System.IniFiles,
+  System.SysUtils,
+  System.Classes,
+
+  Vcl.ActnList,
+  Vcl.Buttons,
+  Vcl.ComCtrls,
+  Vcl.Controls,
+  Vcl.Dialogs,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Graphics,
+  Vcl.Mask,
+  Vcl.Menus,
+  Vcl.StdCtrls,
+
+  FileContainer,
+
+  JvBalloonHint,
   JvComponentBase,
-  ImagingTypes,
-  ImagingFormats,
-  ImagingCanvases,
-  Imaging,
+
+  SynMemo,
+
+  VirtualTrees,
+  VirtualEditTree,
+
+  Winapi.ActiveX,
+  Winapi.Messages,
+  Winapi.Windows,
+
   wbDataFormat,
+  wbHash,
   wbInterface,
-  wbImplementation,
   wbLoadOrder,
-  wbBSA,
-  wbNifScanner,
-  wbLOD,
-  wbHelpers,
-  xeInit,
-  wbLocalization,
   wbModGroups,
-  wbHardcoded,
-  xeScriptHost,
-  Vcl.Themes,
-  Vcl.Styles,
-  Vcl.Styles.Utils.SystemMenu,
-  Vcl.Styles.Ext,
-  JvBalloonHint, JvExStdCtrls, JvRichEdit, FileContainer, JvExControls,
-  JvButton, JvTransparentButton,
-  SynEdit, SynMemo, SynEditKeyCmds, Vcl.Mask;
+
+  xeScriptHost;
 
 type
   TMemo = class(TSynMemo);
@@ -178,6 +157,16 @@ type
   PLOOTPluginInfo = ^TLOOTPluginInfo;
 
   TwbSaveResult = (srAllDone, srNothingToDo, srAbort, srError);
+
+  TRefByListItem = class
+  public
+    Name: string;
+    Signature: string;
+    FileName: string;
+    LoadOrderFormID: string;
+    RawFileName: string;
+    Data: Pointer;
+  end;
 
   TfrmMain = class(TForm)
     vstNav: TVirtualEditTree;
@@ -462,6 +451,18 @@ type
     pnlCancel: TPanel;
     btnCancel: TButton;
     bnPinned: TSpeedButton;
+    cbRegExFilter: TCheckBox;
+    pnlReferencedByTop: TPanel;
+    fpnlReferencedByFilter: TFlowPanel;
+    lblReferencedByFilterName: TLabel;
+    edReferencedByFilterName: TEdit;
+    cobReferencedByFilter: TComboBox;
+    lblReferencedByFilterSignature: TLabel;
+    edReferencedByFilterSignature: TEdit;
+    lblReferencedByFilterFileName: TLabel;
+    edReferencedByFilterFileName: TEdit;
+    tmrReferencedByFilterApply: TTimer;
+    tmrViewFilterApply: TTimer;
 
     {--- Form ---}
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -506,7 +507,7 @@ type
     procedure vstNavFocusChanged(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex);
     procedure vstNavFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
     procedure vstNavGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
-    procedure vstNavHeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
+    procedure vstNavHeaderClick(Sender: TVTHeader; const HitInfo: TVTHeaderHitInfo);
     procedure vstNavIncrementalSearch(Sender: TBaseVirtualTree; Node: PVirtualNode; const SearchText: string; var Result: Integer);
     procedure vstNavInitChildren(Sender: TBaseVirtualTree; Node: PVirtualNode; var ChildCount: Cardinal);
     procedure vstNavInitNode(Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode; var InitialStates: TVirtualNodeInitStates);
@@ -545,7 +546,7 @@ type
 
     {--- vstView ---}
     procedure vstViewAdvancedHeaderDraw(Sender: TVTHeader; var PaintInfo: THeaderPaintInfo; const Elements: THeaderPaintElements);
-    procedure vstViewBeforeCellPaint(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; CellPaintMode: TVTCellPaintMode; CellRect: TRect; var ContentRect: TRect);
+    procedure vstViewBeforeCellPaint(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; CellPaintMode: TVTCellPaintMode; const CellRect: TRect; var ContentRect: TRect);
     procedure vstViewBeforeItemErase(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode; ItemRect: TRect; var ItemColor: TColor; var EraseAction: TItemEraseAction);
     procedure vstViewCheckHotTrack(Sender: TBaseVirtualTree; HotNode: PVirtualNode; HotColumn: TColumnIndex; var Allow: Boolean);
     procedure vstViewClick(Sender: TObject);
@@ -560,7 +561,7 @@ type
     procedure vstViewFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
     procedure vstViewGetEditText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; var CellText: string);
     procedure vstViewGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
-    procedure vstViewHeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
+    procedure vstViewHeaderClick(Sender: TVTHeader; const HitInfo: TVTHeaderHitInfo);
     procedure vstViewHeaderDropped(Sender: TVTHeader; SourceColumn, TargetColumn: TColumnIndex; var Handled: Boolean);
     procedure vstViewHeaderDrawQueryElements(Sender: TVTHeader; var PaintInfo: THeaderPaintInfo; var Elements: THeaderPaintElements);
     procedure vstViewHeaderMouseDown(Sender: TVTHeader; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
@@ -568,7 +569,7 @@ type
     procedure vstViewInitChildren(Sender: TBaseVirtualTree; Node: PVirtualNode; var ChildCount: Cardinal);
     procedure vstViewInitNode(Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode; var InitialStates: TVirtualNodeInitStates);
     procedure vstViewKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
-    procedure vstViewNewText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; NewText: string);
+    procedure vstViewNewText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; const NewText: string);
     procedure vstViewPaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType);
     procedure vstViewResize(Sender: TObject);
     procedure vstViewCreateEditor(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; out EditLink: IVTEditLink);
@@ -623,7 +624,7 @@ type
     procedure vstSpreadSheetGetEditText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; var CellText: string);
     procedure vstSpreadSheetGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
     procedure vstSpreadSheetIncrementalSearch(Sender: TBaseVirtualTree; Node: PVirtualNode; const SearchText: string; var Result: Integer);
-    procedure vstSpreadSheetNewText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; NewText: string);
+    procedure vstSpreadSheetNewText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; const NewText: string);
     procedure vstSpreadSheetPaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType);
 
     {--- pmuSpreadSheet ---}
@@ -648,8 +649,6 @@ type
     procedure mniNavRaceLVLIsClick(Sender: TObject);
     procedure mniRefByCopyDisabledOverrideIntoClick(Sender: TObject);
     procedure lvReferencedByColumnClick(Sender: TObject; Column: TListColumn);
-    procedure lvReferencedByCompare(Sender: TObject; Item1, Item2: TListItem;
-      Data: Integer; var Compare: Integer);
     procedure mniNavUndeleteAndDisableReferencesClick(Sender: TObject);
     procedure mniNavMarkModifiedClick(Sender: TObject);
     procedure mniNavCreateMergedPatchClick(Sender: TObject);
@@ -744,6 +743,19 @@ type
 
     procedure btnCancelClick(Sender: TObject);
     procedure FormResize(Sender: TObject);
+    procedure cbRegExFilterClick(Sender: TObject);
+    procedure vstViewExpanding(Sender: TBaseVirtualTree; Node: PVirtualNode;
+      var Allowed: Boolean);
+    procedure lvReferencedByOnSelect(Sender: TObject; Item: TListItem;
+      Selected: Boolean);
+    procedure lvReferencedByLoadData(Sender: TObject; Item: TListItem);
+    procedure edReferencedByFilterNameKeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
+    procedure edReferencedByFilterChange(Sender: TObject);
+    procedure tmrReferencedByFilterApplyTimer(Sender: TObject);
+    procedure lvReferencedByOnDataStateChange(Sender: TObject; StartIndex,
+      EndIndex: Integer; OldState, NewState: TItemStates);
+    procedure tmrViewFilterApplyTimer(Sender: TObject);
   protected
     OverrideViewFocusedNode: PVirtualNode;
     function GetViewFocusedNode: PVirtualNode;
@@ -770,7 +782,10 @@ type
     TotalUsageTime: TDateTime;
     RateNoticeGiven: Integer;
     ReachableBuild: Boolean;
-    ReferencedBySortColumn: TListColumn;
+    ReferencedBySortColumn: Byte;
+    ReferencedBySortDirectionReversed: Boolean;
+    ReferencedByOriginalColumnCaption: string;
+    ReferencedByOriginalColumnIndex: Byte;
 
     FocusedColumnOverride : Integer;
 
@@ -824,7 +839,7 @@ type
     function NodeDatasForMainRecord(const aMainRecord: IwbMainRecord): TDynViewNodeDatas;
     function NodeDatasForContainer(const aContainer: IwbDataContainer): TDynViewNodeDatas;
 
-    procedure ShowChangeReferencedBy(OldFormID: TwbFormID; NewFormID: TwbFormID; const ReferencedBy: TDynMainRecords; aSilent: Boolean);
+    procedure ShowChangeReferencedBy(const OldFormID, NewFormID: TwbFormID; const ReferencedBy: TDynMainRecords; aSilent: Boolean);
     function GetTargetElement(Target: TBaseVirtualTree; var TargetNode: PVirtualNode; TargetColumn: Integer; out TargetIndex: Integer; out TargetElement: IwbElement): Boolean;
     function PerformDrop(TargetTree: TBaseVirtualTree; TargetNode: PVirtualNode; TargetColumn: Integer; const SourceElement: IwbElement): Boolean;
     function GetSourceElement(Source: TObject; out SourceElement: IwbElement): Boolean;
@@ -854,8 +869,8 @@ type
     function CheckForErrors(const aIndent: Integer; const aElement: IwbElement): Boolean;
 
   public
-    function AddNewFileName(aFileName: string; aIsLight, aIsMedium: Boolean): IwbFile; overload;
-    function AddNewFileName(aFileName: string; aTemplate: PwbModuleInfo): IwbFile; overload;
+    function AddNewFileName(const aFileName: string; aIsLight, aIsMedium: Boolean): IwbFile; overload;
+    function AddNewFileName(const aFileName: string; aTemplate: PwbModuleInfo): IwbFile; overload;
     function AddNewFile(out aFile: IwbFile; aIsLight, aIsMedium: Boolean): Boolean; overload;
     function AddNewFile(out aFile: IwbFile; aTemplate: PwbModuleInfo): Boolean; overload;
 
@@ -887,9 +902,11 @@ type
     function SetAllToMaster: Boolean;
     function UpdateAllOnam: Boolean;
     function RestorePluginsFromMaster: Boolean;
-    procedure ApplyScriptToSelection(aSelection: TNodeArray; aCount: Cardinal; const abShowMessages: boolean); overload;
-    procedure ApplyScriptToSelection(aSelection: TDynElements; aCount: Cardinal; const abShowMessages: boolean); overload;
-    procedure ApplyScript(const aScriptName: string; aScript: string; aRefByMode: Boolean = False);
+    function ScriptProcessSingleElement(const aElement: IwbElement; var aCount: Cardinal; const abShowMessages: boolean): Variant;
+    function ScriptCanProcessElement(const aElement: IwbElement): Boolean;
+    procedure ApplyScriptToSelection(const aSelection: TNodeArray; aCount: Cardinal; const abShowMessages: boolean); overload;
+    procedure ApplyScriptToSelection(const aSelection: TDynElements; aCount: Cardinal; const abShowMessages: boolean); overload;
+    procedure ApplyScript(const aScriptName: string; const aScript: string; aRefByMode: Boolean = False);
     procedure CreateActionsForScripts;
     function LOOTDirtyInfo(const aInfo: TLOOTPluginInfo; aFileChanged: Boolean): string;
     function BOSSDirtyInfo(const aInfo: TLOOTPluginInfo): string;
@@ -965,6 +982,8 @@ type
     FilterByElementValue: Boolean;
     FilterElementValue: string;
 
+    FilterByRegexComparison: Boolean;
+
     FilterByName: Boolean;
     FilterName: string;
 
@@ -1014,6 +1033,7 @@ type
     Script: IxeScript;
   public
     ScriptProcessElements: TwbElementTypes;
+    ScriptProcessSignatures: string;
     MonospaceFontName: string;
   private
     ScriptHotkeys: TStringList;
@@ -1073,12 +1093,13 @@ type
 
     procedure ClearActiveContainer; overload;
     function GetViewNodePositionLabel(aNode: PVirtualNode = nil): string;
-    procedure SetViewNodePositionLabel(aViewLabel: string);
+    procedure SetViewNodePositionLabel(const aViewLabel: string);
 
     function ValidateCRC(const aFileName  : string;
                          const aValidCRCs : TDynCardinalArray;
                            out aFileCRC   : Cardinal)
                                           : Boolean;
+    function GenerateSEQFileForFile(aFile: IwbFile): Boolean;
 
     procedure UpdateActions; override;
 
@@ -1110,7 +1131,15 @@ type
     procedure SendAddFile(const aFile: IwbFile);
     procedure SendLoaderDone(const aStartTime: TDateTime; aLoadOrder: Integer);
 
-    procedure PostPluggyChange(aFormID, aBaseFormID, aInventoryFormID, aEnchantmentFormID, aSpellFormID: TwbFormID);
+    procedure PostPluggyChange(const aFormID, aBaseFormID, aInventoryFormID, aEnchantmentFormID, aSpellFormID: TwbFormID);
+  private
+    lvReferencedByAllItems : TObjectList<TRefByListItem>;
+    lvReferencedByFilteredItems: TList<TRefByListItem>;
+    procedure ApplyReferencedByFilter;
+    procedure ApplyReferencedByAlphaSort;
+    procedure PopulateReferencedByListData(aMaster: IwbMainRecord);
+    procedure ClearReferencedByListData;
+    procedure UpdateReferencedByTabCaption;
   end;
 
   TLoaderThread = class(TThread)
@@ -1125,7 +1154,7 @@ type
     procedure Execute; override;
   public
     constructor Create(var aList: TStringList; aFileStates: TwbFileStates = []); overload;
-    constructor Create(aFileName: string; aMaster: string; aLoadOrder: Integer; aFileStates: TwbFileStates = []); overload;
+    constructor Create(const aFileName, aMaster: string; aLoadOrder: Integer; aFileStates: TwbFileStates = []); overload;
     destructor Destroy; override;
   end;
 
@@ -1263,40 +1292,71 @@ implementation
 {$R *.dfm}
 
 uses
-  JsonDataObjects,
-  DDetours,
-  {$IFNDEF LiteVersion}
+  System.Diagnostics,
+  System.IOUtils,
+  System.Math,
+  System.RegularExpressionsCore,
+  System.StrUtils,
+{$IFDEF USE_PARALLEL_BUILD_REFS}
+  System.SyncObjs,
+  System.Threading,
+{$ENDIF}
+  System.TypInfo,
+  System.Types,
+{$IFNDEF VER220}
+  System.UITypes,
+{$ENDIF VER220}
+
+  Vcl.ClipBrd,
+  Vcl.Styles,
+  Vcl.Styles.Utils.SystemMenu,
+  Vcl.Themes,
+
+  Winapi.CommCtrl,
+  Winapi.ShellAPI,
+  Winapi.WinInet,
+
+{$IFNDEF LiteVersion}
   cxVTEditors,
-  {$ENDIF}
-  ShlObj,
-  Registry,
-  StrUtils,
-  Types,
-  {$IFNDEF VER220}
-  UITypes,
-  {$ENDIF VER220}
+{$ENDIF}
+
+  DDetours,
+
   Diff,
-  wbSort,
-  wbStreams,
+
+  ImagingTypes,
+
+  JsonDataObjects,
+
+  VTEditors,
+
   wbBetterStringList,
+  wbBSA,
+  wbHardcoded,
+  wbHelpers,
+  wbImplementation,
+  wbLocalization,
+  wbLOD,
+  wbSort,
+
+  xeDeveloperMessageForm,
+  xeEditWarningForm,
   xeFilterOptionsForm,
   xeFileSelectForm,
-  xeViewElementsForm,
-  xeEditWarningForm,
-  xeLocalizationForm,
-  xeLocalizePluginForm,
-  xeScriptForm,
-  xeLogAnalyzerForm,
-  xeLODGenForm,
-  xeOptionsForm,
-  xeTipForm,
-  xeModuleSelectForm,
-  xeModGroupSelectForm,
-  xeModGroupEditForm,
+  xeInit,
   xeLegendForm,
+  xeLocalizePluginForm,
+  xeLocalizationForm,
+  xeLODGenForm,
+  xeLogAnalyzerForm,
+  xeModGroupEditForm,
+  xeModGroupSelectForm,
+  xeModuleSelectForm,
+  xeOptionsForm,
   xeRichEditForm,
-  xeDeveloperMessageForm,
-  WinInet;
+  xeScriptForm,
+  xeTipForm,
+  xeViewElementsForm;
 
 function wbFormatElapsedTime(aElapsed: double): string;
 var
@@ -1449,7 +1509,7 @@ end;
 var
   NoNodes                     : TNodeArray;
 
-function Displayable(aSignature: TwbSignature): String;
+function Displayable(const aSignature: TwbSignature): String;
 var
   Sig : TwbSignature;
   i   : Integer;
@@ -1548,7 +1608,7 @@ begin
     end else begin
       // remove original file
       wbProgress('Deleting "' + lTo + '".');
-      if not SysUtils.DeleteFile(lTo) then begin
+      if not System.SysUtils.DeleteFile(lTo) then begin
         s := 'Could not delete "' + lTo + '".';
         wbProgress(s);
         if not aSilent then
@@ -1802,11 +1862,33 @@ begin
     tbsMessages.Highlighted := True;
 end;
 
-function TfrmMain.AddNewFileName(aFileName: string; aIsLight, aIsMedium: Boolean): IwbFile;
+const
+  InvalidFileNameChars = '\/*?:"<>|';
+
+function IsValidWindowsFileName(const aFileName: string): Boolean;
+var
+  C: Char;
+begin
+  Result := aFileName <> '';
+
+  if not Result then
+    Exit;
+
+  for C in aFileName do
+  begin
+    if Pos(C, InvalidFileNameChars) > 0 then
+      Exit(False);
+  end;
+end;
+
+function TfrmMain.AddNewFileName(const aFileName: string; aIsLight, aIsMedium: Boolean): IwbFile;
 var
   LoadOrder : Integer;
 begin
   Result := nil;
+
+  if not IsValidWindowsFileName(aFileName) then
+    raise Exception.CreateFmt('The specified filename:'#13#10#13#10'%s'#13#10#13#10'Contains one or more invalid characters:'#13#10#13#10'%s', [aFilename, InvalidFileNameChars]);
 
   if FileExists(wbDataPath + aFileName) then begin
     ShowMessage('A file of that name exists already.');
@@ -1829,12 +1911,15 @@ begin
   Result._AddRef;
 end;
 
-function TfrmMain.AddNewFileName(aFileName: string; aTemplate: PwbModuleInfo): IwbFile;
+function TfrmMain.AddNewFileName(const aFileName: string; aTemplate: PwbModuleInfo): IwbFile;
 var
   LoadOrder : Integer;
   i: Integer;
 begin
   Result := nil;
+
+  if not IsValidWindowsFileName(aFileName) then
+    raise Exception.CreateFmt('The specified filename:'#13#10#13#10'%s'#13#10#13#10'Contains one or more invalid characters:'#13#10#13#10'%s', [aFilename, InvalidFileNameChars]);
 
   if FileExists(wbDataPath + aFileName) then begin
     ShowMessage('A file of that name exists already.');
@@ -1856,6 +1941,23 @@ begin
   Result._AddRef;
 end;
 
+function GetSanitizedFilename(const aFilename: string): string;
+var
+  s: string;
+begin
+  Result := '';
+  s := Trim(aFilename);
+  if s = '' then
+    Exit;
+
+  if SameText(ExtractFileExt(s), '.esp') or
+     SameText(ExtractFileExt(s), '.esm') or
+     SameText(ExtractFileExt(s), '.esl') then
+    s := ChangeFileExt(s, '');
+
+  Result := s;
+end;
+
 function TfrmMain.AddNewFile(out aFile: IwbFile; aIsLight, aIsMedium: Boolean): Boolean;
 var
   s: string;
@@ -1864,13 +1966,18 @@ begin
   Result := False;
   s := '';
   if InputQuery('New Module File', 'Filename without extension:', s) then begin
+    s := GetSanitizedFilename(s);
     if s = '' then
       Exit;
+
     if aIsLight then
       s := s + '.esl'
     else
       s := s + '.esp';
+
     aFile := AddNewFileName(s, aIsLight, aIsMedium);
+    if Assigned(aFile) and wbAlwaysLoadGameMaster then
+      aFile.AddMasterIfMissing(wbGameMasterESM);
     Result := Assigned(aFile);
   end;
 end;
@@ -1883,10 +1990,12 @@ begin
   Result := False;
   s := '';
   if InputQuery('New Module File', 'Filename without extension:', s) then begin
-    s := Trim(s);
+    s := GetSanitizedFilename(s);
     if s = '' then
       Exit;
+
     s := s + aTemplate.miExtension.ToString;
+
     aFile := AddNewFileName(s, aTemplate);
     if Assigned(aFile) and wbAlwaysLoadGameMaster then
       aFile.AddMasterIfMissing(wbGameMasterESM);
@@ -1936,6 +2045,18 @@ begin
   try
     sl.AddStrings(aMasters);
 
+    // add masters of masters
+    // only for games that need it
+    if wbEnforceAllMasters then
+      for i := 0 to Pred(aMasters.Count) do
+      begin
+        var lFile := Files.Find(aMasters[i]);
+        var lFileMasters := lFile.AllMasters;
+        lFileMasters.SortByReverseLoadOrder;
+        for j := low(lFileMasters) to High(lFileMasters) do
+          sl.AddObject(lFileMasters[j].FileName, Pointer(lFileMasters[j]));
+      end;
+
     for i := 0 to Pred(aTargetFile.MasterCount[True]) do
       if sl.Find(aTargetFile.Masters[i, True].FileName, j) then
         sl.Delete(j);
@@ -1971,7 +2092,7 @@ begin
             wbCurrentAction := 'Adding '+sl.Count.ToString+' new masters to ' + aTargetFile.Name;
           AddMessage('[' + wbFormatElapsedTime( Now - wbStartTime) + '] ' + wbCurrentAction);
           DoProcessMessages;
-          aTargetFile.AddMasters(sl);
+          aTargetFile.AddMastersIfMissing(sl);
           wbCurrentAction := 'Sorting masters for ' + aTargetFile.Name;
           DoProcessMessages;
           aTargetFile.SortMasters;
@@ -1992,6 +2113,8 @@ begin
 end;
 
 function TfrmMain.AddRequiredMasters(const aSourceElement: IwbElement; const aTargetFile: IwbFile; aAsNew: Boolean; aSilent: Boolean = False): Boolean;
+var
+  i, j : Integer;
 begin
   var lRequiredMasters := TStringList.Create;
   try
@@ -2002,7 +2125,24 @@ begin
     try
       aSourceElement.ReportRequiredMasters(lMasters, aAsNew);
       for var lFile in lMasters do
+      begin
+        // add masters of masters
+        // only for games that need it
+        if wbEnforceAllMasters then
+        begin
+          var lFileMasters := lFile.AllMasters;
+          for j := low(lFileMasters) to High(lFileMasters) do
+            lRequiredMasters.AddObject(lFileMasters[j].FileName, Pointer(lFileMasters[j]));
+        end;
+
         lRequiredMasters.AddObject(lFile.FileName, Pointer(lFile));
+      end;
+
+      for i := 0 to Pred(aTargetFile.MasterCount[True]) do
+        if lRequiredMasters.Find(aTargetFile.Masters[i, True].FileName, j) then
+          lRequiredMasters.Delete(j);
+      if lRequiredMasters.Find(aTargetFile.FileName, j) then
+        lRequiredMasters.Delete(j);
     finally
       lMasters.Free;
     end;
@@ -2028,7 +2168,7 @@ begin
       lRequiredMasters.CustomSort(CompareLoadOrder);
 
       if Result then
-        aTargetFile.AddMasters(lRequiredMasters);
+        aTargetFile.AddMastersIfMissing(lRequiredMasters);
     end else
       Result := True;
   finally
@@ -2167,6 +2307,12 @@ end;
 function TfrmMain.ByRefSelectionIncludesOnlyDeepCopyRecords(aSelection: TDynMainRecords): Boolean;
 begin
   Result := False;
+end;
+
+procedure TfrmMain.cbRegExFilterClick(Sender: TObject);
+begin
+  if edFileNameFilter.Text <> '' then
+    edFileNameFilterChange(Sender);
 end;
 
 procedure TfrmMain.ConflictLevelForMainRecord(const aMainRecord: IwbMainRecord; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
@@ -2902,6 +3048,9 @@ begin
                   Exit;
               end
               else begin
+                // skip asking for changes if holding shift
+                if AsNew and (GetKeyState(VK_SHIFT) < 0) then
+                  Break;
                 if not InputQuery('EditorID', 'Please change the EditorID', EditorID) then
                   Exit;
               end;
@@ -2925,6 +3074,9 @@ begin
 
           if AsNew or AsWrapper then
             repeat
+              // skip asking for changes if holding shift
+              if AsNew and (GetKeyState(VK_SHIFT) < 0) then
+                Break;
               if not InputQuery('EditorID Prefix', 'Please enter the prefix that should be removed from the EditorIDs if present', EditorIDPrefixRemove) then
                 Exit;
               if not InputQuery('EditorID Suffix', 'Please enter the suffix that should be removed from the EditorIDs if present', EditorIDSuffixRemove) then
@@ -4158,39 +4310,24 @@ begin
   end;
 end;
 
-procedure TfrmMain.mniNavCreateSEQFileClick(Sender: TObject);
+function TfrmMain.GenerateSEQFileForFile(aFile: IwbFile): Boolean;
 var
-  SelectedNodes  : TNodeArray;
-  NodeData       : PNavNodeData;
-  _File          : IwbFile;
   Group          : IwbGroupRecord;
-  i, n, j, Count : Integer;
-  MainRecord     : IwbMainRecord;
   QustFlags      : IwbElement;
   FormIDs        : TwbFormIDs;
   FileStream     : TBufferedFileStream;
+  MainRecord     : IwbMainRecord;
   p, s           : string;
+  n              : Integer;
 begin
-  SelectedNodes := vstNav.GetSortedSelection(True);
-  if Length(SelectedNodes) < 1 then
-    Exit;
+      Result := False;
 
-  Count := 0;
-  j := 0;
+      if aFile.LoadOrder = 0 then
+        Exit;
 
-  for i := Low(SelectedNodes) to High(SelectedNodes) do begin
-    NodeData := vstNav.GetNodeData(SelectedNodes[i]);
-
-    if Assigned(NodeData.Element) and (NodeData.Element.ElementType = etFile) then begin
       SetLength(FormIDs, 0);
 
-      if not Supports(NodeData.Element, IwbFile, _File) then
-        Continue;
-
-      if _File.LoadOrder = 0 then
-        Continue;
-
-      Group := _File.GroupBySignature['QUST'];
+      Group := aFile.GroupBySignature['QUST'];
 
       if Assigned(Group) then begin
         for n := 0 to Pred(Group.ElementCount) do
@@ -4206,18 +4343,17 @@ begin
       end;
 
       if Length(FormIDs) = 0 then
-        PostAddMessage('Skipped: ' + _File.FileName + ' doesn''t need sequence file')
+        PostAddMessage('Skipped: ' + aFile.FileName + ' doesn''t need sequence file')
       else try
         try
           p := wbDataPath + 'Seq\';
           if not DirectoryExists(p) then
             if not ForceDirectories(p) then
               raise Exception.Create('Unable to create SEQ directory in game''s Data');
-          s := p + ChangeFileExt(_File.FileName, '.seq');
+          s := p + ChangeFileExt(aFile.FileName, '.seq');
           FileStream := TBufferedFileStream.Create(s, fmCreate);
           FileStream.WriteBuffer(FormIDs[0], Length(FormIDs)*SizeOf(Cardinal));
           PostAddMessage('Created: ' + s);
-          Inc(j);
         finally
           if Assigned(FileStream) then
             FreeAndNil(FileStream);
@@ -4229,10 +4365,40 @@ begin
         end;
       end;
 
+      Result := True;
+end;
+
+procedure TfrmMain.mniNavCreateSEQFileClick(Sender: TObject);
+var
+  SelectedNodes  : TNodeArray;
+  NodeData       : PNavNodeData;
+  _File          : IwbFile;
+  i, Count       : Integer;
+begin
+  SelectedNodes := vstNav.GetSortedSelection(True);
+  if Length(SelectedNodes) < 1 then
+    Exit;
+
+  Count := 0;
+
+  for i := Low(SelectedNodes) to High(SelectedNodes) do begin
+    NodeData := vstNav.GetNodeData(SelectedNodes[i]);
+
+    if Assigned(NodeData.Element) and (NodeData.Element.ElementType = etFile) then begin
+
+      if not Supports(NodeData.Element, IwbFile, _File) then
+        Continue;
+
+      if _File.LoadOrder = 0 then
+        Continue;
+
+      if not GenerateSEQFileForFile(_File) then
+        Continue;
+
       Inc(Count);
     end;
   end;
-  PostAddMessage('[Create SEQ file done] Processed Plugins: ' + IntToStr(Count) + ', SEQ Files Created: ' + IntToStr(j));
+  PostAddMessage('[Create SEQ file done] Processed Plugins: ' + IntToStr(Count) + ', SEQ Files Created: ' + IntToStr(Count));
 end;
 
 procedure TfrmMain.mniNavDeleteModGroupsClick(Sender: TObject);
@@ -4623,7 +4789,7 @@ begin
   try
     vstView.BeginUpdate;
     try
-      lvReferencedBy.Items.Clear;
+      ClearReferencedByListData;
       vstView.Clear;
       vstView.NodeDataSize := 0;
       SetLength(ActiveRecords, 0);
@@ -4787,6 +4953,8 @@ end;
 destructor TfrmMain.Destroy;
 begin
   inherited;
+  FreeAndNil(lvReferencedByAllItems);
+  FreeAndNil(lvReferencedByFilteredItems);
   FreeAndNil(NewMessages);
   FreeAndNil(ScriptHotkeys);
   FreeAndNil(Settings);
@@ -5223,7 +5391,7 @@ begin
                 end;
               until 0 <> FindNext(R);
             finally
-              FindClose(R);
+              System.SysUtils.FindClose(R);
             end;
             if (coSaveExt<>'') then
               if FindFirst(ExpandFileName(wbSavePath+'\*'+coSaveExt), faAnyfile, R)=0 then try
@@ -5233,7 +5401,7 @@ begin
                       CheckListBox1.Items.Add(R.Name);
                 until 0 <> FindNext(R);
               finally
-                FindClose(R);
+                System.SysUtils.FindClose(R);
               end;
           end;
           tsPlugins: begin
@@ -5256,7 +5424,7 @@ begin
           end;
         end;
 
-        if ((wbToolMode in wbPluginModes) or xeQuickClean or xeQuickEdit) and not wbIsMorrowind then begin
+        if ((wbToolMode in wbPluginModes) or xeQuickClean or xeQuickEdit or xeQuickSEQ) and not wbIsMorrowind then begin
           Modules.DeactivateAll;
 
           if (xePluginToUse <> '') or not xeQuickClean then
@@ -5444,7 +5612,7 @@ begin
         AddMessage('The SHIFT key is pressed, skip building references for all plugins!');
       end;
 
-      if xeQuickClean or xeQuickShowConflicts then
+      if xeQuickClean or xeQuickShowConflicts or xeQuickSEQ then
         wbBuildRefs := False;
 
       CleanupRefCache;
@@ -5603,7 +5771,7 @@ begin
   end;
 
   CreateActionsForScripts;
-  wbDataFormat.dfResourceGetDataCallback := @dfResourceOpenData;
+  dfResourceGetDataCallback := @dfResourceOpenData;
 
   if wbToolMode in [tmEdit, tmView, tmTranslate] then begin
     i := Settings.ReadInteger('Patreon', 'SnoozeCounter', 0);
@@ -5696,20 +5864,41 @@ procedure TfrmMain.edFileNameFilterChange(Sender: TObject);
 var
   SearchText : string;
   Node       : PVirtualNode;
+  FilterRegex: TPerlRegEx;
 begin
+  edFileNameFilter.Color := clWindow;
   SearchText := edFileNameFilter.Text;
-  SearchText := SearchText.ToLowerInvariant;
+  if not cbRegExFilter.Checked then
+    SearchText := SearchText.ToLowerInvariant;
   with vstNav do begin
     BeginUpdate;
+    FilterRegex := TPerlRegEx.Create;
     try
-      Node := GetFirst;
-      while Assigned(Node) do begin
-        IsVisible[Node] := not ((SearchText <> '') and
-          not Text[Node, 0, False].ToLowerInvariant.Contains(SearchText));
-        Node := GetNextSibling(Node);
+      try
+        FilterRegex.RegEx := SearchText;
+        FilterRegex.Options := [preCaseLess];
+        Node := GetFirst;
+        while Assigned(Node) do begin
+          if (SearchText <> '') and cbRegExFilter.Checked then
+          begin
+            FilterRegex.Subject := Text[Node, 0, False];
+            IsVisible[Node] := FilterRegex.Match;
+          end
+          else
+            IsVisible[Node] := not ((SearchText <> '') and
+              not Text[Node, 0, False].ToLowerInvariant.Contains(SearchText));
+          Node := GetNextSibling(Node);
+        end;
+      except
+        on E: ERegularExpressionError do
+        begin
+          edFileNameFilter.Color := wbLighter(clRed, 0.85);
+          // Ignore regex errors that can occur while typing
+        end;
       end;
     finally
       EndUpdate;
+      FilterRegex.Free;
     end;
   end;
 end;
@@ -5901,17 +6090,35 @@ begin
     EditWarnOk := True;
 end;
 
+procedure TfrmMain.edReferencedByFilterNameKeyDown(Sender: TObject;
+  var Key: Word; Shift: TShiftState);
+begin
+    case Key of
+    VK_RETURN:
+      if (ssCtrl in Shift) or (Sender = edReferencedByFilterFileName) then
+        lvReferencedBy.SetFocus
+      else if Sender = edReferencedByFilterName then
+        cobReferencedByFilter.SetFocus
+      else if Sender = cobReferencedByFilter then
+        edReferencedByFilterSignature.SetFocus
+      else if Sender = edReferencedByFilterSignature then
+        edReferencedByFilterFileName.SetFocus;
+    VK_DOWN:
+      if not (Sender = cobReferencedByFilter) then
+        lvReferencedBy.SetFocus;
+  end;
+end;
+
+procedure TfrmMain.edReferencedByFilterChange(Sender: TObject);
+begin
+  tmrReferencedByFilterApply.Enabled := false;
+  tmrReferencedByFilterApply.Enabled := true;
+end;
+
 procedure TfrmMain.edViewFilterChange(Sender: TObject);
 begin
-  with vstView do begin
-    BeginUpdate;
-    try
-      ApplyViewFilter;
-      UpdateColumnWidths;
-    finally
-      EndUpdate;
-    end;
-  end;
+  tmrViewFilterApply.Enabled := False;
+  tmrViewFilterApply.Enabled := True;
 end;
 
 procedure TfrmMain.edViewFilterNameKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
@@ -6410,7 +6617,7 @@ begin
       xeSetDoubleBuffered(TWinControl(aControl.Controls[i]));
 end;
 
-procedure xeLoadAndApplyFontAndScale(aIni: TMemIniFile; aSection, aName: string; aWinControl: TWinControl);
+procedure xeLoadAndApplyFontAndScale(aIni: TMemIniFile; const aSection, aName: string; aWinControl: TWinControl);
 var
   OldSize : Integer;
   NewSize : Integer;
@@ -6444,6 +6651,9 @@ var
   i, j, k, l: Integer;
   Rect: TRect;
 begin
+  lvReferencedByAllItems := TObjectList<TRefByListItem>.Create(True);
+  lvReferencedByFilteredItems := TList<TRefByListItem>.Create;
+
   FocusedColumnOverride := -1;
 
   if wbThemesSupported then try
@@ -6452,7 +6662,7 @@ begin
         Settings := TMemIniFile.Create(xeSettingsFileName);
     if Assigned(Settings) then begin
       TStyleManager.TrySetStyle(Settings.ReadString('UI', 'Theme', TStyleManager.ActiveStyle.Name), False);
-      Graphics.PaletteChanged;
+      Vcl.Graphics.PaletteChanged;
     end;
   except end;
 
@@ -6618,7 +6828,7 @@ begin
       Exit;
     if not Assigned(vstNav) then
       Exit;
-    if pgMain.ActivePage <> tbsView then
+    if not ((pgMain.ActivePage = tbsView) or (pgMain.ActivePage = tbsReferencedBy)) then
       Exit;
     if Assigned(vstView.EditLink) then
       Exit;
@@ -7814,16 +8024,117 @@ end;
 
 procedure TfrmMain.lvReferencedByColumnClick(Sender: TObject; Column: TListColumn);
 begin
-  ReferencedBySortColumn := Column;
-  lvReferencedBy.AlphaSort;
+  // Restore previous column caption
+  if ReferencedByOriginalColumnCaption <> '' then
+    lvReferencedBy.Column[ReferencedByOriginalColumnIndex].Caption := ReferencedByOriginalColumnCaption;
+
+  // Set sort direction (Ctrl = descending)
+  if GetKeyState(VK_CONTROL) < 0 then
+    ReferencedBySortDirectionReversed := True  // Descending
+  else
+    ReferencedBySortDirectionReversed := False; // Ascending
+
+  // Determine sort column
+  if ReferencedBySortColumn = Column.Index then
+  begin
+    case Column.Index of
+      0: ReferencedBySortColumn := 3; // Record > FormID
+      2: ReferencedBySortColumn := 4; // File > RawFileName
+    else
+      ReferencedBySortColumn := Column.Index;
+    end;
+  end
+  else
+    ReferencedBySortColumn := Column.Index;
+
+  lvReferencedBy.ClearSelection;
+  ApplyReferencedByAlphaSort;
 end;
 
-procedure TfrmMain.lvReferencedByCompare(Sender: TObject; Item1, Item2: TListItem; Data: Integer; var Compare: Integer);
+procedure TfrmMain.ApplyReferencedByAlphaSort;
+
+  procedure RestoreOriginalCaption;
+  begin
+    if ReferencedByOriginalColumnCaption <> '' then
+      lvReferencedBy.Column[ReferencedByOriginalColumnIndex].Caption :=
+        ReferencedByOriginalColumnCaption;
+  end;
+
+  procedure UpdateCaption;
+  var
+    CaptionSuffix: string;
+    CaptionColumn: Byte;
+  begin
+    case ReferencedBySortColumn of
+      0: begin CaptionSuffix := ' [Name]';     CaptionColumn := 0; end;
+      1: begin CaptionSuffix := '';            CaptionColumn := 1; end;
+      2: begin CaptionSuffix := ' [Prefixed]'; CaptionColumn := 2; end;
+      3: begin CaptionSuffix := ' [FormID]';   CaptionColumn := 0; end;
+      4: begin CaptionSuffix := ' [Raw]';      CaptionColumn := 2; end;
+    else
+      CaptionColumn := 0;
+      CaptionSuffix := '';
+    end;
+
+    ReferencedByOriginalColumnIndex := CaptionColumn;
+    ReferencedByOriginalColumnCaption :=
+      lvReferencedBy.Column[CaptionColumn].Caption;
+
+    if ReferencedBySortDirectionReversed then
+      CaptionSuffix := CaptionSuffix + ' ' + #$25BC
+    else
+      CaptionSuffix := CaptionSuffix + ' ' + #$25B2;
+
+    lvReferencedBy.Column[CaptionColumn].Caption :=
+      ReferencedByOriginalColumnCaption + CaptionSuffix;
+  end;
+
 begin
-  if not Assigned(ReferencedBySortColumn) or (ReferencedBySortColumn.Index = 0) then
-    Compare := CompareText(Item1.Caption, Item2.Caption)
-  else
-    Compare := CompareText(Item1.SubItems[Pred(ReferencedBySortColumn.Index)], Item2.SubItems[Pred(ReferencedBySortColumn.Index)])
+  // Initialize original caption once
+  if ReferencedByOriginalColumnCaption = '' then
+  begin
+    ReferencedBySortColumn := 0;
+    ReferencedByOriginalColumnIndex := 0;
+    ReferencedByOriginalColumnCaption :=
+      lvReferencedBy.Column[0].Caption;
+  end;
+
+  RestoreOriginalCaption;
+
+  if lvReferencedByFilteredItems.Count = 0 then
+    Exit;
+
+  Assert(ReferencedBySortColumn <= 4,
+    'ApplyReferencedByAlphaSort: Sort column out of range');
+
+  lvReferencedByFilteredItems.Sort(
+    TComparer<TRefByListItem>.Construct(
+      function(const Item1, Item2: TRefByListItem): Integer
+      var
+        S1, S2: string;
+      begin
+        case ReferencedBySortColumn of
+          0: begin S1 := Item1.Name;             S2 := Item2.Name; end;
+          1: begin S1 := Item1.Signature;        S2 := Item2.Signature; end;
+          2: begin S1 := Item1.FileName;         S2 := Item2.FileName; end;
+          3: begin S1 := Item1.LoadOrderFormID;  S2 := Item2.LoadOrderFormID; end;
+          4: begin S1 := Item1.RawFileName;      S2 := Item2.RawFileName; end;
+        else
+          S1 := Item1.Name;
+          S2 := Item2.Name;
+        end;
+
+        Result := CompareText(S1, S2);
+
+        if ReferencedBySortDirectionReversed then
+          Result := -Result;
+      end
+    )
+  );
+
+  UpdateCaption;
+
+  lvReferencedBy.Refresh;
 end;
 
 procedure TfrmMain.lvReferencedByDblClick(Sender: TObject);
@@ -7854,6 +8165,10 @@ begin
 
   if ssCtrl in Shift then begin
     case Key of
+      Ord('A'): begin
+        Key := 0;
+        lvReferencedBy.SelectAll;
+      end;
       Ord('C'): begin
         Key := 0;
         s := '';
@@ -7880,6 +8195,36 @@ begin
       Exit;
     end;
   end;
+end;
+
+procedure TfrmMain.lvReferencedByLoadData(Sender: TObject; Item: TListItem);
+var
+  Data: TRefByListItem;
+begin
+  if (Item.Index < 0) or (Item.Index >= lvReferencedByFilteredItems.Count) then
+    Exit;
+
+  Data := lvReferencedByFilteredItems[Item.Index];
+
+  Item.Caption := Data.Name;
+  Item.SubItems.Add(Data.Signature);
+  Item.SubItems.Add(Data.FileName);
+  Item.SubItems.Add(Data.LoadOrderFormID);
+  Item.SubItems.Add(Data.RawFileName);
+  Item.Data := Data.Data;
+end;
+
+procedure TfrmMain.lvReferencedByOnDataStateChange(Sender: TObject; StartIndex,
+  EndIndex: Integer; OldState, NewState: TItemStates);
+begin
+  UpdateReferencedByTabCaption;
+end;
+
+procedure TfrmMain.lvReferencedByOnSelect(Sender: TObject; Item: TListItem;
+  Selected: Boolean);
+begin
+  if Assigned(Sender) then
+    UpdateReferencedByTabCaption;
 end;
 
 procedure TfrmMain.mniViewAddClick(Sender: TObject);
@@ -8265,6 +8610,10 @@ begin
               Result := a._File.LoadOrder < _File.LoadOrder;
               if Result then
                 Result := sl.IndexOf(a._File.FileName) < 0;
+              if Result then
+                Result := not ((not wbAllowESPMasters) and SameText(ExtractFileExt(a._File.FileName), '.esp'));
+              if Result then
+                Result := not (wbIsStarfield and a._File.IsBlueprint);
             end;
           end);
         if Length(AllModules) < 1 then
@@ -8293,7 +8642,7 @@ begin
         else
           s := 'Add '+sl.Count.ToString+' new masters to ' + _File.Name;
         PerformLongAction(s, '', procedure begin
-          _File.AddMasters(sl);
+          _File.AddMastersIfMissing(sl);
         end);
       end;
     finally
@@ -8302,60 +8651,83 @@ begin
   end;
 end;
 
-procedure TfrmMain.ApplyScriptToSelection(aSelection: TNodeArray; aCount: Cardinal; const abShowMessages: boolean);
+function TfrmMain.ScriptCanProcessElement(const aElement: IwbElement): Boolean;
 var
-  Node        : PVirtualNode;
+  Signature: TwbSignature;
+  CheckSignature: boolean;
+begin
+  Result := False;
+  CheckSignature := ScriptProcessSignatures <> '';
+
+  if not Assigned(aElement) then
+    Exit;
+
+  if not (aElement.ElementType in ScriptProcessElements) then
+    Exit;
+
+  if (aElement.ElementType = etMainRecord) and CheckSignature then
+  begin
+    Signature := (aElement as IwbMainRecord).Signature;
+    if not ContainsStr(ScriptProcessSignatures, Signature) then
+      Exit;
+  end;
+
+  Result := True;
+end;
+
+function TfrmMain.ScriptProcessSingleElement(const aElement: IwbElement; var aCount: Cardinal; const abShowMessages: boolean): Variant;
+begin
+  if not (aElement.ElementType in ScriptProcessElements) then
+    Exit;
+
+  if not abShowMessages then
+    wbProgressUnlock;
+
+  try
+    Inc(wbHideStartTime);
+    try
+      Result := Script.CallFunction('Process', [aElement]);
+    finally
+      Dec(wbHideStartTime);
+    end;
+  finally
+    if not abShowMessages then
+      wbProgressLock;
+  end;
+
+  if Result <> 0 then
+  begin
+    wbProgress(ScriptSelfTerminated + IntToStr(Result));
+    Exit;
+  end;
+
+  Inc(aCount);
+  wbCurrentProgress := 'Processed Records: ' + aCount.ToString;
+end;
+
+procedure TfrmMain.ApplyScriptToSelection(const aSelection: TNodeArray; aCount: Cardinal; const abShowMessages: boolean);
+var
+  Node: PVirtualNode;
 begin
   for var i := Low(aSelection) to High(aSelection) do
   begin
-    var StartNode: PVirtualNode := aSelection[i];
+    var StartNode := aSelection[i];
+    if not Assigned(StartNode) then
+      Continue;
 
-    if Assigned(StartNode) then
-    begin
-      Node := vstNav.GetLast(StartNode);
-
-      if not Assigned(Node) then
-        Node := StartNode;
-    end
-    else
-      Node := nil;
+    Node := vstNav.GetLast(StartNode);
+    if not Assigned(Node) then
+      Node := StartNode;
 
     while Assigned(Node) do
     begin
-      var NextNode: PVirtualNode := vstNav.GetPrevious(Node);
+      var NextNode := vstNav.GetPrevious(Node);
       var NodeData: PNavNodeData := vstNav.GetNodeData(Node);
 
-      if Assigned(NodeData.Element) then
-        if NodeData.Element.ElementType in ScriptProcessElements then
-        begin
-          var Result: Variant;
-
-          if not abShowMessages then
-            wbProgressUnlock;
-
-          try
-            Inc(wbHideStartTime);
-
-            try
-              Result := Script.CallFunction('Process', [NodeData.Element]);
-            finally
-              Dec(wbHideStartTime);
-            end;
-          finally
-            if not abShowMessages then
-              wbProgressLock;
-          end;
-
-          if Result <> 0 then
-          begin
-            wbProgress(ScriptSelfTerminated + IntToStr(Result));
-            Exit;
-          end;
-
-          Inc(aCount);
-
-          wbCurrentProgress := 'Processed Records: ' + aCount.ToString;
-        end;
+      if Assigned(NodeData) and Assigned(NodeData.Element) then
+        if ScriptCanProcessElement(NodeData.Element) then
+            if ScriptProcessSingleElement(NodeData.Element, aCount, abShowMessages) <> 0 then
+              Exit;
 
       if Node = StartNode then
         Node := nil
@@ -8367,47 +8739,20 @@ begin
   end;
 end;
 
-procedure TfrmMain.ApplyScriptToSelection(aSelection: TDynElements; aCount: Cardinal; const abShowMessages: boolean);
+procedure TfrmMain.ApplyScriptToSelection(const aSelection: TDynElements; aCount: Cardinal; const abShowMessages: boolean);
 begin
   for var i := Low(aSelection) to High(aSelection) do
   begin
-    var Element: IwbElement := aSelection[i];
-
-    if Element.ElementType in ScriptProcessElements then
-    begin
-      var Result: Variant;
-
-      if not abShowMessages then
-        wbProgressUnlock;
-
-      try
-        Inc(wbHideStartTime);
-
-        try
-          Result := Script.CallFunction('Process', [Element]);
-        finally
-          Dec(wbHideStartTime);
-        end;
-      finally
-        if not abShowMessages then
-          wbProgressLock;
-      end;
-
-      if Result <> 0 then begin
-        wbProgress(ScriptSelfTerminated + IntToStr(Result));
-        Exit;
-      end;
-
-      Inc(aCount);
-
-      wbCurrentProgress := 'Processed Records: ' + aCount.ToString;
-    end;
+    if Assigned(aSelection[i]) then
+        if ScriptCanProcessElement(aSelection[i]) then
+            if ScriptProcessSingleElement(aSelection[i], aCount, abShowMessages) <> 0 then
+              Exit;
 
     wbTick;
   end;
 end;
 
-procedure TfrmMain.ApplyScript(const aScriptName: string; aScript: string; aRefByMode: Boolean);
+procedure TfrmMain.ApplyScript(const aScriptName: string; const aScript: string; aRefByMode: Boolean);
 const
   sJustWait                   = 'Applying script. Please wait...';
 var
@@ -8434,6 +8779,7 @@ begin
 
   Count := 0;
   ScriptProcessElements := [etMainRecord];
+  ScriptProcessSignatures := '';
 
   Script := TxeScriptHost.CreateScript(aScriptName, aScript);
   try
@@ -8463,7 +8809,7 @@ begin
         NavCleanupCollapsedNodeChildren;
         try
           try
-            if Script.FunctionExists('Initialize') then begin
+            if Script.FunctionExists('Initialize') and not Script.FunctionIsEmpty('Initialize') then begin
               var Result: Variant;
               Inc(wbHideStartTime);
               try
@@ -8477,14 +8823,14 @@ begin
               end;
             end;
 
-            // skip selected records iteration if Process() function doesn't exist
-            if Script.FunctionExists('Process') then
+            // skip selected records iteration if Process() function doesn't exist or is empty
+            if Script.FunctionExists('Process') and not Script.FunctionIsEmpty('Process') then
               if not aRefByMode then
                 ApplyScriptToSelection(SelectedNodes, Count, bShowMessages)
               else
                 ApplyScriptToSelection(SelectedElements, Count, bShowMessages);
 
-            if Script.FunctionExists('Finalize') then begin
+            if Script.FunctionExists('Finalize') and not Script.FunctionIsEmpty('Finalize') then begin
               var Result: Variant;
               Inc(wbHideStartTime);
               try
@@ -8528,6 +8874,121 @@ begin
     Script := nil;
     ScriptRunning := False;
   end;
+end;
+
+procedure TfrmMain.ApplyReferencedByFilter;
+var
+  Item: TRefByListItem;
+  FilterName, FilterSig, FilterFile: string;
+  UseName, UseSig, UseFile: Boolean;
+  NameMatch, SigMatch, FileMatch: Boolean;
+  UseOrBetweenNameAndSig: Boolean;
+begin
+  lvReferencedBy.Items.BeginUpdate;
+  try
+    lvReferencedByFilteredItems.Clear;
+
+    FilterName := Trim(LowerCase(edReferencedByFilterName.Text));
+    FilterSig  := Trim(LowerCase(edReferencedByFilterSignature.Text));
+    FilterFile := Trim(LowerCase(edReferencedByFilterFileName.Text));
+
+    UseName := FilterName <> '';
+    UseSig  := FilterSig  <> '';
+    UseFile := FilterFile <> '';
+
+    // If no filters at all, show everything
+    if not (UseName or UseSig or UseFile) then
+    begin
+      for Item in lvReferencedByAllItems do
+        lvReferencedByFilteredItems.Add(Item);
+    end
+    else
+    begin
+      // Get the operator for Name <-> Signature (0 = AND, 1 = OR)
+      UseOrBetweenNameAndSig := (cobReferencedByFilter.ItemIndex = 1);
+
+      for Item in lvReferencedByAllItems do
+      begin
+        NameMatch := not UseName or LowerCase(Item.Name).Contains(FilterName);
+        SigMatch  := not UseSig  or LowerCase(Item.Signature).Contains(FilterSig);
+        FileMatch := not UseFile or LowerCase(Item.FileName).Contains(FilterFile);
+
+        // Logic: (Name [AND/OR] Signature) AND File
+        if FileMatch then
+        begin
+          if UseOrBetweenNameAndSig then
+          begin
+            if NameMatch or SigMatch then
+              lvReferencedByFilteredItems.Add(Item);
+          end
+          else
+          begin
+            if NameMatch and SigMatch then
+              lvReferencedByFilteredItems.Add(Item);
+          end;
+        end;
+      end;
+    end;
+
+    lvReferencedBy.Items.Count := lvReferencedByFilteredItems.Count;
+  finally
+    lvReferencedBy.Items.EndUpdate;
+  end;
+  if lvReferencedBy.Items.Count > 0 then
+    ApplyReferencedByAlphaSort
+  else begin
+    lvReferencedBy.ItemIndex := -1;
+    lvReferencedBy.ClearSelection;
+  end;
+
+  lvReferencedBy.Invalidate;
+
+  UpdateReferencedByTabCaption;
+end;
+
+procedure TfrmMain.UpdateReferencedByTabCaption;
+begin
+    if tbsReferencedBy.TabVisible then
+      if pgMain.ActivePage = tbsReferencedBy then
+        tbsReferencedBy.Caption := Format('Referenced by (%d / F: %d / S: %d)', [lvReferencedByAllItems.Count, lvReferencedBy.Items.Count, lvReferencedBy.SelCount])
+      else
+        tbsReferencedBy.Caption := Format('Referenced By (%d)', [lvReferencedBy.Tag]);
+end;
+
+procedure TfrmMain.ClearReferencedByListData;
+begin
+  lvReferencedBy.Items.BeginUpdate;
+  try
+    lvReferencedByFilteredItems.Clear;
+    lvReferencedByAllItems.Clear;
+    lvReferencedBy.Items.Count := 0;
+    lvReferencedBy.ItemIndex := -1;
+    lvReferencedBy.ClearSelection;
+    lvReferencedBy.Invalidate;
+  finally
+    lvReferencedBy.Items.EndUpdate;
+  end;
+end;
+
+procedure TfrmMain.PopulateReferencedByListData(aMaster: IwbMainRecord);
+var
+  i : Integer;
+  Item : TRefByListItem;
+begin
+  ClearReferencedByListData;
+  if not Assigned(aMaster) then
+    Exit;
+  for i := 0 to Pred(aMaster.ReferencedByCount) do begin
+    Item := TRefByListItem.Create;
+    Item.Name := aMaster.ReferencedBy[i].Name;
+    Item.Signature := aMaster.ReferencedBy[i].Signature;
+    Item.FileName := aMaster.ReferencedBy[i]._File.Name;
+    Item.LoadOrderFormID := aMaster.ReferencedBy[i].LoadOrderFormID.ToString(True);
+    Item.RawFileName := aMaster.ReferencedBy[i]._File.FileName;
+    Item.Data := Pointer(aMaster.ReferencedBy[i]);
+    lvReferencedByAllItems.Add(Item);
+  end;
+
 end;
 
 procedure TfrmMain.ApplyViewFilter;
@@ -8781,7 +9242,7 @@ begin
       end;
     until FindNext(F) <> 0;
   finally
-    FindClose(F);
+    System.SysUtils.FindClose(F);
     FreeAndNil(slScript);
   end;
 end;
@@ -13095,6 +13556,8 @@ begin
       FilterByElementValue := cbByElementValue.Checked;
       FilterElementValue := edElementValue.Text;
 
+      FilterByRegexComparison := cbRegexComparison.Checked;
+
       FilterByName := cbByName.Checked;
       FilterName := edName.Text;
 
@@ -13233,13 +13696,17 @@ begin
         Signatures.Sorted := True;
         Signatures.Duplicates := dupIgnore;
         for i := Pred(BaseSignatures.Count) downto 0 do
+          {$WARN IMPLICIT_STRING_CAST_LOSS OFF}
           if wbFindRecordDef(BaseSignatures[i], MainRecordDef) then
+          {$WARN IMPLICIT_STRING_CAST_LOSS ON}
             for j := 0 to Pred(MainRecordDef^.ReferenceSignatureCount) do
               Signatures.Add(MainRecordDef^.ReferenceSignatures[j]);
       end else
         for i := Pred(Signatures.Count) downto 0 do begin
           FoundAny := False;
+          {$WARN IMPLICIT_STRING_CAST_LOSS OFF}
           if wbFindRecordDef(Signatures[i], MainRecordDef) then
+          {$WARN IMPLICIT_STRING_CAST_LOSS ON}
             for j := 0 to Pred(MainRecordDef^.BaseSignatureCount) do
               if BaseSignatures.Find(MainRecordDef^.BaseSignatures[j], Dummy) then begin
                 FoundAny := True;
@@ -13292,7 +13759,9 @@ begin
     end;
 
     for i := Pred(TopLevelGroups.Count) downto 0 do
+      {$WARN IMPLICIT_STRING_CAST_LOSS OFF}
       if wbFindRecordDef(TopLevelGroups[i], MainRecordDef) then begin
+      {$WARN IMPLICIT_STRING_CAST_LOSS ON}
         if MainRecordDef^.IsReference then
           PotentiallyUnfilteredRefs := True;
         //remove entries here that don't occur in top level groups, will require definitions update to have that information
@@ -13345,7 +13814,19 @@ begin
         Boolean(Script.CallFunction('Filter', [MainRecord]));
     end;
 
-    function CheckContainerForElementValue(const aElement: IwbElement; const aValue: string): Boolean;
+    function CheckValueRegex(const aRegex: string; const aComparisonText: string): Boolean;
+    begin
+      with TPerlRegEx.Create do try
+        Subject := aComparisonText;
+        RegEx := aRegex;
+        Options := [preCaseLess, preMultiLine];
+        Result := MatchAgain;
+      finally
+        Free;
+      end;
+    end;
+
+    function CheckContainerForElementValue(const aElement: IwbElement; const aValue: string; const abRegExCheck: boolean): Boolean;
     var
       Container: IwbContainerElementRef;
       i: integer;
@@ -13357,13 +13838,15 @@ begin
 
       if Container.ElementCount = 0 then
       begin
-        if Pos(aValue, UpperCase(aElement.Value)) > 0 then
+        if abRegExCheck then
+          Result := CheckValueRegex(aValue, aElement.Value)
+        else if Pos(aValue, UpperCase(aElement.Value)) > 0 then
           Result := True;
       end
       else
         for i := 0 to Pred(Container.ElementCount) do
         begin
-          Result := CheckContainerForElementValue(Container.Elements[i], aValue);
+          Result := CheckContainerForElementValue(Container.Elements[i], aValue, abRegExCheck);
           if Result then Break;
         end;
     end;
@@ -13399,9 +13882,19 @@ begin
 
                 (FilterDeleted and not MainRecord.IsDeleted) or
                 (Assigned(Signatures) and not Signatures.Find(MainRecord.Signature, Dummy)) or
-                (FilterByEditorID and (Pos(AnsiUpperCase(FilterEditorID), AnsiUpperCase(MainRecord.EditorID)) < 1)) or
-                (FilterByName and (Pos(AnsiUpperCase(FilterName), AnsiUpperCase(MainRecord.DisplayName[True])) < 1)) or
-                (FilterByElementValue and not CheckContainerForElementValue(MainRecord, UpperCase(FilterElementValue))) or
+                (FilterByEditorID and
+                  (
+                  (FilterByRegexComparison and not CheckValueRegex(FilterEditorID, MainRecord.EditorID)) or
+                  (not FilterByRegexComparison and (Pos(AnsiUpperCase(FilterEditorID), AnsiUpperCase(MainRecord.EditorID)) < 1))
+                  )
+                ) or
+                (FilterByName and
+                  (
+                  (FilterByRegexComparison and not CheckValueRegex(FilterName, MainRecord.DisplayName[True])) or
+                  (not FilterByRegexComparison and (Pos(AnsiUpperCase(FilterName), AnsiUpperCase(MainRecord.DisplayName[True])) < 1))
+                  )
+                ) or
+                (FilterByElementValue and not CheckContainerForElementValue(MainRecord, UpperCase(FilterElementValue), FilterByRegexComparison)) or
 
                 (FilterRequiresReference and
                   (
@@ -13417,8 +13910,18 @@ begin
 
                     (FilterRequiresBaseRecord and
                       (
-                        (FilterByBaseEditorID and (Pos(AnsiUpperCase(FilterBaseEditorID), AnsiUpperCase(BaseRecord.EditorID)) < 1)) or
-                        (FilterByBaseName and (Pos(AnsiUpperCase(FilterBaseName), AnsiUpperCase(BaseRecord.DisplayName[True])) < 1)) or
+                        (FilterByBaseEditorID and
+                          (
+                          (FilterByRegexComparison and CheckValueRegex(FilterBaseEditorID, BaseRecord.EditorID)) or
+                          (not FilterByRegexComparison and (Pos(AnsiUpperCase(FilterBaseEditorID), AnsiUpperCase(BaseRecord.EditorID)) < 1))
+                          )
+                        ) or
+                        (FilterByBaseName and
+                          (
+                          (FilterByRegexComparison and CheckValueRegex(FilterBaseName, BaseRecord.DisplayName[True])) or
+                          (not FilterByRegexComparison and (Pos(AnsiUpperCase(FilterBaseName), AnsiUpperCase(BaseRecord.DisplayName[True])) < 1))
+                          )
+                        ) or
                         (FilterByHasVWDMesh and (BaseRecord.HasVisibleWhenDistantMesh <> FilterHasVWDMesh))
                       )
                     ) or
@@ -14820,29 +15323,19 @@ begin
 end;
 
 procedure TfrmMain.pgMainChange(Sender: TObject);
-var
-  i: Integer;
 begin
   if not ((pgMain.ActivePage = tbsWEAPSpreadsheet) or
       (pgMain.ActivePage = tbsAMMOSpreadsheet) or
       (pgMain.ActivePage = tbsARMOSpreadsheet)) then
         pnlNav.Show;
   if pgMain.ActivePage = tbsReferencedBy then begin
-    if lvReferencedBy.Tag <> lvReferencedBy.Items.Count then begin
+    if lvReferencedBy.Tag <> lvReferencedByAllItems.Count then begin
       lvReferencedBy.Items.BeginUpdate;
       try
-        lvReferencedBy.Items.Clear;
         if Assigned(ActiveMaster) then begin
           lvReferencedBy.Tag := ActiveMaster.ReferencedByCount;
-           begin
-            for i := 0 to Pred(ActiveMaster.ReferencedByCount) do
-              with lvReferencedBy.Items.Add do begin
-                Caption := ActiveMaster.ReferencedBy[i].Name;
-                SubItems.Add(ActiveMaster.ReferencedBy[i].Signature);
-                SubItems.Add(ActiveMaster.ReferencedBy[i]._File.Name);
-                Data := Pointer(ActiveMaster.ReferencedBy[i]);
-              end;
-          end;
+          PopulateReferencedByListData(ActiveMaster);
+          ApplyReferencedByFilter;
         end else
           lvReferencedBy.Tag := 0;
       finally
@@ -15217,6 +15710,7 @@ begin
 
   if Length(Selected) > 1 then begin
     mniRefByCompareSelected.Visible := True;
+    mniRefByCompareSelected.Caption := 'Compare Selected ('+Length(Selected).ToString+')';
     sig := Selected[Low(Selected)].Signature;
     for i := Succ(Low(Selected)) to High(Selected) do begin
       Rec := Selected[i];
@@ -15455,7 +15949,7 @@ begin
   PostMessage(Handle, WM_USER, UInt64(p), 0);
 end;
 
-procedure TfrmMain.PostPluggyChange(aFormID, aBaseFormID, aInventoryFormID, aEnchantmentFormID, aSpellFormID: TwbFormID);
+procedure TfrmMain.PostPluggyChange(const aFormID, aBaseFormID, aInventoryFormID, aEnchantmentFormID, aSpellFormID: TwbFormID);
 begin
   PluggyFormID := aFormID;
   PluggyBaseFormID := aBaseFormID;
@@ -15925,7 +16419,7 @@ begin
 
                 if NeedsRename then
                   if CRC = _File.CRC32 then begin
-                    DeleteFile(wbDataPath + s);
+                    System.SysUtils.DeleteFile(wbDataPath + s);
                     NeedsRename := False;
                     TryDirectRename := False;
                     SavedThisOne := False;
@@ -15936,7 +16430,7 @@ begin
                   SavedAny := True;
               except
                 on E: Exception do begin
-                  DeleteFile(wbDataPath + s);
+                  System.SysUtils.DeleteFile(wbDataPath + s);
                   AnyErrors := True;
                   NeedsRename := False;
                   PostAddMessage('[' + wbFormatElapsedTime( Now - wbStartTime) + '] Error saving ' + s + ': ' + E.Message);
@@ -15973,7 +16467,7 @@ begin
                           wbProgress('******** WARNING ********');
                         end;
                         wbProgress('Removing previously queued save "' + wbDataPath + s + '" as a direct save to "' + wbDataPath + u + '" has succeeded.');
-                        DeleteFile(wbDataPath + s);
+                        System.SysUtils.DeleteFile(wbDataPath + s);
                       end else begin
                         wbProgress('Backing up previously queued save "' + wbDataPath + s + '" as a direct save to "' + wbDataPath + u + '" has succeeded.');
                         DoBackupModule(s, u, aSilent);
@@ -16209,7 +16703,7 @@ begin
   try
     vstView.BeginUpdate;
     try
-      lvReferencedBy.Items.Clear;
+      ClearReferencedByListData;
       vstView.Clear;
       vstView.NodeDataSize := 0;
       SetLength(ActiveRecords, 0);
@@ -16304,8 +16798,7 @@ begin
     end;
 
     tbsReferencedBy.TabVisible := wbLoaderDone and (lvReferencedBy.Items.Count > 0);
-    if tbsReferencedBy.TabVisible then
-      tbsReferencedBy.Caption := Format('Referenced By (%d)', [lvReferencedBy.Items.Count]);
+    UpdateReferencedByTabCaption;
   finally
     lvReferencedBy.Items.EndUpdate;
   end;
@@ -16381,8 +16874,8 @@ begin
           end;
           for var i := Low(ActiveRecords) to High(ActiveRecords) do
             with Add do begin
-              Text := (ActiveRecords[i].Element as IwbMainRecord).EditorID;
-              Hint := (ActiveRecords[i].Element as IwbMainRecord).EditorID;
+              Text := (ActiveRecords[i].Element as IwbMainRecord).EditorID + ' [' + (ActiveRecords[i].Element as IwbMainRecord)._File.FileName + ']';
+              Hint := (ActiveRecords[i].Element as IwbMainRecord).EditorID + ' [' + (ActiveRecords[i].Element as IwbMainRecord)._File.FileName + ']';
               Style := vsOwnerDraw;
               Width := Trunc(ColumnWidth * (GetCurrentPPIScreen / PixelsPerInch));
               MinWidth := Width div 2;
@@ -16542,7 +17035,7 @@ begin
   vstView.FocusedNode := aNode;
 end;
 
-procedure TfrmMain.SetViewNodePositionLabel(aViewLabel: string);
+procedure TfrmMain.SetViewNodePositionLabel(const aViewLabel: string);
 var
   Node, LabelNode: PVirtualNode;
   s, DefName: string;
@@ -16626,7 +17119,7 @@ begin
       else
         ViewLabel := '';
 
-      lvReferencedBy.Items.Clear;
+      ClearReferencedByListData;
       vstView.Clear;
       vstView.NodeDataSize := 0;
       SetLength(ActiveRecords, 0);
@@ -16740,13 +17233,8 @@ begin
     if wbLoaderDone and Assigned(ActiveMaster) {$IFDEF USE_PARALLEL_BUILD_REFS}and not wbBuildingRefsParallel{$ENDIF} then begin
       lvReferencedBy.Tag := ActiveMaster.ReferencedByCount;
       if pgMain.ActivePage = tbsReferencedBy then begin
-        for i := 0 to Pred(ActiveMaster.ReferencedByCount) do
-          with lvReferencedBy.Items.Add do begin
-            Caption := ActiveMaster.ReferencedBy[i].Name;
-            SubItems.Add(ActiveMaster.ReferencedBy[i].Signature);
-            SubItems.Add(ActiveMaster.ReferencedBy[i]._File.Name);
-            Data := Pointer(ActiveMaster.ReferencedBy[i]);
-          end;
+        PopulateReferencedByListData(ActiveMaster);
+        ApplyReferencedByFilter;
       end;
     end else
       lvReferencedBy.Tag := 0;
@@ -16755,8 +17243,7 @@ begin
     tbsReferencedBy.TabVisible := wbLoaderDone and (lvReferencedBy.Tag > 0);
     if lCurrentPage = tbsReferencedBy then
       pgMain.ActivePage := tbsReferencedBy;
-    if tbsReferencedBy.TabVisible then
-      tbsReferencedBy.Caption := Format('Referenced By (%d)', [lvReferencedBy.Tag]);
+    UpdateReferencedByTabCaption;
   finally
     lvReferencedBy.Items.EndUpdate;
     Dec(ActiveRecordLock);
@@ -16766,7 +17253,7 @@ begin
     pgMain.ActivePage.Visible := True;
 end;
 
-procedure TfrmMain.ShowChangeReferencedBy(OldFormID, NewFormID: TwbFormID; const ReferencedBy: TDynMainRecords; aSilent: Boolean);
+procedure TfrmMain.ShowChangeReferencedBy(const OldFormID, NewFormID: TwbFormID; const ReferencedBy: TDynMainRecords; aSilent: Boolean);
 var
   Counter    : Integer;
   i          : Integer;
@@ -17217,6 +17704,20 @@ begin
   UpdateColumnWidths;
 end;
 
+procedure TfrmMain.tmrViewFilterApplyTimer(Sender: TObject);
+begin
+  tmrViewFilterApply.Enabled := False;
+  with vstView do begin
+    BeginUpdate;
+    try
+      ApplyViewFilter;
+      UpdateColumnWidths;
+    finally
+      EndUpdate;
+    end;
+  end;
+end;
+
 procedure TfrmMain.UpdateColumnWidths;
 var
   i              : Integer;
@@ -17379,7 +17880,7 @@ begin
       aFileCRC := Cardinal(FileCRCs.Objects[i])
     else begin
       try
-        aFileCRC := wbCRC32File(wbDataPath + aFileName);
+        aFileCRC := TwbHash.CRC32(wbDataPath + aFileName);
       except
         aFileCRC := 0;
       end;
@@ -17690,6 +18191,12 @@ begin
     DoSetActiveRecord(Copy(PendingMainRecords));
 end;
 
+procedure TfrmMain.tmrReferencedByFilterApplyTimer(Sender: TObject);
+begin
+  tmrReferencedByFilterApply.Enabled := false;
+  ApplyReferencedByFilter;
+end;
+
 procedure TfrmMain.vstSpreadSheetAmmoInitNode(Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode; var InitialStates: TVirtualNodeInitStates);
 var
   NodeDatas                   : PSpreadsheetNodeDatas;
@@ -17795,7 +18302,7 @@ begin
   //...
 end;
 
-procedure TfrmMain.vstViewBeforeCellPaint(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; CellPaintMode: TVTCellPaintMode; CellRect: TRect; var ContentRect: TRect);
+procedure TfrmMain.vstViewBeforeCellPaint(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; CellPaintMode: TVTCellPaintMode; const CellRect: TRect; var ContentRect: TRect);
 var
   NodeDatas                   : PViewNodeDatas;
   Factor                      : Double;
@@ -18409,6 +18916,12 @@ begin
     end;
 end;
 
+procedure TfrmMain.vstViewExpanding(Sender: TBaseVirtualTree; Node: PVirtualNode; var Allowed: Boolean);
+begin
+   if (GetKeyState(VK_MENU) < 0) then
+    Sender.FullExpand(Node);
+end;
+
 procedure TfrmMain.vstViewFocusChanged(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex);
 var
   NodeDatas                   : PViewNodeDatas;
@@ -18586,7 +19099,7 @@ begin
     end;
 end;
 
-procedure TfrmMain.vstViewHeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
+procedure TfrmMain.vstViewHeaderClick(Sender: TVTHeader; const HitInfo: TVTHeaderHitInfo);
 var
   i        : Integer;
   ColWidth : Integer;
@@ -18928,7 +19441,7 @@ begin
 end;
 
 procedure TfrmMain.vstViewNewText(Sender: TBaseVirtualTree;
-  Node: PVirtualNode; Column: TColumnIndex; NewText: string);
+  Node: PVirtualNode; Column: TColumnIndex; const NewText: string);
 var
   NodeDatas                   : PViewNodeDatas;
   Element                     : IwbElement;
@@ -19545,7 +20058,7 @@ begin
   end;
 end;
 
-procedure TfrmMain.vstNavHeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
+procedure TfrmMain.vstNavHeaderClick(Sender: TVTHeader; const HitInfo: TVTHeaderHitInfo);
 begin
   with HitInfo do begin
     UserWasActive := True;
@@ -20570,7 +21083,7 @@ begin
   end;
 end;
 
-procedure TfrmMain.vstSpreadSheetNewText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; NewText: string);
+procedure TfrmMain.vstSpreadSheetNewText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; const NewText: string);
 var
   NodeDatas                   : PSpreadSheetNodeDatas;
   Element                     : IwbElement;
@@ -20825,6 +21338,16 @@ begin
             wbProgress('Auto GameLink mode activated.');
           end else
             wbProgress('Auto GameLink mode could not be activated.');
+        end;
+
+        if xeQuickSEQ then begin
+          for i := High(Files) downto Low(Files) do
+            if SameText(Files[i].FileName, xePluginToUse) then begin
+              GenerateSEQFileForFile(Files[i]);
+              if xeAutoExit then
+                tmrShutdown.Enabled := True;
+              break;
+            end;
         end;
       finally
         Dec(wbShowStartTime);
@@ -21096,7 +21619,7 @@ begin
   FreeOnTerminate := True;
 end;
 
-constructor TLoaderThread.Create(aFileName: string; aMaster: string; aLoadOrder: Integer; aFileStates: TwbFileStates = []);
+constructor TLoaderThread.Create(const aFileName, aMaster: string; aLoadOrder: Integer; aFileStates: TwbFileStates = []);
 begin
   ltLoadOrderOffset := aLoadOrder;
   ltDataPath := '';
@@ -21327,7 +21850,7 @@ begin
               t := wbGameName + '.Hardcoded.esp';
               s := wbProgramPath + t;
               if FileExists(s) then
-                DeleteFile(s);
+                System.SysUtils.DeleteFile(s);
             end;
           end;
         end;
@@ -22085,7 +22608,7 @@ var
   CodePointer_TUxThemeStyle_DoDrawIcon : TDoDrawIcon;
 
 function Detour_TUxThemeStyle_DoDrawIcon(Self: TUxThemeStyleHack; DC: HDC;
-  Details: TThemedElementDetails; const R: TRect; himl: HIMAGELIST;
+  const Details: TThemedElementDetails; const R: TRect; himl: HIMAGELIST;
   Index: Integer; DPI: Integer = 0): Boolean;
 var
   Icon: HICON;

@@ -247,7 +247,7 @@ var
   frm: TForm;
   edSrc, edDst: TLabeledEdit;
   lblReplace: TLabel;
-  memoReplace: TMemo;
+  memoReplace: TRichEdit;
   btnOk, btnCancel, btnSrc, btnDst: TButton;
   chkMaterial, chkInMaterial, chkReportOnly: TCheckBox;
   pnl: TPanel;
@@ -332,7 +332,7 @@ begin
     lblReplace.Height := 30;
     lblReplace.Caption := 'Replacement pair(s): odd lines specify what text to replace, even lines text to replace with. If odd line is empty then replacement text is prepended to all textures.';
 
-    memoReplace := TMemo.Create(frm); memoReplace.Parent := frm;
+    memoReplace := TRichEdit.Create(frm); memoReplace.Parent := frm;
     memoReplace.Left := 12;
     memoReplace.Top := lblReplace.Top + lblReplace.Height + 8;
     memoReplace.Height := 90;

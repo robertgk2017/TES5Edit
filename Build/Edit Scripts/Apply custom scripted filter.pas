@@ -82,6 +82,8 @@ begin
 
   FilterByElementValue := False;
     FilterElementValue := '';
+	
+  FilterByRegexComparison := False;
 
   FilterBySignature := False;
     FilterSignatures := '';

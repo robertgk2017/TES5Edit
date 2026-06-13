@@ -11,7 +11,7 @@ var
 function Process(e: IInterface): integer;
 var
   Sig: string;
-  xesp: IInterface;
+  XESP: IInterface;
 begin
   Result := 0;
   
@@ -47,18 +47,10 @@ begin
   // undelete
   SetIsDeleted(e, True);
   SetIsDeleted(e, False);
-
-  // set persistence flag depending on game
-  if (wbGameMode = gmFO3) or (wbGameMode = gmFNV) or (wbGameMode = gmTES5) and ((Sig = 'ACHR') or (Sig = 'ACRE')) then
-    SetIsPersistent(e, True)
-  else if wbGameMode = gmTES4 then
-    SetIsPersistent(e, False);
     
   // place it below the ground
-  if not GetIsPersistent(e) then
-    SetElementNativeValues(e, 'DATA\Position\Z', -30000);
+  SetElementNativeValues(e, 'DATA\Position\Z', -30000);
 
-  RemoveElement(e, 'Enable Parent');
   RemoveElement(e, 'XTEL');
   // ... remove anything else here
   
@@ -66,11 +58,12 @@ begin
   SetIsInitiallyDisabled(e, True);
   
   // add enabled opposite of player (true - silent)
-  xesp := Add(e, 'XESP', True);
-  if Assigned(xesp) then begin
-    SetElementNativeValues(xesp, 'Reference', $14); // Player ref
-    SetElementNativeValues(xesp, 'Flags', 1);  // opposite of parent flag
-  end;
+  XESP := ElementBySignature(e, 'XESP');
+  if not Assigned(XESP) then
+    XESP := Add(e, 'XESP', True);
+  
+  SetElementNativeValues(XESP, 'Reference', $14); // Player ref
+  SetElementNativeValues(XESP, '[1]', 1);  // opposite of parent flag
 
   Inc(UndeletedCount);
 end;

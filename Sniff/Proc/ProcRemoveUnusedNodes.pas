@@ -11,9 +11,14 @@ unit ProcRemoveUnusedNodes;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameRemoveUnusedNodes = class(TFrame)
@@ -36,7 +41,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 
@@ -78,7 +83,7 @@ begin
   fSingleRoot := Frame.chkSingleRoot.Checked;
 end;
 
-function TProcRemoveUnusedNodes.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcRemoveUnusedNodes.ProcessFile(aFile: TProcFileObject): TBytes;
 
   procedure CountBlocksUsage(aBlock: TwbNifBlock; var aUsage: array of Integer);
   begin
@@ -104,7 +109,7 @@ var
 begin
   nif := TwbNifFile.Create;
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     if nif.BlocksCount = 0 then
       Exit;

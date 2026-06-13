@@ -28,7 +28,6 @@ object FrameInertiaUpdate: TFrameInertiaUpdate
       'teger value before the space (the rest is ignored), "Multiplier"' +
       ' field has to be a valid float number (empty is equal to 1).'
     TabOrder = 0
-    ExplicitWidth = 518
   end
   object chkCenter: TCheckBox
     Left = 241

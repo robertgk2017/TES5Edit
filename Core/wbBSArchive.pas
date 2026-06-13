@@ -11,529 +11,564 @@ unit wbBSArchive;
 interface
 
 uses
-  System.SysUtils,
   System.Classes,
-  Winapi.Windows,
-  System.Threading,
   System.SyncObjs,
-  System.Generics.Defaults,
-  System.Generics.Collections,
-  wbStreams,
-  tfTypes,
-  tfMD5;
+  System.SysUtils,
+
+  wbCompression,
+  wbDDS,
+  wbHash,
+  wbStreams;
 
 const
-  csBSAVersion = '0.9e';
+  cBSArchVersion = '1.0';
+  cBSArchExtension = '.bsarch';
 
 type
-  // per file compression options
-  TPackingCompression = (pcGlobal, pcCompress, pcUncompress);
-
-  TBGSCompressionType = (ctZlib, ctLZ4Frame, ctLZ4Block);
-
-  TMagic4 = array [0..3] of AnsiChar;
-  PMagic4 = ^TMagic4;
-
-  TDXGI = (
-    DXGI_FORMAT_UNKNOWN,
-    DXGI_FORMAT_R32G32B32A32_TYPELESS,
-    DXGI_FORMAT_R32G32B32A32_FLOAT,
-    DXGI_FORMAT_R32G32B32A32_UINT,
-    DXGI_FORMAT_R32G32B32A32_SINT,
-    DXGI_FORMAT_R32G32B32_TYPELESS,
-    DXGI_FORMAT_R32G32B32_FLOAT,
-    DXGI_FORMAT_R32G32B32_UINT,
-    DXGI_FORMAT_R32G32B32_SINT,
-    DXGI_FORMAT_R16G16B16A16_TYPELESS,
-    DXGI_FORMAT_R16G16B16A16_FLOAT,
-    DXGI_FORMAT_R16G16B16A16_UNORM,
-    DXGI_FORMAT_R16G16B16A16_UINT,
-    DXGI_FORMAT_R16G16B16A16_SNORM,
-    DXGI_FORMAT_R16G16B16A16_SINT,
-    DXGI_FORMAT_R32G32_TYPELESS,
-    DXGI_FORMAT_R32G32_FLOAT,
-    DXGI_FORMAT_R32G32_UINT,
-    DXGI_FORMAT_R32G32_SINT,
-    DXGI_FORMAT_R32G8X24_TYPELESS,
-    DXGI_FORMAT_D32_FLOAT_S8X24_UINT,
-    DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS,
-    DXGI_FORMAT_X32_TYPELESS_G8X24_UINT,
-    DXGI_FORMAT_R10G10B10A2_TYPELESS,
-    DXGI_FORMAT_R10G10B10A2_UNORM,
-    DXGI_FORMAT_R10G10B10A2_UINT,
-    DXGI_FORMAT_R11G11B10_FLOAT,
-    DXGI_FORMAT_R8G8B8A8_TYPELESS,
-    DXGI_FORMAT_R8G8B8A8_UNORM,
-    DXGI_FORMAT_R8G8B8A8_UNORM_SRGB,
-    DXGI_FORMAT_R8G8B8A8_UINT,
-    DXGI_FORMAT_R8G8B8A8_SNORM,
-    DXGI_FORMAT_R8G8B8A8_SINT,
-    DXGI_FORMAT_R16G16_TYPELESS,
-    DXGI_FORMAT_R16G16_FLOAT,
-    DXGI_FORMAT_R16G16_UNORM,
-    DXGI_FORMAT_R16G16_UINT,
-    DXGI_FORMAT_R16G16_SNORM,
-    DXGI_FORMAT_R16G16_SINT,
-    DXGI_FORMAT_R32_TYPELESS,
-    DXGI_FORMAT_D32_FLOAT,
-    DXGI_FORMAT_R32_FLOAT,
-    DXGI_FORMAT_R32_UINT,
-    DXGI_FORMAT_R32_SINT,
-    DXGI_FORMAT_R24G8_TYPELESS,
-    DXGI_FORMAT_D24_UNORM_S8_UINT,
-    DXGI_FORMAT_R24_UNORM_X8_TYPELESS,
-    DXGI_FORMAT_X24_TYPELESS_G8_UINT,
-    DXGI_FORMAT_R8G8_TYPELESS,
-    DXGI_FORMAT_R8G8_UNORM,
-    DXGI_FORMAT_R8G8_UINT,
-    DXGI_FORMAT_R8G8_SNORM,
-    DXGI_FORMAT_R8G8_SINT,
-    DXGI_FORMAT_R16_TYPELESS,
-    DXGI_FORMAT_R16_FLOAT,
-    DXGI_FORMAT_D16_UNORM,
-    DXGI_FORMAT_R16_UNORM,
-    DXGI_FORMAT_R16_UINT,
-    DXGI_FORMAT_R16_SNORM,
-    DXGI_FORMAT_R16_SINT,
-    DXGI_FORMAT_R8_TYPELESS,
-    DXGI_FORMAT_R8_UNORM,
-    DXGI_FORMAT_R8_UINT,
-    DXGI_FORMAT_R8_SNORM,
-    DXGI_FORMAT_R8_SINT,
-    DXGI_FORMAT_A8_UNORM,
-    DXGI_FORMAT_R1_UNORM,
-    DXGI_FORMAT_R9G9B9E5_SHAREDEXP,
-    DXGI_FORMAT_R8G8_B8G8_UNORM,
-    DXGI_FORMAT_G8R8_G8B8_UNORM,
-    DXGI_FORMAT_BC1_TYPELESS,
-    DXGI_FORMAT_BC1_UNORM,
-    DXGI_FORMAT_BC1_UNORM_SRGB,
-    DXGI_FORMAT_BC2_TYPELESS,
-    DXGI_FORMAT_BC2_UNORM,
-    DXGI_FORMAT_BC2_UNORM_SRGB,
-    DXGI_FORMAT_BC3_TYPELESS,
-    DXGI_FORMAT_BC3_UNORM,
-    DXGI_FORMAT_BC3_UNORM_SRGB,
-    DXGI_FORMAT_BC4_TYPELESS,
-    DXGI_FORMAT_BC4_UNORM,
-    DXGI_FORMAT_BC4_SNORM,
-    DXGI_FORMAT_BC5_TYPELESS,
-    DXGI_FORMAT_BC5_UNORM,
-    DXGI_FORMAT_BC5_SNORM,
-    DXGI_FORMAT_B5G6R5_UNORM,
-    DXGI_FORMAT_B5G5R5A1_UNORM,
-    DXGI_FORMAT_B8G8R8A8_UNORM,
-    DXGI_FORMAT_B8G8R8X8_UNORM,
-    DXGI_FORMAT_R10G10B10_XR_BIAS_A2_UNORM,
-    DXGI_FORMAT_B8G8R8A8_TYPELESS,
-    DXGI_FORMAT_B8G8R8A8_UNORM_SRGB,
-    DXGI_FORMAT_B8G8R8X8_TYPELESS,
-    DXGI_FORMAT_B8G8R8X8_UNORM_SRGB,
-    DXGI_FORMAT_BC6H_TYPELESS,
-    DXGI_FORMAT_BC6H_UF16,
-    DXGI_FORMAT_BC6H_SF16,
-    DXGI_FORMAT_BC7_TYPELESS,
-    DXGI_FORMAT_BC7_UNORM,
-    DXGI_FORMAT_BC7_UNORM_SRGB,
-    DXGI_FORMAT_AYUV,
-    DXGI_FORMAT_Y410,
-    DXGI_FORMAT_Y416,
-    DXGI_FORMAT_NV12,
-    DXGI_FORMAT_P010,
-    DXGI_FORMAT_P016,
-    DXGI_FORMAT_420_OPAQUE,
-    DXGI_FORMAT_YUY2,
-    DXGI_FORMAT_Y210,
-    DXGI_FORMAT_Y216,
-    DXGI_FORMAT_NV11,
-    DXGI_FORMAT_AI44,
-    DXGI_FORMAT_IA44,
-    DXGI_FORMAT_P8,
-    DXGI_FORMAT_A8P8,
-    DXGI_FORMAT_B4G4R4A4_UNORM,
-    DXGI_FORMAT_P208,
-    DXGI_FORMAT_V208,
-    DXGI_FORMAT_V408
-  );
-
-  TDDSHeader = packed record
-    Magic: TMagic4;
-    dwSize: Cardinal;
-    dwFlags: Cardinal;
-    dwHeight: Cardinal;
-    dwWidth: Cardinal;
-    dwPitchOrLinearSize: Cardinal;
-    dwDepth: Cardinal;
-    dwMipMapCount: Cardinal;
-    dwReserved1: array [0..10] of Cardinal;
-    ddspf: packed record
-      dwSize: Cardinal;
-      dwFlags: Cardinal;
-      dwFourCC: TMagic4;
-      dwRGBBitCount: Cardinal;
-      dwRBitMask: Cardinal;
-      dwGBitMask: Cardinal;
-      dwBBitMask: Cardinal;
-      dwABitMask: Cardinal;
-    end;
-    dwCaps: Cardinal;
-    dwCaps2: Cardinal;
-    dwCaps3: Cardinal;
-    dwCaps4: Cardinal;
-    dwReserved2: Cardinal;
-  end;
-  PDDSHeader = ^TDDSHeader;
-
-  TDDSHeaderDX10 = packed record
-    dxgiFormat: Integer;
-    resourceDimension: Cardinal;
-    miscFlags: Cardinal;
-    arraySize: Cardinal;
-    miscFlags2: Cardinal;
-  end;
-  PDDSHeaderDX10 = ^TDDSHeaderDX10;
-
-const
-  DDSD_CAPS            = $00000001;
-  DDSD_HEIGHT          = $00000002;
-  DDSD_WIDTH           = $00000004;
-  DDSD_PITCH           = $00000008;
-  DDSD_PIXELFORMAT     = $00001000;
-  DDSD_MIPMAPCOUNT     = $00020000;
-  DDSD_LINEARSIZE      = $00080000;
-  DDSD_DEPTH           = $00800000;
-  DDSCAPS_COMPLEX      = $00000008;
-  DDSCAPS_TEXTURE      = $00001000;
-  DDSCAPS_MIPMAP       = $00400000;
-  DDSCAPS2_CUBEMAP     = $00000200;
-  DDSCAPS2_POSITIVEX   = $00000400;
-  DDSCAPS2_NEGATIVEX   = $00000800;
-  DDSCAPS2_POSITIVEY   = $00001000;
-  DDSCAPS2_NEGATIVEY   = $00002000;
-  DDSCAPS2_POSITIVEZ   = $00004000;
-  DDSCAPS2_NEGATIVEZ   = $00008000;
-  DDSCAPS2_VOLUME      = $00200000;
-  DDPF_ALPHAPIXELS     = $00000001;
-  DDPF_ALPHA           = $00000002;
-  DDPF_FOURCC          = $00000004;
-  DDPF_RGB             = $00000040;
-  DDPF_YUV             = $00000200;
-  DDPF_LUMINANCE       = $00020000;
-
-  // DX10
-  DDS_DIMENSION_TEXTURE2D       = $00000003;
-  DDS_RESOURCE_MISC_TEXTURECUBE = $00000004;
-
-type
+  TwbBSArchiveType = (baNone, baTES3, baTES4, baFO3, baSSE, baFO4, baFO4dds, baSF, baSFdds);
+  TwbBSArchiveTypes = set of TwbBSArchiveType;
+  TwbBSArchiveTarget = (btPC, btXBox);
   TwbBSArchive = class;
+  TwbBSArchives = array of TwbBSArchive;
+  TwbBSArchivePacker = class;
 
-  TwbResourceDict = TDictionary<string, TwbNothing>;
+  TwbDDSInfo = record Width, Height, MipMaps: Integer; end;
+  TwbDDSInfoProc = procedure(aArchive: TwbBSArchive; const aFileName: string;
+    var aInfo: TwbDDSInfo);
 
-  TBSArchiveType = (baNone, baTES3, baTES4, baFO3, baSSE, baFO4, baFO4dds, baSF, baSFdds);
-  TBSArchiveState = (stReading, stWriting);
-  TBSArchiveStates = set of TBSArchiveState;
-  TBSFileIterationProc = function(aArchive: TwbBSArchive; const aFileName: string;
-    aFileRecord: Pointer; aFolderRecord: Pointer; aData: Pointer): Boolean;
-
-  TDDSInfo = record Width, Height, MipMaps: Integer; end;
-  TBSFileDDSInfoProc = procedure(aArchive: TwbBSArchive; const aFileName: string;
-    var aInfo: TDDSInfo);
-
-  TwbBSHeaderTES3 = packed record
-    HashOffset: Cardinal;
+  TwbBSHeader = record
+    Magic: TMagic4;
+    Version: Cardinal;
     FileCount: Cardinal;
-  end;
-
-  TwbBSFileTES3 = record
-    Hash: UInt64;
-    Size: Cardinal;
-    Offset: Cardinal;
-    Name: string;
-  end;
-  PwbBSFileTES3 = ^TwbBSFileTES3;
-
-  TwbBSHeaderTES4 = packed record
+    // tes3
+    HashOffset: Cardinal;
+    // tes4
     FoldersOffset: Cardinal;
     Flags: Cardinal;
     FolderCount: Cardinal;
-    FileCount: Cardinal;
     FolderNamesLength: Cardinal;
     FileNamesLength: Cardinal;
     FileFlags: Cardinal;
-  end;
-
-  TwbBSFileTES4 = record
-    Hash: UInt64;
-    Size: Cardinal;
-    Offset: Int64;
-    Name: string;
-    PackingCompression: TPackingCompression;
-    function Compress(bsa: TwbBSArchive): Boolean; // compress when packing into a new archive
-    function Compressed(bsa: TwbBSArchive): Boolean; // compressed in existing archive
-    function RawSize: Cardinal;
-  end;
-  PwbBSFileTES4 = ^TwbBSFileTES4;
-
-  TwbBSFolderTES4 = record
-    Hash: UInt64;
-    FileCount: Cardinal;
-    Unk32: Cardinal;
-    Offset: Int64;
-    Name: string;
-    Files: array of TwbBSFileTES4;
-  end;
-  PwbBSFolderTES4 = ^TwbBSFolderTES4;
-
-  TwbBSHeaderFO4 = packed record
-    Magic: TMagic4;
-    FileCount: Cardinal;
+    // fo4
+    Magic2: TMagic4;
     FileTableOffset: Int64;
-  end;
-
-  TwbBSHeaderSFv2 = packed record
-    Unknown1: Cardinal;
-    Unknown2: Cardinal;
-  end;
-
-  TwbBSHeaderSFv3 = packed record
-    Unknown1: Cardinal;
-    Unknown2: Cardinal;
+    // sf
     CompressionMethod: Cardinal;
+
+    const
+      // Magic, HashOffset, FileCount
+      SizeOfTES3 = SizeOf(Cardinal) * 3;
+      // Magic, Version, FoldersOffset, Flags, FolderCount, FileCount, FolderNamesLength, FileNamesLength, FileFlags
+      SizeOfTES4 = SizeOf(Cardinal) * 9;
+      // Magic, Version, Magic2, FileCount, FileTableOffset
+      SizeOfFO4 = SizeOf(Cardinal) * 4 + SizeOf(Int64);
+      // FO4 + unused UInt64
+      SizeOfSFv2 = SizeOfFO4 + SizeOf(UInt64);
+      // SF2 + CompressionMethod
+      SizeOfSFv3 = SizeOfSFv2 + SizeOf(Cardinal);
   end;
 
-  TwbBSTexChunkRec = record
-    Size       : Cardinal;
-    PackedSize : Cardinal;
-    Offset     : Int64;
-    StartMip   : Word;
-    EndMip     : Word;
-  end;
-  PwbBSTexChunkRec = ^TwbBSTexChunkRec;
-
-  TwbBSFileFO4 = record
-    NameHash: Cardinal;
-    Ext: TMagic4;
-    DirHash: Cardinal;
-    // GNRL archive format
-    Unknown: Cardinal;
-    Offset: Int64;
-    PackedSize: Cardinal;
-    Size: Cardinal;
-    //
-    // DX10 archive format
-    UnknownTex : Byte;
-    //ChunkHeaderSize: Word;
-    Height     : Word;
-    Width      : Word;
-    NumMips    : Byte;
-    DXGIFormat : Byte;
-    CubeMaps   : Word;
-    TexChunks  : array of TwbBSTexChunkRec;
-    //
-    Name: string;
-    PackingCompression: TPackingCompression;
-    function DXGIFormatName: string;
-    function Compress(bsa: TwbBSArchive): Boolean; // compress when packing into a new archive
-    function Compressed(bsa: TwbBSArchive): Boolean; // compressed in existing archive
-  end;
-  PwbBSFileFO4 = ^TwbBSFileFO4;
-
-  TPackedDataHash = TMD5Digest;
-  TPackedDataInfo = record
-    Size: Cardinal;
-    Hash: TPackedDataHash;
-    FileRecord: Pointer;
-  end;
-  PPackedDataInfo = ^TPackedDataInfo;
-
-  TwbBSArchive = class
+  TwbBSFileChunk = class
   private
-    fStream: TwbBaseCachedFileStream;
-    fStates: TBSArchiveStates;
-    fType: TBSArchiveType;
+    function GetCompressed: Boolean; virtual;
+  public
+    Offset: Int64;
+    Size: Cardinal;
+    PackedSize: Cardinal;
+    property Compressed: Boolean read GetCompressed;
+  end;
+
+  TwbBSFileChunkTex = class(TwbBSFileChunk)
+  public
+    StartMip: Word;
+    EndMip: Word;
+  end;
+
+  TwbBSFileEntry = class(TwbBSFileChunk)
+  private
+    function GetCompressed: Boolean; override;
+  public
+    Archive: TwbBSArchive;
+    Name: string;
+    LookupHash: TwbLookupHash;
+    Compress: Boolean;
+    FileObject: Pointer;
+    DirHash32, NameHash32: Cardinal;
+    DirHash64, NameHash64: UInt64;
+    Ext: TMagic4;
+    ModIndex: Byte;
+    DDS: record
+      Height     : Word;
+      Width      : Word;
+      NumMips    : Byte;
+      DXGIFormat : Byte;
+      Flags      : Byte;
+      TileMode   : Byte;
+      TexChunks  : array of TwbBSFileChunkTex;
+    end;
+    constructor Create(aArchive: TwbBSArchive);
+    destructor Destroy; override;
+    function DXGIFormatName: string;
+    function IsCubeMap: Boolean;
+    function Unpack: TBytes;
+    function Info: string;
+    property Compressed: Boolean read GetCompressed;
+  end;
+  TwbBSFileEntries = array of TwbBSFileEntry;
+
+  TwbBSArchiveEnumerator = class
+  private
+    fIndex: NativeInt;
+    fArchive: TwbBSArchive;
+  public
+    constructor Create(aArchive: TwbBSArchive);
+    function GetCurrent: TwbBSFileEntry; inline;
+    function MoveNext: Boolean; inline;
+    property Current: TwbBSFileEntry read GetCurrent;
+  end;
+
+  TwbCustomBSArchive = class abstract
+  private
+    fType: TwbBSArchiveType;
+    fTarget: TwbBSArchiveTarget;
     fFileName: string;
-    fMagic: TMagic4;
-    fVersion: Cardinal;
-    fCompress: Boolean;
-    fCompressionType: TBGSCompressionType;
+    fCompressionType: TwbCompressionType;
     fShareData: Boolean;
     fMultiThreaded: Boolean;
-    fDDSInfoProc: TBSFileDDSInfoProc;
-
-    fHeaderTES3: TwbBSHeaderTES3;
-    fFilesTES3: array of TwbBSFileTES3;
-
-    fHeaderTES4: TwbBSHeaderTES4;
-    fFoldersTES4: array of TwbBSFolderTES4;
-
-    fHeaderFO4: TwbBSHeaderFO4;
-    fHeaderSFv2: TwbBSHeaderSFv2;
-    fHeaderSFv3: TwbBSHeaderSFv3;
-    fFilesFO4: array of TwbBSFileFO4;
+    fArchiveFlags: Cardinal;
+    fFileFlags: Cardinal;
     fMaxChunkCount: Integer;
     fSingleMipChunkX: Integer;
     fSingleMipChunkY: Integer;
-
-    fDataOffset: Int64;
-
-    fPackedData: array of TPackedDataInfo;
-    fPackedDataCount: Integer;
+    fArchiveSize: Int64;
+    fArchiveSharedFiles: Integer;
+    fArchiveSharedSize: Int64;
 
     {$IF CompilerVersion >= 34.0} { Delphi 10.4 }
     Sync: TLightweightMREW;
     {$ELSE}
     Sync: IReadWriteSync;
     {$IFEND}
-
-    function GetArchiveFormatName: string;
-    function GetFileCount: Cardinal;
-    function GetCreatedArchiveSize: Int64;
-    procedure SetArchiveFlags(aFlags: Cardinal);
     procedure SetMultiThreaded(aValue: Boolean);
-    function FindFileRecordTES3(const aFileName: string; var aFileIdx: Integer): Boolean;
-    function FindFileRecordTES4(const aFileName: string; var aFolderIdx, aFileIdx: Integer): Boolean;
-    function FindFileRecordFO4(const aFileName: string; var aFileIdx: Integer): Boolean;
-    function GetDDSMipChunkNum(var aDDSInfo: TDDSInfo): Integer;
-    function CalcDataHash(aData: Pointer; aLen: Cardinal): TPackedDataHash;
-    function FindPackedData(aSize: Cardinal; aHash: TPackedDataHash; aFileRecord: Pointer): Boolean;
-    procedure AddPackedData(aSize: Cardinal; aHash: TPackedDataHash; aFileRecord: Pointer);
-    procedure PackData(aFileRecord: Pointer; const aFileName: string;
-      aDataHash: TPackedDataHash; aData: PByte; aSize: Integer;
-      aCompress: Boolean; aDoCompress: Boolean = False);
-    procedure CompressStream(aSrc, aDst: TStream);
+    function GetDDSMipChunkNum(aWidth, aHeight, aMipMaps: Integer): Integer;
+
+  public
+  const
+    cExceptionInvalidDDS = 'Not a valid DDS file';
+    cExceptionUnsupportedDDS = 'Unsupported DDS format';
+    cExceptionIsXboxDDS = 'DDS is in XBox format';
+    cExceptionIsNotXboxDDS = 'DDS is not in XBox format';
+    // max game supported file offset in .bsa archives
+    BSA_MAX_OFFSET = High(Integer);
+    // DX10 DDS archive types with chunked textures
+    cDDSArchiveTypes: TwbBSArchiveTypes = [baFO4dds, baSFdds];
+    cArchiveFormatNames: array[TwbBSArchiveType] of string = (
+      'None',
+      'Morrowind',
+      'Oblivion',
+      'Skyrim LE, New Vegas, Fallout 3',
+      'Skyrim AE, Skyrim SE',
+      'Fallout 4',
+      'Fallout 4 DDS',
+      'Starfield',
+      'Starfield DDS'
+    );
+    // supported compression types, first is the default one
+    cArchiveCompressionTypes: array[TwbBSArchiveType] of TwbCompressionTypes = (
+      [ctNone],
+      [ctNone],
+      [ctZLib],
+      [ctZLib],
+      [ctLZ4F],
+      [ctZLib],
+      [ctZLib],
+      [ctZLib, ctLZ4],
+      [ctLZ4, ctZLib]
+    );
+    // default archive extension
+    cArchiveTypeExtensions: array[TwbBSArchiveType] of string = (
+      '.bsa',
+      '.bsa',
+      '.bsa',
+      '.bsa',
+      '.bsa',
+      '.ba2',
+      '.ba2',
+      '.ba2',
+      '.ba2'
+    );
+    cArchiveFlagNames: array [0..9] of string = (
+      'Include Directory Names', 'Include File Names', 'Compressed',
+      'Retain Directory Names', 'Retain File Names',
+      'Retain File Name Offsets', 'XBox 360 Archive',
+      'Retain Strings During Startup',
+      'Embedded File Names', 'XMem Codec'
+    );
+    cFileFlagNames: array [0..8] of string = (
+      'Meshes', 'Textures', 'Menus', 'Sounds',
+      'Voices', 'Shaders', 'Trees', 'Fonts',
+      'Misc'
+    );
+
+    class function IsArchive(const aFileName: string): Boolean;
+    class function IsDDSArchive(aType: TwbBSArchiveType): Boolean; inline;
+    class function FormatName(aType: TwbBSArchiveType): string; inline;
+    class function DefaultSplitSize(aType: TwbBSArchiveType): Int64;
+    class function DefaultExtension(aType: TwbBSArchiveType): string; inline;
+    class function DefaultCompression(aType: TwbBSArchiveType): TwbCompressionType; inline;
+    class function SupportsCompression(aType: TwbBSArchiveType; aCType: TwbCompressionType): Boolean;
+    class procedure DetectFlags(aType: TwbBSArchiveType; aFilesList: TStrings;
+      const aFilesCompression: TArray<Boolean>; out aArchiveFlags, aFileFlags: Cardinal);
+    constructor Create; virtual;
+    destructor Destroy; override;
+    procedure SyncBeginWrite; inline;
+    procedure SyncEndWrite; inline;
+    procedure CreateArchive(const aFileName: string; aType: TwbBSArchiveType;
+      aFilesList: TStringList = nil; const aFilesCompression: TArray<Boolean> = nil); virtual; abstract;
+    procedure Save; virtual; abstract;
+    procedure Close; virtual;
+
+    property FileName: string read fFileName;
+    property ArchiveType: TwbBSArchiveType read fType;
+    property ArchiveTarget: TwbBSArchiveTarget read fTarget write fTarget;
+    property CompressionType: TwbCompressionType read fCompressionType write fCompressionType;
+    property ShareData: Boolean read fShareData write fShareData;
+    property MultiThreaded: Boolean read fMultiThreaded write SetMultiThreaded;
+    property ArchiveFlags: Cardinal read fArchiveFlags write fArchiveFlags;
+    property FileFlags: Cardinal read fFileFlags write fFileFlags;
+    property MaxChunkCount: Integer read fMaxChunkCount write fMaxChunkCount;
+    property SingleMipChunkX: Integer read fSingleMipChunkX write fSingleMipChunkX;
+    property SingleMipChunkY: Integer read fSingleMipChunkY write fSingleMipChunkY;
+    property ArchiveSize: Int64 read fArchiveSize;
+    property ArchiveSharedSize: Int64 read fArchiveSharedSize;
+    property ArchiveSharedFiles: Integer read fArchiveSharedFiles;
+  end;
+
+  TwbBSArchive = class(TwbCustomBSArchive)
+  type
+    TArchiveState = (stReading, stWriting);
+    TArchiveStates = set of TArchiveState;
+    TPackedDataIndex = record
+      Chunk: TwbBSFileChunk;
+      Size: Cardinal;
+      Hash: TwbLookupHash;
+      Compress: Boolean;
+    end;
+    TwbBSFolderTES4 = record
+      Hash: UInt64;
+      Offset: Int64;
+      Name: string;
+      Files: array of TwbBSFileEntry;
+    end;
+
+  private
+    fStream: TwbBaseCachedFileStream;
+    fStates: TArchiveStates;
+    fDDSInfoProc: TwbDDSInfoProc;
+    fPacker: TwbBSArchivePacker;
+    fHeader: TwbBSHeader;
+    fFiles: TList;
+    fFoldersTES4: array of TwbBSFolderTES4;
+    fDataOffset: Int64;
+    fPackedData: array of TPackedDataIndex;
+    fPackedDataCount: Integer;
+
+    function GetFileEntry(Index: NativeInt): TwbBSFileEntry;
+    function GetFilesCount: NativeInt;
+    procedure SetFilesCount(aCount: NativeInt);
+    function FindPackedData(aSize: Cardinal; aHash: TwbLookupHash; aChunk: TwbBSFileChunk): Boolean;
+    procedure AddPackedData(aSize: Cardinal; aHash: TwbLookupHash; aChunk: TwbBSFileChunk);
+    procedure PackData(aFile: TwbBSFileEntry; aChunk: TwbBSFileChunk;
+      aData: Pointer; aSize, aUncompressedSize: Integer);
     procedure DecompressBuf(aSrc: Pointer; aSrcSize: Integer; aDst: Pointer; aDstSize: Integer);
 
   public
-    constructor Create;
+    constructor Create; override;
     destructor Destroy; override;
+    function GetEnumerator: TwbBSArchiveEnumerator; inline;
     procedure LoadFromFile(const aFileName: string);
-    procedure CreateArchive(const aFileName: string; aType: TBSArchiveType;
-      aFilesList: TStringList = nil);
-    procedure Save;
-    procedure AddFile(const aRootDir, aFileName: string); overload;
-    procedure AddFile(const aFileName: string; const aData: TBytes); overload;
-    function FindFileRecord(const aFileName: string): Pointer;
-    function ExtractFileData(aFileRecord: Pointer): TBytes; overload;
-    function ExtractFileData(const aFileName: string): TBytes; overload;
-    procedure ExtractFileToStream(const aFileName: string; aStream: TStream);
-    procedure ExtractFile(const aFileName, aSaveAs: string);
-    procedure IterateFiles(aProc: TBSFileIterationProc; aData: Pointer = nil;
-      aSingleThreaded: Boolean = False);
+    procedure CreateArchive(const aFileName: string; aType: TwbBSArchiveType;
+      aFilesList: TStringList = nil; const aFilesCompression: TArray<Boolean> = nil); override;
+    procedure Save; override;
+    procedure Close; override;
+    function Info: string;
+    function Warnings: TArray<string>;
+    procedure Pack(aFile: TwbBSFileEntry; aData: Pointer; aSize: Integer); overload;
+    procedure Pack(aFile: TwbBSFileEntry; const aData: TBytes); overload;
+    procedure Pack(const aFileName: string; const aData: TBytes); overload;
+    function Unpack(aFile: TwbBSFileEntry): TBytes; overload;
+    function Unpack(const aFileName: string): TBytes; overload;
+    procedure Unpack(const aFileName: string; aStream: TStream); overload;
+    procedure Unpack(const aFileName, aSaveAs: string); overload;
+    function FileByName(const aFileName: string): TwbBSFileEntry;
+    function FilesByFolder(const aFolder: string): TwbBSFileEntries;
     function FileExists(const aFileName: string): Boolean;
-    procedure ResourceList(const aList: TStrings; aFolder: string = '');
-    procedure ResourceDict(const aDict: TwbResourceDict; aFolder: string = '');
-    //procedure IterateFolders(aProc: TBSFileIterationProc);
-    procedure Close;
 
-    procedure SyncBeginWrite;
-    procedure SyncEndWrite;
-
-    property FileName: string read fFileName;
-    property ArchiveType: TBSArchiveType read fType;
-    property Version: Cardinal read fVersion;
-    property FormatName: string read GetArchiveFormatName;
-    property FileCount: Cardinal read GetFileCount;
-    property CreatedArchiveSize: Int64 read GetCreatedArchiveSize;
-    property ArchiveFlags: Cardinal read fHeaderTES4.Flags write SetArchiveFlags;
-    property FileFlags: Cardinal read fHeaderTES4.FileFlags write fHeaderTES4.FileFlags;
-    property Compress: Boolean read fCompress write fCompress;
-    property ShareData: Boolean read fShareData write fShareData;
-    property MultiThreaded: Boolean read fMultiThreaded write SetMultiThreaded;
-    property DDSInfoProc: TBSFileDDSInfoProc read fDDSInfoProc write fDDSInfoProc;
+    property Version: Cardinal read fHeader.Version;
+    property Items[Index: NativeInt]: TwbBSFileEntry read GetFileEntry; default;
+    property Count: NativeInt read GetFilesCount write SetFilesCount;
+    property DDSInfoProc: TwbDDSInfoProc read fDDSInfoProc write fDDSInfoProc;
+    property Packer: TwbBSArchivePacker read fPacker write fPacker;
   end;
 
-const
-  cArchiveFormatNames: array[TBSArchiveType] of string = (
-    'None',
-    'Morrowind',
-    'Oblivion',
-    'Skyrim LE, New Vegas, Fallout 3',
-    'Skyrim SE, Skyrim AE',
-    'Fallout 4',
-    'Fallout 4 DDS',
-    'Starfield',
-    'Starfield DDS'
+
+  // Packer provides preprocessed data for TwbBSArchive ready to be written as is:
+  // compressed when needed and chunked for DDS archives
+  // aFileObject param is from aFilesList.Objects[] property of CreateArchive()
+  TwbBSArchivePacker = class(TwbCustomBSArchive)
+    // called by TwbBSArchive to get data to directly write into archive
+    procedure GetChunk(const aFileName: string; aFileObject: Pointer;
+      out aBuffer: Pointer; out aSize, aUncompressedSize: Integer;
+      aChunkIndex: Integer = 0); virtual; abstract;
+  end;
+
+
+  // Creates multiple archives split by size in SplitSize property
+  // Process() must be called ProcessCount times to fully complete packing
+  // supports multihtreading
+  TwbSplitPacker = class(TwbBSArchivePacker)
+  type
+    TPackedFile = record
+      Next: Pointer;
+      FileName: string;
+      FileObject: Pointer;
+      Compress: Boolean;
+      ArchiveIndex: Integer;
+      ShareSize: Integer;
+      ShareHash: TwbLookupHash;
+      Chunks: array of record
+        UncompressedSize: Integer;
+        Data: TBytes;
+      end;
+      procedure AddChunk(const aData: TBytes; aUncompressedSize: Integer);
+    end;
+    PPackedFile = ^TPackedFile;
+
+  private
+    fSplitSize: Int64;
+    fFiles: array of TPackedFile;
+    fArchives: TwbBSArchives;
+    fLoadedSize: Int64;
+    fLoadingCount: Integer;
+    fErrorCount: Integer;
+    fProcessCount: Integer;
+    fProcessTick: Integer;
+    // file chains: waiting to be loaded, loaded, waiting to be written
+    fPending: PPackedFile;
+    fLoaded: PPackedFile;
+    fWritten: PPackedFile;
+    function NewArchiveName: string;
+    function AddArchive: TwbBSArchive;
+    procedure MakeArchiveForLoaded;
+    function GetFile(var aChain: PPackedFile; aWait: Boolean = False): PPackedFile;
+    procedure LoadFile(aPackedFile: PPackedFile);
+    procedure WriteFile(aPackedFile: PPackedFile);
+
+  protected
+    // must be overridden in descendant class to return the source file's data
+    function GetSourceFileData(const aFileName: string; aFileObject: Pointer): TBytes; virtual; abstract;
+
+  public
+    procedure CreateArchive(const aFileName: string; aType: TwbBSArchiveType;
+      aFilesList: TStringList = nil; const aFilesCompression: TArray<Boolean> = nil); override;
+    procedure Save; override;
+    procedure Close; override;
+    procedure GetChunk(const aFileName: string; aFileObject: Pointer;
+      out aBuffer: Pointer; out aSize, aUncompressedSize: Integer;
+      aChunkIndex: Integer = 0); override;
+    procedure Process;
+    property ProcessCount: Integer read fProcessCount;
+    property SplitSize: Int64 read fSplitSize write fSplitSize;
+    property Archives: TwbBSArchives read fArchives;
+  end;
+
+  // Packs files from multiple source locations: archives, folders, individual files
+  // Sources are added with AddSource* methods in overriding order
+  // later ones win on assets with matching names
+  // Compression is set globally for all files by Compressed property
+  TwbMultiSourcePacker = class(TwbSplitPacker)
+  private
+    fCompress: Boolean;
+    fFilters: TArray<string>;
+    fSourceFiles: array of record
+      AssetName: string;
+      Hash: TwbLookupHash;
+      SourceFileName: string;
+      SourceFileEntry: TwbBSFileEntry;
+      Compress: Boolean;
+    end;
+    fSourceFilesCount: Integer;
+    fSourceArchives: array of TwbBSArchive;
+    procedure SetFilters(aFilters: TArray<string>);
+    function Add(const aAssetName, aSourceFileName: string; aSourceFileEntry: TwbBSFileEntry;
+      aCheck: Boolean = True): Boolean;
+
+  protected
+    function GetSourceFileData(const aFileName: string; aFileObject: Pointer): TBytes; override;
+
+  public
+    procedure Close; override;
+    procedure CreateArchive(const aFileName: string; aType: TwbBSArchiveType;
+      aFilesList: TStringList = nil; const aFilesCompression: TArray<Boolean> = nil); override;
+    function AddSourceFile(const aFileName: string): Integer;
+    function AddSourceFolder(const aFolder: string): Integer;
+    function AddSourceArchive(const aArchive: string): Integer;
+    function AddSource(const aPath: string): Integer;
+    property Compress: Boolean read fCompress write fCompress;
+    property Filters: TArray<string> read fFilters write SetFilters;
+    property SourceFilesCount: Integer read fSourceFilesCount;
+  end;
+
+  // Group identical datas
+  TwbSameData = record
+    Sync: TLightweightMREW;
+    Datas: array of record
+      Hash: TwbLookupHash;
+      DataSize: UInt64;
+      DataIndices: array of Integer;
+    end;
+    DatasCount: Integer;
+    class operator Initialize(out Dest: TwbSameData);
+    procedure Add(aDataIndex: Integer; aData: Pointer; aDataSize: UInt64); overload;
+    procedure Add(aDataIndex: Integer; const aData: TBytes); overload;
+  end;
+
+
+  TwbAssetType = (
+    atNone,
+    atMesh, atTexture, atMaterial, atGeometry,
+    atSound, atVoice, atMusic,
+    atScript, atSource, atSourceSSE,
+    atStrings, atSpeedTree, atVideo, atLODSettings, atDistantLOD,
+    atInterface, atProgram,
+    atMenus, atFont, atFacegen, atLSData, atShaders, atShadersFX,
+    atGrass, atPreVis, atSeq, atDialogueViews,
+    atBookArt, atIcon, atSplash
   );
 
-  cArchiveTypeExtensions: array[TBSArchiveType] of string = (
-    '.bsa',
-    '.bsa',
-    '.bsa',
-    '.bsa',
-    '.bsa',
-    '.ba2',
-    '.ba2',
-    '.ba2',
-    '.ba2'
-  );
+  TwbAsset = class abstract
+  type
+    TAssetParts = record
+      Folder: string;
+      FolderNoDelimiter: string;
+      FileName: string;
+      FileNameNoExtension: string;
+      Extension: string;
+      ExtensionNoDot: string;
+    end;
+    TAssetDesc = record
+      Typ: TwbAssetType;
+      Root: string;
+      Ext: array of string;
+    end;
+  const
+    cDataFolders: array [0..1] of string = ('data', 'data files');
+    cBSAssets: array [0..29] of TAssetDesc = (
+      (Typ: atMesh;           Root: 'meshes';         Ext: ['.nif', '.kf', '.kfm', '.egm', '.egt', '.tri', '.psa', '.hkt', '.hkx', '.ssf', '.btr', '.bto', '.btt', '.dtl']),
+      (Typ: atTexture;        Root: 'textures';       Ext: ['.dds', '.tga', '.png']),
+      (Typ: atMaterial;       Root: 'materials';      Ext: ['.bgsm', '.bgem']),
+      (Typ: atGeometry;       Root: 'geometries';     Ext: ['.mesh']),
+      (Typ: atVoice;          Root: 'sound\voice';    Ext: ['.lip', '.wav', '.xwm', '.mp3', '.ogg', '.fuz']),
+      (Typ: atSound;          Root: 'sound';          Ext: ['.wav', '.xwm', '.ogg']),
+      (Typ: atMusic;          Root: 'music';          Ext: ['.xwm', '.mp3']),
+      (Typ: atSource;         Root: 'scripts\source'; Ext: ['.psc']),
+      (Typ: atSourceSSE;      Root: 'source\scripts'; Ext: ['.psc']),
+      (Typ: atScript;         Root: 'scripts';        Ext: ['.pex', '.psc']),
+      (Typ: atStrings;        Root: 'strings';        Ext: ['.strings', '.ilstrings', '.dlstrings']),
+      (Typ: atSpeedTree;      Root: 'trees';          Ext: ['.spt']),
+      (Typ: atVideo;          Root: 'video';          Ext: ['.bik', '.bk2']),
+      (Typ: atLODSettings;    Root: 'lodsettings';    Ext: ['.lodsettings', '.dlodsettings', '.lod']),
+      (Typ: atDistantLOD;     Root: 'distantlod';     Ext: ['.cmp', '.lod']), // TES4
+      (Typ: atInterface;      Root: 'interface';      Ext: ['.swf', '.png', '.txt']),
+      (Typ: atProgram;        Root: 'programs';       Ext: ['.swf']), // FO4
+      (Typ: atMenus;          Root: 'menus';          Ext: ['.xml', '.htm', '.txt', '.scc', '.bat']), // TES4
+      (Typ: atFont;           Root: 'fonts';          Ext: ['.fnt', '.tex']), // TES4
+      (Typ: atFacegen;        Root: 'facegen';        Ext: ['.ctl']), // TES4
+      (Typ: atLSData;         Root: 'lsdata';         Ext: ['.dat']), // TES4
+      (Typ: atShaders;        Root: 'shaders';        Ext: ['.sdp']), // TES4
+      (Typ: atShadersFX;      Root: 'shadersfx';      Ext: ['.fxp']), // TES5
+      (Typ: atGrass;          Root: 'grass';          Ext: ['.gid']),
+      (Typ: atPreVis;         Root: 'vis';            Ext: ['.uvd']),
+      (Typ: atSeq;            Root: 'seq';            Ext: ['.seq']), // TES5
+      (Typ: atDialogueViews;  Root: 'dialogueviews';  Ext: ['.xml']),
+      (Typ: atBookArt;        Root: 'bookart';        Ext: ['.dds', '.tga']), // TES3
+      (Typ: atIcon;           Root: 'icons';          Ext: ['.dds', '.tga']), // TES3
+      (Typ: atSplash;         Root: 'splash';         Ext: ['.dds', '.tga']) // TES3
+    );
+    cSkippedExtensions: array [0..28] of string = (
+      '.bsa', '.ba2', '.esm', '.esp', '.esl',
+      '.nam', '.sdp', '.cdx', '.csg', '.override',
+      '.ghost', '.exe', '.dll', '.pdb',
+      '.bak', '.db', '.psd', '.jpg', '.jpeg',
+      '.3ds', '.max', '.blend', '.obj', '.xlsx',
+      '.docx', '.7z', '.zip', '.rar', '.tmp'
+    );
 
-  cArchiveFlagNames: array [0..31] of string = (
-    'Include Directory Names', 'Include File Names', 'Compressed',
-    'Retain Directory Names', 'Retain File Names',
-    'Retain File Name Offsets', 'XBox 360 Archive',
-    'Retain Strings During Startup',
-    'Embed File Names', 'XMem Codec', '', '',
-    '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
-  );
+    class function LastCharPos(const s: string; const Chr: Char): Integer; inline;
+    class function SplitDirName(const aFileName: string; var Dir, Name: string): Integer;
+    class function SplitNameExt(const aFileName: string; var Name, Ext: string; aNoExtDot: Boolean = False): Integer;
+    class function Split(const aFileName: string): TAssetParts;
+    class function AssetTypeByFolder(const aAssetName: string): TwbAssetType;
+    class function AssetTypeByExtension(const aAssetName: string): TwbAssetType;
+    class function GetAssetName(const aFileName: string; const aRoot: string = '';
+      AssetType: TwbAssetType = atNone): string;
+    class function GetNonASCII(const aFileName: string): string;
+    class function IsValidAssetName(const aName: string): Boolean;
+    class function DoNotPack(const aFileName: string): Boolean;
+    class function DoNotCompress(const aFileName: string): Boolean;
+  end;
 
-  cFileFlagNames: array [0..31] of string = (
-    'Meshes', 'Textures', 'Menus', 'Sounds',
-    'Voices', 'Shaders', 'Trees', 'Fonts',
-    'Misc', '', '', '',
-    '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''
-  );
+function FormatSize(Bytes: Int64): string;
 
-function SplitDirName(const aFileName: string; var Dir, Name: string): Integer;
-function SplitNameExt(const aFileName: string; var Name, Ext: string; aNoExtDot: Boolean = False): Integer;
-function CreateHashTES3(const aFileName: string): UInt64;
-function CreateHashTES4(const aFileName: string): UInt64; overload;
-function CreateHashTES4(const aName, aExt: string): UInt64; overload;
-function CreateHashFO4(const aFileName: string): Cardinal;
 
 implementation
 
 uses
-  TypInfo,
-  zlibEx,
-  lz4io;
+  System.Math,
+  System.IOUtils;
 
 const
   MAGIC_TES3: TMagic4 = #0#1#0#0;
   MAGIC_BSA : TMagic4 = 'BSA'#0;
   MAGIC_BTDX: TMagic4 = 'BTDX';
   MAGIC_GNRL: TMagic4 = 'GNRL';
-  MAGIC_DX10: TMagic4 = 'DX10';
-  MAGIC_DDS : TMagic4 = 'DDS ';
-  MAGIC_DXT1: TMagic4 = 'DXT1';
-  MAGIC_DXT3: TMagic4 = 'DXT3';
-  MAGIC_DXT5: TMagic4 = 'DXT5';
-  MAGIC_ATI1: TMagic4 = 'ATI1';
-  MAGIC_ATI2: TMagic4 = 'ATI2';
-  MAGIC_BC4S: TMagic4 = 'BC4S';
-  MAGIC_BC4U: TMagic4 = 'BC4U';
-  MAGIC_BC5S: TMagic4 = 'BC5S';
-  MAGIC_BC5U: TMagic4 = 'BC5U';
 
-  iFileFO4Unknown = $00100100;
+  // max allowed chunks in DX10 archives, hardcoded to 4 in BGS engine
+  CHUNK_COUNT_MAX = 4;
+  CHUNK_HEADER_SIZE_GNRL = 16;
+  CHUNK_HEADER_SIZE_DX10 = 24;
+  COMPRESSION_METHOD_ZLIB = 0;
+  COMPRESSION_METHOD_LZ4 = 3;
+  DDS_FLAG_CUBEMAP = $01;
   iFileFO4Tail = $BAADF00D;
-
-  { https://github.com/jonwd7/bae/blob/master/src/bsa.h }
 
   // header versions
   HEADER_VERSION_TES4    = $67; // Oblivion
   HEADER_VERSION_FO3     = $68; // FO3, FNV, TES5
   HEADER_VERSION_SSE     = $69; // SSE
   HEADER_VERSION_FO4v1   = $01; // FO4
-  HEADER_VERSION_SF2     = $02; // SF
-  HEADER_VERSION_SF3     = $03; // SF
-  HEADER_VERSION_FO4NGv7 = $07; // FO4NG
-  HEADER_VERSION_FO4NGv8 = $08; // FO4NG2
+  HEADER_VERSION_SFv2    = $02; // SF
+  HEADER_VERSION_SFv3    = $03; // SF
+  HEADER_VERSION_FO4v7   = $07; // FO4 NG/AE
+  HEADER_VERSION_FO4v8   = $08; // FO4 NG/AE
 
 
   // archive flags
+  {
+    HAS_DIRECTORY_STRINGS            = 1u << 0,
+    HAS_FILE_STRINGS                = 1u << 1,
+    COMPRESSED                        = 1u << 2,
+    RETAIN_DIRECTORY_NAMES            = 1u << 3,
+    RETAIN_FILE_NAMES                = 1u << 4,
+    RETAIN_FILE_NAME_OFFSETS        = 1u << 5,
+    XBOX_ARCHIVE                    = 1u << 6,
+    RETAIN_STRINGS_DURING_STARTUP    = 1u << 7,
+    EMBEDDED_FILE_NAMES                = 1u << 8,
+    XBOX_COMPRESSED                    = 1u << 9,
+  }
   ARCHIVE_PATHNAMES  = $0001; // Whether the BSA has names for paths
   ARCHIVE_FILENAMES  = $0002; // Whether the BSA has names for files
-  ARCHIVE_COMPRESS   = $0004; // Whether the files are compressed in archive (invert file's compression flag)
+  ARCHIVE_COMPRESS   = $0004; // Whether the files are compressed in archive (inverts FILE_SIZE_COMPRESS flag)
   ARCHIVE_RETAINDIR  = $0008;
   ARCHIVE_RETAINNAME = $0010;
   ARCHIVE_RETAINFOFF = $0020;
@@ -542,89 +577,23 @@ const
   ARCHIVE_EMBEDNAME  = $0100; // Whether the name is prefixed to the data
   ARCHIVE_XMEM       = $0200;
   ARCHIVE_UNKNOWN10  = $0400;
+  ARCHIVE_DEFAULT    = ARCHIVE_PATHNAMES or ARCHIVE_FILENAMES; // always set flags
 
   // file flags
-  FILE_NIF  = $0001;
-  FILE_DDS  = $0002;
-  FILE_XML  = $0004;
-  FILE_WAV  = $0008;
-  FILE_MP3  = $0010;
-  FILE_TXT  = $0020; // TXT, HTML, BAT, SCC
-  FILE_SPT  = $0040;
-  FILE_FNT  = $0080; // TEX, FNT
-  FILE_MISC = $0100; // CTL and others
+  FILE_MESHES   = $0001;
+  FILE_TEXTURES = $0002;
+  FILE_MENUS    = $0004;
+  FILE_SOUNDS   = $0008;
+  FILE_VOICES   = $0010;
+  FILE_SHADERS  = $0020; // TXT, HTML, BAT, SCC
+  FILE_TREES    = $0040;
+  FILE_FONTS    = $0080; // TEX, FNT
+  FILE_MISC     = $0100; // CTL and others
 
   FILE_SIZE_COMPRESS = $40000000; // Whether the file is compressed
 
-  crc32table : array [0..255] of Cardinal = (
-    $00000000, $77073096, $ee0e612c, $990951ba, $076dc419, $706af48f,
-    $e963a535, $9e6495a3, $0edb8832, $79dcb8a4, $e0d5e91e, $97d2d988,
-    $09b64c2b, $7eb17cbd, $e7b82d07, $90bf1d91, $1db71064, $6ab020f2,
-    $f3b97148, $84be41de, $1adad47d, $6ddde4eb, $f4d4b551, $83d385c7,
-    $136c9856, $646ba8c0, $fd62f97a, $8a65c9ec, $14015c4f, $63066cd9,
-    $fa0f3d63, $8d080df5, $3b6e20c8, $4c69105e, $d56041e4, $a2677172,
-    $3c03e4d1, $4b04d447, $d20d85fd, $a50ab56b, $35b5a8fa, $42b2986c,
-    $dbbbc9d6, $acbcf940, $32d86ce3, $45df5c75, $dcd60dcf, $abd13d59,
-    $26d930ac, $51de003a, $c8d75180, $bfd06116, $21b4f4b5, $56b3c423,
-    $cfba9599, $b8bda50f, $2802b89e, $5f058808, $c60cd9b2, $b10be924,
-    $2f6f7c87, $58684c11, $c1611dab, $b6662d3d, $76dc4190, $01db7106,
-    $98d220bc, $efd5102a, $71b18589, $06b6b51f, $9fbfe4a5, $e8b8d433,
-    $7807c9a2, $0f00f934, $9609a88e, $e10e9818, $7f6a0dbb, $086d3d2d,
-    $91646c97, $e6635c01, $6b6b51f4, $1c6c6162, $856530d8, $f262004e,
-    $6c0695ed, $1b01a57b, $8208f4c1, $f50fc457, $65b0d9c6, $12b7e950,
-    $8bbeb8ea, $fcb9887c, $62dd1ddf, $15da2d49, $8cd37cf3, $fbd44c65,
-    $4db26158, $3ab551ce, $a3bc0074, $d4bb30e2, $4adfa541, $3dd895d7,
-    $a4d1c46d, $d3d6f4fb, $4369e96a, $346ed9fc, $ad678846, $da60b8d0,
-    $44042d73, $33031de5, $aa0a4c5f, $dd0d7cc9, $5005713c, $270241aa,
-    $be0b1010, $c90c2086, $5768b525, $206f85b3, $b966d409, $ce61e49f,
-    $5edef90e, $29d9c998, $b0d09822, $c7d7a8b4, $59b33d17, $2eb40d81,
-    $b7bd5c3b, $c0ba6cad, $edb88320, $9abfb3b6, $03b6e20c, $74b1d29a,
-    $ead54739, $9dd277af, $04db2615, $73dc1683, $e3630b12, $94643b84,
-    $0d6d6a3e, $7a6a5aa8, $e40ecf0b, $9309ff9d, $0a00ae27, $7d079eb1,
-    $f00f9344, $8708a3d2, $1e01f268, $6906c2fe, $f762575d, $806567cb,
-    $196c3671, $6e6b06e7, $fed41b76, $89d32be0, $10da7a5a, $67dd4acc,
-    $f9b9df6f, $8ebeeff9, $17b7be43, $60b08ed5, $d6d6a3e8, $a1d1937e,
-    $38d8c2c4, $4fdff252, $d1bb67f1, $a6bc5767, $3fb506dd, $48b2364b,
-    $d80d2bda, $af0a1b4c, $36034af6, $41047a60, $df60efc3, $a867df55,
-    $316e8eef, $4669be79, $cb61b38c, $bc66831a, $256fd2a0, $5268e236,
-    $cc0c7795, $bb0b4703, $220216b9, $5505262f, $c5ba3bbe, $b2bd0b28,
-    $2bb45a92, $5cb36a04, $c2d7ffa7, $b5d0cf31, $2cd99e8b, $5bdeae1d,
-    $9b64c2b0, $ec63f226, $756aa39c, $026d930a, $9c0906a9, $eb0e363f,
-    $72076785, $05005713, $95bf4a82, $e2b87a14, $7bb12bae, $0cb61b38,
-    $92d28e9b, $e5d5be0d, $7cdcefb7, $0bdbdf21, $86d3d2d4, $f1d4e242,
-    $68ddb3f8, $1fda836e, $81be16cd, $f6b9265b, $6fb077e1, $18b74777,
-    $88085ae6, $ff0f6a70, $66063bca, $11010b5c, $8f659eff, $f862ae69,
-    $616bffd3, $166ccf45, $a00ae278, $d70dd2ee, $4e048354, $3903b3c2,
-    $a7672661, $d06016f7, $4969474d, $3e6e77db, $aed16a4a, $d9d65adc,
-    $40df0b66, $37d83bf0, $a9bcae53, $debb9ec5, $47b2cf7f, $30b5ffe9,
-    $bdbdf21c, $cabac28a, $53b39330, $24b4a3a6, $bad03605, $cdd70693,
-    $54de5729, $23d967bf, $b3667a2e, $c4614ab8, $5d681b02, $2a6f2b94,
-    $b40bbe37, $c30c8ea1, $5a05df1b, $2d02ef8d
-  );
 
-type
-  TPreallocatedMemoryStream = class(TCustomMemoryStream)
-  public
-    constructor Create(Ptr: Pointer; Size: Int64);
-    function Write(const Buffer; Count: Longint): Longint; override;
-  end;
-
-constructor TPreallocatedMemoryStream.Create(Ptr: Pointer; Size: Int64);
-begin
-  inherited Create;
-  SetPointer(Ptr, Size);
-end;
-
-function TPreallocatedMemoryStream.Write(const Buffer; Count: Integer): Longint;
-begin
-  Result := Size-Position;
-  if Result > Count then
-    Result := Count;
-  System.Move(Buffer, Pointer(PByte(Memory) + Position)^, Result);
-  Seek(Result, soCurrent);
-end;
-
-function Magic2Int(aMagic: TMagic4): Cardinal; inline;
+function Magic2Int(const aMagic: TMagic4): Cardinal; inline;
 begin
   Result := PCardinal(@aMagic)^;
 end;
@@ -643,17 +612,19 @@ begin
   if Length(aStr) > 3 then Result[3] := AnsiChar(aStr[4]);
 end;
 
-function LowerByte(ch: AnsiChar): Byte; inline;
+function FormatSize(Bytes: Int64): string;
+const
+  Description: array [0..8] of string = ('Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB');
 begin
-  case ch of
-  'A'..'Z':
-    Result := Byte(Ord(ch) + Ord('a')-Ord('A'));
-  else
-    Result := Byte(ch);
-  end;
+  var i := 0;
+  while Bytes >= IntPower(1024, i + 1) do Inc(i);
+  Result := FormatFloat('###0.##', Bytes / IntPower(1024, i)) + ' ' + Description[i];
 end;
 
-function LastCharPos(const s: string; const Chr: char): Integer; inline;
+
+{TwbAsset}
+
+class function TwbAsset.LastCharPos(const s: string; const Chr: Char): Integer;
 begin
   for Result := Length(s) downto 1 do
     if s[Result] = Chr then
@@ -661,18 +632,7 @@ begin
   Result := 0;
 end;
 
-function Str2MagicInt(const s: string): Cardinal;
-var
-  i: integer;
-begin
-  Result := 0;
-  for i := 1 to Length(s) do begin
-    PByte(PByte(@Result) + i-1)^ := LowerByte(AnsiChar(s[i]));
-    if i = 4 then Break;
-  end;
-end;
-
-function SplitDirName(const aFileName: string; var Dir, Name: string): Integer;
+class function TwbAsset.SplitDirName(const aFileName: string; var Dir, Name: string): Integer;
 begin
   Result := LastCharPos(aFileName, '\');
   if Result = 0 then
@@ -687,7 +647,7 @@ begin
   end;
 end;
 
-function SplitNameExt(const aFileName: string; var Name, Ext: string; aNoExtDot: Boolean = False): Integer;
+class function TwbAsset.SplitNameExt(const aFileName: string; var Name, Ext: string; aNoExtDot: Boolean = False): Integer;
 begin
   Result := LastCharPos(aFileName, '.');
   if Result <> 0 then begin
@@ -702,144 +662,487 @@ begin
   end;
 end;
 
-function CreateHashTES3(const aFileName: string): UInt64;
-var
-  s: AnsiString;
-  i, l: integer;
-  sum, off, temp, n: Cardinal;
+class function TwbAsset.Split(const aFileName: string): TAssetParts;
 begin
-  s := AnsiString(aFileName);
-  l := Length(s) shr 1;
-
-  sum := 0; off := 0;
-  for i := 1 to l do begin
-    temp := Cardinal(LowerByte(s[i])) shl (off and $1F);
-    sum := sum xor temp;
-    off := off + 8;
-  end;
-  Result := UInt64(sum) shl 32;
-
-  sum := 0; off := 0;
-  for i := l + 1 to Length(s) do begin
-    temp := Cardinal(LowerByte(s[i])) shl (off and $1F);
-    sum := sum xor temp;
-    n := temp and $1F;
-    sum := (sum shr n) or (sum shl (32 - n));
-    off := off + 8;
-  end;
-  Result := Result or sum;
+  SplitDirName(aFileName, Result.FolderNoDelimiter, Result.FileName);
+  Result.Folder := Result.FolderNoDelimiter + '\';
+  SplitNameExt(Result.FileName, Result.FileNameNoExtension, Result.ExtensionNoDot, True);
+  Result.Extension := '.' + Result.Extension;
 end;
 
-function CreateHashTES4(const aName, aExt: string): UInt64; overload;
-var
-  i, l: integer;
-  hash: Cardinal;
-  ext: array [0..3] of Byte;
-  s, e: AnsiString;
+class function TwbAsset.AssetTypeByFolder(const aAssetName: string): TwbAssetType;
 begin
-  Result := 0;
-  s := AnsiString(aName);
-  e := AnsiString(aExt);
-
-  l := Length(s);
-  if l = 0 then
-    Exit;
-
-  Result := LowerByte(s[l]);
-  if l > 2 then
-    Result := Result or (Cardinal(LowerByte(s[l-1])) shl 8);
-  Result := Result or (l shl 16);
-  Result := Result or (Cardinal(LowerByte(s[1])) shl 24);
-
-  PCardinal(@ext)^ := 0;
-  for i := 1 to Length(e) do begin
-    ext[i-1] := LowerByte(e[i]);
-    if i = 4 then Break;
-  end;
-
-  case PCardinal(@ext)^ of
-    $00666B2E: Result := Result or $80; // .kf
-    $66696E2E: Result := Result or $8000; // .nif
-    $7364642E: Result := Result or $8080; // .dds
-    $7661772E: Result := Result or $80000000; // .wav
-  end;
-
-  hash := 0;
-  for i := 2 to l-2 do
-    hash := LowerByte(s[i]) + (hash shl 6) + (hash shl 16) - hash;
-  Result := Result + UInt64(hash) shl 32;
-
-  hash := 0;
-  for i := 1 to Length(e) do
-    hash := LowerByte(e[i]) + (hash shl 6) + (hash shl 16) - hash;
-  Result := Result + UInt64(hash) shl 32;
+  for var a in cBSAssets do
+    if SameText(aAssetName, a.Root) or aAssetName.StartsWith(a.Root + '\', True) then begin
+      Result := a.Typ;
+      Exit;
+    end;
+  Result := atNone;
 end;
 
-function CreateHashTES4(const aFileName: string): UInt64; overload;
+class function TwbAsset.AssetTypeByExtension(const aAssetName: string): TwbAssetType;
 var
-  fname, fext: string;
+  n, ext: string;
 begin
-  SplitNameExt(aFileName, fname, fext);
-  Result := CreateHashTES4(fname, fext);
+  SplitNameExt(aAssetName, n, ext);
+  ext := LowerCase(ext);
+  for var a in cBSAssets do
+    for var i := Low(a.Ext) to High(a.Ext) do
+      if ext = a.Ext[i] then begin
+        Result := a.Typ;
+        Exit;
+      end;
+  Result := atNone;
 end;
 
-function CreateHashFO4(const aFileName: string): Cardinal;
+class function TwbAsset.GetAssetName(const aFileName: string; const aRoot: string = '';
+  AssetType: TwbAssetType = atNone): string;
 var
   i: Integer;
-  s: AnsiString;
-  c: AnsiChar;
 begin
-  Result := 0;
-  s := AnsiString(aFileName);
-  for i := 1 to Length(s) do begin
-    c := s[i];
-    if Byte(c) > 127 then Continue;
-    if c = '/' then c := '\';
-    Result := (Result shr 8) xor crc32table[(Result xor LowerByte(c)) and $FF];
+  Result := '';
+
+  // skip too short, empty and beth slop
+  if (Length(aFileName) < 2) or (Trim(aFileName) = '') or (Pos(#8'NOR', aFileName) <> 0) then
+    Exit;
+
+  var path := '\' + StringReplace(LowerCase(aFileName), '/', '\', [rfReplaceAll]);
+
+  try
+
+  // searching for Data folder first
+  for var f in cDataFolders do begin
+    i := Pos('\' + f + '\', path);
+    if i <> 0 then begin
+      Result := Copy(aFileName, i + Length(f) + 1, Length(aFileName));
+      Exit;
+    end;
+  end;
+
+  // searching for known asset folders
+  for var a in cBSAssets do begin
+    if (AssetType <> atNone) and (a.Typ <> AssetType) then Continue;
+    i := Pos('\' + a.Root + '\', path);
+    if i <> 0 then begin
+      Result := Copy(aFileName, i, Length(aFileName));
+      Exit;
+    end;
+  end;
+
+  // if root folder is provided use it
+  if aRoot <> '' then begin
+    path := IncludeTrailingPathDelimiter(aRoot);
+    Result := Copy(aFileName, Length(path) + 1, Length(aFileName));
+    Exit;
+  end;
+
+  // last resort - detect asset type by extension if not provided
+  if AssetType = atNone then begin
+    AssetType := AssetTypeByExtension(path);
+    // priority goes to sound over voice and music (audio uses the same extensions mostly)
+    if AssetType in [atVoice, atMusic] then AssetType := atSound;
+    // unknonws go into meshes by default
+    if AssetType = atNone then AssetType := atMesh;
+  end;
+
+  // prepend with Asset type root
+  for var a in cBSAssets do
+    if a.Typ = AssetType then begin
+      // use file name only from absolute paths
+      if TPath.IsPathRooted(aFileName) then
+        Result := a.Root + '\' + ExtractFileName(aFileName)
+      else
+        Result := a.Root + '\' + aFileName;
+      Exit;
+    end;
+
+  finally
+    Result := StringReplace(Result, '/', '\', [rfReplaceAll]);
+    Result := StringReplace(Result, '\\', '\', [rfReplaceAll]);
   end;
 end;
 
-function TwbBSFileTES4.Compress(bsa: TwbBSArchive): Boolean;
+class function TwbAsset.GetNonASCII(const aFileName: string): string;
 begin
-  case PackingCompression of
-    pcCompress  : Result := True;
-    pcUncompress: Result := False;
-    else
-      Result := bsa.Compress;
+  Result := '';
+  for var c in aFileName do
+    if Word(c) > 127 then Result := Result + c;
+end;
+
+class function TwbAsset.IsValidAssetName(const aName: string): Boolean;
+begin
+  Result := False;
+  Result := Result or aName.IsEmpty;
+  Result := Result or aName.Contains('\\');
+  Result := Result or (aName.IndexOf('/') <> -1);
+  Result := Result or (aName.IndexOf('\') < 1);
+  Result := Result or (aName.LastIndexOf('\') = Pred(Length(aName)));
+  Result := Result or not TPath.HasValidPathChars(TPath.GetDirectoryName(aName), False);
+  Result := Result or not TPath.HasValidFileNameChars(TPath.GetFileName(aName), False);
+  Result := Result or not TPath.IsRelativePath(TPath.GetDirectoryName(aName));
+  Result := not Result;
+end;
+
+class function TwbAsset.DoNotPack(const aFileName: string): Boolean;
+begin
+  var ext := LowerCase(ExtractFileExt(aFileName));
+  for var s in cSkippedExtensions do begin
+    Result := ext = s;
+    if Result then
+      Exit;
+  end;
+  Result := False;
+end;
+
+class function TwbAsset.DoNotCompress(const aFileName: string): Boolean;
+begin
+  Result :=
+    (AssetTypeByFolder(aFileName) in [atSound, atVoice, atMusic, atStrings])
+    and not aFileName.EndsWith('.fuz', True)
+    and not aFileName.EndsWith('.hkx', True); // anims for dialogue lines in sounds\voice folder
+end;
+
+
+{ TwbSameData }
+
+class operator TwbSameData.Initialize(out Dest: TwbSameData);
+begin
+  Dest.DatasCount := 0;
+end;
+
+procedure TwbSameData.Add(aDataIndex: Integer; aData: Pointer; aDataSize: UInt64);
+begin
+  var Hash := TwbHash.LookupHash(aData, aDataSize);
+  Sync.BeginWrite;
+  try
+    for var i := 0 to Pred(DatasCount) do
+      if (Datas[i].DataSize = aDataSize) and (Datas[i].Hash = Hash) then begin
+        Datas[i].DataIndices := Datas[i].DataIndices + [aDataIndex];
+        Exit;
+      end;
+
+    if DatasCount = Length(Datas) then
+      if Length(Datas) = 0 then
+        SetLength(Datas, 8192)
+      else
+        SetLength(Datas, Length(Datas) * 2);
+
+    Datas[DatasCount].DataSize := aDataSize;
+    Datas[DatasCount].Hash := Hash;
+    Datas[DatasCount].DataIndices := [aDataIndex];
+    Inc(DatasCount);
+  finally
+    Sync.EndWrite;
   end;
 end;
 
-function TwbBSFileTES4.Compressed(bsa: TwbBSArchive): Boolean;
+procedure TwbSameData.Add(aDataIndex: Integer; const aData: TBytes);
 begin
-  Result := (bsa.ArchiveFlags and ARCHIVE_COMPRESS <> 0) xor (Size and FILE_SIZE_COMPRESS <> 0);
+  Add(aDataIndex, aData, Length(aData));
 end;
 
-function TwbBSFileTES4.RawSize: Cardinal;
+
+{ TwbBSFileChunk }
+
+function TwbBSFileChunk.GetCompressed: Boolean;
 begin
-  Result := Size and not FILE_SIZE_COMPRESS;
+  Result := PackedSize <> 0;
 end;
 
-function TwbBSFileFO4.DXGIFormatName: string;
+
+{ TwbBSFileEntry }
+
+constructor TwbBSFileEntry.Create(aArchive: TwbBSArchive);
 begin
-  Result := GetEnumName(TypeInfo(TDXGI), Integer(DXGIFormat));
+  inherited Create;
+  Archive := aArchive;
 end;
 
-function TwbBSFileFO4.Compress(bsa: TwbBSArchive): Boolean;
+destructor TwbBSFileEntry.Destroy;
 begin
-  case PackingCompression of
-    pcCompress  : Result := True;
-    pcUncompress: Result := False;
-    else
-      Result := bsa.Compress;
-  end;
+  for var c in DDS.TexChunks do c.Free;
+  inherited;
 end;
 
-function TwbBSFileFO4.Compressed(bsa: TwbBSArchive): Boolean;
+function TwbBSFileEntry.GetCompressed: Boolean;
 begin
-  if bsa.ArchiveType = baFO4 then
-    Result := PackedSize <> 0
+  if Archive.IsDDSArchive(Archive.ArchiveType) then
+    Result := (Length(DDS.TexChunks) <> 0) and DDS.TexChunks[0].Compressed
   else
-    Result := (Length(TexChunks) <> 0) and (TexChunks[0].PackedSize <> 0);
+    Result := inherited;
+end;
+
+function TwbBSFileEntry.DXGIFormatName: string;
+begin
+  Result := TwbDDS.GetDXGIFormatName(TDXGI(DDS.DXGIFormat));
+end;
+
+function TwbBSFileEntry.IsCubeMap: Boolean;
+begin
+  Result := DDS.Flags and DDS_FLAG_CUBEMAP <> 0;
+end;
+
+function TwbBSFileEntry.Unpack: TBytes;
+begin
+  Result := Archive.Unpack(Self);
+end;
+
+function TwbBSFileEntry.Info: string;
+  function IfThen(aCondition: Boolean; const aValue1, aValue2: string): string; inline;
+  begin
+    if aCondition then Result := aValue1 else Result := aValue2;
+  end;
+begin
+  case Archive.ArchiveType of
+    baTES3:
+      Result := Format('  Hash: %s  Size: %d  Offset: %d', [
+        NameHash64.ToHexString,
+        Size,
+        Offset
+      ]);
+    baTES4, baFO3, baSSE:
+      Result := Format('  DirHash: %s  NameHash: %s  %sSize: %d  Offset: %d', [
+        DirHash64.ToHexString,
+        NameHash64.ToHexString,
+        IfThen(Compressed, 'Packed', ''),
+        Size,
+        Offset
+      ]);
+    baFO4, baFO4dds, baSF, baSFdds: begin
+      Result := Format('  DirHash: %s  NameHash: %s  Ext: %s', [
+        DirHash32.ToHexString,
+        NameHash32.ToHexString,
+        string(Ext)
+      ]);
+      if Archive.ArchiveType in [baFO4, baSF] then
+        Result := Result + Format('  Size: %d  PackedSize: %d  Offset: %d', [
+          Size,
+          PackedSize,
+          Offset
+        ])
+      else if Archive.IsDDSArchive(Archive.ArchiveType) then begin
+        Result := Result + Format(#13#10'  Width: %04d  Height: %04d  CubeMap: %s  Format: %s', [
+          DDS.Width,
+          DDS.Height,
+          IfThen(IsCubeMap, 'Yes', 'No'),
+          DXGIFormatName
+        ]);
+        for var c in DDS.TexChunks do
+          Result := Result + Format(#13#10'    MipMaps %.2d-%.2d  Size: %8d  PackedSize: %8d  Offset: %d', [
+            c.StartMip,
+            c.EndMip,
+            c.Size,
+            c.PackedSize,
+            c.Offset
+          ]);
+      end;
+    end;
+  end;
+end;
+
+
+{ TwbCustomBSArchive }
+
+constructor TwbCustomBSArchive.Create;
+begin
+  fType := baNone;
+  fMaxChunkCount := CHUNK_COUNT_MAX;
+  fSingleMipChunkX := 512;
+  fSingleMipChunkY := 512;
+end;
+
+destructor TwbCustomBSArchive.Destroy;
+begin
+  Close;
+  inherited;
+end;
+
+procedure TwbCustomBSArchive.Close;
+begin
+  fType := baNone;
+  fFileName := '';
+  fCompressionType := ctNone;
+  fArchiveFlags := 0;
+  fFileFlags := 0;
+  fArchiveSize := 0;
+  fArchiveSharedSize := 0;
+  fArchiveSharedFiles := 0;
+end;
+
+function TwbCustomBSArchive.GetDDSMipChunkNum(aWidth, aHeight, aMipMaps: Integer): Integer;
+begin
+  Result := 1;
+  if aMipMaps = 0 then Inc(aMipMaps);
+  while (Result < aMipMaps) and
+        (Result < fMaxChunkCount) and
+        (aWidth >= fSingleMipChunkX) and
+        (aHeight >= fSingleMipChunkY)
+  do begin
+    Inc(Result);
+    aWidth := aWidth div 2;
+    aHeight := aHeight div 2;
+  end;
+end;
+
+procedure TwbCustomBSArchive.SetMultiThreaded(aValue: Boolean);
+begin
+  fMultiThreaded := aValue;
+  {$IF CompilerVersion < 34.0}
+  if fMultiThreaded and not Assigned(Sync) then
+    Sync := TReadWriteSync.Create;
+  {$IFEND}
+end;
+
+class function TwbCustomBSArchive.FormatName(aType: TwbBSArchiveType): string;
+begin
+  Result := cArchiveFormatNames[aType];
+end;
+
+class function TwbCustomBSArchive.DefaultSplitSize(aType: TwbBSArchiveType): Int64;
+begin
+  if aType in [baTES3, baTES4, baFO3, baSSE] then
+    Result := BSA_MAX_OFFSET
+  else
+    Result := 0;
+end;
+
+class function TwbCustomBSArchive.DefaultExtension(aType: TwbBSArchiveType): string;
+begin
+  Result := cArchiveTypeExtensions[aType];
+end;
+
+class function TwbCustomBSArchive.DefaultCompression(aType: TwbBSArchiveType): TwbCompressionType;
+begin
+  Result :=cArchiveCompressionTypes[aType][0];
+end;
+
+class function TwbCustomBSArchive.SupportsCompression(aType: TwbBSArchiveType; aCType: TwbCompressionType): Boolean;
+begin
+  Result := False;
+  for var ct in cArchiveCompressionTypes[aType] do begin
+    Result := ct = aCType;
+    if Result then Break;
+  end;
+end;
+
+procedure TwbCustomBSArchive.SyncBeginWrite;
+begin
+  if fMultiThreaded then
+    Sync.BeginWrite;
+end;
+
+procedure TwbCustomBSArchive.SyncEndWrite;
+begin
+  if fMultiThreaded then
+    Sync.EndWrite;
+end;
+
+class function TwbCustomBSArchive.IsArchive(const aFileName: string): Boolean;
+begin
+  var ext := LowerCase(ExtractFileExt(aFileName));
+  for var s in cArchiveTypeExtensions do begin
+    Result := ext = s;
+    if Result then
+      Exit;
+  end;
+  Result := False;
+end;
+
+class function TwbCustomBSArchive.IsDDSArchive(aType: TwbBSArchiveType): Boolean;
+begin
+  Result := aType in cDDSArchiveTypes;
+end;
+
+class procedure TwbCustomBSArchive.DetectFlags(aType: TwbBSArchiveType; aFilesList: TStrings;
+  const aFilesCompression: TArray<Boolean>; out aArchiveFlags, aFileFlags: Cardinal);
+begin
+  aFileFlags := 0;
+  aArchiveFlags := ARCHIVE_DEFAULT;
+  if aType = baTES4 then
+    aArchiveFlags := aArchiveFlags or ARCHIVE_EMBEDNAME or ARCHIVE_XMEM or ARCHIVE_UNKNOWN10;
+
+  for var i := 0 to Pred(aFilesList.Count) do begin
+    var AssetType := TwbAsset.AssetTypeByFolder(aFilesList[i]);
+    if AssetType = atNone then
+      AssetType := TwbAsset.AssetTypeByExtension(aFilesList[i]);
+
+    // determine file flags
+    case AssetType of
+      atMesh:         aFileFlags := aFileFlags or FILE_MESHES;
+      atTexture:      aFileFlags := aFileFlags or FILE_TEXTURES;
+      atSound:        aFileFlags := aFileFlags or FILE_SOUNDS;
+      atVoice:        aFileFlags := aFileFlags or FILE_VOICES;
+      atSpeedTree:    aFileFlags := aFileFlags or FILE_TREES;
+      atFont:         aFileFlags := aFileFlags or FILE_FONTS;
+      atMenus:        aFileFlags := aFileFlags or FILE_SHADERS;
+      atDistantLOD,
+      atLODSettings:  aFileFlags := aFileFlags or FILE_MESHES or FILE_MISC;
+      else
+        aFileFlags := aFileFlags or FILE_MISC;
+    end;
+
+    // TES4 only
+    if (aType = baTES4) and aFilesList[i].EndsWith('.xml', True) then
+      aFileFlags := aFileFlags or FILE_MENUS;
+
+    // determine archive flags
+
+    // packed scripts can't be added to objects in the SSE CK if the archive was packed
+    // without the "RetainNames" flag (the scripts aren't shown in the script adding window)
+    if AssetType = atScript then
+      aArchiveFlags := aArchiveFlags or ARCHIVE_RETAINNAME;
+  end;
+
+  // final flags detection
+
+  // menus, shaders and fonts are Oblivion only
+  if aType <> baTES4 then
+    aFileFlags := aFileFlags and not (FILE_MENUS or FILE_SHADERS or FILE_FONTS);
+
+  // misc file flag is not in Skyrim SE
+  if aType = baSSE then
+    aFileFlags := aFileFlags and not FILE_MISC;
+
+  // embedded names flag in textures only archives
+  if aFileFlags = FILE_TEXTURES then
+    aArchiveFlags := aArchiveFlags or ARCHIVE_EMBEDNAME;
+
+  // startupstr flag in archives with meshes
+  if aFileFlags and FILE_MESHES <> 0 then
+    aArchiveFlags := aArchiveFlags or ARCHIVE_STARTUPSTR;
+
+  // retainname flag in archives with sounds
+  if aFileFlags and FILE_SOUNDS <> 0 then
+    aArchiveFlags := aArchiveFlags or ARCHIVE_RETAINNAME;
+
+  // compressed flag if at least one file is compressed
+  for var c in aFilesCompression do
+    if c then begin
+      aArchiveFlags := aArchiveFlags or ARCHIVE_COMPRESS;
+      Break;
+    end;
+end;
+
+
+{ TwbBSArchiveEnumerator }
+
+constructor TwbBSArchiveEnumerator.Create(aArchive: TwbBSArchive);
+begin
+  inherited Create;
+  fIndex := -1;
+  fArchive := aArchive;
+end;
+
+function TwbBSArchiveEnumerator.GetCurrent: TwbBSFileEntry;
+begin
+  Result := fArchive[fIndex];
+end;
+
+function TwbBSArchiveEnumerator.MoveNext: Boolean;
+begin
+  Result := fIndex < fArchive.Count - 1;
+  if Result then
+    Inc(fIndex);
 end;
 
 
@@ -847,210 +1150,150 @@ end;
 
 constructor TwbBSArchive.Create;
 begin
-  fType := baNone;
-  fMaxChunkCount := 4;
-  fSingleMipChunkX := 512;
-  fSingleMipChunkY := 512;
+  inherited;
+  fFiles := TList.Create;
 end;
 
 destructor TwbBSArchive.Destroy;
 begin
-  if fStates * [stReading, stWriting] <> [] then
-    Close;
+  inherited;
+  FreeAndNil(fFiles);
 end;
 
-function TwbBSArchive.GetArchiveFormatName: string;
+function TwbBSArchive.GetFileEntry(Index: NativeInt): TwbBSFileEntry;
 begin
-  Result := cArchiveFormatNames[fType];
+  Result := TwbBSFileEntry(fFiles[Index]);
 end;
 
-function TwbBSArchive.GetFileCount: Cardinal;
+function TwbBSArchive.GetFilesCount: NativeInt;
 begin
-  case fType of
-    baTES3:
-      Result := fHeaderTES3.FileCount;
-    baTES4, baFO3, baSSE:
-      Result := fHeaderTES4.FileCount;
-    baFO4, baFO4dds, baSF, baSFdds:
-      Result := fHeaderFO4.FileCount;
-    else
-      Result := 0;
-  end;
+  Result := fFiles.Count;
 end;
 
-procedure TwbBSArchive.SetArchiveFlags(aFlags: Cardinal);
+procedure TwbBSArchive.SetFilesCount(aCount: NativeInt);
 begin
-  if not (fType in [baTES4, baFO3, baSSE]) then
-    raise Exception.Create('Archive flags are not supported for this archive type');
-
-  fHeaderTES4.Flags := aFlags;
-
-  // force compression flag if needed
-  if fCompress then
-    fHeaderTES4.Flags := fHeaderTES4.Flags or ARCHIVE_COMPRESS;
+  for var f in Self do f.Free;
+  fFiles.Count := aCount;
+  for var i := 0 to Pred(fFiles.Count) do
+    fFiles[i] := TwbBSFileEntry.Create(Self);
 end;
 
-procedure TwbBSArchive.SetMultiThreaded(aValue: Boolean);
+function TwbBSArchive.GetEnumerator: TwbBSArchiveEnumerator;
 begin
-  fMultiThreaded := aValue;
-  {$IF CompilerVersion < 34.0}
-  if aValue and not Assigned(Sync) then
-    Sync := TReadWriteSync.Create;
-  {$IFEND}
+  Result := TwbBSArchiveEnumerator.Create(Self);
 end;
 
-function TwbBSArchive.FindFileRecordTES3(const aFileName: string; var aFileIdx: Integer): Boolean;
-var
-  h: UInt64;
-  i: integer;
+function TwbBSArchive.Info: string;
 begin
-  h := CreateHashTES3(aFileName);
-
-  Result := False;
-  for i := Low(fFilesTES3) to High(fFilesTES3) do
-    if fFilesTES3[i].Hash = h then begin
-      aFileIdx := i;
-      Result := True;
-      Exit;
-    end;
-end;
-
-function TwbBSArchive.FindFileRecordTES4(const aFileName: string; var aFolderIdx, aFileIdx: Integer): Boolean;
-var
-  fdir, fname, name, ext: string;
-  h: UInt64;
-  i, j: integer;
-begin
-  SplitDirName(aFileName, fdir, fname);
-  Result := False;
-  h := CreateHashTES4(fdir, '');
-  for i := Low(fFoldersTES4) to High(fFoldersTES4) do begin
-    if h <> fFoldersTES4[i].Hash then
-      // since table is sorted by hash, we can abort when our hash is lesser
-      if h < fFoldersTES4[i].Hash then
-        Exit
+  Result := '';
+  Result := Result + Format('%014s: %s', ['Archive Name', FileName]);
+  Result := Result + Format(#13#10'%014s: %s', ['Format', FormatName(fType)]);
+  if ArchiveType <> baTES3 then
+    Result := Result + Format(#13#10'%014s: 0x%s', ['Version', IntToHex(Version, 2)]);
+  Result := Result + Format(#13#10'%014s: %d', ['Files', Count]);
+  var c := 0;
+  for var f in Self do if f.Compressed then Inc(c);
+  Result := Result + Format(#13#10'%014s: %d (%s)', ['Compressed', c, TwbCompression.Name(CompressionType)]);
+  if ArchiveType in [baTES4, baFO3, baSSE] then begin
+    Result := Result + Format(#13#10'%014s: 0x%s%024s: 0x%s', [
+      'Archive Flags', ArchiveFlags.ToHexString(4),
+      'File Flags', FileFlags.ToHexString(4)
+    ]);
+    for var i := Low(cArchiveFlagNames) to High(cArchiveFlagNames) do begin
+      var s := ''; var s2 := '';
+      if (ArchiveFlags shr i) and 1 = 1 then s := '*' else s := ' ';
+      if cArchiveFlagNames[i] <> '' then
+        s := s + cArchiveFlagNames[i]
       else
-        Continue;
+        s := s + 'Bit ' + IntToStr(i);
+      s := Format('%16s%s', [' ', s]);
 
-    SplitNameExt(fname, name, ext);
-    h := CreateHashTES4(name, ext);
-    for j := Low(fFoldersTES4[i].Files) to High(fFoldersTES4[i].Files) do begin
-      if h <> fFoldersTES4[i].Files[j].Hash then
-        if h < fFoldersTES4[i].Files[j].Hash then
-          Exit
+      if i <= High(cFileFlagNames) then begin
+        if (FileFlags shr i) and 1 = 1 then s2 := '*' else s2 := ' ';
+        if cFileFlagNames[i] <> '' then
+          s2 := s2 + cFileFlagNames[i]
         else
-          Continue;
-
-      Result := True;
-      aFolderIdx := i;
-      aFileIdx := j;
-      Exit;
+          s2 := s2 + 'Bit ' + IntToStr(i);
+      end;
+      Result := Result + Format(#13#10'%s%s%s', [s, StringOfChar(' ', 48 - Length(s)), s2]);
     end;
   end;
 end;
 
-function TwbBSArchive.FindFileRecordFO4(const aFileName: string; var aFileIdx: Integer): Boolean;
-var
-  fdir, fname, name, ext: string;
-  hdir, hfile: Cardinal;
-  hext: TMagic4;
-  i: integer;
+function TwbBSArchive.Warnings: TArray<string>;
 begin
-  SplitDirName(aFileName, fdir, fname);
-  SplitNameExt(fname, name, ext, True);
-  hdir := CreateHashFO4(fdir);
-  hfile := CreateHashFO4(name);
-  hext := String2Magic(LowerCase(ext));
+  if fType = baTES3 then
+    for var f in Self do
+      if TwbAsset.AssetTypeByFolder(f.Name) in [atSound, atMusic, atVideo, atFont, atSplash] then begin
+        Result := Result + ['Sound, Music, Video, Fonts and Splash folders don''t work when packed in Morrowind archives'];
+        Break;
+      end;
 
-  Result := False;
-  for i := Low(fFilesFO4) to High(fFilesFO4) do
-    if (fFilesFO4[i].DirHash = hdir) and (fFilesFO4[i].NameHash = hfile) and (fFilesFO4[i].Ext = hext) then begin
-      aFileIdx := i;
-      Result := True;
-      Exit;
-    end;
-end;
-
-function TwbBSArchive.FindFileRecord(const aFileName: string): Pointer;
-var
-  i, j: integer;
-begin
-  Result := nil;
-
-  case fType of
-    baTES3:
-      if FindFileRecordTES3(aFileName, i) then Result := @fFilesTES3[i];
-    baTES4, baFO3, baSSE:
-      if FindFileRecordTES4(aFileName, i, j) then Result := @fFoldersTES4[i].Files[j];
-    baFO4, baFO4dds, baSF, baSFdds:
-      if FindFileRecordFO4(aFileName, i) then Result := @fFilesFO4[i];
+  if fType in [baTES3, baTES4, baFO3, baSSE] then begin
+    var bad := 0;
+    for var f in Self do
+      if f.Offset > BSA_MAX_OFFSET then Inc(bad);
+    if bad <> 0 then
+      Result := Result + [bad.ToString + ' file(s) start above 2 GB max allowed BSA size, they won''t work or crash the game'];
   end;
+
+  // embedded names is used for textures, isn't used for loose textures
+  // Engine grabs file entries for textures in the texturelist on form load (MODT, TXST)
+  // speeds up their loading (game searches for all file handles on form load instead of later)
+  // texture is loaded as cubemap if contains "_e.dd" in embedded name (to also account for .ddx on xbox)
+  // if texture is not loose and embedded names are missing then cubemaps aren't loaded properly!
+  // Seems like crashing on anything but textures
+  if (fType in [baTES4, baFO3, baSSE]) and (fHeader.Flags and ARCHIVE_EMBEDNAME = 0) then
+    for var f in Self do
+      if f.Name.EndsWith('_e.dds', True) then begin
+        Result := Result + ['Contains cubemap _e.dds textures which aren''t loaded properly in the game without Embedded File Names flag'];
+        Break;
+      end;
+
+  if (fType in [baFO3, baSSE]) and (fHeader.Flags and ARCHIVE_EMBEDNAME <> 0) then
+    for var f in Self do
+      if not f.Name.EndsWith('.dds', True) then begin
+        Result := Result + ['Contains non texture files which may crash the game when packed with Embedded File Names flag'];
+        Break;
+      end;
+
+  if IsDDSArchive(fType) or (fType = baSSE) then
+    for var f in Self do
+      if not f.Compressed then begin
+        if (fType = baSSE) and (fHeader.Flags and ARCHIVE_EMBEDNAME <> 0) then
+          Result := Result + ['Contains uncompressed files with Embedded File Names flag, such combination crashes Skyrim SE/AE']
+        else if IsDDSArchive(fType) then
+          Result := Result + ['DDS archive contains uncompressed textures which crash the game'];
+        Break;
+      end;
 end;
 
-function TwbBSArchive.GetDDSMipChunkNum(var aDDSInfo: TDDSInfo): Integer;
-var
-  w, h: Integer;
-begin
-  w := aDDSInfo.Width;
-  h := aDDSInfo.Height;
-  Result := 1;
-  while (Result < aDDSInfo.MipMaps) and
-        (Result < fMaxChunkCount) and
-        (w >= fSingleMipChunkX) and
-        (h >= fSingleMipChunkY)
-  do begin
-    Inc(Result);
-    w := w div 2;
-    h := h div 2;
-  end;
-end;
-
-function TwbBSArchive.CalcDataHash(aData: Pointer; aLen: Cardinal): TPackedDataHash;
-var
-  fMD5: TMD5Alg;
-begin
-  fMD5.Init(@fMD5);
-  fMD5.Update(@fMD5, aData, aLen);
-  fMD5.Done(@fMD5, @Result);
-end;
-
-function TwbBSArchive.FindPackedData(aSize: Cardinal; aHash: TPackedDataHash; aFileRecord: Pointer): Boolean;
-var
-  i: Integer;
+function TwbBSArchive.FindPackedData(aSize: Cardinal; aHash: TwbLookupHash; aChunk: TwbBSFileChunk): Boolean;
 begin
   Result := False;
 
   if not fShareData then
     Exit;
 
-  for i := 0 to Pred(fPackedDataCount) do
-    if (aSize = fPackedData[i].Size) and CompareMem(@aHash, @fPackedData[i].Hash, SizeOf(aHash)) then begin
-      case fType of
-        baTES3: begin
-          PwbBSFileTES3(aFileRecord).Size := PwbBSFileTES3(fPackedData[i].FileRecord).Size;
-          PwbBSFileTES3(aFileRecord).Offset := PwbBSFileTES3(fPackedData[i].FileRecord).Offset;
-        end;
-        baTES4, baFO3, baSSE: begin
-          PwbBSFileTES4(aFileRecord).Size := PwbBSFileTES4(fPackedData[i].FileRecord).Size;
-          PwbBSFileTES4(aFileRecord).Offset := PwbBSFileTES4(fPackedData[i].FileRecord).Offset;
-        end;
-        baFO4, baSF: begin
-          PwbBSFileFO4(aFileRecord).Size := PwbBSFileFO4(fPackedData[i].FileRecord).Size;
-          PwbBSFileFO4(aFileRecord).PackedSize := PwbBSFileFO4(fPackedData[i].FileRecord).PackedSize;
-          PwbBSFileFO4(aFileRecord).Offset := PwbBSFileFO4(fPackedData[i].FileRecord).Offset;
-        end;
-        baFO4dds, baSFdds: begin
-          PwbBSTexChunkRec(aFileRecord).Size := PwbBSTexChunkRec(fPackedData[i].FileRecord).Size;
-          PwbBSTexChunkRec(aFileRecord).PackedSize := PwbBSTexChunkRec(fPackedData[i].FileRecord).PackedSize;
-          PwbBSTexChunkRec(aFileRecord).Offset := PwbBSTexChunkRec(fPackedData[i].FileRecord).Offset;
-        end;
-      end;
+  for var i := 0 to Pred(fPackedDataCount) do
+    if (aSize = fPackedData[i].Size) and TwbHash.SameLookupHash(aHash, fPackedData[i].Hash) then begin
+      aChunk.Offset := fPackedData[i].Chunk.Offset;
+      aChunk.Size := fPackedData[i].Chunk.Size;
+      aChunk.PackedSize := fPackedData[i].Chunk.PackedSize;
+      // in DDS archives count shared files for the first 0 mipmap chunk only
+      if not ( (aChunk is TwbBSFileChunkTex) and (TwbBSFileChunkTex(aChunk).StartMip <> 0) ) then
+        Inc(fArchiveSharedFiles);
+      if aChunk.PackedSize <> 0 then
+        Inc(fArchiveSharedSize, aChunk.PackedSize)
+      else
+        Inc(fArchiveSharedSize, aChunk.Size);
+
       Result := True;
       Exit;
     end;
 end;
 
-procedure TwbBSArchive.AddPackedData(aSize: Cardinal; aHash: TPackedDataHash; aFileRecord: Pointer);
+procedure TwbBSArchive.AddPackedData(aSize: Cardinal; aHash: TwbLookupHash; aChunk: TwbBSFileChunk);
 begin
   if not fShareData then
     Exit;
@@ -1063,207 +1306,236 @@ begin
 
   fPackedData[fPackedDataCount].Size := aSize;
   fPackedData[fPackedDataCount].Hash := aHash;
-  fPackedData[fPackedDataCount].FileRecord := aFileRecord;
+  fPackedData[fPackedDataCount].Chunk := aChunk;
   Inc(fPackedDataCount);
 end;
 
 procedure TwbBSArchive.LoadFromFile(const aFileName: string);
-var
-  i, j: Integer;
 begin
-  if fStates * [stReading, stWriting] <> [] then
-    Close;
+  //if fStates * [stReading, stWriting] <> [] then
+  Close;
 
-  fStream := TwbReadOnlyCachedFileStream.Create(aFileName, fmOpenRead or fmShareDenyWrite);
+  fFileName := aFileName;
+  fStream := TwbReadOnlyCachedFileStream.Create(fFileName, fmOpenRead or fmShareDenyWrite);
 
   // magic
-  fMagic := Int2Magic(fStream.ReadCardinal);
-  if fMagic = MAGIC_TES3 then fType := baTES3 else
-  if fMagic = MAGIC_BSA  then fType := baTES4 else
-  if fMagic = MAGIC_BTDX then fType := baFO4 else
+  fHeader.Magic := Int2Magic(fStream.ReadCardinal);
+  if fHeader.Magic = MAGIC_TES3 then fType := baTES3 else
+  if fHeader.Magic = MAGIC_BSA  then fType := baTES4 else
+  if fHeader.Magic = MAGIC_BTDX then fType := baFO4 else
     raise Exception.Create('Unknown archive format');
 
   // archive version except Morrowind
   if fType <> baTES3 then begin
-    fVersion := fStream.ReadCardinal;
-    fCompressionType := ctZlib; // default compression type
-    case fVersion of
-      HEADER_VERSION_TES4:
-        fType := baTES4;
-      HEADER_VERSION_FO3 :
-        fType := baFO3;
-      HEADER_VERSION_SSE :
-        fType := baSSE;
+    fHeader.Version := fStream.ReadCardinal;
+    case fHeader.Version of
+      HEADER_VERSION_TES4:  fType := baTES4;
+      HEADER_VERSION_FO3:   fType := baFO3;
+      HEADER_VERSION_SSE:   fType := baSSE;
       HEADER_VERSION_FO4v1,
-      HEADER_VERSION_FO4NGv7,
-      HEADER_VERSION_FO4NGv8 :
-        fType := baFO4;
-      HEADER_VERSION_SF2,
-      HEADER_VERSION_SF3:
-        fType := baSF;
+      HEADER_VERSION_FO4v7,
+      HEADER_VERSION_FO4v8: fType := baFO4;
+      HEADER_VERSION_SFv2,
+      HEADER_VERSION_SFv3:  fType := baSF;
     else
-      raise Exception.Create('Unknown archive version 0x' + IntToHex(fVersion, 8));
+      raise Exception.Create('Unknown archive version 0x' + IntToHex(fHeader.Version, 8));
     end;
   end;
 
   case fType of
     //--------------------------------------------------
-    // Morrowind
+    // Load Morrowind
     baTES3: begin
       // read header
-      fStream.ReadBuffer(fHeaderTES3, SizeOf(fHeaderTES3));
-      SetLength(fFilesTES3, fHeaderTES3.FileCount);
-      for i := Low(fFilesTES3) to High(fFilesTES3) do begin
-        fFilesTES3[i].Size := fStream.ReadCardinal;
-        fFilesTES3[i].Offset := fStream.ReadCardinal;
+      fHeader.HashOffset := fStream.ReadCardinal;
+      fHeader.FileCount := fStream.ReadCardinal;
+      Count := fHeader.FileCount;
+      // read file records
+      for var f in Self do begin
+        f.Size := fStream.ReadCardinal;
+        f.Offset := fStream.ReadCardinal;
       end;
       // skip name offsets
-      fStream.Position := fStream.Position + 4 * fHeaderTES3.FileCount;
+      fStream.Position := fStream.Position + 4 * Count;
       // read names
-      for i := Low(fFilesTES3) to High(fFilesTES3) do
-        fFilesTES3[i].Name := fStream.ReadStringTerm;
+      for var f in Self do f.Name := fStream.ReadStringTerm;
       // read hashes
-      for i := Low(fFilesTES3) to High(fFilesTES3) do
-        fFilesTES3[i].Hash := fStream.ReadUInt64;
+      for var f in Self do
+        f.NameHash64 := fStream.ReadUInt64;
       // remember binary data offset since stored files offsets are relative
       fDataOffset := fStream.Position;
     end;
 
     //--------------------------------------------------
-    // Fallout 4, Starfield
-    baFO4, baSF: begin
-      // read header
-      fStream.ReadBuffer(fHeaderFO4, SizeOf(fHeaderFO4));
-      // SF header
-      if fType = baSF then
-        if fVersion = HEADER_VERSION_SF2 then
-          fStream.ReadBuffer(fHeaderSFv2, SizeOf(fHeaderSFv2))
-        else begin
-          fStream.ReadBuffer(fHeaderSFv3, SizeOf(fHeaderSFv3));
-          if fHeaderSFv3.CompressionMethod = 3 then
-            fCompressionType := ctLZ4Block;
-        end;
-
-      // read GNRL files
-      if fHeaderFO4.Magic = MAGIC_GNRL then begin
-        SetLength(fFilesFO4, fHeaderFO4.FileCount);
-        for i := Low(fFilesFO4) to High(fFilesFO4) do begin
-          fFilesFO4[i].NameHash := fStream.ReadCardinal;
-          fFilesFO4[i].Ext := Int2Magic(fStream.ReadCardinal);
-          fFilesFO4[i].DirHash := fStream.ReadCardinal;
-          fFilesFO4[i].Unknown := fStream.ReadCardinal;
-          fFilesFO4[i].Offset := fStream.ReadInt64;
-          fFilesFO4[i].PackedSize := fStream.ReadCardinal;
-          fFilesFO4[i].Size := fStream.ReadCardinal;
-          fStream.ReadCardinal; // BAADF00D
-        end;
-      end
-      // read DX10 textures
-      else if fHeaderFO4.Magic = MAGIC_DX10 then begin
-        if fType = baFO4 then
-          fType := baFO4dds
-        else if fType = baSF then
-          fType := baSFdds;
-        SetLength(fFilesFO4, fHeaderFO4.FileCount);
-        for i := Low(fFilesFO4) to High(fFilesFO4) do begin
-          fFilesFO4[i].NameHash := fStream.ReadCardinal;
-          fFilesFO4[i].Ext := Int2Magic(fStream.ReadCardinal);
-          fFilesFO4[i].DirHash := fStream.ReadCardinal;
-          fFilesFO4[i].UnknownTex := fStream.ReadByte;
-          SetLength(fFilesFO4[i].TexChunks, fStream.ReadByte);
-          fStream.ReadWord; // skip chunkHeaderSize, always 24
-          //fFilesFO4[i].ChunkHeaderSize := fStream.ReadWord;
-          fFilesFO4[i].Height := fStream.ReadWord;
-          fFilesFO4[i].Width := fStream.ReadWord;
-          fFilesFO4[i].NumMips := fStream.ReadByte;
-          fFilesFO4[i].DXGIFormat := fStream.ReadByte;
-          fFilesFO4[i].CubeMaps := fStream.ReadWord;
-          for j := Low(fFilesFO4[i].TexChunks) to High(fFilesFO4[i].TexChunks) do
-            with fFilesFO4[i].TexChunks[j] do begin
-              Offset := fStream.ReadInt64;
-              PackedSize := fStream.ReadCardinal;
-              Size := fStream.ReadCardinal;
-              StartMip := fStream.ReadWord;
-              EndMip := fStream.ReadWord;
-              fStream.ReadCardinal; // skip BAADF00D
-            end;
-        end;
-      end
-      else
-        raise Exception.Create('Unknown BA2 archive type');
-
-      // read file names
-      fStream.Position := fHeaderFO4.FileTableOffset;
-      for i := Low(fFilesFO4) to High(fFilesFO4) do
-        fFilesFO4[i].Name := StringReplace(fStream.ReadStringLen16, '/', '\', [rfReplaceAll]);
-    end;
-
-    //--------------------------------------------------
-    // Oblivion, Fallout 3, New Vegas, Skyrim, Skyrim SE
+    // Load Oblivion, Fallout 3, New Vegas, Skyrim, Skyrim SE
     baTES4, baFO3, baSSE: begin
-      if fType = baSSE then
-        fCompressionType := ctLZ4Frame;
-
       // read header
-      fStream.ReadBuffer(fHeaderTES4, SizeOf(fHeaderTES4));
-      fStream.Position := fHeaderTES4.FoldersOffset;
+      fHeader.FoldersOffset := fStream.ReadCardinal;
+      fHeader.Flags := fStream.ReadCardinal;
+      fHeader.FolderCount := fStream.ReadCardinal;
+      fHeader.FileCount := fStream.ReadCardinal;
+      fHeader.FolderNamesLength := fStream.ReadCardinal;
+      fHeader.FileNamesLength := fStream.ReadCardinal;
+      fHeader.FileFlags := fStream.ReadCardinal;
+      fArchiveFlags := fHeader.Flags;
+      fFileFlags := fHeader.FileFlags;
 
       // read folder records
-      SetLength(fFoldersTES4, fHeaderTES4.FolderCount);
-      for i := Low(fFoldersTES4) to High(fFoldersTES4) do begin
+      fStream.Position := fHeader.FoldersOffset;
+      SetLength(fFoldersTES4, fHeader.FolderCount);
+      for var i := Low(fFoldersTES4) to High(fFoldersTES4) do begin
         fFoldersTES4[i].Hash := fStream.ReadUInt64;
-        fFoldersTES4[i].FileCount := fStream.ReadCardinal;
-        if fType = baSSE then begin
-          fFoldersTES4[i].Unk32 := fStream.ReadCardinal;
-          fFoldersTES4[i].Offset := fStream.ReadInt64;
-        end else
-          fFoldersTES4[i].Offset := fStream.ReadCardinal;
+        SetLength(fFoldersTES4[i].Files, fStream.ReadCardinal); // FileCount
+        if fType = baSSE then fStream.ReadCardinal; // padding
+        fFoldersTES4[i].Offset := fStream.ReadCardinal;
+        if fType = baSSE then fStream.ReadCardinal; // padding
       end;
 
       // read folder names and file records
-      for i := Low(fFoldersTES4) to High(fFoldersTES4) do begin
+      Count := fHeader.FileCount;
+      var idx := 0;
+      for var i := Low(fFoldersTES4) to High(fFoldersTES4) do begin
         fFoldersTES4[i].Name := fStream.ReadStringLen;
-        SetLength(fFoldersTES4[i].Files, fFoldersTES4[i].FileCount);
-        for j := Low(fFoldersTES4[i].Files) to High(fFoldersTES4[i].Files) do begin
-          fFoldersTES4[i].Files[j].Hash := fStream.ReadUInt64;
-          fFoldersTES4[i].Files[j].Size := fStream.ReadCardinal;
-          fFoldersTES4[i].Files[j].Offset := fStream.ReadCardinal;
+        for var j := Low(fFoldersTES4[i].Files) to High(fFoldersTES4[i].Files) do begin
+          fFoldersTES4[i].Files[j] := Items[idx]; // not using this anywhere, not required for unpacking
+          Items[idx].Name := fFoldersTES4[i].Name + '\';
+          Items[idx].DirHash64 := fFoldersTES4[i].Hash;
+          Items[idx].NameHash64 := fStream.ReadUInt64;
+          Items[idx].Size := fStream.ReadCardinal;
+          Items[idx].Offset := fStream.ReadCardinal;
+          // compressed when either of flags present
+          if (fHeader.Flags and ARCHIVE_COMPRESS <> 0) xor (Items[idx].Size and FILE_SIZE_COMPRESS <> 0) then
+            Items[idx].PackedSize := Items[idx].Size;
+          Items[idx].Size := Items[idx].Size and not FILE_SIZE_COMPRESS;
+          Items[idx].PackedSize := Items[idx].PackedSize and not FILE_SIZE_COMPRESS;
+          Inc(idx);
         end;
       end;
 
       // read file names
-      for i := Low(fFoldersTES4) to High(fFoldersTES4) do
-        for j := Low(fFoldersTES4[i].Files) to High(fFoldersTES4[i].Files) do
-          fFoldersTES4[i].Files[j].Name := fStream.ReadStringTerm;
+      for var f in Self do
+        f.Name := f.Name + fStream.ReadStringTerm;
+    end;
+
+    //--------------------------------------------------
+    // Load Fallout 4, Starfield
+    baFO4, baSF: begin
+      fCompressionType := ctZLib;
+      // read header
+      fHeader.Magic2 := Int2Magic(fStream.ReadCardinal);
+      if (fHeader.Magic2 <> MAGIC_GNRL) and (fHeader.Magic2 <> MAGIC_DX10) then
+        raise Exception.Create('Unsupported BA2 archive type: ' + fHeader.Magic2);
+      if fHeader.Magic2 = MAGIC_DX10 then case fType of
+        baFO4: fType := baFO4dds;
+        baSF : fType := baSFdds;
+      end;
+      fHeader.FileCount := fStream.ReadCardinal;
+      fHeader.FileTableOffset := fStream.ReadInt64;
+      // SF header
+      if fType in [baSF, baSFdds] then begin
+        if fHeader.Version >= HEADER_VERSION_SFv2 then
+          fStream.ReadUInt64; // always set to 1, immediately discarded on load
+        if fHeader.Version >= HEADER_VERSION_SFv3 then begin
+          fHeader.CompressionMethod := fStream.ReadCardinal;
+          if fHeader.CompressionMethod = COMPRESSION_METHOD_LZ4 then
+            fCompressionType := ctLZ4;
+        end;
+      end;
+
+      // read files
+      Count := fHeader.FileCount;
+      for var f in Self do begin
+        f.NameHash32 := fStream.ReadCardinal;
+        f.Ext := Int2Magic(fStream.ReadCardinal);
+        f.DirHash32 := fStream.ReadCardinal;
+        f.ModIndex := fStream.ReadByte; // always 0
+        var chunkscount := fStream.ReadByte;
+        var headersize := fStream.ReadWord;
+        // General
+        if fHeader.Magic2 = MAGIC_GNRL then begin
+          //if headersize <> CHUNK_HEADER_SIZE_GNRL then
+          //  raise Exception.Create('Invalid chunk header size: ' + IntToStr(headersize));
+          // GNRL must always have 1 chunk
+          if chunkscount <> 1 then
+            raise Exception.Create('Invalid chunks count ' + IntToStr(chunkscount) + ' for: ' + f.Name);
+          f.Offset := fStream.ReadInt64;
+          f.PackedSize := fStream.ReadCardinal;
+          f.Size := fStream.ReadCardinal;
+          fStream.ReadCardinal; // BAADF00D
+        end
+        // Textures
+        else begin
+          //if headersize <> CHUNK_HEADER_SIZE_DX10 then
+          //  raise Exception.Create('Invalid chunk header size: ' + IntToStr(headersize));
+          f.DDS.Height := fStream.ReadWord;
+          f.DDS.Width := fStream.ReadWord;
+          f.DDS.NumMips := fStream.ReadByte;
+          f.DDS.DXGIFormat := fStream.ReadByte;
+          f.DDS.Flags := fStream.ReadByte;
+          f.DDS.TileMode := fStream.ReadByte;
+          SetLength(f.DDS.TexChunks, chunkscount);
+          for var i := Low(f.DDS.TexChunks) to High(f.DDS.TexChunks) do
+            f.DDS.TexChunks[i] := TwbBSFileChunkTex.Create;
+          for var c in f.DDS.TexChunks do begin
+            c.Offset := fStream.ReadInt64;
+            c.PackedSize := fStream.ReadCardinal;
+            c.Size := fStream.ReadCardinal;
+            c.StartMip := fStream.ReadWord;
+            c.EndMip := fStream.ReadWord;
+            fStream.ReadCardinal; // BAADF00D
+          end;
+        end;
+      end;
+
+      // read file names if present
+      if (fHeader.FileTableOffset <> 0) and (fHeader.FileTableOffset < fStream.Size) then begin
+        fStream.Position := fHeader.FileTableOffset;
+        for var f in Self do
+          f.Name := StringReplace(fStream.ReadStringLen16, '/', '\', [rfReplaceAll]); // archive2.exe uses /
+      end else
+        for var f in Self do
+          f.Name := f.DirHash32.ToHexString + '\' + f.NameHash32.ToHexString + '.' + string(f.Ext);
     end;
 
   end;
 
-  fFileName := aFileName;
+  // default compression type if not decided during load
+  if fCompressionType = ctNone then
+    fCompressionType := DefaultCompression(fType);
+
+  for var f in Self do
+    f.LookupHash := TwbHash.LookupHash(f.Name, True);
+
   Include(fStates, stReading);
 end;
 
-
-type
-  THashPair = record DirHash, FileHash: UInt64; pc: TPackingCompression end;
-  PHashPair = ^THashPair;
-
-function HashPairSort(List: TStringList; Index1, Index2: Integer): Integer;
+function HashSortTES3(Item1, Item2: Pointer): Integer;
 var
-  h1, h2: PHashPair;
+  f1, f2: TwbBSFileEntry;
+  d1, n1, d2, n2: Cardinal;
 begin
-  h1 := PHashPair(List.Objects[Index1]);
-  h2 := PHashPair(List.Objects[Index2]);
-  if h1.DirHash < h2.DirHash then
-    Result := -1
-  else if h1.DirHash > h2.DirHash then
-    Result := 1
-  else if h1.FileHash < h2.FileHash then
-    Result := -1
-  else if h1.FileHash > h2.FileHash then
-    Result := 1
-  else
-    Result := 0;
+  f1 := TwbBSFileEntry(Item1);
+  f2 := TwbBSFileEntry(Item2);
+  d1 := f1.NameHash64 and $FFFFFFFF; n1 := f1.NameHash64 shr 32;
+  d2 := f2.NameHash64 and $FFFFFFFF; n2 := f2.NameHash64 shr 32;
+  if d1 < d2 then Result := -1 else
+  if d1 > d2 then Result := 1  else
+  if n1 < n2 then Result := -1 else
+  if n1 > n2 then Result := 1  else
+                  Result := 0;
+end;
+
+function HashSortTES4(Item1, Item2: Pointer): Integer;
+var
+  f1, f2: TwbBSFileEntry;
+begin
+  f1 := TwbBSFileEntry(Item1);
+  f2 := TwbBSFileEntry(Item2);
+  if f1.DirHash64 < f2.DirHash64 then   Result := -1 else
+  if f1.DirHash64 > f2.DirHash64 then   Result := 1  else
+  if f1.NameHash64 < f2.NameHash64 then Result := -1 else
+  if f1.NameHash64 > f2.NameHash64 then Result := 1  else
+                                        Result := 0;
 end;
 
 function AlphabeticalSort(List: TStringList; Index1, Index2: Integer): Integer;
@@ -1271,16 +1543,20 @@ begin
   Result := CompareStr(List[Index1], List[Index2]);
 end;
 
-procedure TwbBSArchive.CreateArchive(const aFileName: string; aType: TBSArchiveType;
-  aFilesList: TStringList = nil);
+procedure TwbBSArchive.CreateArchive(const aFileName: string; aType: TwbBSArchiveType;
+  aFilesList: TStringList = nil; const aFilesCompression: TArray<Boolean> = nil);
+
+  function FileCompression(i: Integer): Boolean;
+  begin
+    if i < Length(aFilesCompression) then
+      Result := aFilesCompression[i]
+    else
+      Result := False;
+  end;
+
 var
-  HashPairs: array of THashPair;
-  h: PHashPair;
-  hdir: UInt64;
-  s, fdir, fname, fext, name: string;
-  i, len, folderidx, fileidx: Integer;
-  Buffer: TBytes;
-  ddsinfo: TDDSInfo;
+  fdir, fname, fext: string;
+  i, len: Integer;
 begin
   if stReading in fStates then
     Close;
@@ -1288,207 +1564,146 @@ begin
   if stWriting in fStates then
     raise Exception.Create('Archive is already being created');
 
-  case aType of
+  if not Assigned(aFilesList) or (aFilesList.Count = 0) then
+    raise Exception.Create('Files list to pack is empty');
+
+  fFileName := aFileName;
+  fType := aType;
+
+  if fCompressionType = ctNone then
+    fCompressionType := DefaultCompression(fType)
+  else if not SupportsCompression(fType, fCompressionType) then
+    raise Exception.Create('Unsupported compression type');
+
+  // Magic, version
+  case fType of
     baTES3: begin
-      fMagic := MAGIC_TES3;
+      fHeader.Magic := MAGIC_TES3;
     end;
     baTES4: begin
-      fVersion := HEADER_VERSION_TES4;
-      fMagic := MAGIC_BSA;
-      fHeaderTES4.Flags := ARCHIVE_PATHNAMES or ARCHIVE_FILENAMES or ARCHIVE_EMBEDNAME or ARCHIVE_XMEM or ARCHIVE_UNKNOWN10;
-      fHeaderTES4.FileFlags := 0;
-      fHeaderTES4.FoldersOffset := SizeOf(fMagic) + SizeOf(fVersion) + SizeOf(fHeaderTES4);
-      fCompressionType := ctZlib;
+      fHeader.Magic := MAGIC_BSA;
+      fHeader.Version := HEADER_VERSION_TES4;
     end;
     baFO3: begin
-      fVersion := HEADER_VERSION_FO3;
-      fMagic := MAGIC_BSA;
-      fHeaderTES4.Flags := ARCHIVE_PATHNAMES or ARCHIVE_FILENAMES;
-      fHeaderTES4.FileFlags := 0;
-      fHeaderTES4.FoldersOffset := SizeOf(fMagic) + SizeOf(fVersion) + SizeOf(fHeaderTES4);
-      fCompressionType := ctZlib;
+      fHeader.Magic := MAGIC_BSA;
+      fHeader.Version := HEADER_VERSION_FO3;
     end;
     baSSE: begin
-      fVersion := HEADER_VERSION_SSE;
-      fMagic := MAGIC_BSA;
-      fHeaderTES4.Flags := ARCHIVE_PATHNAMES or ARCHIVE_FILENAMES;
-      fHeaderTES4.FileFlags := 0;
-      fHeaderTES4.FoldersOffset := SizeOf(fMagic) + SizeOf(fVersion) + SizeOf(fHeaderTES4);
-      fCompressionType := ctLZ4Frame;
+      fHeader.Magic := MAGIC_BSA;
+      fHeader.Version := HEADER_VERSION_SSE;
     end;
     baFO4: begin
-      fMagic := MAGIC_BTDX;
-      fHeaderFO4.Magic := MAGIC_GNRL;
-      fVersion := HEADER_VERSION_FO4v1;
-      fCompressionType := ctZlib;
+      fHeader.Magic := MAGIC_BTDX;
+      fHeader.Magic2 := MAGIC_GNRL;
+      fHeader.Version := HEADER_VERSION_FO4v1;
     end;
     baFO4dds: begin
-      fMagic := MAGIC_BTDX;
-      fHeaderFO4.Magic := MAGIC_DX10;
-      fVersion := HEADER_VERSION_FO4v1;
-      fCompressionType := ctZlib;
+      fHeader.Magic := MAGIC_BTDX;
+      fHeader.Magic2 := MAGIC_DX10;
+      fHeader.Version := HEADER_VERSION_FO4v1;
     end;
     baSF: begin
-      fMagic := MAGIC_BTDX;
-      fHeaderFO4.Magic := MAGIC_GNRL;
-      fVersion := HEADER_VERSION_SF2;
-      fCompressionType := ctZlib;
+      fHeader.Magic := MAGIC_BTDX;
+      fHeader.Magic2 := MAGIC_GNRL;
+      // official Archive2 tool creates v3 archives for lz4 compression only
+      if fCompressionType = ctLZ4 then
+        fHeader.Version := HEADER_VERSION_SFv3
+      else
+        fHeader.Version := HEADER_VERSION_SFv2;
     end;
     baSFdds: begin
-      fMagic := MAGIC_BTDX;
-      fHeaderFO4.Magic := MAGIC_DX10;
-      fVersion := HEADER_VERSION_SF3;
-      fCompressionType := ctLZ4Block;
+      fHeader.Magic := MAGIC_BTDX;
+      fHeader.Magic2 := MAGIC_DX10;
+      if fCompressionType = ctLZ4 then
+        fHeader.Version := HEADER_VERSION_SFv3
+      else
+        fHeader.Version := HEADER_VERSION_SFv2;
     end;
   else
     raise Exception.Create('Unsupported archive type');
   end;
 
-  fType := aType;
-
-  if fType in [baTES3] then begin
-    if not Assigned(aFilesList) or (aFilesList.Count = 0) then
-      raise Exception.Create('Archive requires predefined files list');
-
-    // sort files by hashes
-    SetLength(HashPairs, aFilesList.Count);
-    for i := 0 to Pred(aFilesList.Count) do begin
-      h := @HashPairs[i];
-      h.FileHash := CreateHashTES3(aFilesList[i]);
-      aFilesList.Objects[i] := Pointer(h);
-    end;
-    aFilesList.CustomSort(HashPairSort);
-
-    // create file records and calculate total names length
-    SetLength(fFilesTES3, aFilesList.Count);
+  //--------------------------------------------------
+  // Create Morrowind
+  if fType = baTES3 then begin
+    fHeader.FileCount := aFilesList.Count;
+    Count := aFilesList.Count;
     len := 0;
-    for i := 0 to Pred(aFilesList.Count) do begin
-      fFilesTES3[i].Hash := PHashPair(aFilesList.Objects[i]).FileHash;
-      fFilesTES3[i].Name := LowerCase(aFilesList[i]);
-      Inc(len, Length(fFilesTES3[i].Name) + 1); // include terminator
+    // fill in file entries and calculate total names length
+    for i := 0 to Pred(Count) do begin
+      Items[i].Name := LowerCase(aFilesList[i]);
+      Items[i].FileObject := aFilesList.Objects[i];
+      Items[i].NameHash64 := TwbHash.TES3(Items[i].Name);
+      Inc(len, Length(Items[i].Name) + 1); // including terminator
     end;
+    // sort files by hashes
+    fFiles.Sort(HashSortTES3);
 
     // offset to hash table
-    fDataOffset := SizeOf(fMagic) + SizeOf(fHeaderTES3) +
-      8 * Length(fFilesTES3) + // File sizes/offsets
-      4 * Length(fFilesTES3) + // Archive directory/name offsets
+    fDataOffset := fHeader.SizeOfTES3 +
+      8 * Count + // File sizes/offsets
+      4 * Count + // Archive directory/name offsets
       len; // Filename records
 
-    // stored as minus 12 (for header size)
-    fHeaderTES3.HashOffset := fDataOffset - 12;
-    fHeaderTES3.FileCount := aFilesList.Count;
+    // stored without header size
+    fHeader.HashOffset := fDataOffset - fHeader.SizeOfTES3;
 
     // offset to files data
-    fDataOffset := fDataOffset + 8 * Length(fFilesTES3); // Hash table
+    fDataOffset := fDataOffset + 8 * Count; // Hash table
 
     // files are stored alphabetically in the data section in vanilla archives
     // not really needed but whatever
-    aFilesList.CustomSort(AlphabeticalSort);
+    //aFilesList.CustomSort(AlphabeticalSort);
   end
 
+  //--------------------------------------------------
+  // Create Oblivion, Fallout 3, New Vegas, Skyrim, Skyrim SE
   else if fType in [baTES4, baFO3, baSSE] then begin
-    if not Assigned(aFilesList) or (aFilesList.Count = 0) then
-      raise Exception.Create('Archive requires predefined files list');
-
-    fHeaderTES4.FolderNamesLength := 0;
-    fHeaderTES4.FileNamesLength := 0;
-
-    // dirs and files must be sorted by their hashes
-    SetLength(HashPairs, aFilesList.Count);
-    for i := 0 to Pred(aFilesList.Count) do begin
-      h := @HashPairs[i];
-      if SplitDirName(aFilesList[i], fdir, fname) = 0 then
+    fHeader.FolderNamesLength := 0;
+    fHeader.FileNamesLength := 0;
+    fHeader.FileCount := aFilesList.Count;
+    Count := aFilesList.Count;
+    // fill in file entries and calculate total names length
+    for i := 0 to Pred(Count) do begin
+      Items[i].Name := LowerCase(aFilesList[i]);
+      Items[i].FileObject := aFilesList.Objects[i];
+      Items[i].Compress := FileCompression(i);
+      if TwbAsset.SplitDirName(aFilesList[i], fdir, fname) = 0 then
         raise Exception.Create('File is missing the folder part: ' + aFilesList[i]);
-
-      // calculate hashes
-      h.DirHash := CreateHashTES4(fdir, '');
-      SplitNameExt(fname, s, fext);
-      h.FileHash := CreateHashTES4(s, fext);
-      h.pc := TPackingCompression(aFilesList.Objects[i]);
-      aFilesList.Objects[i] := Pointer(h);
-
-      fext := LowerCase(fext);
-      with fHeaderTES4 do begin
-        // determine file flags
-        if fdir.StartsWith('meshes\',      True) then FileFlags := FileFlags or FILE_NIF else
-        if fdir.StartsWith('textures\',    True) then FileFlags := FileFlags or FILE_DDS else
-        if fdir.StartsWith('sound\',       True) then FileFlags := FileFlags or FILE_WAV or FILE_MP3 else
-        if fext = '.nif' then FileFlags := FileFlags or FILE_NIF else
-        if fext = '.lod' then FileFlags := FileFlags or FILE_NIF else
-        if fext = '.bto' then FileFlags := FileFlags or FILE_NIF else
-        if fext = '.btr' then FileFlags := FileFlags or FILE_NIF else
-        if fext = '.btt' then FileFlags := FileFlags or FILE_NIF else
-        if fext = '.dtl' then FileFlags := FileFlags or FILE_NIF else
-        if fext = '.kf'  then FileFlags := FileFlags or FILE_NIF else
-        if fext = '.kfm' then FileFlags := FileFlags or FILE_NIF else
-        if fext = '.hkx' then FileFlags := FileFlags or FILE_NIF else
-        if fext = '.dds' then FileFlags := FileFlags or FILE_DDS else
-        if fext = '.xml' then FileFlags := FileFlags or FILE_XML or FILE_MISC else
-        if fext = '.wav' then FileFlags := FileFlags or FILE_WAV else
-        if fext = '.fuz' then FileFlags := FileFlags or FILE_WAV else
-        if fext = '.lip' then FileFlags := FileFlags or FILE_MP3 else
-        if fext = '.mp3' then FileFlags := FileFlags or FILE_MP3 else
-        if fext = '.ogg' then FileFlags := FileFlags or FILE_MP3 else
-        if fext = '.txt' then FileFlags := FileFlags or FILE_TXT else
-        if fext = '.htm' then FileFlags := FileFlags or FILE_TXT else
-        if fext = '.bat' then FileFlags := FileFlags or FILE_TXT else
-        if fext = '.scc' then FileFlags := FileFlags or FILE_TXT else
-        if fext = '.spt' then FileFlags := FileFlags or FILE_SPT else
-        if fext = '.fnt' then FileFlags := FileFlags or FILE_FNT else
-        if fext = '.tex' then FileFlags := FileFlags or FILE_FNT else
-          FileFlags := FileFlags or FILE_MISC;
-
-        // determine archive flags
-
-        // packed scripts can't be added to objects in the SSE CK if the archive was packed
-        // without the "RetainNames" flag (the scripts aren't shown in the script adding window)
-        if fext = '.pex' then ArchiveFlags := ArchiveFlags or ARCHIVE_RETAINNAME;
-      end;
-    end;
-
-    // sort by hashes
-    aFilesList.CustomSort(HashPairSort);
-
-    // create folder and file records
-    fHeaderTES4.FileCount := 0;
-    hdir := 0;
-    folderidx := -1;
-    fileidx := 0;
-    for i := 0 to Pred(aFilesList.Count) do begin
-      SplitDirName(aFilesList[i], fdir, fname);
-      h := Pointer(aFilesList.Objects[i]);
-      // new folder
-      if h.DirHash <> hdir then begin
-        Inc(folderidx);
-        fileidx := 0;
-        hdir := h.DirHash;
-        SetLength(fFoldersTES4, folderidx + 1);
-        fFoldersTES4[folderidx].Hash := h.DirHash;
-        fFoldersTES4[folderidx].Name := LowerCase(fdir);
-        // calc folder names length
-        Inc(fHeaderTES4.FolderNamesLength, Length(fdir) + 1); // + terminator only, length prefix is not counted
-      end;
-      SetLength(fFoldersTES4[folderidx].Files, fileidx + 1);
-      fFoldersTES4[folderidx].Files[fileidx].Hash := h.FileHash;
-      fFoldersTES4[folderidx].Files[fileidx].Name := LowerCase(fname);
-      fFoldersTES4[folderidx].Files[fileidx].PackingCompression := h.pc;
-      Inc(fileidx);
-      Inc(fFoldersTES4[folderidx].FileCount);
-      Inc(fHeaderTES4.FileCount);
+      Items[i].DirHash64 := TwbHash._TES4(fdir, False, fType = baTES4) ;
+      Items[i].NameHash64 := TwbHash._TES4(fname, True, fType = baTES4);
       // calculate file names length
-      Inc(fHeaderTES4.FileNamesLength, Length(fname) + 1); // + terminator
+      Inc(fHeader.FileNamesLength, Length(fname) + 1); // + terminator
     end;
-    fHeaderTES4.FolderCount := Length(fFoldersTES4);
+    // sort files by hashes
+    fFiles.Sort(HashSortTES4);
+
+    // create folders
+    var prevdir: UInt64 := 0;
+    for var f in Self do begin
+      if f.DirHash64 <> prevdir then begin
+        prevdir := f.DirHash64;
+        TwbAsset.SplitDirName(f.Name, fdir, fname);
+        SetLength(fFoldersTES4, Succ(Length(fFoldersTES4)));
+        fFoldersTES4[High(fFoldersTES4)].Name := fdir;
+        fFoldersTES4[High(fFoldersTES4)].Hash := f.DirHash64;
+        // calculate folder names length
+        Inc(fHeader.FolderNamesLength, Length(fdir) + 1); // + terminator only, length prefix is not counted
+      end;
+      fFoldersTES4[High(fFoldersTES4)].Files := fFoldersTES4[High(fFoldersTES4)].Files + [f];
+    end;
+    fHeader.FolderCount := Length(fFoldersTES4);
+    fHeader.FoldersOffset := fHeader.SizeOfTES4;
 
     // calculate folders offsets
     // at the end fDataOffset will hold the total size of header, folder and file records
     // in other words the start of files data
-    fDataOffset := SizeOf(fMagic) + SizeOf(fVersion) + SizeOf(fHeaderTES4) + 16 * Length(fFoldersTES4);
-    // SSE folder record is 8 bytes larger
+    fDataOffset := fHeader.FoldersOffset + 16 * Cardinal(Length(fFoldersTES4));
+    // SSE folder record has 2 additional Cardinal padding fields
     if fType = baSSE then
-      Inc(fDataOffset, 8 * Length(fFoldersTES4));
+      Inc(fDataOffset, 2 * SizeOf(Cardinal) * Length(fFoldersTES4));
     // Offsets are stored including this value
-    Inc(fDataOffset, fHeaderTES4.FileNamesLength);
+    Inc(fDataOffset, fHeader.FileNamesLength);
     for i := Low(fFoldersTES4) to High(fFoldersTES4) do begin
       fFoldersTES4[i].Offset := fDataOffset;
       // add folder name length
@@ -1497,904 +1712,519 @@ begin
       Inc(fDataOffset, 16 * Length(fFoldersTES4[i].Files));
     end;
 
-    // final flags detection
+    // flags detection
+    DetectFlags(fType, aFilesList, aFilesCompression, fHeader.Flags, fHeader.FileFlags);
+    var bTexturesOnly := fHeader.FileFlags = FILE_TEXTURES;
 
-    // misc file flag is not in Skyrim SE
-    if fType = baSSE then
-      fHeaderTES4.FileFlags := fHeaderTES4.FileFlags and not FILE_MISC;
+    // flags override
+    if fArchiveFlags <> 0 then fHeader.Flags := fArchiveFlags or ARCHIVE_DEFAULT;
+    if fFileFlags <> 0 then fHeader.FileFlags := fFileFlags;
 
-    // embedded names in texture only archives
-    // except Skyrim SE: crashing engine bug if texture is uncompressed and file name is embedded
-    if (fHeaderTES4.FileFlags = FILE_DDS) and (fType <> baSSE) then
-      fHeaderTES4.Flags := fHeaderTES4.Flags or ARCHIVE_EMBEDNAME;
-
-    // startupstr flag in archives with meshes
-    if fHeaderTES4.FileFlags and FILE_NIF <> 0 then
-      fHeaderTES4.Flags := fHeaderTES4.Flags or ARCHIVE_STARTUPSTR;
-
-    // retainname flag in archives with sounds
-    if fHeaderTES4.FileFlags and FILE_WAV <> 0 then
-      fHeaderTES4.Flags := fHeaderTES4.Flags or ARCHIVE_RETAINNAME;
-
-    // txt, xml and fnt file flags are exclusive for Oblivion
-    if fType <> baTES4 then
-      fHeaderTES4.FileFlags := fHeaderTES4.FileFlags and not (FILE_XML or FILE_TXT or FILE_FNT);
-
-    // set compression flag if needed
-    if fCompress then
-      fHeaderTES4.Flags := fHeaderTES4.Flags or ARCHIVE_COMPRESS;
+    // fixes to avoid game crashes with wrong flags
+    // embedded names in textures only archives, might crash on other files
+    if not bTexturesOnly then
+      fHeader.FileFlags := fHeader.FileFlags and not ARCHIVE_EMBEDNAME
+    // SSE crashing bug - textures with embedded names must be compressed
+    else if not Assigned(fPacker) and (fType = baSSE) and (fHeader.Flags and ARCHIVE_EMBEDNAME <> 0) then
+      for var f in Self do f.Compress := True;
   end
 
+  //--------------------------------------------------
+  // Create Fallout 4, Starfield
   else if fType in [baFO4, baFO4dds, baSF, baSFdds] then begin
-    if not Assigned(aFilesList) or (aFilesList.Count = 0) then
-      raise Exception.Create('Archive requires predefined files list');
-
-    fHeaderFO4.FileCount := aFilesList.Count;
-    SetLength(fFilesFO4, aFilesList.Count);
-    for i := 0 to Pred(aFilesList.Count) do begin
-      if SplitDirName(aFilesList[i], fdir, fname) = 0 then
-        raise Exception.Create('File is missing the folder part: ' + aFileName);
-
-      SplitNameExt(fname, name, fext, True);
-      // archive2.exe uses /
-      fFilesFO4[i].Name := StringReplace(aFilesList[i], '\', '/', [rfReplaceAll]);
-      fFilesFO4[i].DirHash := CreateHashFO4(fdir);
-      fFilesFO4[i].NameHash := CreateHashFO4(name);
-      fFilesFO4[i].Ext := String2Magic(LowerCase(fext));
-      fFilesFO4[i].Unknown := iFileFO4Unknown;
-      fFilesFO4[i].PackingCompression := TPackingCompression(aFilesList.Objects[i]);
+    fHeader.FileCount := aFilesList.Count;
+    Count := aFilesList.Count;
+    for i := 0 to Pred(Count) do begin
+      with TwbAsset.Split(aFilesList[i]) do begin
+        fdir := FolderNoDelimiter;
+        fname := FileNameNoExtension;
+        fext := ExtensionNoDot;
+      end;
+      if fdir = '' then
+        raise Exception.Create('File is missing the folder part: ' + aFilesList[i]);
+      Items[i].Name := aFilesList[i];
+      Items[i].FileObject := aFilesList.Objects[i];
+      Items[i].Compress := FileCompression(i);
+      Items[i].DirHash32 := TwbHash.FO4(fdir);
+      Items[i].NameHash32 := TwbHash.FO4(fname);
+      Items[i].Ext := String2Magic(LowerCase(fext));
     end;
 
-    fDataOffset := SizeOf(fMagic) + SizeOf(fVersion) + SizeOf(fHeaderFO4);
-    if fType = baSF then
-      Inc(fDataOffset, SizeOf(fHeaderSFv2))
-    else if fType = baSFdds then
-      Inc(fDataOffset, SizeOf(fHeaderSFv3));
+    // offset to files data
+    case fType of
+      baFO4, baFO4dds:
+         fDataOffset := fHeader.SizeOfFO4;
+      baSF, baSFdds:
+        case fHeader.Version of
+          HEADER_VERSION_SFv2: fDataOffset := fHeader.SizeOfSFv2;
+          HEADER_VERSION_SFv3: fDataOffset := fHeader.SizeOfSFv3;
+        end;
+    end;
 
     // file records have fixed length in general archive
     if fType in [baFO4, baSF] then
-      fDataOffset := fDataOffset + 36 * Length(fFilesFO4)
+      fDataOffset := fDataOffset + 36 * Count
 
     // variable file record length depending on DDS chunks number
-    else if fType in [baFO4dds, baSFdds] then begin
-      if not Assigned(fDDSInfoProc) then
-        raise Exception.Create('DDS archive requires DDS file information callback');
-
-      for i := 0 to Pred(aFilesList.Count) do begin
-        fDDSInfoProc(Self, aFilesList[i], ddsinfo);
-        fDataOffset := fDataOffset + 24 {size of file record} + 24 {size of each texchunk} * GetDDSMipChunkNum(ddsinfo);
+    else if IsDDSArchive(fType) then
+      for var f in Self do begin
+        // get required chunks if dds info callback is present, otherwise assume max chunks
+        var chunks := fMaxChunkCount;
+        if Assigned(fDDSInfoProc) then begin
+          var ddsinfo: TwbDDSInfo;
+          fDDSInfoProc(Self, f.Name, ddsinfo);
+          chunks := GetDDSMipChunkNum(ddsinfo.Width, ddsinfo.Height, ddsinfo.MipMaps);
+        end;
+        fDataOffset := fDataOffset + 24 {size of file record} + 24 {size of each texchunk} * chunks;
       end;
-    end;
 
   end;
 
-  fStream := TwbWriteCachedFileStream.Create(aFileName, fmCreate);
-  fFileName := aFileName;
-  Include(fStates, stWriting);
+  for var f in Self do
+    f.LookupHash := TwbHash.LookupHash(f.Name, True);
 
+  fStream := TwbWriteCachedFileStream.Create(fFileName, fmCreate);
+  Include(fStates, stWriting);
   // reserve space for the header
-  SetLength(Buffer, fDataOffset);
-  fStream.Write(Buffer[0], Length(Buffer));
+  var buf: TBytes;
+  SetLength(buf, fDataOffset);
+  fStream.Write(buf, Length(buf));
 end;
 
 procedure TwbBSArchive.Save;
-var
-  i, j: integer;
 begin
   if not (stWriting in fStates) then
     raise Exception.Create('Archive is not in writing mode');
 
   case fType of
+    //--------------------------------------------------
+    // Save Morrowind
     baTES3: begin
-      for i := Low(fFilesTES3) to High(fFilesTES3) do
-        if fFilesTES3[i].Offset = 0 then
-          raise Exception.Create('Archived file has no data: ' + fFilesTES3[i].Name);
+      for var f in Self do if f.Offset = 0 then
+        raise Exception.Create('Packed file has no data: ' + f.Name);
 
-      // write header
+      fArchiveSize := fStream.Position;
       fStream.Position := 0;
-      // magic, header record
-      fStream.Write(fMagic, SizeOf(fMagic));
-      fStream.Write(fHeaderTES3, SizeOf(fHeaderTES3));
+      // write header
+      fStream.Write(fHeader.Magic, SizeOf(fHeader.Magic));
+      fStream.WriteCardinal(fHeader.HashOffset);
+      fStream.WriteCardinal(fHeader.FileCount);
       // file sizes/offsets
-      for i := Low(fFilesTES3) to High(fFilesTES3) do begin
-        fStream.WriteCardinal(fFilesTES3[i].Size);
-        fStream.WriteCardinal(fFilesTES3[i].Offset - fDataOffset); // offsets are relative
+      for var f in Self do begin
+        fStream.WriteCardinal(f.Size);
+        fStream.WriteCardinal(f.Offset - fDataOffset); // offsets are relative
       end;
       // Archive directory/name offsets
-      j := 0;
-      for i := Low(fFilesTES3) to High(fFilesTES3) do begin
-        fStream.WriteCardinal(j);
-        Inc(j, Length(fFilesTES3[i].Name) + 1); // including terminator
+      var i := 0;
+      for var f in Self do begin
+        fStream.WriteCardinal(i);
+        Inc(i, Length(f.Name) + 1); // including terminator
       end;
       // Filename records
-      for i := Low(fFilesTES3) to High(fFilesTES3) do
-        fStream.WriteStringTerm(fFilesTES3[i].Name);
+      for var f in Self do fStream.WriteStringTerm(f.Name);
       // Hash table
-      for i := Low(fFilesTES3) to High(fFilesTES3) do begin
-        fStream.WriteCardinal(fFilesTES3[i].Hash shr 32);
-        fStream.WriteCardinal(fFilesTES3[i].Hash and $FFFFFFFF);
-      end;
+      for var f in Self do fStream.WriteUInt64(f.NameHash64);
     end;
 
+    //--------------------------------------------------
+    // Save Oblivion, Fallout 3, New Vegas, Skyrim, Skyrim SE
     baTES4, baFO3, baSSE: begin
-      // check that all files from files table have saved data
-      for i := Low(fFoldersTES4) to High(fFoldersTES4) do
-        for j := Low(fFoldersTES4[i].Files) to High(fFoldersTES4[i].Files) do
-          if fFoldersTES4[i].Files[j].Offset = 0 then
-            raise Exception.Create('Archived file has no data: ' + fFoldersTES4[i].Name + '\' + fFoldersTES4[i].Files[j].Name);
+      for var f in Self do if f.Offset = 0 then
+        raise Exception.Create('Packed file has no data: ' + f.Name);
 
-      // write header
+      fArchiveSize := fStream.Position;
       fStream.Position := 0;
-      // magic, version, header record
-      fStream.Write(fMagic, SizeOf(fMagic));
-      fStream.Write(fVersion, SizeOf(fVersion));
-      fStream.Write(fHeaderTES4, SizeOf(fHeaderTES4));
-      // folder records
-      for i := Low(fFoldersTES4) to High(fFoldersTES4) do begin
-        fStream.WriteUInt64(fFoldersTES4[i].Hash);
-        fStream.WriteCardinal(fFoldersTES4[i].FileCount);
-        if fType = baSSE then begin
-          fStream.WriteCardinal(fFoldersTES4[i].Unk32);
-          fStream.WriteInt64(fFoldersTES4[i].Offset);
-        end else
-          fStream.WriteCardinal(fFoldersTES4[i].Offset);
+      // write header
+      fStream.Write(fHeader.Magic, SizeOf(fHeader.Magic));
+      fStream.WriteCardinal(fHeader.Version);
+      fStream.WriteCardinal(fHeader.FoldersOffset);
+      fStream.WriteCardinal(fHeader.Flags);
+      fStream.WriteCardinal(fHeader.FolderCount);
+      fStream.WriteCardinal(fHeader.FileCount);
+      fStream.WriteCardinal(fHeader.FolderNamesLength);
+      fStream.WriteCardinal(fHeader.FileNamesLength);
+      fStream.WriteCardinal(fHeader.FileFlags);
+      // write folder records
+      for var d in fFoldersTES4 do begin
+        fStream.WriteUInt64(d.Hash);
+        fStream.WriteCardinal(Length(d.Files));
+        if fType = baSSE then fStream.WriteCardinal(0); // padding
+        fStream.WriteCardinal(d.Offset);
+        if fType = baSSE then fStream.WriteCardinal(0); // padding
       end;
-      // file records
-      for i := Low(fFoldersTES4) to High(fFoldersTES4) do begin
-        fStream.WriteStringLen(fFoldersTES4[i].Name);
-        for j := Low(fFoldersTES4[i].Files) to High(fFoldersTES4[i].Files) do begin
-          fStream.WriteUInt64(fFoldersTES4[i].Files[j].Hash);
-          fStream.WriteCardinal(fFoldersTES4[i].Files[j].Size);
-          fStream.WriteCardinal(fFoldersTES4[i].Files[j].Offset);
+      // write file records
+      for var d in fFoldersTES4 do begin
+        fStream.WriteStringLen(d.Name);
+        for var f in d.Files do begin
+          fStream.WriteUInt64(f.NameHash64);
+          fStream.WriteCardinal(f.Size);
+          fStream.WriteCardinal(f.Offset);
         end;
       end;
-      // file names
-      for i := Low(fFoldersTES4) to High(fFoldersTES4) do
-        for j := Low(fFoldersTES4[i].Files) to High(fFoldersTES4[i].Files) do
-          fStream.WriteStringTerm(fFoldersTES4[i].Files[j].Name);
+      // write file names
+      for var d in fFoldersTES4 do
+        for var f in d.Files do begin
+          // f.Name contains path and name, need name only here
+          var dir, name: string;
+          TwbAsset.SplitDirName(f.Name, dir, name);
+          fStream.WriteStringTerm(name);
+        end;
     end;
 
-    baFO4, baSF: begin
-      for i := Low(fFilesFO4) to High(fFilesFO4) do
-        if fFilesFO4[i].Offset = 0 then
-         raise Exception.Create('Archived file has no data: ' + fFilesFO4[i].Name);
+    //--------------------------------------------------
+    // Save Fallout4, Starfield
+    baFO4, baFO4dds, baSF, baSFdds: begin
+      for var f in Self do begin
+        if (fHeader.Magic2 = MAGIC_GNRL) and (f.Offset = 0) then
+          raise Exception.Create('Packed file has no data: ' + f.Name);
+        if (fHeader.Magic2 = MAGIC_DX10) and (Length(f.DDS.TexChunks) = 0) then
+          raise Exception.Create('Packed file has no data: ' + f.Name);
+      end;
 
-      // file names table
-      fHeaderFO4.FileTableOffset := fStream.Position;
-      for i := Low(fFilesFO4) to High(fFilesFO4) do
-        fStream.WriteStringLen16(fFilesFO4[i].Name);
-      // write header
+      // file names table at the end of file
+      fHeader.FileTableOffset := fStream.Position;
+      for var f in Self do
+        fStream.WriteStringLen16(StringReplace(f.Name, '\', '/', [rfReplaceAll])); // archive2.exe uses /
+
+      fArchiveSize := fStream.Position;
       fStream.Position := 0;
-      // magic, version, header record
-      fStream.Write(fMagic, SizeOf(fMagic));
-      fStream.Write(fVersion, SizeOf(fVersion));
-      fStream.Write(fHeaderFO4, SizeOf(fHeaderFO4));
-      // additional SF header
-      if fType = baSF then begin
-        fHeaderSFv2.Unknown1 := 1;
-        fHeaderSFv2.Unknown2 := 0;
-        fStream.Write(fHeaderSFv2, SizeOf(fHeaderSFv2));
-      end;
-      // file records
-      for i := Low(fFilesFO4) to High(fFilesFO4) do begin
-        fStream.WriteCardinal(fFilesFO4[i].NameHash);
-        fStream.WriteBuffer(fFilesFO4[i].Ext[0], SizeOf(fFilesFO4[i].Ext));
-        fStream.WriteCardinal(fFilesFO4[i].DirHash);
-        fStream.WriteCardinal(fFilesFO4[i].Unknown);
-        fStream.WriteInt64(fFilesFO4[i].Offset);
-        fStream.WriteCardinal(fFilesFO4[i].PackedSize);
-        fStream.WriteCardinal(fFilesFO4[i].Size);
-        fStream.WriteCardinal(iFileFO4Tail);
-      end;
-    end;
-
-    baFO4dds, baSFdds: begin
-      for i := Low(fFilesFO4) to High(fFilesFO4) do
-        if Length(fFilesFO4[i].TexChunks) = 0 then
-          raise Exception.Create('Archived file has no data: ' + fFilesFO4[i].Name);
-
-      // file names table
-      fHeaderFO4.FileTableOffset := fStream.Position;
-      for i := Low(fFilesFO4) to High(fFilesFO4) do
-        fStream.WriteStringLen16(fFilesFO4[i].Name);
       // write header
-      fStream.Position := 0;
-      // magic, version, header record
-      fStream.Write(fMagic, SizeOf(fMagic));
-      fStream.Write(fVersion, SizeOf(fVersion));
-      fStream.Write(fHeaderFO4, SizeOf(fHeaderFO4));
-      // additional SF header
-      if fType = baSFdds then begin
-        fHeaderSFv3.Unknown1 := 1;
-        fHeaderSFv3.Unknown2 := 0;
-        fHeaderSFv3.CompressionMethod := 3; // lz4
-        fStream.Write(fHeaderSFv3, SizeOf(fHeaderSFv3));
+      fStream.Write(fHeader.Magic, SizeOf(fHeader.Magic));
+      fStream.WriteCardinal(fHeader.Version);
+      fStream.Write(fHeader.Magic2, SizeOf(fHeader.Magic2));
+      fStream.WriteCardinal(fHeader.FileCount);
+      fStream.WriteInt64(fHeader.FileTableOffset);
+      // SF header
+      if fHeader.Version in [HEADER_VERSION_SFv2, HEADER_VERSION_SFv3] then
+        fStream.WriteUInt64(1); // always set to 1, immediately discarded on load
+      if fHeader.Version = HEADER_VERSION_SFv3 then begin
+        if fCompressionType = ctLZ4 then
+          fHeader.CompressionMethod := COMPRESSION_METHOD_LZ4
+        else
+          fHeader.CompressionMethod := COMPRESSION_METHOD_ZLIB;
+        fStream.WriteCardinal(fHeader.CompressionMethod);
       end;
-      // file records
-      for i := Low(fFilesFO4) to High(fFilesFO4) do begin
-        fStream.WriteCardinal(fFilesFO4[i].NameHash);
-        fStream.WriteBuffer(fFilesFO4[i].Ext[0], SizeOf(fFilesFO4[i].Ext));
-        fStream.WriteCardinal(fFilesFO4[i].DirHash);
-        fStream.WriteByte(fFilesFO4[i].UnknownTex);
-        fStream.WriteByte(Length(fFilesFO4[i].TexChunks));
-        fStream.WriteWord(24); // fixed chunk header size
-        fStream.WriteWord(fFilesFO4[i].Height);
-        fStream.WriteWord(fFilesFO4[i].Width);
-        fStream.WriteByte(fFilesFO4[i].NumMips);
-        fStream.WriteByte(fFilesFO4[i].DXGIFormat);
-        fStream.WriteWord(fFilesFO4[i].CubeMaps);
-        for j := Low(fFilesFO4[i].TexChunks) to High(fFilesFO4[i].TexChunks) do
-          with fFilesFO4[i].TexChunks[j] do begin
-            fStream.WriteUInt64(Offset);
-            fStream.WriteCardinal(PackedSize);
-            fStream.WriteCardinal(Size);
-            fStream.WriteWord(StartMip);
-            fStream.WriteWord(EndMip);
+
+      // write file entries
+      for var f in Self do begin
+        fStream.WriteCardinal(f.NameHash32);
+        fStream.WriteBuffer(f.Ext[0], SizeOf(f.Ext));
+        fStream.WriteCardinal(f.DirHash32);
+        fStream.WriteByte(f.ModIndex); // always 0
+        if fHeader.Magic2 = MAGIC_GNRL then begin
+          fStream.WriteByte(1); // always single chunk
+          fStream.WriteWord(CHUNK_HEADER_SIZE_GNRL);
+          fStream.WriteInt64(f.Offset);
+          fStream.WriteCardinal(f.PackedSize);
+          fStream.WriteCardinal(f.Size);
+          fStream.WriteCardinal(iFileFO4Tail);
+        end
+        else begin
+          fStream.WriteByte(Length(f.DDS.TexChunks));
+          fStream.WriteWord(CHUNK_HEADER_SIZE_DX10);
+          fStream.WriteWord(f.DDS.Height);
+          fStream.WriteWord(f.DDS.Width);
+          fStream.WriteByte(f.DDS.NumMips);
+          fStream.WriteByte(f.DDS.DXGIFormat);
+          fStream.WriteByte(f.DDS.Flags);
+          fStream.WriteByte(f.DDS.TileMode);
+          for var c in f.DDS.TexChunks do begin
+            fStream.WriteInt64(c.Offset);
+            fStream.WriteCardinal(c.PackedSize);
+            fStream.WriteCardinal(c.Size);
+            fStream.WriteWord(c.StartMip);
+            fStream.WriteWord(c.EndMip);
             fStream.WriteCardinal(iFileFO4Tail);
           end;
+        end;
       end;
+
     end;
 
   end;
 
   FreeAndNil(fStream);
   Exclude(fStates, stWriting);
-  Close;
-end;
-
-function TwbBSArchive.GetCreatedArchiveSize: Int64;
-begin
-  if (stWriting in fStates) and Assigned(fStream) then
-    Result := fStream.Position
-  else
-    Result := 0;
-end;
-
-procedure TwbBSArchive.AddFile(const aRootDir, aFileName: string);
-var
-  fname: string;
-  i: integer;
-  Buffer: TBytes;
-begin
-  if not (stWriting in fStates) then
-    raise Exception.Create('Archive is not in writing mode');
-
-  i := Length(aRootDir);
-  if (i > 1) and (aRootDir[Length(aRootDir)] <> '\') then
-    Inc(i);
-
-  fname := Copy(aFileName, i + 1, Length(aFileName));
-
-  with TFileStream.Create(aFileName, fmOpenRead + fmShareDenyNone) do try
-    SetLength(Buffer, Size);
-    Read(Buffer[0], Length(Buffer));
-  finally
-    Free;
-  end;
-
-  AddFile(fname, Buffer);
-end;
-
-procedure TwbBSArchive.SyncBeginWrite;
-begin
-  if fMultiThreaded then
-    Sync.BeginWrite;
-end;
-
-procedure TwbBSArchive.SyncEndWrite;
-begin
-  if fMultiThreaded then
-    Sync.EndWrite;
-end;
-
-procedure TwbBSArchive.CompressStream(aSrc, aDst: TStream);
-begin
-  case fCompressionType of
-    ctZlib:     ZCompressStream(aSrc, aDst);
-    ctLZ4Frame: lz4CompressStream(aSrc, aDst);
-    ctLZ4Block: lz4BlockCompressStream(aSrc, aDst);
-    else
-      raise Exception.Create('Archive compression type is undefined');
-  end;
 end;
 
 procedure TwbBSArchive.DecompressBuf(aSrc: Pointer; aSrcSize: Integer; aDst: Pointer; aDstSize: Integer);
 begin
-  case fCompressionType of
-    ctZlib: try
-      DecompressToUserBuf(aSrc, aSrcSize, aDst, aDstSize);
-    except
-      // ignore zlib's Buffer error since it happens in vanilla "Fallout - Misc.bsa"
-      // Bethesda probably used old buggy zlib version when packing it
-      on E: Exception do if E.Message <> 'Buffer error' then raise;
-    end;
-    ctLZ4Frame: lz4DecompressToUserBuf(aSrc, aSrcSize, aDst, aDstSize);
-    ctLZ4Block: lz4BlockDecompressToUserBuf(aSrc, aSrcSize, aDst, aDstSize);
-  end;
-end;
+  if fCompressionType = ctNone then
+    raise Exception.Create('Undefined compression type');
 
-procedure TwbBSArchive.PackData(aFileRecord: Pointer; const aFileName: string;
-  aDataHash: TPackedDataHash; aData: PByte; aSize: Integer;
-  aCompress: Boolean; aDoCompress: Boolean = False);
-var
-  zStream: TBytesStream;
-  msData: TPreallocatedMemoryStream;
-  DataSize: Integer;
-  Position: Int64;
-begin
-  DataSize := aSize;
-  zStream := nil;
-  msData := nil;
-
-  if FindPackedData(DataSize, aDataHash, aFileRecord) then
-    Exit;
-
+  SyncEndWrite;
   try
-    if aCompress then begin
-      // compressing in parallel when multithreaded
-      SyncEndWrite;
-      try
-        zStream := TBytesStream.Create;
-        msData := TPreallocatedMemoryStream.Create(aData, aSize);
-        CompressStream(msData, zStream);
-
-        // leave as compressed if compression reduced the size
-        // by at least let's say 32 bytes
-        // or data is forced to be compressed
-        if aDoCompress or (zStream.Size + 32 < aSize) then begin
-          aData := @zStream.Bytes[0];
-          aSize := zStream.Size;
-        end else
-          aCompress := False;
-      finally
-        SyncBeginWrite;
-      end;
-    end;
-
-    // let's try to find existing data again if multithreaded
-    // maybe some other thread has written the same data while we've been busy compressing
-    // zStream exists if we've really spent time compressing
-    if fMultiThreaded and Assigned(zStream) then
-      if FindPackedData(DataSize, aDataHash, aFileRecord) then
-        Exit;
-
-    Position := fStream.Position;
-
-    // embedded name for Fallout 3/NV/Skyrim/Skyrim SE
-    if (fType in [baFO3, baSSE]) and (fHeaderTES4.Flags and ARCHIVE_EMBEDNAME <> 0) then
-      fStream.WriteStringLen(aFileName, False);
-
-    // if compressed then write uncompressed size first for Oblivion/Fallout 3/NV/Skyrim/Skyrim SE
-    if (fType in [baTES4, baFO3, baSSE]) and aCompress then
-      fStream.WriteCardinal(DataSize);
-
-    fStream.Write(aData^, aSize);
-
-    // updating file record
-    case fType of
-      baTES3: with PwbBSFileTES3(aFileRecord)^ do begin
-        Offset := Position;
-        Size := DataSize;
-      end;
-      baTES4, baFO3, baSSE: with PwbBSFileTES4(aFileRecord)^ do begin
-        Offset := Position;
-        Size := fStream.Position - Offset;
-        // compress flag in Size inverts compression status from the header
-        // set it if archive's compression doesn't match file's compression
-        if Self.fCompress xor aCompress then
-          Size := Size or FILE_SIZE_COMPRESS;
-      end;
-      baFO4, baSF: with PwbBSFileFO4(aFileRecord)^ do begin
-        Offset := Position;
-        Size := DataSize;
-        if aCompress then
-          PackedSize := aSize;
-      end;
-      baFO4dds, baSFdds: with PwbBSTexChunkRec(aFileRecord)^ do begin
-        Offset := Position;
-        Size := DataSize;
-        if aCompress then
-          PackedSize := aSize;
-      end;
-    end;
-    
-    AddPackedData(DataSize, aDataHash, aFileRecord);
-
+    TwbCompression.Decompress(fCompressionType, aSrc, aSrcSize, aDst, aDstSize);
   finally
-    if Assigned(zStream) then
-      zStream.Free;
-    if Assigned(msData) then
-      msData.Free;
+    SyncBeginWrite;
   end;
 end;
 
-procedure TwbBSArchive.AddFile(const aFileName: string; const aData: TBytes);
+{$WARN USE_BEFORE_DEF OFF} // suppress warning for DataHash
+procedure TwbBSArchive.PackData(aFile: TwbBSFileEntry; aChunk: TwbBSFileChunk;
+  aData: Pointer; aSize, aUncompressedSize: Integer);
 var
-  i, j, Off, MipSize, BitsPerPixel: integer;
-  DataHash: TPackedDataHash;
-  DDSHeader: PDDSHeader;
-  DDSHeaderDX10: PDDSHeaderDX10;
-  DDSInfo: TDDSInfo;
+  buf: TBytes;
+  DataHash: TwbLookupHash;
+  StartPosition: Int64;
 begin
-  if not (stWriting in fStates) then
-    raise Exception.Create('Archive is not in writing mode');
-
-  // dds mipmaps have their own partial hash calculation down below
-  if fShareData and not (fType in [baFO4dds, baSFdds]) then
-    DataHash := CalcDataHash(@aData[0], Length(aData));
+  if fShareData then
+    DataHash := TwbHash.LookupHash(aData, aSize);
 
   SyncBeginWrite;
   try
-    case fType of
-      baTES3: begin
-        if not FindFileRecordTES3(aFileName, i) then
-          raise Exception.Create('File not found in files table: ' + aFileName);
+    if FindPackedData(aUncompressedSize, DataHash, aChunk) then
+      Exit;
 
-        PackData(@fFilesTES3[i], aFileName, DataHash, @aData[0], Length(aData), False);
+    // data compression (except data from Packer which is already compressed)
+    if aFile.Compress and not Assigned(fPacker) then begin
+      if fCompressionType = ctNone then
+        raise Exception.Create('Undefined compression type');
+      SyncEndWrite;
+      try
+        buf := TwbCompression.Compress(fCompressionType, aData, aUncompressedSize, aSize);
+        aData := buf;
+      finally
+        SyncBeginWrite;
       end;
-
-      baTES4, baFO3, baSSE: begin
-        if not FindFileRecordTES4(aFileName, i, j) then
-          raise Exception.Create('File not found in files table: ' + aFileName);
-
-        PackData(
-          @fFoldersTES4[i].Files[j], fFoldersTES4[i].Name + '\' + fFoldersTES4[i].Files[j].Name,
-          DataHash, @aData[0], Length(aData), fFoldersTES4[i].Files[j].Compress(Self)
-        );
-      end;
-
-      baFO4, baSF: begin
-        if not FindFileRecordFO4(aFileName, i) then
-          raise Exception.Create('File not found in files table: ' + aFileName);
-
-        fFilesFO4[i].Offset := fStream.Position;
-        fFilesFO4[i].Size := Length(aData);
-
-        PackData(
-          @fFilesFO4[i], fFilesFO4[i].Name,
-          DataHash, @aData[0], Length(aData), fFilesFO4[i].Compress(Self)
-        );
-      end;
-
-      baFO4dds, baSFdds: begin
-        if not FindFileRecordFO4(aFileName, i) then
-          raise Exception.Create('File not found in files table: ' + aFileName);
-
-        fFilesFO4[i].UnknownTex := 0;
-        // DDS file parameters
-        DDSHeader := @aData[0];
-        Off := SizeOf(DDSHeader^); // offset to image data
-        fFilesFO4[i].Width := DDSHeader.dwWidth;
-        fFilesFO4[i].Height := DDSHeader.dwHeight;
-        fFilesFO4[i].NumMips := DDSHeader.dwMipMapCount;
-        // no mipmaps is equal to a single one
-        if fFilesFO4[i].NumMips = 0 then
-          fFilesFO4[i].NumMips := 1;
-
-        // DXGI detection
-        if DDSHeader.ddspf.dwFourCC = MAGIC_DXT1 then
-          fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_BC1_UNORM)
-        else if DDSHeader.ddspf.dwFourCC = MAGIC_DXT3 then
-          fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_BC2_UNORM)
-        else if DDSHeader.ddspf.dwFourCC = MAGIC_DXT5 then
-          fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_BC3_UNORM)
-        else if DDSHeader.ddspf.dwFourCC = MAGIC_ATI1 then
-          fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_BC4_UNORM)
-        else if DDSHeader.ddspf.dwFourCC = MAGIC_BC4U then
-          fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_BC4_UNORM)
-        else if DDSHeader.ddspf.dwFourCC = MAGIC_BC4S then
-          fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_BC4_SNORM)
-        else if DDSHeader.ddspf.dwFourCC = MAGIC_ATI2 then
-          fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_BC5_UNORM)
-        else if DDSHeader.ddspf.dwFourCC = MAGIC_BC5U then
-          fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_BC5_UNORM)
-        else if DDSHeader.ddspf.dwFourCC = MAGIC_BC5S then
-          fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_BC5_SNORM)
-        else if DDSHeader.ddspf.dwFourCC = MAGIC_DX10 then begin
-          DDSHeaderDX10 := @aData[Off];
-          Off := Off + SizeOf(DDSHeaderDX10^);
-          fFilesFO4[i].DXGIFormat := Byte(DDSHeaderDX10.dxgiFormat);
-        end
-        else begin
-          if DDSHeader.ddspf.dwRGBBitCount = 32 then
-            if DDSHeader.ddspf.dwFlags and DDPF_ALPHAPIXELS = 0 then
-              fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_B8G8R8X8_UNORM)
-            else if DDSHeader.ddspf.dwRBitMask = $000000FF then
-              fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_R8G8B8A8_UNORM)
-            else
-              fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_B8G8R8A8_UNORM)
-
-          else if DDSHeader.ddspf.dwRGBBitCount = 16 then
-            if (DDSHeader.ddspf.dwRBitMask = $F800) and (DDSHeader.ddspf.dwGBitMask = $07E0) and
-               (DDSHeader.ddspf.dwBBitMask = $001F) and (DDSHeader.ddspf.dwABitMask = $0000) then
-              fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_B5G6R5_UNORM)
-            else if (DDSHeader.ddspf.dwRBitMask = $7C00) and (DDSHeader.ddspf.dwGBitMask = $03E0) and
-                    (DDSHeader.ddspf.dwBBitMask = $001F) and (DDSHeader.ddspf.dwABitMask = $8000) then
-              fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_B5G5R5A1_UNORM)
-            else
-              fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_R8G8_UNORM)
-
-          else if DDSHeader.ddspf.dwRGBBitCount = 8 then
-            if DDSHeader.ddspf.dwFlags and DDPF_ALPHA <> 0 then
-              fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_A8_UNORM)
-            else
-              fFilesFO4[i].DXGIFormat := Byte(DXGI_FORMAT_R8_UNORM)
-
-          else
-            raise Exception.Create('Unsupported uncompressed DDS format');
-        end;
-
-        // MipMap size detection
-        case TDXGI(fFilesFO4[i].DXGIFormat) of
-          DXGI_FORMAT_BC1_UNORM, DXGI_FORMAT_BC1_UNORM_SRGB,
-          DXGI_FORMAT_BC4_UNORM, DXGI_FORMAT_BC4_SNORM:
-            BitsPerPixel := 4;
-          DXGI_FORMAT_BC2_UNORM, DXGI_FORMAT_BC2_UNORM_SRGB,
-          DXGI_FORMAT_BC3_UNORM, DXGI_FORMAT_BC3_UNORM_SRGB,
-          DXGI_FORMAT_BC5_UNORM, DXGI_FORMAT_BC5_SNORM,
-          DXGI_FORMAT_BC6H_SF16, DXGI_FORMAT_BC6H_UF16,
-          DXGI_FORMAT_BC7_UNORM, DXGI_FORMAT_BC7_UNORM_SRGB,
-          DXGI_FORMAT_A8_UNORM,
-          DXGI_FORMAT_R8_SINT, DXGI_FORMAT_R8_SNORM,
-          DXGI_FORMAT_R8_UINT, DXGI_FORMAT_R8_UNORM:
-            BitsPerPixel := 8;
-          DXGI_FORMAT_B5G6R5_UNORM, DXGI_FORMAT_B5G5R5A1_UNORM,
-          DXGI_FORMAT_R8G8_SINT, DXGI_FORMAT_R8G8_UINT, DXGI_FORMAT_R8G8_UNORM:
-            BitsPerPixel := 16;
-          DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_B8G8R8A8_UNORM_SRGB,
-          DXGI_FORMAT_B8G8R8X8_UNORM, DXGI_FORMAT_B8G8R8X8_UNORM_SRGB,
-          DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_R8G8B8A8_SINT,
-          DXGI_FORMAT_R8G8B8A8_UINT, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
-            BitsPerPixel := 32;
-          else
-            raise Exception.Create('Unsupported DDS format');
-        end;
-        MipSize := (fFilesFO4[i].Width * fFilesFO4[i].Height * BitsPerPixel) shr 3;
-
-        // cubemaps detection
-        fFilesFO4[i].CubeMaps := $800;
-        if DDSHeader.dwCaps2 and DDSCAPS2_CUBEMAP <> 0 then
-          fFilesFO4[i].CubeMaps := fFilesFO4[i].CubeMaps or 1;
-
-        // number of chunks to store in file record
-        DDSInfo.Width := fFilesFO4[i].Width;
-        DDSInfo.Height := fFilesFO4[i].Height;
-        DDSInfo.MipMaps := fFilesFO4[i].NumMips;
-        SetLength(fFilesFO4[i].TexChunks, GetDDSMipChunkNum(DDSInfo));
-
-        // storing chunks
-        for j := Low(fFilesFO4[i].TexChunks) to High(fFilesFO4[i].TexChunks) do begin
-          fFilesFO4[i].TexChunks[j].StartMip := j;
-          if j < High(fFilesFO4[i].TexChunks) then
-            fFilesFO4[i].TexChunks[j].EndMip := j
-          else begin
-            // last chunk stores all remaining mipmaps
-            fFilesFO4[i].TexChunks[j].EndMip := Pred(fFilesFO4[i].NumMips);
-            MipSize := Length(aData) - Off;
-          end;
-
-          DataHash := CalcDataHash(@aData[Off], MipSize);
-
-          PackData(
-            @fFilesFO4[i].TexChunks[j], fFilesFO4[i].Name,
-            DataHash, @aData[Off], MipSize,
-            fFilesFO4[i].Compress(Self), fFilesFO4[i].Compress(Self) // force compression
-          );
-          Inc(Off, MipSize);
-          MipSize := MipSize div 4;
-        end;
-      end;
-
+      // try to find existing data again if multithreaded
+      // maybe some other thread has written the same data while we've been busy compressing
+      if fMultiThreaded and FindPackedData(aUncompressedSize, DataHash, aChunk) then
+        Exit;
     end;
+
+    StartPosition := fStream.Position;
+
+    // embedded filename for Fallout 3/NV/Skyrim/Skyrim SE
+    if (fType in [baFO3, baSSE]) and (fHeader.Flags and ARCHIVE_EMBEDNAME <> 0) then
+      fStream.WriteStringLen(aFile.Name, False);
+
+    // if compressed then write uncompressed size first for Oblivion/Fallout 3/NV/Skyrim/Skyrim SE
+    if (fType in [baTES4, baFO3, baSSE]) and aFile.Compress then
+      fStream.WriteCardinal(aUncompressedSize);
+
+    // write file data
+    fStream.Write(aData^, aSize);
+
+    // updating file entry
+    aChunk.Offset := StartPosition;
+
+    case fType of
+      baTES3: aChunk.Size := aUncompressedSize;
+      baTES4, baFO3, baSSE: begin
+        // Size includes embedded filename and uncompressed size field
+        aChunk.Size := fStream.Position - StartPosition;
+        if aFile.Compress xor (fHeader.Flags and ARCHIVE_COMPRESS <> 0) then
+          aChunk.Size := aChunk.Size or FILE_SIZE_COMPRESS;
+        // this is purely for warnings check on newly created archives to signal that the file was compressed
+        if aFile.Compress then
+          aChunk.PackedSize := aSize;
+      end;
+      // baFO4, bfFO4dds, baSF, baSFdds
+      else begin
+        aChunk.Size := aUncompressedSize;
+        if aFile.Compress then
+          aChunk.PackedSize := aSize;
+      end;
+    end;
+
+    AddPackedData(aUncompressedSize, DataHash, aChunk);
+
   finally
     SyncEndWrite;
   end;
 end;
+{$WARN USE_BEFORE_DEF ON}
 
-function TwbBSArchive.ExtractFileData(aFileRecord: Pointer): TBytes;
+procedure TwbBSArchive.Pack(aFile: TwbBSFileEntry; aData: Pointer; aSize: Integer);
 var
-  FileTES3: PwbBSFileTES3;
-  FileTES4: PwbBSFileTES4;
-  FileFO4: PwbBSFileFO4;
+  i, chunks, Off, MipSize, UncompressedSize: Integer;
   DDSHeader: PDDSHeader;
-  DDSHeaderDX10: PDDSHeaderDX10;
-  i, size, TexSize: integer;
-  bCompressed: Boolean;
+  buf: TBytes;
+begin
+  if not (stWriting in fStates) then
+    raise Exception.Create('Archive is not in writing mode');
+
+  // getting preloaded data from the Packer for chunk 0 (holds dds header for dds archives)
+  if Assigned(fPacker) then
+    fPacker.GetChunk(aFile.Name, aFile.FileObject, aData, aSize, UncompressedSize)
+  else
+    UncompressedSize := aSize;
+
+  // file packing
+  if not IsDDSArchive(fType) then begin
+    PackData(aFile, aFile, aData, aSize, UncompressedSize);
+    Exit;
+  end;
+
+  // DDS chunks packing
+  if not TwbDDS.IsDDS(aData, aSize) then
+    raise Exception.Create(cExceptionInvalidDDS);
+
+  if (fTarget = btPC) and TwbDDS.IsXBOX(aData) then
+    raise Exception.Create(cExceptionIsXboxDDS);
+
+  if (fTarget = btXBox) and not TwbDDS.IsXBOX(aData) then
+    raise Exception.Create(cExceptionIsNotXboxDDS);
+
+  DDSHeader := aData;
+  // convert unsupported uncompressed 24 bit RGB to 32 bit BGRX
+  if not Assigned(fPacker) and (TwbDDS.GetD3DFMT(DDSHeader) = D3DFMT_R8G8B8) then begin
+    buf := TwbDDS.ConvertR8G8B8toB8G8R8X8(aData, aSize);
+    aData := @buf[0];
+    aSize := Length(buf);
+    DDSHeader := aData;
+  end;
+  aFile.DDS.DXGIFormat := Byte(TwbDDS.GetDXGI(DDSHeader));
+  if TDXGI(aFile.DDS.DXGIFormat) = DXGI_FORMAT_UNKNOWN then
+    raise Exception.Create(cExceptionUnsupportedDDS);
+  aFile.DDS.Width := DDSHeader.dwWidth;
+  aFile.DDS.Height := DDSHeader.dwHeight;
+  aFile.DDS.NumMips := DDSHeader.dwMipMapCount;
+  // DirectXTexDDS.cpp, in DecodeDDSHeader, if dwMipMapCount is 0, it is forced to 1
+  if aFile.DDS.NumMips = 0 then Inc(aFile.DDS.NumMips);
+  aFile.DDS.TileMode := TwbDDS.GetTileMode(DDSHeader);
+  aFile.DDS.Flags := 0;
+  if TwbDDS.IsCubeMap(DDSHeader) then begin
+    aFile.DDS.Flags := aFile.DDS.Flags or DDS_FLAG_CUBEMAP;
+    chunks := 1; // cubemaps are not chunked
+  end else
+    chunks := GetDDSMipChunkNum(aFile.DDS.Width, aFile.DDS.Height, aFile.DDS.NumMips);
+
+  Off := TwbDDS.GetHeaderSize(DDSHeader); // offset to image data
+  MipSize := (aFile.DDS.Width * aFile.DDS.Height * TwbDDS.GetBitsPerPixel(TDXGI(aFile.DDS.DXGIFormat))) shr 3;
+
+  // store chunks
+  SetLength(aFile.DDS.TexChunks, chunks);
+  for i := Low(aFile.DDS.TexChunks) to High(aFile.DDS.TexChunks) do begin
+    aFile.DDS.TexChunks[i] := TwbBSFileChunkTex.Create;
+    aFile.DDS.TexChunks[i].StartMip := i;
+    if i < High(aFile.DDS.TexChunks) then
+      aFile.DDS.TexChunks[i].EndMip := i
+    else begin
+      // last chunk stores all remaining mipmaps
+      aFile.DDS.TexChunks[i].EndMip := Pred(aFile.DDS.NumMips);
+      MipSize := aSize - Off;
+    end;
+
+    if Assigned(fPacker) then begin
+      var d := nil; var s := 0; var u := 0;
+      fPacker.GetChunk(aFile.Name, aFile.FileObject, d, s, u, i + 1);
+      PackData(aFile, aFile.DDS.TexChunks[i], d, s, u);
+    end else
+      PackData(aFile, aFile.DDS.TexChunks[i], PByte(aData) + Off, MipSize, MipSize);
+
+    Inc(Off, MipSize);
+    MipSize := MipSize div 4;
+  end;
+
+end;
+
+procedure TwbBSArchive.Pack(aFile: TwbBSFileEntry; const aData: TBytes);
+begin
+  Pack(aFile, Pointer(aData), Length(aData));
+end;
+
+procedure TwbBSArchive.Pack(const aFileName: string; const aData: TBytes);
+begin
+  var f := FileByName(aFileName);
+  if Assigned(f) then
+    Pack(f, Pointer(aData), Length(aData))
+  else
+    raise Exception.Create('File to pack not found in archive: ' + aFileName);
+end;
+
+function TwbBSArchive.Unpack(aFile: TwbBSFileEntry): TBytes;
+var
+  Size, TexSize, MipOffset: Integer;
   Buffer: TBytes;
 begin
   if not (stReading in fStates) then
     raise Exception.Create('Archive is not loaded');
 
-  if aFileRecord = nil then
+  if not Assigned(aFile) then
     Exit;
 
   SyncBeginWrite;
   try
     case fType of
       baTES3: begin
-        FileTES3 := aFileRecord;
-        fStream.Position := fDataOffset + FileTES3.Offset;
-        SetLength(Result, FileTES3.Size);
-        fStream.ReadBuffer(Result[0], Length(Result));
+        fStream.Position := fDataOffset + aFile.Offset;
+        SetLength(Result, aFile.Size);
+        fStream.Read(Result, Length(Result));
       end;
 
       baTES4, baFO3, baSSE: begin
-        FileTES4 := aFileRecord;
-        fStream.Position := FileTES4.Offset;
-        size := FileTES4.Size;
-        bCompressed := size and FILE_SIZE_COMPRESS <> 0;
-        if bCompressed then
-          size := size and not FILE_SIZE_COMPRESS;
-        if fHeaderTES4.Flags and ARCHIVE_COMPRESS <> 0 then
-          bCompressed := not bCompressed;
+        fStream.Position := aFile.Offset;
+        Size := aFile.Size;
 
         // skip embedded file name + length prefix
-        if (fType in [baFO3, baSSE]) and (fHeaderTES4.Flags and ARCHIVE_EMBEDNAME <> 0) then
-          size := size - (Length(fStream.ReadStringLen(False)) + 1);
+        if (fType in [baFO3, baSSE]) and (fHeader.Flags and ARCHIVE_EMBEDNAME <> 0) then
+          Dec(Size, Length(fStream.ReadStringLen(False)) + 1);
 
-        if bCompressed then begin
-          // reading uncompressed size
+        if aFile.Compressed then begin
+          // allocate uncompressed size space
           SetLength(Result, fStream.ReadCardinal);
-          dec(size, SizeOf(Cardinal));
-          if (Length(Result) > 0) and (size > 0) then begin
-            SetLength(Buffer, size);
-            fStream.ReadBuffer(Buffer[0], Length(Buffer));
-            SyncEndWrite;
-            try
-              DecompressBuf(@Buffer[0], Length(Buffer), @Result[0], Length(Result));
-            finally
-              SyncBeginWrite;
-            end;
+          Dec(Size, SizeOf(Cardinal));
+          if (Length(Result) > 0) and (Size > 0) then begin
+            SetLength(Buffer, Size);
+            fStream.Read(Buffer, Length(Buffer));
+            DecompressBuf(Buffer, Length(Buffer), Result, Length(Result));
           end;
         end
         else begin
-          SetLength(Result, size);
-          if size > 0 then
-            fStream.ReadBuffer(Result[0], size);
+          SetLength(Result, Size);
+          fStream.Read(Result, Length(Result));
         end;
       end;
 
       baFO4, baSF: begin
-        FileFO4 := aFileRecord;
-        fStream.Position := FileFO4.Offset;
-        if FileFO4.PackedSize <> 0 then begin
-          SetLength(Buffer, FileFO4.PackedSize);
-          fStream.ReadBuffer(Buffer[0], Length(Buffer));
-          SetLength(Result, FileFO4.Size);
-          SyncEndWrite;
-          try
-            DecompressBuf(@Buffer[0], Length(Buffer), @Result[0], Length(Result));
-          finally
-            SyncBeginWrite;
-          end;
+        fStream.Position := aFile.Offset;
+        if aFile.Compressed then begin
+          SetLength(Buffer, aFile.PackedSize);
+          fStream.Read(Buffer, Length(Buffer));
+          SetLength(Result, aFile.Size);
+          DecompressBuf(Buffer, Length(Buffer), Result, Length(Result));
         end
         else begin
-          SetLength(Result, FileFO4.Size);
-          fStream.ReadBuffer(Result[0], Length(Result));
+          SetLength(Result, aFile.Size);
+          fStream.Read(Result, Length(Result));
         end;
       end;
 
       baFO4dds, baSFdds: begin
-        FileFO4 := aFileRecord;
-
+        var IsXBox := LowerCase(FileName).Contains('_xbox.');
+        // allocate space for total DDS size
         TexSize := SizeOf(TDDSHeader);
-        for i := Low(FileFO4.TexChunks) to High(FileFO4.TexChunks) do
-          Inc(TexSize, FileFO4.TexChunks[i].Size);
+        if IsXBox or not (TDXGI(aFile.DDS.DXGIFormat) in TwbDDS.DXGI_DX9) then begin
+          Inc(TexSize, SizeOf(TDDSHeaderDX10));
+          if IsXBox then
+            Inc(TexSize, SizeOf(TDDSHeaderXBOX));
+        end;
+
+        // offset to image data (total size of DDS header)
+        MipOffset := TexSize;
+        for var c in aFile.DDS.TexChunks do Inc(TexSize, c.Size);
         SetLength(Result, TexSize);
 
-        DDSHeader := @Result[0];
-        DDSHeader.Magic := MAGIC_DDS;
-        DDSHeader.dwSize := SizeOf(TDDSHeader) - SizeOf(TMagic4);
-        DDSHeader.dwWidth := FileFO4.Width;
-        DDSHeader.dwHeight := FileFO4.Height;
-        DDSHeader.dwFlags := DDSD_CAPS or DDSD_PIXELFORMAT or
-                             DDSD_WIDTH or DDSD_HEIGHT or DDSD_MIPMAPCOUNT;
-        DDSHeader.dwCaps := DDSCAPS_TEXTURE;
-        DDSHeader.dwMipMapCount := FileFO4.NumMips;
-        if DDSHeader.dwMipMapCount > 1 then
-          DDSHeader.dwCaps := DDSHeader.dwCaps or DDSCAPS_MIPMAP or DDSCAPS_COMPLEX;
-        DDSHeader.dwDepth := 1;
+        // set up DDS header
+        TwbDDS.SetUpHeader(Result, TDXGI(aFile.DDS.DXGIFormat), aFile.DDS.Width, aFile.DDS.Height, aFile.DDS.NumMips, aFile.IsCubeMap, IsXBox);
+        if IsXBox then
+          TwbDDS.HeaderXBOX(Result).tileMode := aFile.DDS.TileMode;
 
-        DDSHeaderDX10 := @Result[SizeOf(TDDSHeader)];
-        DDSHeaderDX10.resourceDimension := DDS_DIMENSION_TEXTURE2D;
-        DDSHeaderDX10.arraySize := 1;
+        // append mipmap chunks
+        for var c in aFile.DDS.TexChunks do begin
+          fStream.Position := c.Offset;
+          if c.Compressed then begin
+            SetLength(Buffer, c.PackedSize);
+            fStream.Read(Buffer, Length(Buffer));
+            DecompressBuf(Buffer, Length(Buffer), @Result[MipOffset], c.Size);
+          end else
+            fStream.Read(Result[MipOffset], c.Size);
 
-        if FileFO4.CubeMaps = 2049 then begin
-          // Archive2.exe creates invalid textures like this
-          //DDSHeader.dwCaps := DDSHeader.dwCaps or DDSCAPS2_CUBEMAP or DDSCAPS_COMPLEX
-          //                 or DDSCAPS2_POSITIVEX or DDSCAPS2_NEGATIVEX
-          //                 or DDSCAPS2_POSITIVEY or DDSCAPS2_NEGATIVEY
-          //                 or DDSCAPS2_POSITIVEZ or DDSCAPS2_NEGATIVEZ;
-          // This is the correct way
-          DDSHeader.dwCaps := DDSHeader.dwCaps or DDSCAPS_COMPLEX;
-          DDSHeader.dwCaps2 := DDSCAPS2_CUBEMAP
-                            or DDSCAPS2_POSITIVEX or DDSCAPS2_NEGATIVEX
-                            or DDSCAPS2_POSITIVEY or DDSCAPS2_NEGATIVEY
-                            or DDSCAPS2_POSITIVEZ or DDSCAPS2_NEGATIVEZ;
-          DDSHeaderDX10.miscFlags := DDS_RESOURCE_MISC_TEXTURECUBE;
+          Inc(MipOffset, c.Size);
         end;
-        DDSHeader.ddspf.dwSize := SizeOf(DDSHeader.ddspf);
-
-        case TDXGI(FileFO4.DXGIFormat) of
-          DXGI_FORMAT_BC1_UNORM: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_LINEARSIZE;
-            DDSHeader.ddspf.dwFlags := DDPF_FOURCC;
-            DDSHeader.ddspf.dwFourCC := MAGIC_DXT1;
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * FileFO4.Height div 2;
-          end;
-          DXGI_FORMAT_BC2_UNORM: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_LINEARSIZE;
-            DDSHeader.ddspf.dwFlags := DDPF_FOURCC;
-            DDSHeader.ddspf.dwFourCC := MAGIC_DXT3;
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * FileFO4.Height;
-          end;
-          DXGI_FORMAT_BC3_UNORM: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_LINEARSIZE;
-            DDSHeader.ddspf.dwFlags := DDPF_FOURCC;
-            DDSHeader.ddspf.dwFourCC := MAGIC_DXT5;
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * FileFO4.Height;
-          end;
-          DXGI_FORMAT_BC4_SNORM: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_LINEARSIZE;
-            DDSHeader.ddspf.dwFlags := DDPF_FOURCC;
-            DDSHeader.ddspf.dwFourCC := MAGIC_BC4S;
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * FileFO4.Height div 2;
-          end;
-          DXGI_FORMAT_BC4_UNORM: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_LINEARSIZE;
-            DDSHeader.ddspf.dwFlags := DDPF_FOURCC;
-            DDSHeader.ddspf.dwFourCC := MAGIC_BC4U;
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * FileFO4.Height div 2;
-          end;
-          DXGI_FORMAT_BC5_SNORM: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_LINEARSIZE;
-            DDSHeader.ddspf.dwFlags := DDPF_FOURCC;
-            DDSHeader.ddspf.dwFourCC := MAGIC_BC5S;
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * FileFO4.Height;
-          end;
-          DXGI_FORMAT_BC5_UNORM: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_LINEARSIZE;
-            DDSHeader.ddspf.dwFlags := DDPF_FOURCC;
-            DDSHeader.ddspf.dwFourCC := MAGIC_BC5U;
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * FileFO4.Height;
-          end;
-          DXGI_FORMAT_BC1_UNORM_SRGB: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_LINEARSIZE;
-            DDSHeader.ddspf.dwFlags := DDPF_FOURCC;
-            DDSHeader.ddspf.dwFourCC := MAGIC_DX10;
-            DDSHeaderDX10.dxgiFormat := Integer(FileFO4.DXGIFormat);
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * FileFO4.Height div 2;
-          end;
-          DXGI_FORMAT_BC2_UNORM_SRGB, DXGI_FORMAT_BC3_UNORM_SRGB,
-          DXGI_FORMAT_BC6H_UF16, DXGI_FORMAT_BC6H_SF16,
-          DXGI_FORMAT_BC7_UNORM, DXGI_FORMAT_BC7_UNORM_SRGB: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_LINEARSIZE;
-            DDSHeader.ddspf.dwFlags := DDPF_FOURCC;
-            DDSHeader.ddspf.dwFourCC := MAGIC_DX10;
-            DDSHeaderDX10.dxgiFormat := Integer(FileFO4.DXGIFormat);
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * FileFO4.Height;
-          end;
-          DXGI_FORMAT_B8G8R8A8_UNORM_SRGB, DXGI_FORMAT_B8G8R8X8_UNORM_SRGB,
-          DXGI_FORMAT_R8G8B8A8_SINT, DXGI_FORMAT_R8G8B8A8_UINT, DXGI_FORMAT_R8G8B8A8_UNORM_SRGB: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_PITCH;
-            DDSHeader.ddspf.dwFlags := DDPF_FOURCC;
-            DDSHeader.ddspf.dwFourCC := MAGIC_DX10;
-            DDSHeaderDX10.dxgiFormat := Integer(FileFO4.DXGIFormat);
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * 4;
-          end;
-          DXGI_FORMAT_R8G8_SINT, DXGI_FORMAT_R8G8_UINT: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_PITCH;
-            DDSHeader.ddspf.dwFlags := DDPF_FOURCC;
-            DDSHeader.ddspf.dwFourCC := MAGIC_DX10;
-            DDSHeaderDX10.dxgiFormat := Integer(FileFO4.DXGIFormat);
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * 2;
-          end;
-          DXGI_FORMAT_R8_SINT, DXGI_FORMAT_R8_SNORM, DXGI_FORMAT_R8_UINT: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_PITCH;
-            DDSHeader.ddspf.dwFlags := DDPF_FOURCC;
-            DDSHeader.ddspf.dwFourCC := MAGIC_DX10;
-            DDSHeaderDX10.dxgiFormat := Integer(FileFO4.DXGIFormat);
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width;
-          end;
-            DXGI_FORMAT_R8G8B8A8_UNORM: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_PITCH;
-            DDSHeader.ddspf.dwFlags := DDPF_RGB or DDPF_ALPHAPIXELS;
-            DDSHeader.ddspf.dwRGBBitCount := 32;
-            DDSHeader.ddspf.dwRBitMask := $000000FF;
-            DDSHeader.ddspf.dwGBitMask := $0000FF00;
-            DDSHeader.ddspf.dwBBitMask := $00FF0000;
-            DDSHeader.ddspf.dwABitMask := $FF000000;
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * 4;
-          end;
-            DXGI_FORMAT_B8G8R8A8_UNORM: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_PITCH;
-            DDSHeader.ddspf.dwFlags := DDPF_RGB or DDPF_ALPHAPIXELS;
-            DDSHeader.ddspf.dwRGBBitCount := 32;
-            DDSHeader.ddspf.dwRBitMask := $00FF0000;
-            DDSHeader.ddspf.dwGBitMask := $0000FF00;
-            DDSHeader.ddspf.dwBBitMask := $000000FF;
-            DDSHeader.ddspf.dwABitMask := $FF000000;
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * 4;
-          end;
-          DXGI_FORMAT_B8G8R8X8_UNORM: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_PITCH;
-            DDSHeader.ddspf.dwFlags := DDPF_RGB;
-            DDSHeader.ddspf.dwRGBBitCount := 32;
-            DDSHeader.ddspf.dwRBitMask := $00FF0000;
-            DDSHeader.ddspf.dwGBitMask := $0000FF00;
-            DDSHeader.ddspf.dwBBitMask := $000000FF;
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * 4;
-          end;
-          DXGI_FORMAT_B5G6R5_UNORM: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_PITCH;
-            DDSHeader.ddspf.dwFlags := DDPF_RGB;
-            DDSHeader.ddspf.dwRGBBitCount := 16;
-            DDSHeader.ddspf.dwRBitMask := $0000F800;
-            DDSHeader.ddspf.dwGBitMask := $000007E0;
-            DDSHeader.ddspf.dwBBitMask := $0000001F;
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * 2;
-          end;
-          DXGI_FORMAT_B5G5R5A1_UNORM: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_PITCH;
-            DDSHeader.ddspf.dwFlags := DDPF_RGB or DDPF_ALPHAPIXELS;
-            DDSHeader.ddspf.dwRGBBitCount := 16;
-            DDSHeader.ddspf.dwRBitMask := $00007C00;
-            DDSHeader.ddspf.dwGBitMask := $000003E0;
-            DDSHeader.ddspf.dwBBitMask := $0000001F;
-            DDSHeader.ddspf.dwABitMask := $00008000;
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * 2;
-          end;
-          DXGI_FORMAT_R8G8_UNORM: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_PITCH;
-            DDSHeader.ddspf.dwFlags := DDPF_LUMINANCE OR DDPF_ALPHAPIXELS;
-            DDSHeader.ddspf.dwRGBBitCount := 16;
-            DDSHeader.ddspf.dwRBitMask := $000000FF;
-            DDSHeader.ddspf.dwABitMask := $0000FF00;
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width * 2;
-          end;
-          DXGI_FORMAT_A8_UNORM: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_PITCH;
-            DDSHeader.ddspf.dwFlags := DDPF_ALPHA;
-            DDSHeader.ddspf.dwRGBBitCount := 8;
-            DDSHeader.ddspf.dwABitMask := $000000FF;
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width;
-          end;
-          DXGI_FORMAT_R8_UNORM: begin
-            DDSHeader.dwFlags := DDSHeader.dwFlags or DDSD_PITCH;
-            DDSHeader.ddspf.dwFlags := DDPF_LUMINANCE;
-            DDSHeader.ddspf.dwRGBBitCount := 8;
-            DDSHeader.ddspf.dwRBitMask := $000000FF;
-            DDSHeader.dwPitchOrLinearSize := FileFO4.Width;
-          end;
-        end;
-
-        TexSize := SizeOf(TDDSHeader);
-        if DDSHeader.ddspf.dwFourCC = MAGIC_DX10 then begin
-          SetLength(Result, Length(Result) + SizeOf(TDDSHeaderDX10));
-          Inc(TexSize, SizeOf(TDDSHeaderDX10));
-        end;
-
-        // append chunks
-        for i := Low(FileFO4.TexChunks) to High(FileFO4.TexChunks) do with FileFO4.TexChunks[i] do begin
-          fStream.Position := Offset;
-          // compressed chunk
-          if PackedSize <> 0 then begin
-            SetLength(Buffer, PackedSize);
-            fStream.ReadBuffer(Buffer[0], Length(Buffer));
-            SyncEndWrite;
-            try
-              DecompressBuf(@Buffer[0], Length(Buffer), @Result[TexSize], Size);
-            finally
-              SyncBeginWrite;
-            end;
-          end
-          // uncompressed chunk
-          else
-            fStream.ReadBuffer(Result[TexSize], Size);
-
-          Inc(TexSize, Size);
-        end;
-      end
+      end;
 
       else
         raise Exception.Create('Extraction is not supported for this archive');
@@ -2404,30 +2234,26 @@ begin
   end;
 end;
 
-function TwbBSArchive.ExtractFileData(const aFileName: string): TBytes;
-var
-  FileRecord: Pointer;
+function TwbBSArchive.Unpack(const aFileName: string): TBytes;
 begin
   if not (stReading in fStates) then
     raise Exception.Create('Archive is not loaded');
 
-  FileRecord := FindFileRecord(aFileName);
+  var f := FileByName(aFileName);
+  if not Assigned(f) then
+    raise Exception.Create('File not found in archive: ' + aFileName);
 
-  if not Assigned(FileRecord) then
-    raise Exception.Create('File not found in archive');
-
-  Result := ExtractFileData(FileRecord);
+  Result := Unpack(f);
 end;
 
-procedure TwbBSArchive.ExtractFileToStream(const aFileName: string; aStream: TStream);
-var
-  FileData: TBytes;
+procedure TwbBSArchive.Unpack(const aFileName: string; aStream: TStream);
 begin
-  FileData := ExtractFileData(aFileName);
-  aStream.Write(FileData[0], Length(FileData));
+  var FileData := Unpack(aFileName);
+  if Length(FileData) <> 0 then
+    aStream.Write(FileData, Length(FileData));
 end;
 
-procedure TwbBSArchive.ExtractFile(const aFileName, aSaveAs: string);
+procedure TwbBSArchive.Unpack(const aFileName, aSaveAs: string);
 var
   fs: TFileStream;
 begin
@@ -2436,75 +2262,39 @@ begin
 
   fs := TFileStream.Create(aSaveAs, fmCreate);
   try
-    ExtractFileToStream(aFileName, fs);
+    Unpack(aFileName, fs);
   finally
     fs.Free;
   end;
 end;
 
-procedure TwbBSArchive.IterateFiles(aProc: TBSFileIterationProc; aData: Pointer = nil;
- aSingleThreaded: Boolean = False);
-var
-  i, j: Integer;
+function TwbBSArchive.FileByName(const aFileName: string): TwbBSFileEntry;
 begin
-  if not Assigned(aProc) then
-    Exit;
-
-  if fMultiThreaded and not aSingleThreaded then
-    case fType of
-      baTES3:
-        TParallel.&For(Low(fFilesTES3), High(fFilesTES3), procedure(i: Integer; LoopState: TParallel.TLoopState) begin
-          if aProc(Self, fFilesTES3[i].Name, @fFilesTES3[i], nil, aData) then
-            LoopState.Stop;
-        end);
-      baTES4, baFO3, baSSE:
-        TParallel.&For(Low(fFoldersTES4), High(fFoldersTES4), procedure(i: Integer; OuterLoopState: TParallel.TLoopState) begin
-          TParallel.&For(Low(fFoldersTES4[i].Files), High(fFoldersTES4[i].Files), procedure(j: Integer; InnerLoopState: TParallel.TLoopState) begin
-            if aProc(Self, fFoldersTES4[i].Name + '\' + fFoldersTES4[i].Files[j].Name, @fFoldersTES4[i].Files[j], @fFoldersTES4[i], aData) then begin
-              OuterLoopState.Stop;
-              InnerLoopState.Stop;
-            end;
-          end);
-        end);
-      baFO4, baFO4dds, baSF, baSFdds:
-        TParallel.&For(Low(fFilesFO4), High(fFilesFO4), procedure(i: Integer; LoopState: TParallel.TLoopState) begin
-          if aProc(Self, fFilesFO4[i].Name, @fFilesFO4[i], nil, aData) then
-            LoopState.Stop;
-        end);
-    end
-  else
-    case fType of
-      baTES3:
-        for i := Low(fFilesTES3) to High(fFilesTES3) do
-          if aProc(Self, fFilesTES3[i].Name, @fFilesTES3[i], nil, aData) then
-            Break;
-      baTES4, baFO3, baSSE:
-        for i := Low(fFoldersTES4) to High(fFoldersTES4) do
-          for j := Low(fFoldersTES4[i].Files) to High(fFoldersTES4[i].Files) do
-            if aProc(Self, fFoldersTES4[i].Name + '\' + fFoldersTES4[i].Files[j].Name, @fFoldersTES4[i].Files[j], @fFoldersTES4[i], aData) then
-              Break;
-      baFO4, baFO4dds, baSF, baSFdds:
-        for i := Low(fFilesFO4) to High(fFilesFO4) do
-          if aProc(Self, fFilesFO4[i].Name, @fFilesFO4[i], nil, aData) then
-            Break;
+  Result := nil;
+  var hash := TwbHash.LookupHash(aFileName, True);
+  for var f in Self do
+    if f.LookupHash = hash then begin
+      Result := f;
+      Exit;
     end;
 end;
 
-{procedure TwbBSArchive.IterateFolders(aProc: TBSFileIterationProc);
-var
-  i: Integer;
+function TwbBSArchive.FilesByFolder(const aFolder: string): TwbBSFileEntries;
 begin
-  if not Assigned(aProc) then
-    Exit;
-
-  if fType in [baTES4, baFO3, baSSE] then
-  for i := Low(fFoldersTES4) to High(fFoldersTES4) do
-    aProc(Self, fFoldersTES4[i].Name, nil, @fFoldersTES4[i]);
-end;}
+  var Folder := ExcludeTrailingPathDelimiter(aFolder);
+  var j := 0;
+  SetLength(Result, Count);
+  for var f in Self do
+    if (Folder = '') or f.Name.StartsWith(Folder, True) then begin
+      Result[j] := f;
+      Inc(j);
+    end;
+  SetLength(Result, j);
+end;
 
 function TwbBSArchive.FileExists(const aFileName: string): Boolean;
 begin
-  Result := Assigned(FindFileRecord(aFileName));
+  Result := Assigned(FileByName(aFileName));
 end;
 
 procedure TwbBSArchive.Close;
@@ -2512,87 +2302,585 @@ begin
   if Assigned(fStream) then
     FreeAndNil(fStream);
 
-  if stWriting in fStates then
+  if stWriting in fStates then try
     System.SysUtils.DeleteFile(fFileName);
+  except end;
 
   fStates := [];
-  fType := baNone;
-  fFileName := '';
   fDataOffset := 0;
-  FillChar(fHeaderTES3, SizeOf(fHeaderTES3), 0);
-  SetLength(fFilesTES3, 0);
-  FillChar(fHeaderTES4, SizeOf(fHeaderTES4), 0);
+  FillChar(fHeader, SizeOf(fHeader), 0);
+  Count := 0;
   SetLength(fFoldersTES4, 0);
-  FillChar(fHeaderFO4, SizeOf(fHeaderFO4), 0);
-  SetLength(fFilesFO4, 0);
 
   if fShareData then begin
     SetLength(fPackedData, 0);
     fPackedDataCount := 0;
   end;
+
+  inherited;
 end;
 
-procedure TwbBSArchive.ResourceDict(const aDict: TwbResourceDict; aFolder: string);
-var
-  Folder : string;
-  i, j   : Integer;
-begin
-  if not Assigned(aDict) then
-    Exit;
 
-  Folder := ExcludeTrailingPathDelimiter(aFolder);
-  case fType of
-    baTES3:
-      for i := Low(fFilesTES3) to High(fFilesTES3) do
-        with fFilesTES3[i] do
-          if (Folder = '') or Name.StartsWith(Folder, True) then
-            aDict.TryAdd(Name, wbNothing);
-    baTES4, baFO3, baSSE:
-      for i := Low(fFoldersTES4) to High(fFoldersTES4) do
-        with fFoldersTES4[i] do begin
-          if (Folder = '') or Name.StartsWith(Folder, True) then
-            for j := Low(Files) to High(Files) do begin
-              var lName := Name + '\' + Files[j].Name;
-              aDict.TryAdd(lName, wbNothing);
-            end;
-        end;
-    baFO4, baFO4dds, baSF, baSFdds:
-      for i := Low(fFilesFO4) to High(fFilesFO4) do
-        with fFilesFO4[i] do
-          if (Folder = '') or Name.StartsWith(Folder, True) then
-            aDict.TryAdd(Name, wbNothing);
+{ TwbSplitPacker }
+
+procedure TwbSplitPacker.TPackedFile.AddChunk(const aData: TBytes; aUncompressedSize: Integer);
+begin
+  SetLength(Chunks, Succ(Length(Chunks)));
+  with Chunks[Pred(Length(Chunks))] do begin
+    Data := aData;
+    UncompressedSize := aUncompressedSize;
   end;
 end;
 
-procedure TwbBSArchive.ResourceList(const aList: TStrings; aFolder: string = '');
-var
-  Folder : string;
-  i, j   : Integer;
+procedure TwbSplitPacker.Close;
 begin
-  if not Assigned(aList) then
-    Exit;
+  fPending := nil;
+  fLoaded := nil;
+  fWritten := nil;
+  fLoadedSize := 0;
+  fLoadingCount := 0;
+  fProcessCount := 0;
+  fProcessTick := 0;
+  SetLength(fFiles, 0);
+  for var bsa in fArchives do bsa.Free;
+  SetLength(fArchives, 0);
+  inherited;
+end;
 
-  Folder := ExcludeTrailingPathDelimiter(aFolder);
-  case fType of
-    baTES3:
-      for i := Low(fFilesTES3) to High(fFilesTES3) do
-        with fFilesTES3[i] do
-          if (Folder = '') or Name.StartsWith(Folder, True) then
-            aList.Add(Name);
-    baTES4, baFO3, baSSE:
-      for i := Low(fFoldersTES4) to High(fFoldersTES4) do
-        with fFoldersTES4[i] do begin
-          if (Folder = '') or Name.StartsWith(Folder, True) then
-            for j := Low(Files) to High(Files) do
-              aList.Add(Name + '\' + Files[j].Name);
-        end;
-    baFO4, baFO4dds, baSF, baSFdds:
-      for i := Low(fFilesFO4) to High(fFilesFO4) do
-        with fFilesFO4[i] do
-          if (Folder = '') or Name.StartsWith(Folder, True) then
-            aList.Add(Name);
+procedure TwbSplitPacker.CreateArchive(const aFileName: string; aType: TwbBSArchiveType;
+  aFilesList: TStringList = nil; const aFilesCompression: TArray<Boolean> = nil);
+var
+  i: Integer;
+  f, prevf: PPackedFile;
+  bsa: TwbBSArchive;
+begin
+  if aFilesList.Count = 0 then
+    raise Exception.Create('Files list is empty');
+
+  fFileName := aFileName;
+  fType := aType;
+
+  if fCompressionType = ctNone then
+    fCompressionType := DefaultCompression(fType);
+
+  // small gimmick for TES3 archives, repacked vanilla ones will be binary identical
+  if (fType = baTES3) and not fMultiThreaded then
+    aFilesList.CustomSort(AlphabeticalSort);
+
+  SetLength(fFiles, aFilesList.Count);
+  prevf := nil;
+  for i := 0 to Pred(aFilesList.Count) do begin
+    f := @fFiles[i];
+    f.Next := nil;
+    f.FileName := aFilesList[i];
+    f.FileObject := aFilesList.Objects[i];
+    if i < Length(aFilesCompression) then
+      f.Compress := aFilesCompression[i]
+    else
+      f.Compress := False;
+
+    if Assigned(prevf) then
+      prevf.Next := f
+    else
+      fPending := f;
+
+    prevf := f;
   end;
 
+  // if no splitting then create a single archive right now
+  if fSplitSize = 0 then begin
+    bsa := AddArchive;
+    bsa.CreateArchive(NewArchiveName, fType, aFilesList, aFilesCompression);
+    // 1 tick per file when no splitting
+    fProcessCount := Length(fFiles);
+  end else
+    // 2 ticks per file when splitting for separate loading and writing
+    fProcessCount := Length(fFiles) * 2;
 end;
+
+procedure TwbSplitPacker.Save;
+begin
+  for var bsa in fArchives do bsa.Save;
+end;
+
+procedure TwbSplitPacker.GetChunk(const aFileName: string; aFileObject: Pointer;
+  out aBuffer: Pointer; out aSize, aUncompressedSize: Integer;
+  aChunkIndex: Integer = 0);
+var
+  f: PPackedFile;
+begin
+  f := aFileObject;
+  if aChunkIndex > High(f.Chunks) then
+    raise Exception.CreateFmt('Chunk index %d not found for %s', [aChunkIndex, f.FileName]);
+
+  aBuffer := f.Chunks[aChunkIndex].Data;
+  aSize := Length(f.Chunks[aChunkIndex].Data);
+  aUncompressedSize := f.Chunks[aChunkIndex].UncompressedSize;
+end;
+
+function TwbSplitPacker.NewArchiveName: string;
+var
+  s: string;
+  i: Integer;
+begin
+  if Length(fArchives) > 1 then s := IntToStr(Length(fArchives)) else s := '';
+  Result := fFileName;
+  i := TwbAsset.LastCharPos(Result, '.');
+  if i <> 0 then Insert(s, Result, i) else Result := Result + s;
+end;
+
+function TwbSplitPacker.AddArchive: TwbBSArchive;
+begin
+  Result := TwbBSArchive.Create;
+  Result.ArchiveTarget := fTarget;
+  Result.MultiThreaded := fMultiThreaded;
+  Result.ShareData := fShareData;
+  Result.ArchiveFlags := fArchiveFlags;
+  Result.FileFlags := fFileFlags;
+  Result.CompressionType := fCompressionType;
+  Result.MaxChunkCount := fMaxChunkCount;
+  Result.SingleMipChunkX := fSingleMipChunkX;
+  Result.SingleMipChunkY := fSingleMipChunkY;
+  fArchives := fArchives + [Result];
+end;
+
+procedure TwbSplitPacker.MakeArchiveForLoaded;
+var
+  sl: TStringList;
+  fcomp: TArray<Boolean>;
+  f: PPackedFile;
+  bsa: TwbBSArchive;
+begin
+  sl := TStringList.Create;
+  try
+    f := fLoaded;
+    while Assigned(f) do begin
+      sl.AddObject(f.FileName, TObject(f));
+      fcomp := fcomp + [f.Compress];
+      f.ArchiveIndex := Length(fArchives);
+      // last file in loaded chain
+      if f.Next = nil then begin
+        // append written to loaded
+        f.Next := fWritten;
+        // start written with loaded
+        fWritten := fLoaded;
+        // clear loaded
+        fLoaded := nil;
+        Break;
+      end;
+      f := f.Next;
+    end;
+
+    bsa := AddArchive;
+    // BSA will use us to get preloaded files data
+    bsa.Packer := Self;
+    bsa.CreateArchive(NewArchiveName, fType, sl, fcomp);
+  finally
+    sl.Free;
+  end;
+end;
+
+procedure TwbSplitPacker.LoadFile(aPackedFile: PPackedFile);
+var
+  buf: TBytes;
+  Size, Off, MipSize: Integer;
+  DDSHeader: PDDSHeader;
+
+  procedure AddChunk(const aData: TBytes; aCompress: Boolean);
+  var
+    zBuf: TBytes;
+    zSize: Integer;
+  begin
+    if aCompress then begin
+      if fCompressionType = ctNone then
+        raise Exception.Create('Undefined compression type');
+      zBuf := TwbCompression.Compress(fCompressionType, aData, Length(aData), zSize);
+      SetLength(zBuf, zSize);
+    end else
+      zBuf := aData;
+
+    aPackedFile.AddChunk(zBuf, Length(aData));
+    Inc(Size, Length(zBuf));
+  end;
+
+begin
+  Size := 0;
+
+  Inc(fLoadingCount);
+  SyncEndWrite;
+  try
+    buf := GetSourceFileData(aPackedFile.FileName, aPackedFile.FileObject);
+
+    // non DDS archives - single chunk holding entire file data
+    if not IsDDSArchive(fType) then
+      AddChunk(buf, aPackedFile.Compress)
+
+    // DDS archives - multiple chunks for mipmaps
+    else begin
+      if not TwbDDS.IsDDS(buf, Length(buf)) then
+        raise Exception.Create(cExceptionInvalidDDS);
+
+      if (fTarget = btPC) and TwbDDS.IsXBOX(buf) then
+        raise Exception.Create(cExceptionIsXboxDDS);
+
+      if (fTarget = btXBox) and not TwbDDS.IsXBOX(buf) then
+        raise Exception.Create(cExceptionIsNotXboxDDS);
+
+      DDSHeader := @buf[0];
+      // convert unsupported uncompressed 24 bit RGB to 32 bit BGRX
+      if TwbDDS.GetD3DFMT(DDSHeader) = D3DFMT_R8G8B8 then begin
+        buf := TwbDDS.ConvertR8G8B8toB8G8R8X8(buf, Length(buf));
+        DDSHeader := @buf[0];
+      end;
+      if TwbDDS.GetDXGI(DDSHeader) = DXGI_FORMAT_UNKNOWN then
+        raise Exception.Create(cExceptionUnsupportedDDS);
+
+      Off := TwbDDS.GetHeaderSize(DDSHeader);
+      MipSize := TwbDDS.GetMipSize(DDSHeader);
+      // chunk 0 is uncompressed DDS header
+      AddChunk(Copy(buf, 0, Off), False);
+      var c := GetDDSMipChunkNum(DDSHeader.dwWidth, DDSHeader.dwHeight, DDSHeader.dwMipMapCount);
+      if TwbDDS.IsCubeMap(DDSHeader) then c := 1; // cubemaps are not chunked
+      for var i := 1 to c do begin
+        if i = c then MipSize := Length(buf) - Off;
+        AddChunk(Copy(buf, Off, MipSize), aPackedFile.Compress);
+        Inc(Off, MipSize);
+        MipSize := MipSize div 4;
+      end;
+    end;
+
+    if fShareData then begin
+      aPackedFile.ShareSize := Length(buf);
+      aPackedFile.ShareHash := TwbHash.LookupHash(buf, Length(buf));
+    end;
+
+  finally
+    SyncBeginWrite;
+    Dec(fLoadingCount);
+  end;
+
+  if fShareData then begin
+    var f := fLoaded;
+    while Assigned(f) do begin
+      if (f.ShareSize = aPackedFile.ShareSize) and TwbHash.SameLookupHash(f.ShareHash, aPackedFile.ShareHash) then begin
+        Size := 0;
+        Break;
+      end;
+      f := f.Next;
+    end;
+  end;
+
+  // very rough archive size (over)estimation, don't need to be precize
+  // reserve space for all service data per file in BSA
+  Inc(Size, 200);
+  Inc(Size, Length(aPackedFile.FileName));
+  // possible embedded file name
+  if fType in [baFO3, baSSE] then
+    Inc(Size, Length(aPackedFile.FileName));
+  Inc(fLoadedSize, Size);
+
+  // time to create a new BSA if greater than split size
+  if fLoadedSize > fSplitSize then begin
+    // nothing is loaded yet, we are the only file to be packed
+    // can only happen when packing some big file larger than split size
+    if fLoaded = nil then begin
+      fLoaded := aPackedFile;
+      fLoaded.Next := nil;
+      aPackedFile := nil;
+      fLoadedSize := 0;
+    end else
+      fLoadedSize := Size;
+
+    MakeArchiveForLoaded;
+  end;
+
+  if aPackedFile = nil then
+    Exit;
+
+  // insert file into loaded chain
+  aPackedFile.Next := fLoaded;
+  fLoaded := aPackedFile;
+
+  // final BSA if we loaded the last pending file
+  if (fPending = nil) and (fLoadingCount = 0) then
+    MakeArchiveForLoaded;
+end;
+
+procedure TwbSplitPacker.WriteFile(aPackedFile: PPackedFile);
+var
+  buf: TBytes;
+  bsa: TwbBSArchive;
+begin
+  bsa := fArchives[aPackedFile.ArchiveIndex];
+  SyncEndWrite;
+  try
+    // we are not preloading files when no splitting
+    if SplitSize = 0 then
+      buf := GetSourceFileData(aPackedFile.FileName, aPackedFile.FileObject);
+
+    bsa.Pack(aPackedFile.FileName, buf);
+    // free memory
+    SetLength(aPackedFile.Chunks, 0);
+  finally
+    SyncBeginWrite;
+  end;
+end;
+
+function TwbSplitPacker.GetFile(var aChain: PPackedFile; aWait: Boolean = False): PPackedFile;
+begin
+  repeat
+    Result := aChain;
+    if Assigned(Result) then
+      aChain := Result.Next
+    else
+    if aWait then begin
+      SyncEndWrite;
+      try
+        Sleep(100);
+      finally
+        SyncBeginWrite;
+      end;
+    end;
+  until Assigned(Result) or not aWait
+    // stop if nothing is being loaded and chain is empty
+    or ( (fLoadingCount = 0) and (aChain = nil) )
+    // stop on errors
+    or (fErrorCount <> 0);
+end;
+
+procedure TwbSplitPacker.Process;
+var
+  f: PPackedFile;
+begin
+  SyncBeginWrite;
+  try
+    if fErrorCount <> 0 then
+      Exit;
+
+    f := nil; // suppress compiler warning
+    try
+      // when no splitting just load and write the pending file directly
+      if fSplitSize = 0 then begin
+        f := GetFile(fPending);
+        if Assigned(f) then
+          WriteFile(f);
+        Exit;
+      end;
+
+      // 2 out of 3 threads attempt to write first and free preloaded data to reduce memory usage
+      // 1 out of 3 will keep loading to make CPU busy compressing data
+      // if no pending files left then always write
+      if Assigned(fWritten) then
+        if not Assigned(fPending) or (fProcessTick mod 3 <> 0) then begin
+          f := GetFile(fWritten);
+          WriteFile(f);
+          Exit;
+        end;
+
+      // load pending file
+      f := GetFile(fPending);
+      if Assigned(f) then begin
+        LoadFile(f);
+        Exit;
+      end;
+
+      // we are here if there are no more files available to load or write
+      // but other threads might still be busy loading
+      // wait when multithreaded for their files to write them
+      // are there any loading threads actually?
+      // this can only happen if Process() is called more than ProcessCount times
+      if fLoadingCount <> 0 then begin
+        f := GetFile(fWritten, fMultiThreaded);
+        if Assigned(f) then
+          WriteFile(f);
+      end;
+
+    except
+      on E: Exception do begin
+        Inc(fErrorCount);
+        if f <> nil then
+          raise Exception.CreateFmt('Error processing "%s": %s', [f.FileName, E.Message])
+        else
+          raise;
+      end;
+    end;
+
+  finally
+    Inc(fProcessTick);
+    SyncEndWrite;
+  end;
+end;
+
+
+{ TwbMultiSourcePacker }
+
+procedure TwbMultiSourcePacker.Close;
+begin
+  for var bsa in fSourceArchives do bsa.Free;
+  SetLength(fSourceArchives, 0);
+  SetLength(fSourceFiles, 0);
+  fSourceFilesCount := 0;
+  inherited;
+end;
+
+function TwbMultiSourcePacker.GetSourceFileData(const aFileName: string; aFileObject: Pointer): TBytes;
+var
+  SourceName: string;
+begin
+  try
+    with fSourceFiles[Integer(aFileObject)] do
+      if Assigned(SourceFileEntry) then begin
+        SourceName := SourceFileEntry.Archive.FileName + '\' + SourceFileEntry.Name;
+        Result := SourceFileEntry.Unpack;
+      end
+      else begin
+        SourceName := SourceFileName;
+        Result := TFile.ReadAllBytes(SourceFileName);
+      end;
+  except
+    on E: Exception do
+      raise Exception.Create('Error reading source "' + SourceName + '": ' + E.Message);
+  end;
+end;
+
+procedure TwbMultiSourcePacker.CreateArchive(const aFileName: string; aType: TwbBSArchiveType;
+  aFilesList: TStringList = nil; const aFilesCompression: TArray<Boolean> = nil);
+var
+  flist: TStringList;
+  fcomp: TArray<Boolean>;
+begin
+  if (aFilesList <> nil) or (aFilesCompression <> nil) then
+    raise Exception.Create('Multisource packer doesn''t require files list');
+
+  if fSourceFilesCount = 0 then
+    raise Exception.Create('No source files have been added for packing');
+
+  flist := TStringList.Create;
+  try
+    flist.Capacity := Length(fSourceFiles);
+    SetLength(fcomp, Length(fSourceFiles));
+    for var i := 0 to Pred(fSourceFilesCount) do begin
+      flist.AddObject(fSourceFiles[i].AssetName, TObject(i));
+      fcomp[i] := fSourceFiles[i].Compress;
+    end;
+
+    inherited CreateArchive(aFileName, aType, flist, fcomp);
+  finally
+    flist.Free;
+  end;
+end;
+
+procedure TwbMultiSourcePacker.SetFilters(aFilters: TArray<string>);
+begin
+  for var f in aFilters do
+    if Trim(f) <> '' then
+      fFilters := fFilters + [Trim(f)];
+end;
+
+function TwbMultiSourcePacker.Add(const aAssetName, aSourceFileName: string; aSourceFileEntry: TwbBSFileEntry;
+  aCheck: Boolean = True): Boolean;
+var
+  i: Integer;
+  Hash: TwbLookupHash;
+  bFound: Boolean;
+begin
+  Result := False;
+  if Length(fFilters) <> 0 then begin
+    bFound := False;
+    var s := ExtractFileName(aAssetName);
+    for i := Low(fFilters) to High(fFilters) do begin
+      bFound := TPath.MatchesPattern(s, fFilters[i], False);
+      if bFound then
+        Break;
+    end;
+
+    if not bFound then
+      Exit;
+  end;
+
+  bFound := False;
+  Hash := TwbHash.LookupHash(aAssetName, True);
+  i := 0; // suppress compiler warning
+  if aCheck then
+    for i := 0 to Pred(fSourceFilesCount) do
+      if TwbHash.SameLookupHash(fSourceFiles[i].Hash, Hash) then begin
+        bFound := True;
+        Break;
+      end;
+
+  if not bFound then begin
+    if fSourceFilesCount = Length(fSourceFiles) then
+      if Length(fSourceFiles) = 0 then
+        SetLength(fSourceFiles, 4096)
+      else
+        SetLength(fSourceFiles, Length(fSourceFiles) * 2);
+
+    i := fSourceFilesCount;
+    fSourceFiles[i].AssetName := aAssetName;
+    fSourceFiles[i].Hash := Hash;
+    fSourceFiles[i].Compress := fCompress and not TwbAsset.DoNotCompress(aAssetName);
+    Inc(fSourceFilesCount);
+  end;
+  fSourceFiles[i].SourceFileName := aSourceFileName;
+  fSourceFiles[i].SourceFileEntry := aSourceFileEntry;
+  Result := True;
+end;
+
+function TwbMultiSourcePacker.AddSourceFile(const aFileName: string): Integer;
+begin
+  Result := 0;
+  if FileExists(aFileName) then
+    if Add(TwbAsset.GetAssetName(aFileName), aFileName, nil) then
+      Inc(Result);
+end;
+
+function TwbMultiSourcePacker.AddSourceFolder(const aFolder: string): Integer;
+begin
+  Result := 0;
+  var check := fSourceFilesCount <> 0;
+  var path := IncludeTrailingPathDelimiter(aFolder);
+  for var f in TDirectory.GetFiles(path, '*.*', TSearchOption.soAllDirectories) do
+    if not TwbAsset.DoNotPack(f) then
+      if Add(TwbAsset.GetAssetName(f, path), f, nil, check) then
+        Inc(Result);
+end;
+
+function TwbMultiSourcePacker.AddSourceArchive(const aArchive: string): Integer;
+var
+  bsa: TwbBSArchive;
+begin
+  Result := 0;
+  for bsa in fSourceArchives do
+    if SameText(bsa.FileName, aArchive) then
+      Exit;
+
+  bsa := TwbBSArchive.Create;
+  bsa.MultiThreaded := Self.MultiThreaded;
+  try
+    bsa.LoadFromFile(aArchive);
+  except
+    bsa.Free;
+    raise;
+  end;
+
+  var check := fSourceFilesCount <> 0;
+  fSourceArchives := fSourceArchives + [bsa];
+  for var f in bsa do
+    if Add(f.Name, '', f, check) then
+      Inc(Result);
+end;
+
+function TwbMultiSourcePacker.AddSource(const aPath: string): Integer;
+begin
+  Result := 0;
+  if DirectoryExists(aPath) then
+    Result := AddSourceFolder(aPath)
+  else if FileExists(aPath) then
+    if TwbBSArchive.IsArchive(aPath) then
+      Result := AddSourceArchive(aPath)
+    else
+      Result := AddSourceFile(aPath);
+end;
+
 
 end.

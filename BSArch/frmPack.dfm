@@ -12,7 +12,6 @@ object FormPack: TFormPack
   Font.Name = 'Tahoma'
   Font.Style = []
   KeyPreview = True
-  OldCreateOrder = False
   Position = poOwnerFormCenter
   OnClose = FormClose
   OnCreate = FormCreate
@@ -21,45 +20,15 @@ object FormPack: TFormPack
   DesignSize = (
     634
     480)
-  PixelsPerInch = 96
   TextHeight = 13
   object lblTip: TLabel
     Left = 296
-    Top = 253
+    Top = 220
     Width = 316
     Height = 13
     AutoSize = False
     Caption = 'lblTip'
     WordWrap = True
-  end
-  object Label1: TLabel
-    Left = 32
-    Top = 272
-    Width = 580
-    Height = 35
-    Anchors = [akLeft, akTop, akRight]
-    AutoSize = False
-    Caption = 
-      'Use available CPU cores to greatly increase packing speed at the' +
-      ' expense of higher CPU and disk system load. Archive created fro' +
-      'm the same files will have a different checksum each time due to' +
-      ' the random order of packed files.'
-    WordWrap = True
-  end
-  object Label2: TLabel
-    Left = 32
-    Top = 336
-    Width = 580
-    Height = 27
-    Anchors = [akLeft, akTop, akRight]
-    AutoSize = False
-    Caption = 
-      'Content of identical files will be shared inside archive to redu' +
-      'ce occupied space. A typical example is silent voice files when ' +
-      'the same file is copied under different names and folders. Reduc' +
-      'es packing speed.'
-    WordWrap = True
-    ExplicitWidth = 609
   end
   object Label3: TLabel
     Left = 16
@@ -80,6 +49,59 @@ object FormPack: TFormPack
     Width = 32
     Height = 13
     Caption = 'lblPack'
+  end
+  object Label1: TLabel
+    Left = 16
+    Top = 254
+    Width = 50
+    Height = 13
+    Caption = 'Split size'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object Label2: TLabel
+    Left = 29
+    Top = 278
+    Width = 583
+    Height = 64
+    AutoSize = False
+    Caption = 
+      'Auto - 2 GB BSA for Morrowind, Oblivion, Fallout 3, Fallout NV a' +
+      'nd Skyrim. No splitting on BA2 for Fallout 4 and Starfield.'#13#10'Non' +
+      'e - pack all files into single archive'#13#10'Don'#39't use sizes larger t' +
+      'han available free memory. Max BSA size pre Fallout 4 is 2 GB, l' +
+      'arger ones won'#39't work properly or crash the game.'
+    WordWrap = True
+  end
+  object Label4: TLabel
+    Left = 427
+    Top = 349
+    Width = 104
+    Height = 13
+    Caption = 'Compression Type'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
+  end
+  object lblTarget: TLabel
+    Left = 494
+    Top = 254
+    Width = 38
+    Height = 13
+    Caption = 'Target'
+    Font.Charset = DEFAULT_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    ParentFont = False
   end
   object pnlArchiveType: TFlowPanel
     Left = 16
@@ -111,9 +133,9 @@ object FormPack: TFormPack
   end
   object pnlFileFlags: TFlowPanel
     Left = 496
-    Top = 8
+    Top = 27
     Width = 116
-    Height = 185
+    Height = 166
     Alignment = taLeftJustify
     AutoWrap = False
     BevelOuter = bvNone
@@ -140,9 +162,14 @@ object FormPack: TFormPack
   end
   object chkMultiThreaded: TCheckBox
     Left = 16
-    Top = 249
+    Top = 348
     Width = 161
     Height = 17
+    Hint = 
+      'Use available CPU cores to greatly increase packing speed at the' +
+      ' expense of higher CPU and disk system load. Archive created fro' +
+      'm the same files will have a different checksum each time due to' +
+      ' the random order of packed files.'
     Caption = 'Multithreaded Packing'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -150,13 +177,19 @@ object FormPack: TFormPack
     Font.Name = 'Tahoma'
     Font.Style = [fsBold]
     ParentFont = False
+    ParentShowHint = False
+    ShowHint = True
     TabOrder = 4
   end
   object chkSharedData: TCheckBox
-    Left = 16
-    Top = 313
-    Width = 161
+    Left = 200
+    Top = 348
+    Width = 121
     Height = 17
+    Hint = 
+      'Content of identical files will be shared inside archive to redu' +
+      'ce occupied space. A typical example is silent voice files when ' +
+      'the same file is copied under different names and folders.'
     Caption = 'Shared Data'
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -164,6 +197,8 @@ object FormPack: TFormPack
     Font.Name = 'Tahoma'
     Font.Style = [fsBold]
     ParentFont = False
+    ParentShowHint = False
+    ShowHint = True
     TabOrder = 5
   end
   object edFileName: TEdit
@@ -202,5 +237,29 @@ object FormPack: TFormPack
     Caption = 'Cancel'
     ModalResult = 2
     TabOrder = 9
+  end
+  object cmbSplit: TComboBox
+    Left = 80
+    Top = 251
+    Width = 81
+    Height = 21
+    Style = csDropDownList
+    TabOrder = 10
+  end
+  object cmbCompression: TComboBox
+    Left = 547
+    Top = 346
+    Width = 65
+    Height = 21
+    Style = csDropDownList
+    TabOrder = 11
+  end
+  object cmbTarget: TComboBox
+    Left = 550
+    Top = 251
+    Width = 62
+    Height = 21
+    Style = csDropDownList
+    TabOrder = 12
   end
 end

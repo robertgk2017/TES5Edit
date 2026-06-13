@@ -12,14 +12,24 @@ unit frmMain;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  System.IniFiles, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls,
-  Vcl.Imaging.pngimage, Vcl.ComCtrls, Diagnostics, SniffProcessor, Vcl.Mask,
-  Vcl.Menus, Vcl.Themes;
+  System.Classes,
+  System.IniFiles,
+
+  Vcl.ComCtrls,
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Imaging.pngimage,
+  Vcl.Mask,
+  Vcl.Menus,
+  Vcl.StdCtrls,
+
+  Winapi.Messages,
+
+  SniffProcessor;
 
 const
-  sSniffVersion = '1.8';
+  sSniffVersion = '1.9.2';
   sSniffCaption = 'S''Lanter''s NIF Helper';
   sSniffTitle = sSniffCaption + ' ' + sSniffVersion;
   WM_PROCESSING_START = WM_USER + 10;
@@ -54,6 +64,12 @@ type
     Label2: TLabel;
     edOutput: TComboBox;
     Label3: TLabel;
+    edProcFilter: TLabeledEdit;
+    menuInput: TPopupMenu;
+    mniInputFolder: TMenuItem;
+    mniInputArchive: TMenuItem;
+    Label4: TLabel;
+    cmbProcGame: TComboBox;
     procedure FormCreate(Sender: TObject);
     procedure lvProcsSelectItem(Sender: TObject; Item: TListItem;
       Selected: Boolean);
@@ -66,6 +82,9 @@ type
     procedure lblProcessedFilesTitleClick(Sender: TObject);
     procedure mniStyleClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
+    procedure edProcFilterChange(Sender: TObject);
+    procedure mniInputFolderClick(Sender: TObject);
+    procedure mniInputArchiveClick(Sender: TObject);
   private
     { Private declarations }
   public
@@ -74,12 +93,13 @@ type
     Settings: TMemIniFile;
     Manager: TProcManager;
     ProcessedFiles: TArray<String>;
-    Procs: array of TProcBase;
+    Procs: TProcBases;
     Proc: TProcBase;
     ProcFrame: TFrame;
     bAutoMode: Boolean;
     procedure SniffMessage(const aText: string);
     procedure AddProc(const aGroup: string; aProc: TProcBase);
+    procedure ShowProcs(const aProcs: TProcBases);
 
     procedure CreateWnd; override;
     procedure DestroyWnd; override;
@@ -95,65 +115,75 @@ implementation
 {$R *.dfm}
 
 uses
+  System.Diagnostics,
   System.IOUtils,
   System.StrUtils,
-  ShellApi,
-  wbTaskProgress,
-  frMessages,
+  System.SysUtils,
+  System.TypInfo,
+  System.Types,
+
+  Vcl.Dialogs,
+  Vcl.Themes,
+
+  WinApi.ShellAPI,
+  WinApi.Windows,
+
+  wbBSArchive,
   wbCommandLine,
-  ProcTangents,
-  ProcUpdateBounds,
-  ProcReplaceAssets,
-  ProcRenameStrings,
-  ProcCheckForErrors,
-  ProcAnalyzeMesh,
-  ProcJsonConverter,
-  ProcOptimize,
-  ProcAdjustTransform,
-  ProcApplyTransform,
-  ProcJamAnim,
-  ProcWeiExplosion,
-  ProcAttachParent,
-  ProcCopyControlledBlocks,
-  ProcCopyPriorities,
-  ProcRenameControlledBlocks,
-  ProcRemoveControlledBlocks,
-  ProcPriorityControlledBlocks,
-  ProcAnimQuadraticToLinear,
-  ProcAnimSkeletonDeath,
-  ProcShaderFlagsUpdate,
-  ProcInertiaUpdate,
-  ProcRagdollConstraintUpdate,
-  ProcMoppUpdate,
-  ProcUnweldedVertices,
-  ProcFindSeveralStrips,
-  ProcFindDrawCalls,
-  ProcFindUVs,
-  ProcHavokInfo,
-  ProcHavokSettingsUpdate,
-  ProcHavokSearchMaterial,
-  ProcCopyGeometryBlocks,
-  ProcVertexPaint,
-  ProcGroupShapes,
-  ProcChangePartitionSlot,
-  ProcFixExportedKFAnim,
-  ProcOptimizeKF,
-  ProcRemoveNodes,
-  ProcRemoveUnusedNodes,
-  ProcConvertRootNode,
-  ProcUnskinMesh,
-  ProcMergeShapes,
-  ProcWallsReflectionFlag,
-  ProcSoftParticles,
-  ProcUniversalTweaker,
-  ProcUniversalFixer,
-  ProcAddHeadtrackingAnim,
-  ProcAddFacialAnim,
+  wbTaskProgress,
+
+  frMessages,
+
   ProcAddBoundingBox,
+  ProcAddFacialAnim,
+  ProcAddHeadtrackingAnim,
   ProcAddLODNode,
   ProcAddRootCollisionNode,
-  ProcSetMissingNames;
-
+  ProcAdjustTransform,
+  ProcAnalyzeMesh,
+  ProcAnimQuadraticToLinear,
+  ProcAnimSkeletonDeath,
+  ProcApplyTransform,
+  ProcAttachParent,
+  ProcCheckForErrors,
+  ProcConvertRootNode,
+  ProcCopyControlledBlocks,
+  ProcCopyGeometryBlocks,
+  ProcCopyPriorities,
+  ProcFindDrawCalls,
+  ProcFindTextures,
+  ProcFindUVs,
+  ProcFixExportedKFAnim,
+  ProcGroupShapes,
+  ProcHavokInfo,
+  ProcHavokSearchMaterial,
+  ProcHavokSettingsUpdate,
+  ProcInertiaUpdate,
+  ProcJamAnim,
+  ProcJsonConverter,
+  ProcMergeProperties,
+  ProcMergeShapes,
+  ProcMoppUpdate,
+  ProcOptimize,
+  ProcOptimizeKF,
+  ProcRagdollConstraintUpdate,
+  ProcRemoveControlledBlocks,
+  ProcRemoveNodes,
+  ProcRemoveUnusedNodes,
+  ProcReplaceAssets,
+  ProcSetMissingNames,
+  ProcShaderFlagsUpdate,
+  ProcSoftParticles,
+  ProcTangents,
+  ProcTransformInfo,
+  ProcUniversalFixer,
+  ProcUniversalTweaker,
+  ProcUnskinMesh,
+  ProcUnweldedVertices,
+  ProcUpdateBounds,
+  ProcVertexPaint,
+  ProcWallsReflectionFlag,
+  ProcWeiExplosion;
 
 procedure TFormMain.CreateWnd;
 begin
@@ -173,12 +203,10 @@ var
   fileName: array[0..MAX_PATH] of char;
   f, ff: string;
   sl: TStringList;
-  bFirstFile: Boolean;
 begin
   sl := TStringList.Create;
-  sl.Duplicates := dupIgnore;
-  bFirstFile := True;
   try
+    var bFirstFile := True;
     cnt := DragQueryFile(msg.Drop, $FFFFFFFF, fileName, MAX_PATH);
     for i := 0 to Pred(cnt) do begin
       DragQueryFile(msg.Drop, i, fileName, MAX_PATH);
@@ -233,17 +261,46 @@ end;
 
 procedure TFormMain.AddProc(const aGroup: string; aProc: TProcBase);
 begin
-  SetLength(Procs, Succ(Length(Procs)));
-  Procs[Pred(Length(Procs))] := aProc;
-  with lvProcs.Items.Add do begin
-    Caption := aProc.Title;
-    for var i := 0 to Pred(lvProcs.Groups.Count) do
-      if lvProcs.Groups[i].Header = aGroup then
-        GroupID := lvProcs.Groups[i].GroupID;
+  Procs := Procs + [aProc];
+  for var i := 0 to Pred(lvProcs.Groups.Count) do
+    if lvProcs.Groups[i].Header = aGroup then
+      aProc.GroupID := lvProcs.Groups[i].GroupID;
+end;
+
+procedure TFormMain.ShowProcs(const aProcs: TProcBases);
+begin
+  lvProcs.Items.BeginUpdate;
+  try
+    lvProcs.Clear;
+    for var p in aProcs do
+      with lvProcs.Items.Add do begin
+        Caption := p.Title;
+        GroupID := p.GroupID;
+        Data := p;
+      end;
+  finally
+    lvProcs.Items.EndUpdate;
   end;
 end;
 
 procedure TFormMain.btnInputBrowseClick(Sender: TObject);
+begin
+  with ClientToScreen(Point(btnInputBrowse.Left, btnInputBrowse.Top + btnInputBrowse.Height)) do
+    menuInput.Popup(X, Y);
+end;
+
+procedure TFormMain.mniInputArchiveClick(Sender: TObject);
+begin
+  var path: string := edInput.Text;
+
+  if path = '' then
+    path := ExtractFilePath(Application.ExeName);
+
+  if SelectArchive(path) then
+    edInput.Text := Path;
+end;
+
+procedure TFormMain.mniInputFolderClick(Sender: TObject);
 begin
   var path: string := edInput.Text;
 
@@ -280,6 +337,17 @@ begin
 
   Settings := TMemIniFile.Create(s);
 
+  if Settings.ValueExists('Main', 'FormLeft') then begin
+    Position := poDesigned;
+    Left := Settings.ReadInteger('Main', 'FormLeft', Left);
+    Top := Settings.ReadInteger('Main', 'FormTop', Top);
+    Width := Settings.ReadInteger('Main', 'FormWidth', Width);
+    Height := Settings.ReadInteger('Main', 'FormHeight', Height);
+    WindowState := TWindowState(Settings.ReadInteger('Main', 'FormState', Integer(WindowState)));
+    if not Assigned(Screen.MonitorFromWindow(Handle, mdNull)) then
+      MakeFullyVisible;
+  end;
+
   var theme := TStyleManager.ActiveStyle.Name;
   theme := Settings.ReadString('Main', 'Theme', theme);
   TStyleManager.TrySetStyle(theme);
@@ -291,6 +359,11 @@ begin
     m.Checked := TStyleManager.ActiveStyle.Name = s;
     mniStyle.Add(m);
   end;
+
+  cmbProcGame.Items.AddObject('', Pointer(-1));
+  for var g := Low(TGameType) to High(TGameType) do
+    cmbProcGame.Items.AddObject( GetEnumName(TypeInfo(TGameType), Integer(g)).Replace('gt', ''), Pointer(g) );
+  cmbProcGame.ItemIndex := 0;
 
   Manager := TProcManager.Create;
   Manager.SetIniFile(Settings);
@@ -312,17 +385,16 @@ begin
   AddProc('NIF', TProcUniversalFixer.Create(Manager));
   AddProc('NIF', TProcApplyTransform.Create(Manager));
   AddProc('NIF', TProcAdjustTransform.Create(Manager));
-  AddProc('NIF', TProcRenameStrings.Create(Manager));
   AddProc('NIF', TProcAttachParent.Create(Manager));
   AddProc('NIF', TProcCopyGeometryBlocks.Create(Manager));
   AddProc('NIF', TProcVertexPaint.Create(Manager));
   AddProc('NIF', TProcGroupShapes.Create(Manager));
   AddProc('NIF', TProcMergeShapes.Create(Manager));
+  AddProc('NIF', TProcMergeProperties.Create(Manager));
   AddProc('NIF', TProcRemoveNodes.Create(Manager));
   AddProc('NIF', TProcRemoveUnusedNodes.Create(Manager));
   AddProc('NIF', TProcConvertRootNode.Create(Manager));
   AddProc('NIF', TProcUnskinMesh.Create(Manager));
-  AddProc('NIF', TProcChangePartitionSlot.Create(Manager));
   AddProc('NIF', TProcAddLODNode.Create(Manager));
   AddProc('NIF', TProcAddRootCollisionNode.Create(Manager));
   AddProc('NIF', TProcAddBoundingBox.Create(Manager));
@@ -330,17 +402,16 @@ begin
 
   AddProc('Report', TProcCheckForErrors.Create(Manager));
   AddProc('Report', TProcAnalyzeMesh.Create(Manager));
+  AddProc('Report', TProcTransformInfo.Create(Manager));
   AddProc('Report', TProcHavokInfo.Create(Manager));
   AddProc('Report', TProcUnweldedVertices.Create(Manager));
-  AddProc('Report', TProcFindSeveralStrips.Create(Manager));
   AddProc('Report', TProcFindDrawCalls.Create(Manager));
   AddProc('Report', TProcFindUVs.Create(Manager));
+  AddProc('Report', TProcFindTextures.Create(Manager));
 
   AddProc('Animation', TProcCopyControlledBlocks.Create(Manager));
   AddProc('Animation', TProcCopyPriorities.Create(Manager));
-  AddProc('Animation', TProcRenameControlledBlocks.Create(Manager));
   AddProc('Animation', TProcRemoveControlledBlocks.Create(Manager));
-  AddProc('Animation', TProcPriorityControlledBlocks.Create(Manager));
   AddProc('Animation', TProcAnimQuadraticToLinear.Create(Manager));
   AddProc('Animation', TProcFixExportedKFAnim.Create(Manager));
   AddProc('Animation', TProcOptimizeKF.Create(Manager));
@@ -360,21 +431,23 @@ begin
   AddProc('Shader', TProcWallsReflectionFlag.Create(Manager));
   AddProc('Shader', TProcSoftParticles.Create(Manager));
 
+  ShowProcs(Procs);
+
   //ShowScrollBar(lvProcs.Handle, SB_HORZ, False);
 
-  // operation is provided in the command line
+  // operation is provided in the command line, go into automation mode if valid
   if wbFindCmdLineParam('OP', s) and (s <> '') then
-    for var i: Integer := Low(Procs) to High(Procs) do
+    for var i := Low(Procs) to High(Procs) do
       if SameText(s, Procs[i].Title) then begin
         lvProcs.Selected := lvProcs.Items[i];
         bAutoMode := True;
         Break;
       end;
 
-  // select the last used operation if not in automation mode
+  // apply proc filters and select the last used operation if not in automation mode
   if not bAutoMode then begin
     LastUsedProc := Settings.ReadString('Main', 'Operation', Procs[0].ClassName);
-    for var i: Integer := Low(Procs) to High(Procs) do
+    for var i := Low(Procs) to High(Procs) do
       if Procs[i].Title = LastUsedProc then begin
         lvProcs.Selected := lvProcs.Items[i];
         Break;
@@ -382,6 +455,11 @@ begin
 
     if lvProcs.ItemIndex = -1 then
       lvProcs.ItemIndex := 0;
+
+    edProcFilter.Text := Settings.ReadString('Main', 'ProcFilter', edProcFilter.Text);
+    try cmbProcGame.ItemIndex := cmbProcGame.Items.IndexOfObject(Pointer(Settings.ReadInteger('Main', 'GameType', -1))); except end;
+    if (cmbProcGame.ItemIndex <> 0) or (edProcFilter.Text <> '') then
+      cmbProcGame.OnClick(nil);
   end;
 
   edInput.Text := Settings.ReadString('Main', 'InputDirectory', ExtractFilePath(Application.ExeName));
@@ -435,13 +513,16 @@ end;
 
 procedure TFormMain.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
-  if Assigned(Proc) then
-    Proc.OnHide;
-
-  if Assigned(ProcFrame) then
-    FreeAndNil(ProcFrame);
-
   Settings.WriteString('Main', 'Theme', TStyleManager.ActiveStyle.Name);
+  if WindowState in [wsNormal, wsMaximized] then begin
+    Settings.WriteInteger('Main', 'FormState', Integer(WindowState));
+    if WindowState = wsNormal then begin
+      Settings.WriteInteger('Main', 'FormLeft', Left);
+      Settings.WriteInteger('Main', 'FormTop', Top);
+      Settings.WriteInteger('Main', 'FormWidth', Width);
+      Settings.WriteInteger('Main', 'FormHeight', Height);
+    end;
+  end;
 
   Settings.WriteString('Main', 'InputDirectory', edInput.Text);
   Settings.EraseSection('Input History');
@@ -458,9 +539,17 @@ begin
   Settings.WriteBool('Main', 'InputSubDir', chkInputSubdir.Checked);
   Settings.WriteBool('Main', 'SkipOnErrors', chkSkipOnErrors.Checked);
   Settings.WriteBool('Main', 'OutputAll', chkOutputAll.Checked);
-  Settings.WriteString('Main', 'Operation', Procs[lvProcs.ItemIndex].Title);
+  Settings.WriteInteger('Main', 'GameType', Integer(cmbProcGame.Items.Objects[cmbProcGame.ItemIndex]));
+  Settings.WriteString('Main', 'ProcFilter', edProcFilter.Text);
+  if Assigned(Proc) then begin
+    Settings.WriteString('Main', 'Operation', Proc.Title);
+    Proc.OnHide;
+  end;
 
-  for var p: TProcBase in Procs do
+  if Assigned(ProcFrame) then
+    FreeAndNil(ProcFrame);
+
+  for var p in Procs do
     p.Free;
 
   Manager.Free;
@@ -491,13 +580,42 @@ begin
   end;
 end;
 
+procedure TFormMain.edProcFilterChange(Sender: TObject);
+begin
+  var g := Integer(cmbProcGame.Items.Objects[cmbProcGame.ItemIndex]);
+  var f := LowerCase(Trim(edProcFilter.Text));
+  var filtered: TProcBases;
+  var selected := '';
+  if Assigned(Proc) then
+    selected := Proc.Title;
+  for var p in Procs do
+    if ( (g = -1) or (TGameType(g) in p.SupportedGames) ) and ( (f = '') or (Pos(f, LowerCase(p.Title)) <> 0) ) then
+      filtered := filtered + [p];
+
+  ShowProcs(filtered);
+
+  for var item in lvProcs.Items do
+    if item.Caption = selected then begin
+      lvProcs.Selected := item;
+      Break;
+    end;
+
+  if not Assigned(lvProcs.Selected) and (Length(filtered) <> 0) then
+    lvProcs.ItemIndex := 0;
+
+  if Assigned(lvProcs.Selected) then
+    lvProcs.Selected.MakeVisible(False);
+
+  lvProcsSelectItem(lvProcs, lvProcs.Selected, True);
+end;
+
 procedure TFormMain.lvProcsSelectItem(Sender: TObject; Item: TListItem;
   Selected: Boolean);
 begin
-  if not Selected then
+  if not Selected or not Assigned(Item) then
     Exit;
 
-  if Proc = Procs[Item.Index] then
+  if Proc = Item.Data then
     Exit;
 
   if Assigned(Proc) then
@@ -506,7 +624,7 @@ begin
   if Assigned(ProcFrame) then
     FreeAndNil(ProcFrame);
 
-  Proc := Procs[Item.Index];
+  Proc := Item.Data;
 
   Caption := Proc.Title + ' - ' + sSniffTitle;
   Application.Title := Caption;
@@ -518,7 +636,7 @@ begin
   lblProcessedFiles.Caption := Proc.ExtensionNames;
 
   pnlOutput.ShowCaption := Proc.NoOutput;
-  for var i: Integer := 0 to Pred(pnlOutput.ControlCount) do
+  for var i := 0 to Pred(pnlOutput.ControlCount) do
     pnlOutput.Controls[i].Visible := not Proc.NoOutput;
 
   edThreads.Enabled := Proc.Threads = 0;
@@ -552,7 +670,8 @@ begin
     pnlOperation.Visible := True;
     pnlInput.Visible := True;
     pnlOutput.Visible := True;
-    lvProcs.Selected.MakeVisible(False);
+    if Assigned(lvProcs.Selected) then
+      lvProcs.Selected.MakeVisible(False);
     lvProcs.SetFocus;
     btnProcess.Caption := 'Process';
   end
@@ -594,9 +713,9 @@ procedure TFormMain.btnProcessClick(Sender: TObject);
   end;
 
 var
-  objs: TArray<TProcessObject>;
-  obj: TProcessObject;
-  i, Threads: integer;
+  objs: TArray<TProcFileObject>;
+  obj: TProcFileObject;
+  i, UseThreads: integer;
   s: string;
 begin
   if tcMain.TabIndex = 1 then begin
@@ -613,11 +732,23 @@ begin
     Exit;
   end;
 
-  // ProcessedFiles is filled when drag&dropping
+  // drag&dropped a single archive
+  if (Length(ProcessedFiles) = 1) and TwbBSArchive.IsArchive(ProcessedFiles[0]) then begin
+    edInput.Text := ProcessedFiles[0];
+    Manager.InputDirectory := ProcessedFiles[0];
+    Manager.OutputDirectory := IncludeTrailingPathDelimiter(edOutput.Text);
+  end
+
+  // drag&dropped multiple files
+  else if Length(ProcessedFiles) <> 0 then begin
+    // dirs were set in drop event
+  end;
+
+  // no drag&drop
   if Length(ProcessedFiles) = 0 then begin
 
-    if (Trim(edInput.Text) = '') or not TDirectory.Exists(edInput.Text) then begin
-      SniffMessage('Input directory not found');
+    if (Trim(edInput.Text) = '') or ( not TDirectory.Exists(edInput.Text) and not (TwbBSArchive.IsArchive(edInput.Text) and FileExists(edInput.Text)) ) then begin
+      SniffMessage('Input directory/archive not found or invalid');
       Exit;
     end;
 
@@ -627,7 +758,11 @@ begin
         Exit;
       end;
 
-    Manager.InputDirectory := IncludeTrailingPathDelimiter(edInput.Text);
+    if not TwbBSArchive.IsArchive(edInput.Text) then
+      Manager.InputDirectory := IncludeTrailingPathDelimiter(edInput.Text)
+    else
+      Manager.InputDirectory := edInput.Text;
+
     Manager.OutputDirectory := IncludeTrailingPathDelimiter(edOutput.Text);
 
     if not bAutoMode then begin
@@ -678,69 +813,78 @@ begin
   Application.ProcessMessages;
 
   try
+    // path contains filter
+    var path := Trim(edPathContains.Text);
 
-    // collecting files for processing if not drag&dropped
-    if Length(ProcessedFiles) = 0 then begin
-      var so: TSearchOption;
+    // collecting files if input is archive
+    if TwbBSArchive.IsArchive(Manager.InputDirectory) then begin
+      Manager.InputArchive := TwbBSArchive.Create;
+      Manager.InputArchive.MultiThreaded := True;
+      Manager.InputArchive.LoadFromFile(Manager.InputDirectory);
+      for var f in Manager.InputArchive do begin
+        if not Proc.IsAcceptedFile(f.Name) then Continue;
+        if (path <> '') and not ContainsText(f.Name, path) then Continue;
+        obj := TProcFileObject.Create;
+        obj.Manager := Manager;
+        obj.FileName := f.Name;
+        obj.FileEntry := f;
+        objs := objs + [obj];
+      end;
+    end
 
-      if chkInputSubdir.Checked then
-        so := TSearchOption.soAllDirectories
-      else
-        so := TSearchOption.soTopDirectoryOnly;
+    else begin
+      // collecting files if not drag&dropped
+      if Length(ProcessedFiles) = 0 then begin
+        var so: TSearchOption;
+        if chkInputSubdir.Checked then so := TSearchOption.soAllDirectories else so := TSearchOption.soTopDirectoryOnly;
+        ProcessedFiles := TDirectory.GetFiles(Manager.InputDirectory, '*.*', so);
+      end;
 
-      ProcessedFiles := TDirectory.GetFiles(Manager.InputDirectory, '*.*', so);
-
-      // path contains filter
-      var path := Trim(edPathContains.Text);
-      if path <> '' then
-        for i := High(ProcessedFiles) downto Low(ProcessedFiles) do
-          if not ContainsText(Copy(ProcessedFiles[i], Length(Manager.InputDirectory) + 1, Length(ProcessedFiles[i])), path) then
-            Delete(ProcessedFiles, i, 1);
+      for s in ProcessedFiles do begin
+        var f := Copy(s, Length(Manager.InputDirectory) + 1, Length(s));
+        if not Proc.IsAcceptedFile(f) then Continue;
+        if (path <> '') and not ContainsText(f, path) then Continue;
+        obj := TProcFileObject.Create;
+        obj.Manager := Manager;
+        obj.FileName := f;
+        objs := objs + [obj];
+      end;
     end;
 
-    // creating array of processed objects
-    for s in ProcessedFiles do begin
-      if not Proc.IsAcceptedFile(s) then
-        Continue;
-
-      obj := TProcessObject.Create;
-      obj.FileName := Copy(s, Length(Manager.InputDirectory) + 1, Length(s));
-
-      SetLength(objs, Succ(Length(objs)));
-      objs[Pred(Length(objs))] := obj;
+    // custom number of threads if operation supports multithreading
+    UseThreads := Proc.Threads;
+    if UseThreads = 0 then begin
+      UseThreads := StrToIntDef(edThreads.Text, 0);
+      if UseThreads > System.CPUCount then
+        UseThreads := CPUCount;
     end;
 
-    var ProcProcess: TProcessProc :=
+    var SniffProcess: TProcessProc :=
       procedure(i: Integer) begin
         Manager.Process(objs[i]);
       end;
-
-    // custom number of threads if operation supports multithreading
-    Threads := Proc.Threads;
-    if Threads = 0 then begin
-      Threads := StrToIntDef(edThreads.Text, 0);
-      if Threads > System.CPUCount then
-        Threads := CPUCount;
-    end;
 
     var sw := TStopwatch.StartNew;
 
     // single main thread when debugging
     if DebugHook <> 0 then begin
       for i := Low(objs) to High(objs) do
-        ProcProcess(i);
+        SniffProcess(i);
     end else
 
     // multi threaded
-    case wbTaskProgressExecute(
-      Self, 'Processing...',
-      Low(objs), High(objs), ProcProcess, i, s, Threads
-    ) of
-      mrAbort: begin
-        s := 'Error: "' + objs[i].FileName + ': ' + s;
-        Manager.AddMessage(#13#10 + s);
+    with TwbTaskProgress.Create(Self) do try
+      Caption := Proc.Title;
+      LowIndex := Low(objs);
+      HighIndex := High(objs);
+      Threads := UseThreads;
+      ProcessProc := SniffProcess;
+      if Execute = mrAbort then begin
+        Manager.AddMessage(#13#10'Error: "' + objs[ErrorIndex].FileName + ': ' + ErrorMessage);
         Exit;
       end;
+    finally
+      Free;
     end;
 
     try
@@ -771,6 +915,9 @@ begin
     SetLength(ProcessedFiles, 0);
     for i := Low(objs) to High(objs) do
       objs[i].Free;
+
+    if Assigned(Manager.InputArchive) then
+      FreeAndNil(Manager.InputArchive);
 
     btnProcess.Enabled := True;
     btnExit.Enabled := True;

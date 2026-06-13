@@ -13,9 +13,17 @@ unit xeWaitForm;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs,
-  wbInterface, StdCtrls, Buttons, ExtCtrls;
+  System.Classes,
+
+  Vcl.Buttons,
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+
+  Winapi.Windows,
+
+  wbInterface;
 
 type
   TwbProgress = class;

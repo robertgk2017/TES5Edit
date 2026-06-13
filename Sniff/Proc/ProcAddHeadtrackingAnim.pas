@@ -11,9 +11,17 @@ unit ProcAddHeadtrackingAnim;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Mask;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Mask,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
+
 
 type
   TFrameAddHeadtrackingAnim = class(TFrame)
@@ -44,7 +52,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 
@@ -98,7 +106,7 @@ begin
   fKeyTime3 := StrToInt(Frame.edKeyTime3.Text);
 end;
 
-function TProcAddHeadtrackingAnim.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcAddHeadtrackingAnim.ProcessFile(aFile: TProcFileObject): TBytes;
 
   function RoundTime(aLen: double; aPercent: integer; aRoundTo: double = 1/30): double;
   begin
@@ -117,7 +125,7 @@ var
 begin
   nif := TwbNifFile.Create;
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     if nif.BlocksCount = 0 then
       Exit;

@@ -11,7 +11,10 @@ unit wbHardcoded;
 interface
 
 uses
-  System.SysUtils, System.Classes, FileContainer;
+  System.Classes,
+  System.SysUtils,
+
+  FileContainer;
 
 type
   TwbHardcodedContainer = class(TDataModule)

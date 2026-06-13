@@ -11,9 +11,16 @@ unit ProcJsonConverter;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Mask;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Mask,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameJsonConverter = class(TFrame)
@@ -46,7 +53,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 implementation
@@ -122,7 +129,7 @@ begin
     raise Exception.Create('Default extension can not be empty');
 end;
 
-function TProcJsonConverter.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcJsonConverter.ProcessFile(aFile: TProcFileObject): TBytes;
 var
   nif: TwbNifFile;
 begin
@@ -130,10 +137,10 @@ begin
   try
 
     if fToJson then begin
-      if SameText(ExtractFileExt(aFileName), '.json') then
+      if SameText(ExtractFileExt(aFile.FileName), '.json') then
         Exit;
 
-      nif.LoadFromFile(aInputDirectory + aFileName);
+      nif.LoadFromData(aFile.GetData);
 
       var ss: TStringStream;
       ss := TStringStream.Create;
@@ -146,19 +153,23 @@ begin
         ss.Free;
       end;
 
-      aFileName := aFileName + '.json';
+      aFile.FileName := aFile.FileName + '.json';
     end
 
     else begin
-      if not SameText(ExtractFileExt(aFileName), '.json') then
+      if not SameText(ExtractFileExt(aFile.FileName), '.json') then
         Exit;
 
-      nif.LoadFromJSONFile(aInputDirectory + aFileName);
+      // not supported for archives
+      if Assigned(aFile.FileEntry) then
+        Exit;
+
+      nif.LoadFromJSONFile(fManager.InputDirectory + aFile.FileName);
       nif.SaveToData(Result);
 
-      aFileName := ChangeFileExt(aFileName, '');
-      if ExtractFileExt(aFileName) = '' then
-        aFileName := aFileName + '.' + fExtension;
+      aFile.FileName := ChangeFileExt(aFile.FileName, '');
+      if ExtractFileExt(aFile.FileName) = '' then
+        aFile.FileName := aFile.FileName + '.' + fExtension;
     end;
 
   finally

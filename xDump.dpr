@@ -22,14 +22,15 @@ uses
   {$IFDEF EXCEPTION_LOGGING_ENABLED}
   nxExceptionHook,
   {$ENDIF}
-  TypInfo,
-  Classes,
-  SysUtils,
-  Windows,
-  Registry,
-  IniFiles,
-  ZlibEx,
-  lz4,
+
+  System.Classes,
+  System.IniFiles,
+  System.SysUtils,
+  System.TypInfo,
+  System.Win.Registry,
+
+  WinApi.Windows,
+
   wbBSA in 'Core\wbBSA.pas',
   wbCommandLine in 'Core\wbCommandLine.pas',
   wbSort in 'Core\wbSort.pas',
@@ -819,7 +820,7 @@ begin
   s := ChangeFileExt(s, '*' + wbArchiveExtension);
   if FindFirst(s, faAnyfile, F)=0 then begin
     Result := ExtractFilePath(ParamStr(ParamCount));
-    SysUtils.FindClose(F);
+    System.SysUtils.FindClose(F);
   end;
 end;
 

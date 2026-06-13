@@ -11,9 +11,18 @@ unit ProcInertiaUpdate;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls, Vcl.Grids, Vcl.ValEdit, Vcl.Mask, Vcl.ExtCtrls;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Grids,
+  Vcl.Mask,
+  Vcl.StdCtrls,
+  Vcl.ValEdit,
+
+  SniffProcessor;
 
 type
   TFrameInertiaUpdate = class(TFrame)
@@ -47,7 +56,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 
@@ -56,10 +65,11 @@ implementation
 {$R *.dfm}
 
 uses
+  System.Math,
+
   wbDataFormat,
   wbDataFormatNif,
-  wbNifMath,
-  Math;
+  wbNifMath;
 
 constructor TProcInertiaUpdate.Create(aManager: TProcManager);
 begin
@@ -134,7 +144,7 @@ begin
 
 end;
 
-function TProcInertiaUpdate.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcInertiaUpdate.ProcessFile(aFile: TProcFileObject): TBytes;
 var
   nif: TwbNifFile;
   bodypart: Integer;
@@ -201,7 +211,7 @@ begin
   bChanged := False;
   nif := TwbNifFile.Create;
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     for var rigid in nif.BlocksByType('bhkRigidBody', True) do begin
       var shape := TwbNifBlock(rigid.Elements['Shape'].LinksTo);
@@ -330,28 +340,35 @@ begin
               v.z := bigverts[i].NativeValues['Z'];
               verts := verts + [v];
             end;
+
             var transforms := shape.Elements['Chunk Transforms'];
             var chunks := shape.Elements['Chunks'];
             for var i := 0 to Pred(chunks.Count) do begin
               var el := chunks[i].Elements['Vertices'];
               if el.Count < 3 then Continue;
-              var chunkt := transforms[chunks.NativeValues['Transform Index']];
+
               var t: TTransform;
-              t.Translation.x := chunkt.NativeValues['Translation\X'] + chunks[i].NativeValues['Translation\X'];
-              t.Translation.y := chunkt.NativeValues['Translation\Y'] + chunks[i].NativeValues['Translation\Y'];
-              t.Translation.z := chunkt.NativeValues['Translation\Z'] + chunks[i].NativeValues['Translation\Z'];
-              t.Rotation.x := chunkt.NativeValues['Rotation\X'];
-              t.Rotation.y := chunkt.NativeValues['Rotation\Y'];
-              t.Rotation.z := chunkt.NativeValues['Rotation\Z'];
-              t.Rotation.w := chunkt.NativeValues['Rotation\W'];
-              t.Scale := 1.0;
+              var tindex: ShortInt := chunks[i].NativeValues['Transform Index'];
+              if tindex <> -1 then begin
+                var chunkt := transforms[tindex];
+                t.Translation.x := chunkt.NativeValues['Translation\X'] + chunks[i].NativeValues['Offset\X'];
+                t.Translation.y := chunkt.NativeValues['Translation\Y'] + chunks[i].NativeValues['Offset\Y'];
+                t.Translation.z := chunkt.NativeValues['Translation\Z'] + chunks[i].NativeValues['Offset\Z'];
+                t.Rotation.x := chunkt.NativeValues['Rotation\X'];
+                t.Rotation.y := chunkt.NativeValues['Rotation\Y'];
+                t.Rotation.z := chunkt.NativeValues['Rotation\Z'];
+                t.Rotation.w := chunkt.NativeValues['Rotation\W'];
+                t.Scale := 1.0;
+              end;
+
               for var j := 0 to Pred(el.Count div 3) do begin
                 var v: TVector3;
-                v.x := el[3*j].NativeValue;
+                v.x := el[3*j    ].NativeValue;
                 v.y := el[3*j + 1].NativeValue;
                 v.z := el[3*j + 2].NativeValue;
                 v := v / 1000.0;
-                verts := verts + [v * t];
+                if tindex <> -1 then v := v * t;
+                verts := verts + [v];
               end;
             end;
           end;

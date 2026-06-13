@@ -13,8 +13,14 @@ unit xeEditWarningForm;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, ExtCtrls, StdCtrls, Buttons, wbInterface;
+  System.Classes,
+
+  Vcl.Buttons,
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Graphics,
+  Vcl.StdCtrls;
 
 type
   TfrmEditWarning = class(TForm)
@@ -39,6 +45,11 @@ type
 implementation
 
 {$R *.dfm}
+
+uses
+  System.SysUtils,
+
+  wbInterface;
 
 procedure TfrmEditWarning.FormCreate(Sender: TObject);
 begin

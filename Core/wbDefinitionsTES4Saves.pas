@@ -16,22 +16,17 @@ procedure SwitchToTES4CoSave;
 implementation
 
 uses
-  Types,
-  Classes,
-  SysUtils,
-  Math,
-  Variants,
+  System.SysUtils,
+
+  wbDefinitionsTES4,
   wbInterface,
-  wbSaveInterface,
-  wbImplementation,
-  wbLocalization,
-  wbDefinitionsTES4;
+  wbSaveInterface;
 
 var
   wbActorValueLabels : array of string;
 
-var // forward type directives
-//  wbChangeTypes    : IwbEnumDef;
+  // forward type directives
+  //wbChangeTypes    : IwbEnumDef;
   wbSaveChapters   : IwbStructDef;
   wbCoSaveChapters : IwbStructDef;
   wbSaveHeader     : IwbStructDef;
@@ -127,7 +122,7 @@ begin
   end;
 end;
 
-function FileLocationTableCountCounter(aName: String; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Cardinal;
+function FileLocationTableCountCounter(const aName: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Cardinal;
 var
   Element : IwbElement;
   Container: IwbDataContainer;

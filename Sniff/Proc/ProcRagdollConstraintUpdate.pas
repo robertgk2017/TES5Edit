@@ -11,27 +11,33 @@ unit ProcRagdollConstraintUpdate;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameRagdollConstraintUpdate = class(TFrame)
     StaticText1: TStaticText;
-  private
-    { Private declarations }
-  public
-    { Public declarations }
+    chkConvertToMalleable: TCheckBox;
   end;
 
   TProcRagdollConstraintUpdate = class(TProcBase)
   private
     Frame: TFrameRagdollConstraintUpdate;
+    fConvert: Boolean;
   public
     constructor Create(aManager: TProcManager); override;
     function GetFrame(aOwner: TComponent): TFrame; override;
+    procedure OnShow; override;
+    procedure OnHide; override;
+    procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 
@@ -40,9 +46,10 @@ implementation
 {$R *.dfm}
 
 uses
+  System.Math,
+
   wbDataFormat,
-  wbDataFormatNif,
-  Math;
+  wbDataFormatNif;
 
 constructor TProcRagdollConstraintUpdate.Create(aManager: TProcManager);
 begin
@@ -59,7 +66,22 @@ begin
   Result := Frame;
 end;
 
-function TProcRagdollConstraintUpdate.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+procedure TProcRagdollConstraintUpdate.OnShow;
+begin
+  Frame.chkConvertToMalleable.Checked := StorageGetBool('bConvert', Frame.chkConvertToMalleable.Checked);
+end;
+
+procedure TProcRagdollConstraintUpdate.OnHide;
+begin
+  StorageSetBool('bConvert', Frame.chkConvertToMalleable.Checked);
+end;
+
+procedure TProcRagdollConstraintUpdate.OnStart;
+begin
+  fConvert := Frame.chkConvertToMalleable.Checked;
+end;
+
+function TProcRagdollConstraintUpdate.ProcessFile(aFile: TProcFileObject): TBytes;
 
   function CalcUpdate(Twist, Plane, Motor: TdfElement): Boolean;
   var
@@ -90,41 +112,55 @@ var
   nif: TwbNifFile;
   i: Integer;
   Constraint: TwbNifBlock;
+  ragdoll: TdfElement;
   bChanged: Boolean;
 begin
   bChanged := False;
   nif := TwbNifFile.Create;
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     for i := 0 to Pred(nif.BlocksCount) do begin
       Constraint := nif.Blocks[i];
 
-      if Constraint.BlockType <> 'bhkRagdollConstraint' then
+      if fConvert and (
+        (Constraint.BlockType = 'bhkBallAndSocketConstraint') or
+        (Constraint.BlockType = 'bhkHingeConstraint') or
+        (Constraint.BlockType = 'bhkLimitedHingeConstraint') or
+        (Constraint.BlockType = 'bhkPrismaticConstraint') or
+        (Constraint.BlockType = 'bhkRagdollConstraint') or
+        (Constraint.BlockType = 'bhkStiffSpringConstraint')
+      ) then begin
+        nif.ConvertBlock(i, 'bhkMalleableConstraint');
+        Constraint := nif.Blocks[i];
+        bChanged := True;
+      end;
+
+      if Constraint.BlockType = 'bhkRagdollConstraint' then
+        ragdoll := Constraint.Elements['Ragdoll']
+      else if (Constraint.BlockType = 'bhkMalleableConstraint') and (Constraint.EditValues['Hinge\Type'] = 'Ragdoll') then
+        ragdoll := Constraint.Elements['Hinge\Ragdoll']
+      else
         Continue;
 
       bChanged := CalcUpdate(
-        Constraint.Elements['Ragdoll\Twist A'],
-        Constraint.Elements['Ragdoll\Plane A'],
-        Constraint.Elements['Ragdoll\Motor A']
+        ragdoll.Elements['Twist A'],
+        ragdoll.Elements['Plane A'],
+        ragdoll.Elements['Motor A']
       ) or bChanged;
 
       bChanged := CalcUpdate(
-        Constraint.Elements['Ragdoll\Twist B'],
-        Constraint.Elements['Ragdoll\Plane B'],
-        Constraint.Elements['Ragdoll\Motor B']
+        ragdoll.Elements['Twist B'],
+        ragdoll.Elements['Plane B'],
+        ragdoll.Elements['Motor B']
       ) or bChanged;
-
     end;
 
     if bChanged then
       nif.SaveToData(Result);
-
   finally
     nif.Free;
   end;
-
 end;
-
 
 end.

@@ -15,23 +15,11 @@ unit wbImplementation;
 interface
 
 uses
-  Variants,
-  Windows,
-  Classes,
-  SysUtils,
-  Contnrs,
-  Math,
+  System.Classes,
+  System.SysUtils,
+
   wbInterface,
-  wbLoadOrder,
-  System.Generics.Collections,
-  {$IFDEF USE_CODESITE}
-  CodeSiteLogging,
-  {$ENDIF}
-{$IFDEF USE_PARALLEL_BUILD_REFS}
-  System.SyncObjs,
-{$ENDIF}
-  Zlibex,
-  lz4;
+  wbLoadOrder;
 
 const
   DefaultVCS1 = 0;
@@ -64,7 +52,7 @@ function wbMastersForFile(const aFileName    : string;
                                 aIsBluePrint : PBoolean = nil)
                                              : Boolean; overload;
 
-function wbFile(const aFileName: string; aLoadOrder: Integer = -1; aCompareTo: string = ''; aStates: TwbFileStates = []; const aData: TBytes = nil): IwbFile;
+function wbFile(const aFileName: string; aLoadOrder: Integer = -1; const aCompareTo: string = ''; aStates: TwbFileStates = []; const aData: TBytes = nil): IwbFile;
 function wbNewFile(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean): IwbFile; overload;
 function wbNewFile(const aFileName: string; aLoadOrder: Integer; aTemplate: PwbModuleInfo): IwbFile; overload;
 procedure wbFileForceClosed;
@@ -77,8 +65,6 @@ function wbCopyElementToRecord(const aSource: IwbElement; aMainRecord: IwbMainRe
 function wbFindWinningMainRecordByEditorID(const aSignature: TwbSignature; const aEditorID: string): IwbMainRecord;
 function wbFormListToArray(const aFormList: IwbMainRecord; const aSignatures: string): TDynMainRecords;
 
-function wbGetGameMasterFile: IwbFile;
-
 function wbCreateKeepAliveRoot: IwbKeepAliveRoot;
 
 function wbBeginKeepAlive: Integer;
@@ -86,17 +72,28 @@ function wbEndKeepAlive: Integer;
 
 function wbFormIDFromIdentity(aFormIDBase, aFormIDNameBase: Byte; aIdentity: string): TwbFormID;
 
-function wbRecordByLoadOrderFormID(const aFormID: TwbFormID; const aSeenFromFile: IwbFile): IwbMainRecord;
-
 function wbMultipleElements(const aElements: IwbElements): IwbMultipleElements;
 
 implementation
 
 uses
-  TypInfo,
-  lz4io,
-  wbLocalization,
+  System.Generics.Collections,
+  System.Math,
+{$IFDEF USE_PARALLEL_BUILD_REFS}
+  System.SyncObjs,
+{$ENDIF}
+  System.Variants,
+
+  Winapi.Windows,
+
+{$IFDEF USE_CODESITE}
+  CodeSiteLogging,
+{$ENDIF}
+
+  wbCompression,
+  wbHash,
   wbHelpers,
+  wbLocalization,
   wbSort;
 
 const
@@ -256,7 +253,7 @@ type
     procedure SetInternalModified(aValue: Boolean);
     function GetCountedRecordCount: Cardinal;
     procedure PrepareSave;
-    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean;
+    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean;
     procedure FindUsedMasters(aMasters: PwbUsedMasters);
     procedure InvalidateStorage;
     function Reached: Boolean;
@@ -319,7 +316,7 @@ type
     function IwbElementInternal._Release = InternalRelease;
     function GetCountedRecordCount: Cardinal; virtual;
     procedure PrepareSave; virtual;
-    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean; virtual;
+    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; virtual;
     procedure FindUsedMasters(aMasters: PwbUsedMasters); virtual;
     procedure InvalidateStorage; virtual;
     procedure InvalidateParentStorage; virtual;
@@ -382,7 +379,7 @@ type
     function GetReferenceFile: IwbFile; virtual;
     function GetSortOrder: Integer;
     procedure BuildRef; virtual;
-    procedure AddReferencedFromID(aFormID: TwbFormID); virtual;
+    procedure AddReferencedFromID(const aFormID: TwbFormID); virtual;
     function CompareExchangeFormID(aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; virtual;
     function GetIsEditable: Boolean; virtual;
     function GetIsRemovable: Boolean; virtual;
@@ -563,7 +560,7 @@ type
     function IwbContainerElementRef._Release = ElementRelease;
     function GetCountedRecordCount: Cardinal; override;
     procedure PrepareSave; override;
-    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean; override;
+    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override;
     procedure FindUsedMasters(aMasters: PwbUsedMasters); override;
 
     procedure ResetMemoryOrder(aFrom: Integer = 0; aTo: Integer = High(Integer)); virtual;
@@ -790,10 +787,10 @@ type
     function BuildOrLoadRef(aOnlyLoad: Boolean): TwbBuildOrLoadRefResult;
 
     function FindFormID(aFormID: TwbFormID; var Index: Integer; aNewMasters: Boolean): Boolean;
-    function FindInjectedID(aFormID: TwbFormID; var Index: Integer): Boolean;
+    function FindInjectedID(const aFormID: TwbFormID; var Index: Integer): Boolean;
     function GetMasterRecordByFormID(aFormID: TwbFormID; aAllowInjected, aNewMasters: Boolean): IwbMainRecord;
 
-    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean; override;
+    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override;
 
     function GetAddList: TDynStrings; override;
     function Add(const aName: string; aSilent: Boolean): IwbElement; override;
@@ -848,9 +845,9 @@ type
     function GetMasterIndexForFileID(const aFileID: TwbFileID; aNew: Boolean): Integer;
 
     procedure UpdateAllMasters;
-    function GetRecordByFormID(aFormID: TwbFormID; aAllowInjected, aNewMasters: Boolean): IwbMainRecord;
+    function GetRecordByFormID(const aFormID: TwbFormID; aAllowInjected, aNewMasters: Boolean): IwbMainRecord;
     function GetRecordByEditorID(const aEditorID: string): IwbMainRecord;
-    function GetContainedRecordByLoadOrderFormID(aFormID: TwbFormID; aAllowInjected: Boolean): IwbMainRecord;
+    function GetContainedRecordByLoadOrderFormID(const aFormID: TwbFormID; aAllowInjected: Boolean): IwbMainRecord;
     function GetRecordFromIndexByKey(aIndex: TwbNamedIndex; const aKey: string): IwbMainRecord;
     function GetGroupBySignature(const aSignature: TwbSignature): IwbGroupRecord;
     function HasGroup(const aSignature: TwbSignature): Boolean;
@@ -871,11 +868,11 @@ type
     function GetResolvedLoadOrderFileID(aNew: Boolean): TwbFileID;
     function GetFileFileID(aNewMasters : Boolean): TwbFileID;
 
-    function LoadOrderFormIDtoFileFormID(aFormID: TwbFormID; aNew: Boolean): TwbFormID;
-    function FileFormIDtoLoadOrderFormID(aFormID: TwbFormID; aNew: Boolean): TwbFormID;
+    function LoadOrderFormIDtoFileFormID(const aFormID: TwbFormID; aNew: Boolean): TwbFormID;
+    function FileFormIDtoLoadOrderFormID(const aFormID: TwbFormID; aNew: Boolean): TwbFormID;
 
-    function LoadOrderFileIDtoFileFileID(aFileID: TwbFileID; aNew: Boolean): TwbFileID;
-    function FileFileIDtoLoadOrderFileID(aFileID: TwbFileID; aNew: Boolean): TwbFileID;
+    function LoadOrderFileIDtoFileFileID(const aFileID: TwbFileID; aNew: Boolean): TwbFileID;
+    function FileFileIDtoLoadOrderFileID(const aFileID: TwbFileID; aNew: Boolean): TwbFileID;
 
     procedure AddMasters(aMasters: TStrings; aSilent: Boolean = False); overload;
     procedure AddMasters(const aMasters: array of string; aSilent: Boolean = False); overload;
@@ -922,6 +919,7 @@ type
 
     function GetAllowHardcodedRangeUse: Boolean;
 
+    function HasBlueprintMaster: Boolean;
     function HasONAM: Boolean;
     procedure MarkHeaderModified;
 
@@ -957,7 +955,7 @@ type
 
     procedure UpdateModuleMasters;
 
-    constructor Create(const aFileName: string; aLoadOrder: Integer; aCompareTo: string; aStates: TwbFileStates; aData: TBytes);
+    constructor Create(const aFileName: string; aLoadOrder: Integer; const aCompareTo: string; aStates: TwbFileStates; const aData: TBytes);
     constructor CreateNew(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean); overload;
     constructor CreateNew(const aFileName: string; aLoadOrder: Integer; aTemplate: PwbModuleInfo); overload;
   public
@@ -1027,6 +1025,9 @@ type
 
     {---IwbElement---}
     function GetRawDataAsString: string; override;
+
+    {---IwbContainerElementRef---}
+    procedure PrepareSave; override;
 
     {---IwbDataContainer---}
     function GetDataBasePtr: Pointer;
@@ -1249,7 +1250,7 @@ type
     function CanElementReset: Boolean; override;
     procedure Remove; override;
     procedure PrepareSave; override;
-    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean; override;
+    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override;
     procedure FindUsedMasters(aMasters: PwbUsedMasters); override;
     function GetReferenceFile: IwbFile; override;
     procedure ReportRequiredMasters(aMasters: TwbFilesSet; aAsNew: Boolean; Recursive: Boolean = True; Initial: Boolean = false); override;
@@ -1262,7 +1263,7 @@ type
 
     function DoBuildRef(aRemove: Boolean): Boolean;
     procedure BuildRef; override;
-    procedure AddReferencedFromID(aFormID: TwbFormID); override;
+    procedure AddReferencedFromID(const aFormID: TwbFormID); override;
     procedure ResetConflict; override;
     procedure ResetReachable; override;
 
@@ -1405,7 +1406,7 @@ type
     procedure SetFormVCS1(aVCS: Cardinal);
     function GetFormVCS2: Cardinal;
     procedure SetFormVCS2(aVCS: Cardinal);
-    procedure ChangeFormSignature(aSignature: TwbSignature);
+    procedure ChangeFormSignature(const aSignature: TwbSignature);
     procedure ClampFormID(aIndex: Byte);
 
     function ContentEquals(const aMainRecord: IwbMainRecord): Boolean;
@@ -1460,7 +1461,7 @@ type
                        const aPrevMainRecord : IwbMainRecord); override;
     constructor Create(const aContainer : IwbContainer;
                        const aSignature : TwbSignature;
-                             aFormID    : TwbFormID); overload;
+                       const aFormID    : TwbFormID); overload;
     destructor Destroy; override;
 
     function GetName: string; override;
@@ -1554,7 +1555,7 @@ type
     procedure SetNativeValue(const aValue: Variant); override;
     procedure BuildRef; override;
     function CompareExchangeFormID(aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override;
-    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean; override;
+    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override;
     procedure FindUsedMasters(aMasters: PwbUsedMasters); override;
     procedure MergeStorageInternal(var aBasePtr: Pointer; aEndPtr: Pointer); override;
     procedure InformStorage(var aBasePtr: Pointer; aEndPtr: Pointer); override;
@@ -1746,7 +1747,7 @@ type
     function GetResolvedValueDef: IwbValueDef; override;
 
     function GetElementType: TwbElementType; override;
-    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean; override;
+    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override;
     procedure FindUsedMasters(aMasters: PwbUsedMasters); override;
 
     {---IwbUnion---}
@@ -1771,7 +1772,7 @@ type
   protected
     function GetValue: string; override;
     function CompareExchangeFormID(aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override;
-    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean; override;
+    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override;
     procedure FindUsedMasters(aMasters: PwbUsedMasters); override;
     function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override;
 
@@ -1953,7 +1954,7 @@ type
 
     procedure PrepareSave; override;
     procedure WriteToStreamInternal(aStream: TStream; aResetModified: TwbResetModified); override;
-    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean; override;
+    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override;
     procedure FindUsedMasters(aMasters: PwbUsedMasters); override;
 
     function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override;
@@ -2233,7 +2234,7 @@ begin
   Result := CmpI32(MemoryOrder1, MemoryOrder2);
 end;
 
-function CompareLoadOrder(Item1, Item2: Pointer): Integer;
+function CompareLoadOrder(Item1, Item2: Pointer): Integer; overload;
 var
   LoadOrder1: Integer;
   LoadOrder2: Integer;
@@ -2249,6 +2250,25 @@ begin
   Result := CmpI32(LoadOrder1, LoadOrder2);
   if Result = 0 then
     Result := CmpPtr(IwbFile(Item1).ElementID, IwbFile(Item2).ElementID);
+end;
+
+function CompareLoadOrder(List: TStringList; Index1, Index2: Integer): Integer; overload;
+begin
+  if Index1 = Index2 then begin
+    Result := 0;
+    Exit;
+  end;
+
+  Result := CmpI32(
+    IwbFile(Pointer(List.Objects[Index1])).LoadOrder,
+    IwbFile(Pointer(List.Objects[Index2])).LoadOrder);
+end;
+
+function GetLoadedFileByName(const aName: string): IwbFile;
+begin
+  for var lFile in Files do
+    if SameText(lFile.FileName, aName) then
+      Exit(lFile);
 end;
 
 { TwbFile }
@@ -2475,17 +2495,6 @@ end;
 
 procedure TwbFile.AddMaster(const aFile: IwbFile);
 begin
-  if not (fsScanning in flStates) then
-    if wbStarfieldIsABugInfestedHellhole and wbComplexFileFileID then begin
-      if GetModuleType <> mtFull then
-        raise Exception.Create('Only full modules can add masters in ' + wbAppName + wbToolName);
-      if aFile.ModuleType <> mtFull then
-        raise Exception.Create('Only Full modules can be added as masters of other modules in ' + wbAppName + wbToolName);
-      for var lMaster in flMasters do
-        if lMaster.ModuleType <> mtFull then
-          raise Exception.Create('Only modules where all existing masters are Full modules can add masters in ' + wbAppName + wbToolName);
-    end;
-
   SetLength(flMasters, Succ(Length(flMasters)));
   flMasters[High(flMasters)] := aFile;
   UpdateModuleMasters;
@@ -2500,9 +2509,7 @@ begin
   Masters := TStringList.Create;
   try
     Masters.Add(aMaster);
-    AddMasters(Masters, aSilent);
-    if aSortMasters then
-      SortMasters;
+    AddMastersIfMissing(Masters, aSortMasters, aSilent);
   finally
     Masters.Free;
   end;
@@ -2510,16 +2517,42 @@ end;
 
 procedure TwbFile.AddMastersIfMissing(const aMasters: TStrings; aSortMasters: Boolean = True; aSilent: Boolean = False);
 var
-  i       : Integer;
+  i, j    : Integer;
   Masters : TStringList;
 begin
   Masters := TStringList.Create;
+  Masters.Sorted := True;
+  Masters.Duplicates := dupIgnore;
   try
     for i := 0  to Pred(aMasters.Count) do
       if not HasMaster(aMasters[i]) then
-        Masters.Add(aMasters[i]);
+      begin
+        var lFile := GetLoadedFileByName(aMasters[i]);
+        if not Assigned(lFile) then
+          raise Exception.CreateFmt('[AddMAddMastersIfMissingasters] Requested file to add is not loaded: "%s"', [aMasters[i]]);
+
+        // add masters of masters
+        // only for games that need it
+        if wbEnforceAllMasters then
+        begin
+          var lFileMasters := lFile.AllMasters;
+          for j := low(lFileMasters) to High(lFileMasters) do
+            Masters.AddObject(lFileMasters[j].FileName, Pointer(lFileMasters[j]));
+        end;
+
+        Masters.AddObject(lFile.FileName, Pointer(lFile));
+      end;
+
+    for i := 0 to Pred(GetMasterCount(True)) do
+      if Masters.Find(GetMaster(i, True).FileName, j) then
+        Masters.Delete(j);
+    if Masters.Find(GetFileName, j) then
+      Masters.Delete(j);
 
     if Masters.Count = 0 then Exit;
+
+    Masters.Sorted := False;
+    Masters.CustomSort(CompareLoadOrder);
 
     AddMasters(Masters, aSilent);
     if aSortMasters then
@@ -2556,7 +2589,6 @@ var
     IsNew          : Boolean;
     rec            : IwbRecord;
     i, j           : Integer;
-    MaxMasterCount : Integer;
   begin
     if not IsElementEditable(nil) then
       raise Exception.Create('File "' + GetFileName + '" is not editable');
@@ -2575,11 +2607,29 @@ var
       IsNew := True;
     end;
 
-    MaxMasterCount := Succ(TwbFileID.MaxFullSlot);
+    var MaxMasterCount := Succ(TwbFileID.MaxFullSlot);
+    var MaxLightMasterCount := Succ(TwbFileID.MaxLightSlot);
+    var MaxMediumMasterCount := Succ(TwbFileID.MaxMediumSlot);
 
     if wbBeginInternalEdit(True) then try
       for i := 0 to Pred(lMasters.Count) do begin
-        if GetMasterCount(True) >= MaxMasterCount then begin
+        var lFile := GetLoadedFileByName(lMasters[i]);
+        if not Assigned(lFile) then
+          raise Exception.CreateFmt('[AddMasters] Requested file to add is not loaded: "%s"', [lMasters[i]]);
+
+        if lFile.IsBlueprint and wbIsStarfield then
+          raise Exception.CreateFmt('[AddMasters] File [%s] not added. %s does not support blueprint files as masters to other modules.', [lMasters[i], wbGameName]);
+
+        var lIsLightFile := lFile.IsLight;
+        var lIsMediumFile := lFile.IsMedium;
+        var lIsFullFile := lFile.GetIsFull;
+
+        if (((not wbComplexFileFileID) and (GetMasterCount(True) >= MaxMasterCount)) or
+            (wbComplexFileFileID and (
+              (lIsLightFile and (GetLightMasterCount(True) >= MaxLightMasterCount - 1)) or // -1 for safety in case module is converted later
+              (lIsMediumFile and (GetMediumMasterCount(True) >= MaxMediumMasterCount - 1)) or
+              (lIsFullFile and (GetFullMasterCount(True) >= MaxMasterCount))
+            ))) then begin
           NotAllAdded := True;
           Break;
         end;
@@ -2626,6 +2676,8 @@ begin;
       for i := 0 to Pred(aMasters.Count) do begin
         s := Trim(aMasters[i]);
         t := ExtractFileExt(s);
+        if SameText(t, '.esp') and (not wbAllowESPMasters) then
+          raise Exception.CreateFmt('[AddMasters] You cannot add a .esp as a master in %s.', [wbGameName]);
         if SameText(t, '.esm') or SameText(t, '.esp') or (wbIsLightSupported and SameText(t, '.esl')) then
           lMasters.Add(s);
       end;
@@ -2637,7 +2689,10 @@ begin;
 
     if wbGameMode >= gmTES4 then
       if Length(flOldMasters) <> Length(flMasters) then begin
-        MastersUpdated([], [], Length(flOldMasters), Length(flMasters));
+        var lOldCount := TwbSlotCounts.Create(flOldMasters);
+        var lNewCount := TwbSlotCounts.Create(flMasters);
+
+        MastersUpdated([], [], lOldCount, lNewCount);
         SortRecords;
       end;
 
@@ -2687,7 +2742,7 @@ begin
       try
         FileStream := TBufferedFileStream.Create(CacheFileName, fmOpenRead or fmShareDenyWrite);
         try
-          lz4DeCompressStream(FileStream, MemoryStream);
+          TwbCompression.Decompress(ctLZ4F, FileStream, MemoryStream);
         finally
           FileStream.Free;
       end;
@@ -2730,7 +2785,7 @@ begin
               MemoryStream.Position := 0;
               FileStream := TBufferedFileStream.Create(CacheFileName, fmCreate);
               try
-                lz4CompressStream(MemoryStream, FileStream);
+                TwbCompression.Compress(ctLZ4F, MemoryStream, FileStream);
               finally
                 FileStream.Free;
               end;
@@ -3029,6 +3084,7 @@ var
   MasterFiles : IwbContainerElementRef;
   Rec         : IwbRecord;
   UsedMasters : TwbUsedMasters;
+  KeepMasters : TStringList;
 begin
   if not IsElementEditable(nil) then
     raise Exception.Create('File "' + GetFileName + '" is not editable');
@@ -3052,25 +3108,94 @@ begin
       FillChar(UsedMasters, SizeOf(UsedMasters), 0);
       FindUsedMasters(@UsedMasters);
       //!!! SF1 support
-      Old := nil;
-      New := nil;
-      j := 0;
-      for i := Low(flMasters) to High(flMasters) do
-        if UsedMasters[i] or
-           SameText(flMasters[i].FileName, wbGameMasterESM)
-        then begin
-          if i <> j then begin
-            flMasters[j] := flMasters[i];
+      KeepMasters := TStringList.Create;
+      KeepMasters.Sorted := True;
+      KeepMasters.Duplicates := dupIgnore;
+      try
+        if wbEnforceAllMasters then
+          for i := Low(flMasters) to High(flMasters) do
+          begin
+            if not UsedMasters[i] then
+              continue;
 
-            MasterFiles[i].SortOrder := j;
-            SetLength(Old, Succ(Length(Old)));
-            Old[High(Old)] := TwbFileID.CreateFull(i);
-            SetLength(New, Succ(Length(New)));
-            New[High(New)] := TwbFileID.CreateFull(j);
+            var lFile := flMasters[i];
+            var lFileMasters := lFile.AllMasters;
+            for j := low(lFileMasters) to High(lFileMasters) do
+              KeepMasters.Add(lFileMasters[j].FileName);
           end;
-          Inc(j);
-        end else
-          MasterFiles[i].SortOrder := $100;
+
+        Old := nil;
+        New := nil;
+        var nextFullID := 0;
+        var lastFullID := 0;
+        var nextSmallID := 0;
+        var lastSmallID := 0;
+        var nextMediumID := 0;
+        var lastMediumID := 0;
+        j := 0;
+        for i := Low(flMasters) to High(flMasters) do
+        begin
+          if UsedMasters[i] or
+             SameText(flMasters[i].FileName, wbGameMasterESM) or
+             KeepMasters.Find(flMasters[i].FileName, k)
+          then begin
+
+            if i <> j then begin
+              flMasters[j] := flMasters[i];
+
+              MasterFiles[i].SortOrder := j;
+              SetLength(Old, Succ(Length(Old)));
+              SetLength(New, Succ(Length(New)));
+
+              if wbComplexFileFileID then
+                case flMasters[i].GetModuleType of
+                  mtFull:
+                    begin
+                      Old[High(Old)] := TwbFileID.CreateFull(lastFullID);
+                      New[High(New)] := TwbFileID.CreateFull(nextFullID);
+                      Inc(nextFullID);
+                    end;
+                  mtLight:
+                    begin
+                      Old[High(Old)] := TwbFileID.CreateLight(lastSmallID);
+                      New[High(New)] := TwbFileID.CreateLight(nextSmallID);
+                      Inc(nextSmallID)
+                    end;
+                  mtMedium:
+                    begin
+                      Old[High(Old)] := TwbFileID.CreateMedium(lastMediumID);
+                      New[High(New)] := TwbFileID.CreateMedium(nextMediumID);
+                      Inc(nextMediumID);
+                    end;
+                end
+              else
+              begin
+                  Old[High(Old)] := TwbFileID.CreateFull(i);
+                  New[High(New)] := TwbFileID.CreateFull(j);
+              end;
+
+            end else case flMasters[i].GetModuleType of
+              mtFull: Inc(nextFullID);
+              mtLight: Inc(nextSmallID);
+              mtMedium: Inc(nextMediumID);
+            end;
+            Inc(j);
+          end else begin
+            flProgress('Removing unused master: ' + flMasters[i].FileName);
+            MasterFiles[i].SortOrder := $1200;
+          end;
+
+          case flMasters[i].GetModuleType of
+            mtFull: Inc(lastFullID);
+            mtLight: Inc(lastSmallID);
+            mtMedium: Inc(lastMediumID);
+          end;
+
+        end;
+
+      finally
+        KeepMasters.Free;
+      end;
 
       var lRemovedCount := 0;
 
@@ -3081,7 +3206,7 @@ begin
         (MasterFiles as IwbContainerInternal).SortBySortOrder;
         if wbBeginInternalEdit(True) then try
           for i := Pred(MasterFiles.ElementCount) downto 0 do
-            if MasterFiles[i].SortOrder = $100 then
+            if MasterFiles[i].SortOrder = $1200 then
               MasterFiles.RemoveElement(i);
 
           (MasterFiles as IwbElementInternal).InvalidateStorage;
@@ -3106,7 +3231,12 @@ begin
         end;
 
         if wbGameMode >= gmTES4 then
-          MastersUpdated(Old, New, k, j);
+        begin
+          var lOldCount := TwbSlotCounts.Create(flOldMasters);
+          var lNewCount := TwbSlotCounts.Create(flMasters);
+
+          MastersUpdated(Old, New, lOldCount, lNewCount);
+        end;
         SortRecords;
       end;
       flProgress(Format('Removed %d unused masters.', [lRemovedCount]));
@@ -3124,10 +3254,9 @@ var
   _NextLightSlot: Integer;
   _NextMediumSlot: Integer;
   _NextLoadOrder: Integer;
-  Files : array of IwbFile;
   FilesMap: TStringList;
 
-constructor TwbFile.Create(const aFileName: string; aLoadOrder: Integer; aCompareTo: string; aStates: TwbFileStates; aData: TBytes);
+constructor TwbFile.Create(const aFileName: string; aLoadOrder: Integer; const aCompareTo: string; aStates: TwbFileStates; const aData: TBytes);
 var
   s: string;
 begin
@@ -3296,7 +3425,7 @@ begin
         if (wbIsUpdateSupported or wbPseudoUpdate) and Header.IsUpdate and not wbIgnoreUpdate then begin
           flLoadOrderFileID := TwbFileID.Invalid;
         end else begin
-          if _NextFullSlot >= TwbFileID.MaxFullSlot then
+          if _NextFullSlot > TwbFileID.MaxFullSlot then
             raise Exception.Create('Too many full modules');
           flLoadOrderFileID := TwbFileID.CreateFull(_NextFullSlot);
           Inc(_NextFullSlot);
@@ -3314,7 +3443,7 @@ begin
     end;
   end;
 
-  if wbStarfieldIsABugInfestedHellhole and wbIsStarfield then
+  if wbIsStarfield then
     AddMasters(['Starfield.esm'{, 'BlueprintShips-Starfield.esm'}]);
 
   BuildOrLoadRef(False);
@@ -3420,7 +3549,7 @@ begin
           if Assigned(miFile) then
             AddMaster(_File);
 
-  if wbStarfieldIsABugInfestedHellhole and wbIsStarfield then
+  if wbIsStarfield then
     AddMasters(['Starfield.esm'{, 'BlueprintShips-Starfield.esm'}]);
 
   BuildOrLoadRef(False);
@@ -3436,7 +3565,7 @@ begin
   inherited;
 end;
 
-function TwbFile.FileFileIDtoLoadOrderFileID(aFileID: TwbFileID; aNew: Boolean): TwbFileID;
+function TwbFile.FileFileIDtoLoadOrderFileID(const aFileID: TwbFileID; aNew: Boolean): TwbFileID;
 begin
   if wbComplexFileFileID then case aFileID.ModuleType of
     mtLight:
@@ -3457,7 +3586,7 @@ begin
     raise EFileNoSlotExecption.Create('File has no slot assigned');
 end;
 
-function TwbFile.FileFormIDtoLoadOrderFormID(aFormID: TwbFormID; aNew: Boolean): TwbFormID;
+function TwbFile.FileFormIDtoLoadOrderFormID(const aFormID: TwbFormID; aNew: Boolean): TwbFormID;
 begin
   Result := aFormID;
   if Result.ObjectID < $800 then
@@ -3560,7 +3689,7 @@ begin
  Index := L;
 end;
 
-function TwbFile.FindInjectedID(aFormID: TwbFormID; var Index: Integer): Boolean;
+function TwbFile.FindInjectedID(const aFormID: TwbFormID; var Index: Integer): Boolean;
 var
   L, H, I, C: Integer;
 begin
@@ -3649,7 +3778,7 @@ begin
     end;
 
     if fsIsTemporary in flStates then try
-      DeleteFile(Self.flFileNameOnDisk);
+      System.SysUtils.DeleteFile(Self.flFileNameOnDisk);
     except
       flProgress('Could not delete temporary file ' + flFileNameOnDisk);
     end;
@@ -3752,7 +3881,7 @@ begin
       end;
 
       if fsIsTemporary in flStates then try
-        DeleteFile(flFileNameOnDisk);
+        System.SysUtils.DeleteFile(flFileNameOnDisk);
       except
         flProgress('Could not delete temporary file ' + flFileNameOnDisk);
       end;
@@ -3990,7 +4119,7 @@ begin
   Result := flCompareToFile;
 end;
 
-function TwbFile.GetContainedRecordByLoadOrderFormID(aFormID: TwbFormID; aAllowInjected: Boolean): IwbMainRecord;
+function TwbFile.GetContainedRecordByLoadOrderFormID(const aFormID: TwbFormID; aAllowInjected: Boolean): IwbMainRecord;
 
   function LoadOrderToFile(const aFileID: TwbFileID): TwbFileID;
   begin
@@ -4051,7 +4180,7 @@ function TwbFile.GetCRC32: TwbCRC32;
 begin
   Result := flCRC32;
   if Result = 0 then begin
-    Result := wbCRC32Ptr(flView, flSize);
+    Result := TwbHash.CRC32(flView, flSize);
     flCRC32 := Result;
   end;
 end;
@@ -4105,7 +4234,7 @@ function TwbFile.GetFileFileID(aNewMasters : Boolean): TwbFileID;
 begin
   var SelfRef := Self as IwbContainerElementRef;
 
-  if wbComplexFileFileID then case GetModuleType of  
+  if wbComplexFileFileID then case GetModuleType of
     mtLight:
       Result := TwbFileID.CreateLight(GetLightMasterCount(aNewMasters));
     mtMedium:
@@ -4240,10 +4369,6 @@ end;
 
 function TwbFile.GetIsEditable: Boolean;
 begin
-  if wbIsStarfield and Assigned(flModule) then
-   if (flModule.miExtension = meESP) and not wbRedPill then
-     Exit(False);
-
   Result :=
     wbIsInternalEdit or
     (
@@ -4253,7 +4378,7 @@ begin
       ((not (fsIsCompareLoad in flStates)) or (fsIsDeltaPatch in flStates))
     );
 
-  if wbIsStarfield and wbStarfieldIsABugInfestedHellhole then
+  if wbIsStarfield and not wbRedPill then
     if [fsIsGameMaster, fsIsHardcoded, fsIsOfficial] * flStates <> [] then
       Exit(False);
 end;
@@ -4321,6 +4446,15 @@ begin
   Result := Header.IsBlueprint;
 end;
 
+function TwbFile.HasBlueprintMaster: Boolean;
+var
+  i: Integer;
+begin
+  Result := False;
+  for i := Low(flMasters) to High(flMasters) do
+    if flMasters[i].IsBlueprint then
+      Exit(True);
+end;
 
 function TwbFile.GetIsLight: Boolean;
 var
@@ -4744,7 +4878,7 @@ begin
     end;
 end;
 
-function TwbFile.GetRecordByFormID(aFormID: TwbFormID; aAllowInjected, aNewMasters: Boolean): IwbMainRecord;
+function TwbFile.GetRecordByFormID(const aFormID: TwbFormID; aAllowInjected, aNewMasters: Boolean): IwbMainRecord;
 var
   i: Integer;
 begin
@@ -4950,7 +5084,7 @@ begin
     Result := aFileID.FullSlot >= GetMasterCount(aNew);
 end;
 
-function TwbFile.LoadOrderFileIDtoFileFileID(aFileID: TwbFileID; aNew: Boolean): TwbFileID;
+function TwbFile.LoadOrderFileIDtoFileFileID(const aFileID: TwbFileID; aNew: Boolean): TwbFileID;
 begin
   if wbComplexFileFileID then begin
     if aFileID = flLoadOrderFileID then
@@ -4987,7 +5121,7 @@ begin
   raise Exception.Create('Load order FileID [' + aFileID.ToString + '] can not be mapped to file FileID for file "' + GetFileName + '"');
 end;
 
-function TwbFile.LoadOrderFormIDtoFileFormID(aFormID: TwbFormID; aNew: Boolean): TwbFormID;
+function TwbFile.LoadOrderFormIDtoFileFormID(const aFormID: TwbFormID; aNew: Boolean): TwbFormID;
 begin
   Result := aFormID;
   if aFormID.IsHardcoded then
@@ -5011,7 +5145,7 @@ begin
   (Header as IwbElementInternal).SetModified(True);
 end;
 
-function TwbFile.MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean;
+function TwbFile.MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean;
 var
   i: Integer;
 begin
@@ -5173,16 +5307,36 @@ begin
       SetIsLight(True);
     end;
 
+    if not wbAllowESPMastersOnSave then
+      for i := Low(flModule.miMasters) to High(flModule.miMasters) do
+        if flModule.miMasters[i].miExtension = meESP then
+          raise Exception.CreateFmt('%s modules must never have .esp masters.', [wbGameName]);
+
     if wbIsStarfield then begin
       if GetIsUpdateDirect and (GetIsLightDirect or GetIsMediumDirect) then
           SetIsUpdate(False);
 
-      {if flModule.miExtension = meESP then begin
-        if not wbRedPill then
-          raise Exception.Create('".esp" modules can not be saved in ' + wbAppName + wbToolName)
-        else
-          FileHeader.ElementEditValues['CNAM'] := 'RedPill';
-      end;}
+      if flModule.miExtension = meESP then begin
+        if GetIsLight or GetIsMedium then
+          raise Exception.Create('".esp" modules must not be small or medium.');
+        if GetIsESM then
+        begin
+          flProgress(Format('%s .esp files must not have ESM flag. Removing.', [wbGameName]));
+          SetIsESM(False);
+        end;
+      end;
+
+      if GetIsLight and GetIsMedium then
+        raise Exception.Create('Small or medium flags are mutually exclusive. Modules cannot be both.');
+
+      if GetIsUpdate then
+        raise Exception.Create('Update is not correctly supported by the game exe and will cause unexpected behavior. Saving update modules is not currently supported.');
+
+      if GetIsBlueprint then
+        raise Exception.Create('Saving blueprint modules is not currently supported.');
+
+      if HasBlueprintMaster then
+        raise Exception.CreateFmt('%s modules must never have any blueprint masters.', [wbGameName]);
     end;
 
     inherited;
@@ -5345,12 +5499,12 @@ begin
 
     if wbComplexFileFileID then begin
 
-      if wbStarfieldIsABugInfestedHellhole then begin
+      if not wbRedPill then begin
 
         for var lMasterIdx := 0 to Pred(GetMasterCount(True)) do begin
           var lMaster := GetMaster(lMasterIdx, True);
-          if lMaster.GetIsLightDirect or lMaster.GetIsMediumDirect or lMaster.GetIsUpdateDirect or (PwbModuleInfo(lMaster.ModuleInfo).miFlags * [mfHasLightFlag, mfHasMediumFlag, mfHasUpdateFlag] <> []) then
-            raise Exception.Create('Modules with Small, Medium, or Update flagged modules as masters can''t be saved in ' + wbAppName + wbToolName);
+          if lMaster.GetIsUpdateDirect or (PwbModuleInfo(lMaster.ModuleInfo).miFlags * [mfHasUpdateFlag] <> []) then
+            raise Exception.Create('Modules with Update flagged modules as masters can''t be saved in ' + wbAppName + wbToolName);
         end;
 
         if FileHeader.IsLight <> (mfHasLightFlag in flModule.miFlags) then
@@ -5362,10 +5516,6 @@ begin
         if FileHeader.IsUpdate <> (mfHasUpdateFlag in flModule.miFlags) then
           raise Exception.Create('Update flag can''t be added or removed from existing files in ' + wbAppName + wbToolName);
 
-        if FileHeader.IsLight then
-          raise Exception.Create('Small flagged files can''t be saved in ' + wbAppName + wbToolName);
-        if FileHeader.IsMedium then
-          raise Exception.Create('Medium flagged files can''t be saved in ' + wbAppName + wbToolName);
         if FileHeader.IsUpdate then
           raise Exception.Create('Update flagged files can''t be saved in ' + wbAppName + wbToolName);
 
@@ -6225,6 +6375,33 @@ var
   Header      : IwbContainerElementRef;
   MasterFiles : IwbContainerElementRef;
   Rec            : IwbRecord;
+
+  function GetOldFileID(aName: string): TwbFileID;
+  begin
+      var nextFullID := 0;
+      var nextSmallID := 0;
+      var nextMediumID := 0;
+
+      for var lFile in flOldMasters do
+        case lFile.GetModuleType of
+          mtFull:
+            if SameText(lFile.FileName, aName) then
+              Exit(TwbFileID.CreateFull(nextFullID))
+            else
+              Inc(nextFullID);
+          mtLight:
+            if SameText(lFile.FileName, aName) then
+              Exit(TwbFileID.CreateLight(nextSmallID))
+            else
+              Inc(nextSmallID);
+          mtMedium:
+            if SameText(lFile.FileName, aName) then
+              Exit(TwbFileID.CreateMedium(nextMediumID))
+            else
+              Inc(nextMediumID);
+        end;
+  end;
+
 begin
   if not IsElementEditable(nil) then
     raise Exception.Create('File "' + GetFileName + '" is not editable');
@@ -6256,15 +6433,47 @@ begin
         //!!! SF1 support
         Old := nil;
         New := nil;
+        var nextFullID := 0;
+        var nextSmallID := 0;
+        var nextMediumID := 0;
         for i := Low(flMasters) to High(flMasters) do begin
           j := Integer(OldList.Objects[OldList.IndexOf(flMasters[i].FileName)]);
           if i <> j then begin
             MasterFiles[j].SortOrder := i;
             SetLength(Old, Succ(Length(Old)));
-            Old[High(Old)] := TwbFileID.CreateFull(j);
             SetLength(New, Succ(Length(New)));
-            New[High(New)] := TwbFileID.CreateFull(i);
-          end;
+
+            if not wbcomplexfileFileID then
+            begin
+              Old[High(Old)] := TwbFileID.CreateFull(j);
+              New[High(New)] := TwbFileID.CreateFull(i);
+            end else
+            case flMasters[i].GetModuleType of
+              mtFull:
+                begin
+                  Old[High(Old)] := GetOldFileID(flMasters[i].FileName);
+                  New[High(New)] := TwbFileID.CreateFull(nextFullID);
+                  Inc(nextFullID);
+                end;
+              mtLight:
+                begin
+                  Old[High(Old)] := GetOldFileID(flMasters[i].FileName);
+                  New[High(New)] := TwbFileID.CreateLight(nextSmallID);
+                  Inc(nextSmallID)
+                end;
+              mtMedium:
+                begin
+                  Old[High(Old)] := GetOldFileID(flMasters[i].FileName);
+                  New[High(New)] := TwbFileID.CreateMedium(nextMediumID);
+                  Inc(nextMediumID);
+                end;
+            end;
+          end else
+          case flMasters[i].GetModuleType of
+              mtFull: Inc(nextFullID);
+              mtLight: Inc(nextSmallID);
+              mtMedium: Inc(nextMediumID);
+            end;
         end;
         if Length(Old) > 0 then begin
           if wbBeginInternalEdit(True) then try
@@ -6274,7 +6483,12 @@ begin
           end else
             Assert(False);
           if wbGameMode >= gmTES4 then
-            MastersUpdated(Old, New, Length(flOldMasters), Length(flMasters));
+          begin
+            var lOldCount := TwbSlotCounts.Create(flOldMasters);
+            var lNewCount := TwbSlotCounts.Create(flMasters);
+
+            MastersUpdated(Old, New, lOldCount, lNewCount);
+          end;
           SetModified(True);
         end;
       finally
@@ -6390,7 +6604,7 @@ begin
   MemoryStream := TMemoryStream.Create;
   try
     inherited WriteToStream(MemoryStream, aResetModified);
-    flCRC32 := wbCRC32Ptr(MemoryStream.Memory, MemoryStream.Size);
+    flCRC32 := TwbHash.CRC32(MemoryStream.Memory, MemoryStream.Size);
     MemoryStream.Position := 0;
     aStream.Write(MemoryStream.Memory^, MemoryStream.Size);
   finally
@@ -7762,7 +7976,7 @@ begin
   end;
 end;
 
-function TwbContainer.MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean;
+function TwbContainer.MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean;
 var
   i       : Integer;
   SelfRef : IwbContainerElementRef;
@@ -9054,7 +9268,7 @@ begin
 {$ENDIF}
 end;
 
-procedure TwbMainRecord.AddReferencedFromID(aFormID: TwbFormID);
+procedure TwbMainRecord.AddReferencedFromID(const aFormID: TwbFormID);
 begin
   Assert(mrsBuildingRef in mrStates);
 
@@ -9083,16 +9297,6 @@ var
   NeedUpdate    : Boolean;
 begin
   Result := nil;
-
-  if wbIsStarfield and wbStarfieldIsABugInfestedHellhole then
-    if (aIndex = wbAssignThis) and (GetSignature = 'PKIN') then begin
-      var lMainRecord: IwbMainRecord;
-      if Supports(aElement, IwbMainRecord, lMainRecord) then begin
-        if lMainRecord.LoadOrderFormID = GetLoadOrderFormID then
-          Exit;
-      end else
-        Exit;
-    end;
 
   if not wbIsInternalEdit then
     if not wbEditAllowed then
@@ -9232,7 +9436,7 @@ begin
 
                 Assert(Assigned(Member));
                 if not (Member.DefType in [dtSubRecord, dtSubRecordArray, dtSubRecordStruct]) then
-                  Beep;
+                  System.SysUtils.Beep;
               end;
 
               case Member.DefType of
@@ -9372,7 +9576,7 @@ var
 
   SelfIntf      : IwbMainRecord;
 
-  procedure ProcessRef(aFormID: TwbFormID; aAdd: Boolean);
+  procedure ProcessRef(const aFormID: TwbFormID; aAdd: Boolean);
   begin
     Result := True;
     var MainRecord: IwbMainRecord := nil;
@@ -9678,16 +9882,6 @@ end;
 
 function TwbMainRecord.CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean;
 begin
-  if wbIsStarfield and wbStarfieldIsABugInfestedHellhole then
-    if (aIndex = wbAssignThis) and (GetSignature = 'PKIN') then begin
-      var lMainRecord: IwbMainRecord;
-      if Supports(aElement, IwbMainRecord, lMainRecord) then begin
-        if lMainRecord.LoadOrderFormID = GetLoadOrderFormID then
-          Exit(False);
-      end else
-        Exit(False);
-    end;
-
   Result := False;
 
   if not wbIsInternalEdit then begin
@@ -9903,7 +10097,7 @@ begin
     Result := MRI.IsSameData(dcBasePtr, dcEndPtr);
 end;
 
-constructor TwbMainRecord.Create(const aContainer: IwbContainer; const aSignature: TwbSignature; aFormID: TwbFormID);
+constructor TwbMainRecord.Create(const aContainer: IwbContainer; const aSignature: TwbSignature; const aFormID: TwbFormID);
 var
   lContainer   : IwbContainer;
   BasePtr      : PwbMainRecordStruct;
@@ -9932,8 +10126,8 @@ var
 
     if wbGameMode >= gmFO3 then begin
       case wbGameMode of
-        gmSF1                        : BasePtr.mrsVersion^ := 576;
-        gmFO76                       : BasePtr.mrsVersion^ := 204;
+        gmSF1                        : BasePtr.mrsVersion^ := 582;
+        gmFO76                       : BasePtr.mrsVersion^ := 208;
         gmFO4, gmFO4VR               : BasePtr.mrsVersion^ := 131;
         gmSSE, gmTES5VR, gmEnderalSE : BasePtr.mrsVersion^ := 44;
         gmTES5, gmEnderal            : BasePtr.mrsVersion^ := 43;
@@ -10087,7 +10281,8 @@ begin
     if UncompressedLength > 0 then begin
       SetLength(mrDataStorage, UncompressedLength );
 
-      DecompressToUserBuf(
+      TwbCompression.Decompress(
+        ctZLib,
         PByte(dcDataBasePtr) + SizeOf(Cardinal),
         mrStruct.mrsDataSize - SizeOf(Cardinal),
         @mrDataStorage[0],
@@ -10601,7 +10796,7 @@ var
     Result := lMasterZeroIsGameMaster;
   end;
 
-  procedure MarkMaster(aFormID: TwbFormID);
+  procedure MarkMaster(const aFormID: TwbFormID);
   begin
     if aFormID.IsNull then
       Exit;
@@ -10745,7 +10940,7 @@ begin
       Exclude(mrStates, mrsBaseRecordChecked);
 
   if not (mrsBaseRecordChecked in mrStates) then begin
-    if mrDef.ContainsKnownSubRecord[ksrBaseRecord] then begin
+    if Assigned(mrDef) and mrDef.ContainsKnownSubRecord[ksrBaseRecord] then begin
       SelfRef := Self as IwbContainerElementRef;
       if not ((mrsQuickInitDone in mrStates) or (csInitOnce in cntStates)) then begin
         Assert(not (csInit in cntStates));
@@ -11398,7 +11593,7 @@ begin
   end;
 end;
 
-procedure TwbMainRecord.ChangeFormSignature(aSignature: TwbSignature);
+procedure TwbMainRecord.ChangeFormSignature(const aSignature: TwbSignature);
 begin
   MakeHeaderWriteable;
   mrStruct.mrsSignature := aSignature;
@@ -12605,7 +12800,7 @@ var
 
   SelfIntf      : IwbMainRecord;
 
-  procedure ProcessRef(aFormID: TwbFormID);
+  procedure ProcessRef(const aFormID: TwbFormID);
   begin
     var MainRecord: IwbMainRecord := nil;
 
@@ -12883,7 +13078,7 @@ begin
 end;
 
 
-function TwbMainRecord.MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean;
+function TwbMainRecord.MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean;
 var
   KAR: IwbKeepAliveRoot;
 
@@ -13351,6 +13546,10 @@ var
   _File: IwbFileInternal;
 begin
   DoBuildRef(True);
+
+  var lGroup := GetChildGroup;
+  if Assigned(lGroup) then
+    lGroup.Remove;
 
   _File := GetFile as IwbFileInternal;
   if Assigned(_File) then
@@ -14632,10 +14831,7 @@ var
           DataSize := MemoryStream.Size;
           Stream.WriteBuffer(DataSize, SizeOf(DataSize));
           MemoryStream.Position := 0;
-          if (wbGameMode = gmFO76) then
-            ZCompressStream(MemoryStream, Stream, zcLevel9)
-          else
-            ZCompressStream(MemoryStream, Stream);
+          TwbCompression.Compress(ctZLib, MemoryStream, Stream);
         finally
           FreeAndNil(MemoryStream);
         end;
@@ -15418,6 +15614,8 @@ function TwbSubRecord.CompareExchangeFormID(aOldFormID, aNewFormID: TwbFormID): 
 var
   SelfRef     : IwbContainerElementRef;
   ResolvedDef : IwbValueDef;
+  OldValue    : Variant;
+  NewValue    : Variant;
 begin
   SelfRef := Self as IwbContainerElementRef;
   Result := False;
@@ -15430,11 +15628,16 @@ begin
   try
     Result := inherited CompareExchangeFormID(aOldFormID, aNewFormID);
 
+    OldValue := GetNativeValue;
     ResolvedDef := Resolve(srValueDef, GetDataBasePtr, dcDataEndPtr, Self);
     if Assigned(ResolvedDef) then
       if ResolvedDef.CompareExchangeFormID(GetDataBasePtr, dcDataEndPtr, Self, aOldFormID, aNewFormID) then begin
         SetModified(True);
         Result := True;
+        NewValue := GetNativeValue;
+        var lDef := GetDef;
+        if dfAfterSetOnIDUpdate in lDef.DefFlags then
+          DoAfterSet(OldValue, NewValue);
         //wbProgress('Replaced FormID [%s] with [%s] in "%s". New Value: %s', [aOldFormID.ToString, aNewFormID.ToString, GetPath, GetValue]);
       end;
   finally
@@ -16024,7 +16227,7 @@ begin
   Result := srsIsFlags in srStates;
 end;
 
-function TwbSubRecord.MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean;
+function TwbSubRecord.MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean;
 var
   SelfRef     : IwbContainerElementRef;
   ResolvedDef : IwbValueDef;
@@ -17875,7 +18078,7 @@ begin
   end;
 end;
 
-function TwbGroupRecord.MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean;
+function TwbGroupRecord.MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean;
 var
   SelfPtr     : IwbContainerElementRef;
   OldFormID   : TwbFormID;
@@ -18705,7 +18908,7 @@ begin
   raise Exception.Create(ClassName + '.AddIfMissingInternal is not implemented');
 end;
 
-procedure TwbElement.AddReferencedFromID(aFormID: TwbFormID);
+procedure TwbElement.AddReferencedFromID(const aFormID: TwbFormID);
 begin
   if Assigned(eContainer) then
     IwbElement(eContainer).AddReferencedFromID(aFormID);
@@ -19081,7 +19284,7 @@ begin
       sl.Sorted := False;
       sl.CustomSort(CompareLoadOrderSL);
 
-      aTargetFile.AddMasters(sl);
+      aTargetFile.AddMastersIfMissing(sl);
     end;
   finally
     sl.Free;
@@ -19853,7 +20056,7 @@ begin
   end;
 end;
 
-function TwbElement.MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean;
+function TwbElement.MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean;
 begin
   Result := False;
   Assert( Length(aOld) = Length(aNew) );
@@ -22453,14 +22656,21 @@ begin
     case sc of
       scNone: Assert(False);  // Getting there would be very funny :)
       scZComp:
-        DecompressToUserBuf(
+        TwbCompression.Decompress(
+          ctZLib,
           PByte(dcDataBasePtr),
           GetDataSize,
           @dcDataStorage[0],
           PCardinal(dcDataBasePtr)^
         );
       scLZComp:
-        LZ4_decompress_safe(PAnsiChar(dcDataBasePtr), @dcDataStorage[0], GetDataSize, szUncompressedSize);
+        TwbCompression.Decompress(
+          ctLZ4,
+          PByte(dcDataBasePtr),
+          GetDataSize,
+          @dcDataStorage[0],
+          PCardinal(dcDataBasePtr)^
+        );
       else
         Assert(False);  // Something hasn't been updated yet.
     end;
@@ -22539,6 +22749,8 @@ function TwbUnion.CompareExchangeFormID(aOldFormID, aNewFormID: TwbFormID): Bool
 var
   SelfRef     : IwbContainerElementRef;
   ResolvedDef : IwbValueDef;
+  OldValue    : Variant;
+  NewValue    : Variant;
 begin
   SelfRef := Self as IwbContainerElementRef;
 
@@ -22548,11 +22760,16 @@ begin
   try
     Result := inherited CompareExchangeFormID(aOldFormID, aNewFormID);
 
+    OldValue := GetNativeValue;
     ResolvedDef := Resolve(vbValueDef, GetDataBasePtr, dcDataEndPtr, Self);
     if Assigned(ResolvedDef) then
       if ResolvedDef.CompareExchangeFormID(GetDataBasePtr, dcDataEndPtr, Self, aOldFormID, aNewFormID) then begin
         SetModified(True);
         Result := True;
+        NewValue := GetNativeValue;
+        var lDef := GetDef;
+        if dfAfterSetOnIDUpdate in lDef.DefFlags then
+          DoAfterSet(OldValue, NewValue);
         //wbProgress('Replaced FormID [%s] with [%s] in "%s". New Value: %s', [aOldFormID.ToString, aNewFormID.ToString, GetPath, GetValue]);
       end;
   finally
@@ -22610,7 +22827,7 @@ begin
   UnionDoInit(vbValueDef, Self, BasePtr, dcDataEndPtr, unResolvedDef);
 end;
 
-function TwbUnion.MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean;
+function TwbUnion.MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean;
 var
   SelfRef     : IwbContainerElementRef;
   ResolvedDef : IwbValueDef;
@@ -22699,6 +22916,8 @@ function TwbValue.CompareExchangeFormID(aOldFormID, aNewFormID: TwbFormID): Bool
 var
   SelfRef     : IwbContainerElementRef;
   ResolvedDef : IwbValueDef;
+  OldValue    : Variant;
+  NewValue    : Variant;
 begin
   SelfRef := Self as IwbContainerElementRef;
 
@@ -22708,11 +22927,16 @@ begin
   try
     Result := inherited CompareExchangeFormID(aOldFormID, aNewFormID);
 
+    OldValue := GetNativeValue;
     ResolvedDef := Resolve(vbValueDef, GetDataBasePtr, dcDataEndPtr, Self);
     if Assigned(ResolvedDef) then
       if ResolvedDef.CompareExchangeFormID(GetDataBasePtr, dcDataEndPtr, Self, aOldFormID, aNewFormID) then begin
         SetModified(True);
         Result := True;
+        NewValue := GetNativeValue;
+        var lDef := GetDef;
+        if dfAfterSetOnIDUpdate in lDef.DefFlags then
+          DoAfterSet(OldValue, NewValue);
         //wbProgress('Replaced FormID [%s] with [%s] in "%s". New Value: %s', [aOldFormID.ToString, aNewFormID.ToString, GetFullPath, GetValue]);
       end;
   finally
@@ -22863,10 +23087,12 @@ begin
   Result := vIsFlags;
 end;
 
-function TwbValue.MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: Byte): Boolean;
+function TwbValue.MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean;
 var
   SelfRef    : IwbContainerElementRef;
   ResolvedDef : IwbValueDef;
+  OldValue : Variant;
+  NewValue : Variant;
 begin
   SelfRef := Self as IwbContainerElementRef;
 
@@ -22876,12 +23102,17 @@ begin
 
     Result := inherited MastersUpdated(aOld, aNew, aOldCount, aNewCount);
 
+    OldValue := GetNativeValue;
     ResolvedDef := Resolve(vbValueDef, GetDataBasePtr, dcDataEndPtr, Self);
     if Assigned(ResolvedDef) then
       if ResolvedDef.MastersUpdated(GetDataBasePtr, dcDataEndPtr, Self, aOld, aNew, aOldCount, aNewCount) then begin
         Result := True;
         SetMastersUpdated(True);
         SetModified(True);
+        NewValue := GetNativeValue;
+        var lDef := GetDef;
+        if dfAfterSetOnIDUpdate in lDef.DefFlags then
+          DoAfterSet(OldValue, NewValue);
       end;
 
   finally
@@ -23084,7 +23315,7 @@ begin
   _NextLightSlot := 0;
 end;
 
-function wbFile(const aFileName: string; aLoadOrder: Integer = -1; aCompareTo: string = ''; aStates: TwbFileStates = []; const aData: TBytes = nil): IwbFile;
+function wbFile(const aFileName: string; aLoadOrder: Integer = -1; const aCompareTo: string = ''; aStates: TwbFileStates = []; const aData: TBytes = nil): IwbFile;
 var
   FileName: string;
   i: Integer;
@@ -23274,20 +23505,6 @@ begin
   finally
     Signatures.Free;
   end;
-end;
-
-function wbGetGameMasterFile: IwbFile;
-var
-  i     : Integer;
-begin
-  for i := Low(Files) to High(Files) do
-    if fsIsGameMaster in Files[i].FileStates then
-      Exit(Files[i]);
-  for i := Low(Files) to High(Files) do
-    with Files[i].LoadOrderFileID do
-      if IsFullSlot and (FullSlot = 0) then
-        Exit(Files[i]);
-  Result := nil;
 end;
 
 { TwbFlag }
@@ -23888,6 +24105,20 @@ begin
     end;
     dcDataStorage := nil;
   end;
+end;
+
+procedure TwbDataContainer.PrepareSave;
+begin
+  inherited;
+
+  var lValue := GetValueDef;
+  if not Assigned(lValue) then
+    Exit;
+
+  if not (dfNeedsPrepareSave in lValue.DefFlags) then
+    Exit;
+
+  lValue.PrepareSave(Self);
 end;
 
 procedure TwbDataContainer.RequestStorageChange(var aBasePtr, aEndPtr: Pointer; aNewSize: Cardinal);
@@ -25079,7 +25310,7 @@ begin
 
 end;
 
-function CreateTemporaryCopy(FileName, CompareFile: String): String;
+function CreateTemporaryCopy(const FileName : string; var CompareFile: String): String;
 var
   s : String;
   i : Integer;
@@ -25102,7 +25333,7 @@ begin
   Result := CompareFile;
 end;
 
-function SelectTemporaryCopy(FileName, CompareFile: String): String;
+function SelectTemporaryCopy(const FileName : string; CompareFile: String): String;
 var
   s : String;
   i : Integer;
@@ -25431,24 +25662,6 @@ begin
   end;
 
   Result := TwbFormID.FromCardinal( (Cardinal(aFormIDBase) shl 16) + i );
-end;
-
-function wbRecordByLoadOrderFormID(const aFormID: TwbFormID; const aSeenFromFile: IwbFile): IwbMainRecord;
-var
-  FileID: TwbFileID;
-begin
-  Result := nil;
-  FileID := aFormID.FileID;
-  for var i:= Low(Files) to High(Files) do
-    if Files[i].LoadOrderFileID = FileID then begin
-      Result := Files[i].RecordByFormID[aFormID, True, False];
-      if Assigned(Result) and Assigned(aSeenFromFile) then begin
-        var lVisibleResult := Result.HighestOverrideVisibleForFile[aSeenFromFile];
-        if Assigned(lVisibleResult) then
-          Result := lVisibleResult;
-      end;
-      Exit;
-    end;
 end;
 
 { TwbTemplateElement }

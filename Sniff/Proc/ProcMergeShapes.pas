@@ -11,9 +11,16 @@ unit ProcMergeShapes;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls, Vcl.Mask, Vcl.ExtCtrls;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Mask,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameMergeShapes = class(TFrame)
@@ -38,7 +45,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 
@@ -47,7 +54,8 @@ implementation
 {$R *.dfm}
 
 uses
-  StrUtils,
+  System.StrUtils,
+
   wbDataFormat,
   wbDataFormatNif;
 
@@ -97,7 +105,7 @@ begin
   fExactMatch := Frame.chkExactMatch.Checked;
 end;
 
-function TProcMergeShapes.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcMergeShapes.ProcessFile(aFile: TProcFileObject): TBytes;
 
   function merge_arrays(dst, src: TdfElement): Boolean;
   var
@@ -172,7 +180,7 @@ begin
   nif.Options := [nfoCollapseLinkArrays, nfoRemoveUnusedStrings];
 
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     var nodes := nif.BlocksByType('NiNode', True);
 

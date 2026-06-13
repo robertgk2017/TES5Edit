@@ -11,9 +11,14 @@ unit ProcOptimize;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 const
   sLinkInfo = 'https://github.com/zeux/meshoptimizer?tab=readme-ov-file#vertex-cache-optimization';
@@ -53,7 +58,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 
@@ -62,7 +67,9 @@ implementation
 {$R *.dfm}
 
 uses
-  ShellApi,
+  Winapi.ShellApi,
+  Winapi.Windows,
+
   wbDataFormat,
   wbDataFormatNif;
 
@@ -126,7 +133,7 @@ begin
   ShellExecute(self.WindowHandle, 'open', sLinkInfo, nil, nil, SW_SHOWNORMAL);
 end;
 
-function TProcOptimize.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcOptimize.ProcessFile(aFile: TProcFileObject): TBytes;
 var
   nif: TwbNifFile;
   Options: TwbMeshOptimizeOptions;
@@ -139,7 +146,7 @@ begin
 
   nif := TwbNifFile.Create;
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     if nif.SpellOptimize(Options) then
       nif.SaveToData(Result);

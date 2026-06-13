@@ -11,9 +11,19 @@ unit ProcUniversalTweaker;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor, JsonDataObjects,
-  Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Mask, Vcl.Menus;
+  System.Classes,
+  System.SysUtils,
+
+  JsonDataObjects,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Mask,
+  Vcl.Menus,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameUniversalTweaker = class(TFrame)
@@ -34,29 +44,33 @@ type
     miPresetAdd: TMenuItem;
     miPresetRemove: TMenuItem;
     N1: TMenuItem;
-    DefaultPresets: TStaticText;
     procedure chkOldValueCheckClick(Sender: TObject);
     procedure edPathChange(Sender: TObject);
     procedure miPresetAddClick(Sender: TObject);
     procedure miPresetRemoveClick(Sender: TObject);
     procedure miPresetClick(Sender: TObject);
     procedure btnPresetClick(Sender: TObject);
-  private
-    { Private declarations }
   public
-    { Public declarations }
-    fPresets: TJSONObject;
+    fPresets: TJsonObject;
     fPreset: string;
+    fPresetsChanged: Boolean;
     function AddPreset(const aPreset: string): TMenuItem;
   end;
 
   TTweakOldValueMode = (ovmEqual = 0, ovmNotEqual, ovmGreater, ovmLesser,
     ovmContains, ovmDoesntContain, ovmStartsWith, ovmEndsWith,
     ovmAnd, ovmAndNot, ovmRegExp);
+  TTweakOldValueModes = set of TTweakOldValueMode;
 
   TTweakNewValueMode = (nvmSet = 0, nvmAdd, nvmMul, nvmReplace, nvmPrepend, nvmAppend,
-    nvmAnd, nvmAndNot, nvmOr);
+    nvmAnd, nvmAndNot, nvmOr, nvmRemove, nvmRound, nvmMulRound);
+  TTweakNewValueModes = set of TTweakNewValueMode;
 
+const
+  MathOld: TTweakOldValueModes = [ovmGreater, ovmLesser, ovmAnd, ovmAndNot];
+  MathNew: TTweakNewValueModes = [nvmAdd, nvmMul, nvmAnd, nvmAndNot, nvmOr, nvmRound, nvmMulRound];
+
+type
   TProcUniversalTweaker = class(TProcBase)
   private
     Frame: TFrameUniversalTweaker;
@@ -77,7 +91,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 implementation
@@ -85,9 +99,13 @@ implementation
 {$R *.dfm}
 
 uses
-  System.StrUtils,
   System.Math,
   System.RegularExpressionsCore,
+  System.StrUtils,
+  System.Types,
+
+  Vcl.Dialogs,
+
   wbDataFormat,
   wbDataFormatNif,
   wbDataFormatMaterial;
@@ -108,11 +126,9 @@ begin
 end;
 
 procedure TFrameUniversalTweaker.btnPresetClick(Sender: TObject);
-var
-  pnt: TPoint;
 begin
-  if GetCursorPos(pnt) then
-    menuPreset.Popup(pnt.X, pnt.Y);
+  with ClientToScreen(Point(btnPreset.Left, btnPreset.Top + btnPreset.Height)) do
+    menuPreset.Popup(X, Y);
 end;
 
 procedure TFrameUniversalTweaker.chkOldValueCheckClick(Sender: TObject);
@@ -129,6 +145,12 @@ end;
 
 function TFrameUniversalTweaker.AddPreset(const aPreset: string): TMenuItem;
 begin
+  for var Item in menuPreset.Items do
+    if Item.Caption = aPreset then begin
+      Result := Item;
+      Exit;
+    end;
+
   Result := TMenuItem.Create(menuPreset);
   Result.Caption := aPreset;
   Result.AutoCheck := True;
@@ -138,6 +160,27 @@ begin
   menuPreset.Items.Add(Result);
 end;
 
+procedure TFrameUniversalTweaker.miPresetClick(Sender: TObject);
+begin
+  var s := TMenuItem(Sender).Caption;
+  if not fPresets.Contains(s) then
+    Exit;
+
+  with fPresets.O[s] do begin
+    edBlocks.Text := S['sBlocks'];
+    chkInherited.Checked := B['sDescendants'];
+    edPath.Text := S['sPath'];
+    edPathChange(nil);
+    cmbNewValueMode.ItemIndex := cmbNewValueMode.Items.IndexOfObject(TObject(I['iValueMode']));
+    edValue.Text := S['sValue'];
+    chkOldValueCheck.Checked := B['bOldValueCheck'];
+    edOldPath.Text := S['sOldPath'];
+    cmbOldValueMode.ItemIndex := cmbOldValueMode.Items.IndexOfObject(TObject(I['iOldValueMode']));
+    edOldValue.Text := S['sOldValue'];
+  end;
+  fPreset := s;
+end;
+
 procedure TFrameUniversalTweaker.miPresetAddClick(Sender: TObject);
 var
   s: string;
@@ -145,21 +188,24 @@ begin
   if not InputQuery('Universal tweaker', 'Add preset', s) then
     Exit;
 
-  if (s = '') or (s = 'Add') or (s = 'Remove') or (s = '-') then
+  if (Trim(s) = '') or (s = 'Add') or (s = 'Remove') or (s = '-') or (s = '&') then
     Exit;
 
-  fPresets.O[s].S['sBlocks'] := edBlocks.Text;
-  fPresets.O[s].B['sDescendants'] := chkInherited.Checked;
-  fPresets.O[s].S['sPath'] := edPath.Text;
-  fPresets.O[s].I['iValueMode'] := cmbNewValueMode.ItemIndex;
-  fPresets.O[s].S['sValue'] := edValue.Text;
-  fPresets.O[s].B['bOldValueCheck'] := chkOldValueCheck.Checked;
-  fPresets.O[s].S['sOldPath'] := edOldPath.Text;
-  fPresets.O[s].I['iOldValueMode'] := cmbOldValueMode.ItemIndex;
-  fPresets.O[s].S['sOldValue'] := edOldValue.Text;
+  with fPresets.O[s] do begin
+    S['sBlocks'] := edBlocks.Text;
+    B['sDescendants'] := chkInherited.Checked;
+    S['sPath'] := edPath.Text;
+    I['iValueMode'] := Integer(cmbNewValueMode.Items.Objects[cmbNewValueMode.ItemIndex]);
+    S['sValue'] := edValue.Text;
+    B['bOldValueCheck'] := chkOldValueCheck.Checked;
+    S['sOldPath'] := edOldPath.Text;
+    I['iOldValueMode'] := Integer(cmbOldValueMode.Items.Objects[cmbOldValueMode.ItemIndex]);
+    S['sOldValue'] := edOldValue.Text;
+  end;
 
   AddPreset(s).Checked := True;
   fPreset := s;
+  fPresetsChanged := True;
 end;
 
 procedure TFrameUniversalTweaker.miPresetRemoveClick(Sender: TObject);
@@ -197,44 +243,68 @@ begin
     end;
 
   fPreset := '';
-end;
-
-procedure TFrameUniversalTweaker.miPresetClick(Sender: TObject);
-begin
-  var s := TMenuItem(Sender).Caption;
-  if not fPresets.Contains(s) then
-    Exit;
-
-  edBlocks.Text := fPresets.O[s].S['sBlocks'];
-  chkInherited.Checked := fPresets.O[s].B['sDescendants'];
-  edPath.Text := fPresets.O[s].S['sPath'];
-  edPathChange(nil);
-  cmbNewValueMode.ItemIndex := fPresets.O[s].I['iValueMode'];
-  edValue.Text := fPresets.O[s].S['sValue'];
-  chkOldValueCheck.Checked := fPresets.O[s].B['bOldValueCheck'];
-  edOldPath.Text := fPresets.O[s].S['sOldPath'];
-  cmbOldValueMode.ItemIndex := fPresets.O[s].I['iOldValueMode'];
-  edOldValue.Text := fPresets.O[s].S['sOldValue'];
-
-  fPreset := s;
+  fPresetsChanged := True;
 end;
 
 procedure TProcUniversalTweaker.OnShow;
+const
+  cDefaultPresets = '''
+    {"Change body part in BSDismemberSkinInstance partitions":{"sBlocks":"BSDismemberSkinInstance","sDescendants":false,"sPath":"Partitions\\[*]\\Body Part","iValueMode":0,"sValue":"SBP_32_BODY","bOldValueCheck":true,"sOldPath":"","iOldValueMode":0,"sOldValue":"SBP_34_FOREARMS"},
+    "Set normal texture to diffuse with _n suffix in BSShaderTextureSet":{"sBlocks":"BSShaderTextureSet","sDescendants":false,"sPath":"Textures\\[1]","iValueMode":3,"sValue":"$1_n.dds","bOldValueCheck":true,"sOldPath":"Textures\\[0]","iOldValueMode":10,"sOldValue":"(.+)\\.dds"},
+    "Change Author field in NiHeader":{"sBlocks":"NiHeader","sDescendants":false,"sPath":"Export Info\\Author","iValueMode":0,"sValue":"Sniff","bOldValueCheck":false,"sOldPath":"","iOldValueMode":0,"sOldValue":""},
+    "Add Hidden flag to EditorMarker nodes":{"sBlocks":"NiAVObject","sDescendants":true,"sPath":"Flags","iValueMode":8,"sValue":"1","bOldValueCheck":true,"sOldPath":"Name","iOldValueMode":4,"sOldValue":"EditorMarker"},
+    "Switch to Parallax shader in BSLightingShaderProperty if there is parallax texture":{"sBlocks":"BSLightingShaderProperty","sDescendants":false,"sPath":"Shader Type","iValueMode":0,"sValue":"Parallax","bOldValueCheck":true,"sOldPath":"Texture Set\\Textures\\[3]","iOldValueMode":4,"sOldValue":".dds"},
+    "Add Glow_Map flag if shader is Glow Shader in BSLightingShaderProperty":{"sBlocks":"BSLightingShaderProperty","sDescendants":false,"sPath":"Shader Flags 2","iValueMode":5,"sValue":"| Glow_Map","bOldValueCheck":true,"sOldPath":"Shader Type","iOldValueMode":0,"sOldValue":"Glow Shader"},
+    "Change priority of controlled blocks matched by name in NiControllerSequence":{"sBlocks":"NiControllerSequence","sDescendants":false,"sPath":"Controlled Blocks\\[*]\\Priority","iValueMode":0,"sValue":"10","bOldValueCheck":true,"sOldPath":"Node Name","iOldValueMode":10,"sOldValue":"Neck|Head"},
+    "Change name of controlled blocks in NiControllerSequence":{"sBlocks":"NiControllerSequence","sDescendants":false,"sPath":"Controlled Blocks\\[*]\\Node Name","iValueMode":0,"sValue":"Bip01 Head","bOldValueCheck":true,"sOldPath":"","iOldValueMode":0,"sOldValue":"Bip01 Neck"},
+    "Trim whitespaces from the Name field":{"sBlocks":"NiObjectNET","sDescendants":true,"sPath":"Name","iValueMode":3,"sValue":"","bOldValueCheck":true,"sOldPath":"","iOldValueMode":10,"sOldValue":"^\\s*|\\s*$"}}'
+  ''';
 begin
-  Frame.chkReport.Checked := StorageGetBool('bReportOnly', Frame.chkReport.Checked);
-  Frame.edBlocks.Text := StorageGetString('sBlocks', Frame.edBlocks.Text);
-  Frame.chkInherited.Checked := StorageGetBool('bDescendants', Frame.chkInherited.Checked);
-  Frame.edPath.Text := StorageGetString('sPath', Frame.edPath.Text);
-  Frame.cmbNewValueMode.ItemIndex := StorageGetInteger('iValueMode', Frame.cmbNewValueMode.ItemIndex);
-  Frame.edValue.Text := StorageGetString('sValue', Frame.edValue.Text);
-  Frame.edOldPath.Text := StorageGetString('sOldPath', Frame.edOldPath.Text);
-  Frame.chkOldValueCheck.Checked := StorageGetBool('bOldValueCheck', Frame.chkOldValueCheck.Checked);
-  Frame.cmbOldValueMode.ItemIndex := StorageGetInteger('iOldValueMode', Frame.cmbOldValueMode.ItemIndex);
-  Frame.edOldValue.Text := StorageGetString('sOldValue', Frame.edOldValue.Text);
-  Frame.chkOldValueCheckClick(nil);
-  Frame.fPresets := TJSONObject.Create;
-  var s := StorageGetString('sPresets', Frame.DefaultPresets.Caption);
-  try Frame.fPresets.FromJSON(s); except end;
+  Frame.cmbNewValueMode.Items.AddObject('Set', TObject(nvmSet));
+  Frame.cmbNewValueMode.Items.AddObject('Add', TObject(nvmAdd));
+  Frame.cmbNewValueMode.Items.AddObject('Mul', TObject(nvmMul));
+  Frame.cmbNewValueMode.Items.AddObject('Round', TObject(nvmRound));
+  Frame.cmbNewValueMode.Items.AddObject('Mul and Round', TObject(nvmMulRound));
+  Frame.cmbNewValueMode.Items.AddObject('Replace with', TObject(nvmReplace));
+  Frame.cmbNewValueMode.Items.AddObject('Prepend str', TObject(nvmPrepend));
+  Frame.cmbNewValueMode.Items.AddObject('Append str', TObject(nvmAppend));
+  Frame.cmbNewValueMode.Items.AddObject('Remove str', TObject(nvmRemove));
+  Frame.cmbNewValueMode.Items.AddObject('AND &', TObject(nvmAnd));
+  Frame.cmbNewValueMode.Items.AddObject('AND NOT &!', TObject(nvmAndNot));
+  Frame.cmbNewValueMode.Items.AddObject('OR |', TObject(nvmOr));
+
+  Frame.cmbOldValueMode.Items.AddObject('=', TObject(ovmEqual));
+  Frame.cmbOldValueMode.Items.AddObject('<>', TObject(ovmNotEqual));
+  Frame.cmbOldValueMode.Items.AddObject('>', TObject(ovmGreater));
+  Frame.cmbOldValueMode.Items.AddObject('<', TObject(ovmLesser));
+  Frame.cmbOldValueMode.Items.AddObject('Contains', TObject(ovmContains));
+  Frame.cmbOldValueMode.Items.AddObject('Doesn''t contain', TObject(ovmDoesntContain));
+  Frame.cmbOldValueMode.Items.AddObject('Starts with', TObject(ovmStartsWith));
+  Frame.cmbOldValueMode.Items.AddObject('Ends with', TObject(ovmEndsWith));
+  Frame.cmbOldValueMode.Items.AddObject('Regular Expr', TObject(ovmRegExp));
+  Frame.cmbOldValueMode.Items.AddObject('AND &', TObject(ovmAnd));
+  Frame.cmbOldValueMode.Items.AddObject('AND NOT &!', TObject(ovmAndNot));
+
+  try
+    Frame.chkReport.Checked := StorageGetBool('bReportOnly', Frame.chkReport.Checked);
+    Frame.edBlocks.Text := StorageGetString('sBlocks', Frame.edBlocks.Text);
+    Frame.chkInherited.Checked := StorageGetBool('bDescendants', Frame.chkInherited.Checked);
+    Frame.edPath.Text := StorageGetString('sPath', Frame.edPath.Text);
+    var i := Frame.cmbNewValueMode.Items.IndexOfObject(TObject(StorageGetInteger('iValueMode', 0)));
+    if i = -1 then i := 0;
+    Frame.cmbNewValueMode.ItemIndex := i;
+    Frame.edValue.Text := StorageGetString('sValue', Frame.edValue.Text);
+    Frame.edOldPath.Text := StorageGetString('sOldPath', Frame.edOldPath.Text);
+    Frame.chkOldValueCheck.Checked := StorageGetBool('bOldValueCheck', Frame.chkOldValueCheck.Checked);
+    i := Frame.cmbOldValueMode.Items.IndexOfObject(TObject(StorageGetInteger('iOldValueMode', 0)));
+    if i = -1 then i := 0;
+    Frame.cmbOldValueMode.ItemIndex := i;
+    Frame.edOldValue.Text := StorageGetString('sOldValue', Frame.edOldValue.Text);
+    Frame.chkOldValueCheckClick(nil);
+  except end;
+
+  Frame.fPresets := TJsonObject.Create;
+  try Frame.fPresets.FromJSON(StorageGetString('sPresets', cDefaultPresets)); except end;
   with TStringList.Create do try
     for var i := 0 to Pred(Frame.fPresets.Count) do
       Add(Frame.fPresets.Names[i]);
@@ -251,14 +321,16 @@ begin
   StorageSetString('sBlocks', Frame.edBlocks.Text);
   StorageSetBool('bDescendants', Frame.chkInherited.Checked);
   StorageSetString('sPath', Frame.edPath.Text);
-  StorageSetInteger('iValueMode', Frame.cmbNewValueMode.ItemIndex);
+  StorageSetInteger('iValueMode', Integer(Frame.cmbNewValueMode.Items.Objects[Frame.cmbNewValueMode.ItemIndex]));
   StorageSetString('sValue', Frame.edValue.Text);
   StorageSetString('sOldPath', Frame.edOldPath.Text);
   StorageSetBool('bOldValueCheck', Frame.chkOldValueCheck.Checked);
-  StorageSetInteger('iOldValueMode', Frame.cmbOldValueMode.ItemIndex);
+  StorageSetInteger('iOldValueMode', Integer(Frame.cmbOldValueMode.Items.Objects[Frame.cmbOldValueMode.ItemIndex]));
   StorageSetString('sOldValue', Frame.edOldValue.Text);
   StorageSetBool('bReportOnly', Frame.chkReport.Checked);
-  StorageSetString('sPresets', Frame.fPresets.ToJSON(True));
+  if Frame.fPresetsChanged then
+    StorageSetString('sPresets', Frame.fPresets.ToJSON(True));
+
   Frame.fPresets.Free;
 end;
 
@@ -269,7 +341,7 @@ begin
     StrictDelimiter := True;
     DelimitedText := Frame.edBlocks.Text;
     SetLength(fBlocks, Count);
-    for var i: Integer := 0 to Pred(Count) do
+    for var i := 0 to Pred(Count) do
       fBlocks[i] := Trim(Strings[i]);
   finally
     Free;
@@ -281,22 +353,30 @@ begin
   if fPath = '' then
     raise Exception.Create('Field path can not be empty');
 
-  fValueMode := TTweakNewValueMode(Frame.cmbNewValueMode.ItemIndex);
+  fValueMode := TTweakNewValueMode(Frame.cmbNewValueMode.Items.Objects[Frame.cmbNewValueMode.ItemIndex]);
   fValue := Frame.edValue.Text;
+  if (fValueMode = nvmRound) and (fValue = '') then
+    fValue := '1';
 
-  fOldPath := Frame.edOldPath.Text;
   fOldValueCheck := Frame.chkOldValueCheck.Checked;
-  fOldValueMode := TTweakOldValueMode(Frame.cmbOldValueMode.ItemIndex);
-  fOldValue := Frame.edOldValue.Text;
+  if fOldValueCheck then begin
+    fOldPath := Frame.edOldPath.Text;
+    fOldValue := Frame.edOldValue.Text;
+  end
+  else begin
+    fOldPath := '';
+    fOldValue := '';
+  end;
+  fOldValueMode := TTweakOldValueMode(Frame.cmbOldValueMode.Items.Objects[Frame.cmbOldValueMode.ItemIndex]);
 
-  if (fValueMode = nvmReplace) and (not fOldValueCheck or not (fOldValueMode in [ovmContains, ovmStartsWith, ovmEndsWith, ovmRegExp]) or (fOldValue = '')) then
-    raise Exception.Create('When replacing, if field must be checked using "Contains", "Start with", "Ends with" or "Regular Expr" with non-empty value');
-
-  if fValueMode in [nvmAdd, nvmMul, nvmAnd, nvmAndNot, nvmOr] then try
+  if fValueMode in [nvmAdd, nvmMul, nvmAnd, nvmAndNot, nvmOr, nvmRound] then try
     dfStrToFloat(fValue);
   except
     raise Exception.Create('Value must be a number');
   end;
+
+  if (fValueMode = nvmReplace) and not (fOldValueCheck and (fOldValueMode in [ovmContains, ovmStartsWith, ovmEndsWith, ovmRegExp]) and (fOldValue <> '') ) then
+    raise Exception.Create('When replacing, if field must be checked using "Contains", "Starts with", "Ends with" or "Regular Expr" with non-empty value');
 
   if fOldValueCheck and (fOldValueMode in [ovmGreater, ovmLesser, ovmAnd, ovmAndNot]) then try
     dfStrToFloat(fOldValue);
@@ -305,8 +385,8 @@ begin
   end;
 
   fReportOnly := Frame.chkReport.Checked;
+  fNoOutput := fReportOnly;
 end;
-
 
 function ModifyElement(aBlock: TdfElement;
   const aPath, aValue, aOldPath, aOldValue: string;
@@ -316,34 +396,32 @@ function ModifyElement(aBlock: TdfElement;
   Log: TStrings;
   regexp: TPerlRegEx
 ): Boolean;
-var
-  CurrentValue, NewValue: string;
-  FloatCurrentValue, FloatOldValue, FloatNewValue: Extended;
-  Matched: Boolean;
 
-  function GetEditValue: string;
+  function NativeValue(const p: string): Variant;
   begin
-    if aPath <> '' then
-      Result := aBlock.EditValues[aPath]
+    if p <> '' then
+      Result := aBlock.NativeValues[p]
+    else
+      Result := aBlock.NativeValue;
+  end;
+
+  function EditValue(const p: string): string;
+  begin
+    if p <> '' then
+      Result := aBlock.EditValues[p]
     else
       Result := aBlock.EditValue;
   end;
 
-  function ToFloat: Boolean;
-  begin
-    Result := True;
-    try
-      FloatCurrentValue := dfStrToFloat(CurrentValue);
-      FloatNewValue := dfStrToFloat(aValue);
-      if aOldValueCheck and (aOldValueMode in [ovmEqual, ovmNotEqual, ovmGreater, ovmLesser, ovmAnd, ovmAndNot]) then
-        FloatOldValue := dfStrToFloat(aOldValue);
-    except
-      Result := False;
-    end;
-  end;
-
+var
+  OldValueString, NewValueString: string;
+  OldValueFloat, NewValueFloat: Extended;
+  OldValue, NewValue: string;
+  Matched: Boolean;
 begin
   Result := False;
+  Matched := False;
+  OldValueFloat := 0; NewValueFloat := 0;
 
   // processing all elements in arrays
   var i := Pos('[*]', aPath);
@@ -357,80 +435,104 @@ begin
     Exit;
   end;
 
-  // perform all checks against another element if provided
-  if aOldPath <> '' then
-    CurrentValue := aBlock.EditValues[aOldPath]
-  else
-    CurrentValue := GetEditValue;
+  try
+    if aValueMode in MathNew then
+      NewValueFloat := NativeValue(aPath)
+    else
+      NewValueString := EditValue(aPath);
+  except Exit; end;
 
-  Matched := False;
+  if aOldValueCheck then begin
+    var p := '';
+    try
+      if aOldPath <> '' then p := aOldPath else p := aPath;
+      if aOldValueMode in MathOld then
+        OldValueFloat := NativeValue(p)
+      else
+        OldValueString := EditValue(p);
+    except Exit; end;
 
-  if aOldValueCheck then
-  case aOldValueMode of
-    ovmEqual:    Matched := (ToFloat and SameValue(FloatCurrentValue, FloatOldValue)) or SameText(CurrentValue, aOldValue);
-    ovmNotEqual: Matched := (ToFloat and not SameValue(FloatCurrentValue, FloatOldValue)) or not SameText(CurrentValue, aOldValue);
-    ovmGreater:  Matched := ToFloat and (FloatCurrentValue > FloatOldValue);
-    ovmLesser:   Matched := ToFloat and (FloatCurrentValue < FloatOldValue);
-    ovmContains: Matched := ContainsText(CurrentValue, aOldValue);
-    ovmDoesntContain: Matched := not ContainsText(CurrentValue, aOldValue);
-    ovmStartsWith: Matched := CurrentValue.StartsWith(aOldValue, True);
-    ovmEndsWith: Matched := CurrentValue.EndsWith(aOldValue, True);
-    ovmAnd:      Matched := ToFloat and (Trunc(FloatCurrentValue) and Trunc(FloatOldValue) = Trunc(FloatOldValue));
-    ovmAndNot:   Matched := ToFloat and (Trunc(FloatCurrentValue) and Trunc(FloatOldValue) = 0);
-    ovmRegExp:   begin
-      regexp.Subject := CurrentValue;
-      regexp.RegEx := aOldValue;
-      regexp.Replacement := aValue;
-      Matched := regexp.ReplaceAll;
+    // Equal and NotEqual can be used on both string and number values
+    // which to use depends on aOldValue
+    var EqNumber := False;
+    if aOldValueMode in [ovmEqual, ovmNotEqual] then try
+      var f: Extended;
+      EqNumber := TextToFloat(aOldValue, f);
+      if EqNumber then
+        OldValueFloat := NativeValue(p);
+    except EqNumber := False; end;
+
+    case aOldValueMode of
+      ovmEqual:    Matched := (not EqNumber and SameText(OldValueString, aOldValue)) or (EqNumber and SameValue(OldValueFloat, dfStrToFloat(aOldValue)));
+      ovmNotEqual: Matched := (not EqNumber and not SameText(OldValueString, aOldValue)) or (EqNumber and not SameValue(OldValueFloat, dfStrToFloat(aOldValue)));
+      ovmGreater:  Matched := OldValueFloat > dfStrToFloat(aOldValue);
+      ovmLesser:   Matched := OldValueFloat < dfStrToFloat(aOldValue);
+      ovmContains: Matched := ContainsText(OldValueString, aOldValue);
+      ovmDoesntContain: Matched := not ContainsText(OldValueString, aOldValue);
+      ovmStartsWith: Matched := OldValueString.StartsWith(aOldValue, True);
+      ovmEndsWith: Matched := OldValueString.EndsWith(aOldValue, True);
+      ovmAnd:      Matched := Trunc(OldValueFloat) and Trunc(dfStrToFloat(aOldValue)) <> 0;
+      ovmAndNot:   Matched := Trunc(OldValueFloat) and Trunc(dfStrToFloat(aOldValue)) = 0;
+      ovmRegExp:   begin
+        regexp.Subject := OldValueString;
+        regexp.Replacement := aValue;
+        Matched := regexp.ReplaceAll;
+      end;
     end;
+
+    if not Matched then
+      Exit;
   end;
-
-  if not Matched then
-    Exit;
-
-  // if we were checking another element, then get the actual value for tweaking
-  if aOldPath <> '' then
-    CurrentValue := GetEditValue;
 
   case aValueMode of
     nvmSet:     NewValue := aValue;
-    nvmAdd:     if ToFloat then NewValue := dfFloatToStr(FloatCurrentValue + FloatNewValue);
-    nvmMul:     if ToFloat then NewValue := dfFloatToStr(FloatCurrentValue * FloatNewValue);
-    nvmAnd:     if ToFloat then NewValue := dfFloatToStr(Trunc(FloatCurrentValue) and Trunc(FloatNewValue));
-    nvmAndNot:  if ToFloat then NewValue := dfFloatToStr(Trunc(FloatCurrentValue) and not Trunc(FloatNewValue));
-    nvmOr:      if ToFloat then NewValue := dfFloatToStr(Trunc(FloatCurrentValue) or Trunc(FloatNewValue));
+    nvmAdd:     NewValue := dfFloatToStr(NewValueFloat + dfStrToFloat(aValue));
+    nvmMul:     NewValue := dfFloatToStr(NewValueFloat * dfStrToFloat(aValue));
+    nvmRound:   NewValue := dfFloatToStr(Round(NewValueFloat / dfStrToFloat(aValue)) * dfStrToFloat(aValue));
+    nvmMulRound:NewValue := dfFloatToStr(Round(NewValueFloat * dfStrToFloat(aValue)));
+    nvmAnd:     NewValue := dfFloatToStr(Trunc(NewValueFloat) and Trunc(dfStrToFloat(aValue)));
+    nvmAndNot:  NewValue := dfFloatToStr(Trunc(NewValueFloat) and not Trunc(dfStrToFloat(aValue)));
+    nvmOr:      NewValue := dfFloatToStr(Trunc(NewValueFloat) or Trunc(dfStrToFloat(aValue)));
     nvmReplace: case aOldValueMode of
-      ovmContains:   NewValue := StringReplace(CurrentValue, aOldValue, aValue, [rfReplaceAll, rfIgnoreCase]);
-      ovmStartsWith: NewValue := aValue + Copy(CurrentValue, Length(aOldValue) + 1, Length(CurrentValue));
-      ovmEndsWith:   NewValue := Copy(CurrentValue, 1, Length(CurrentValue) - Length(aOldValue)) + aValue;
+      ovmContains:   NewValue := StringReplace(NewValueString, aOldValue, aValue, [rfReplaceAll, rfIgnoreCase]);
+      ovmStartsWith: NewValue := aValue + Copy(NewValueString, Length(aOldValue) + 1, Length(NewValueString));
+      ovmEndsWith:   NewValue := Copy(NewValueString, 1, Length(NewValueString) - Length(aOldValue)) + aValue;
       ovmRegExp:     NewValue := regexp.Subject;
     end;
-    nvmPrepend: NewValue := aValue + CurrentValue;
-    nvmAppend : NewValue := CurrentValue + aValue;
+    nvmPrepend: NewValue := aValue + NewValueString;
+    nvmAppend : NewValue := NewValueString + aValue;
+    nvmRemove : NewValue := StringReplace(NewValueString, aValue, '', [rfIgnoreCase, rfReplaceAll]);
   end;
 
   // if fractional part is zero (ends with .00000)
   // then remove it in case we are working with int field
-  if aValueMode in [nvmAdd, nvmMul, nvmAnd, nvmAndNot, nvmOr] then begin
+  if aValueMode in MathNew then begin
     var z := Copy(dfFloatToStr(1), 2, 100);
     if NewValue.EndsWith(z) then
       NewValue := Copy(NewValue, 1, Length(NewValue) - Length(z));
   end;
 
-  if aPath <> '' then
-    aBlock.EditValues[aPath] := NewValue
-  else
+  if aPath <> '' then begin
+    OldValue := aBlock.EditValues[aPath];
+    aBlock.EditValues[aPath] := NewValue;
+    NewValue := aBlock.EditValues[aPath];
+  end
+  else begin
+    OldValue := aBlock.EditValue;
     aBlock.EditValue := NewValue;
+    NewValue := aBlock.EditValue;
+  end;
 
-  Result := CurrentValue <> GetEditValue;
+  Result := OldValue <> NewValue;
+
   if Assigned(Log) and Result then begin
     var p := aBlock.Path;
     if aPath <> '' then p := p + '\' + aPath;
-    Log.Add(#9 + p + ': Changed from "' + CurrentValue + '" to "' + GetEditValue + '"');
+    Log.Add(#9 + p + ': Changed from "' + OldValue + '" to "' + NewValue + '"');
   end;
 end;
 
-function TProcUniversalTweaker.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcUniversalTweaker.ProcessFile(aFile: TProcFileObject): TBytes;
 var
   nif: TwbNifFile;
   BGSM: TwbBGSMFile;
@@ -445,20 +547,22 @@ begin
   bChanged := False;
   nif := nil; BGSM := nil; BGEM := nil; Log := nil; regexp := nil; // suppress compiler warning
 
-  if fOldValueMode = ovmRegExp then begin
+  if fOldValueCheck and (fOldValueMode = ovmRegExp) then begin
     regexp := TPerlRegEx.Create;
     regexp.Options := [preCaseLess];
+    regexp.RegEx := fOldValue;
+    regexp.Study;
   end;
 
   if fReportOnly then
     Log := TStringList.Create;
 
-  ext := ExtractFileExt(aFileName);
+  ext := ExtractFileExt(aFile.FileName);
   try
     // *.NIF file
     if SameText(ext, '.nif') or SameText(ext, '.kf') then begin
       nif := TwbNifFile.Create;
-      nif.LoadFromFile(aInputDirectory + aFileName);
+      nif.LoadFromData(aFile.GetData);
 
       // processing specific block by path
       if (Length(fBlocks) = 1) and (Pos('\', fBlocks[0]) <> 0) then begin
@@ -471,7 +575,7 @@ begin
 
       else begin
         // if processing BSXFlags and it is missing, then add it
-        if (nif.NifVersion >= nfTES4) and (fBlocks[0] = 'BSXFlags') then
+        if (nif.NifVersion >= nfTES4) and (Length(fBlocks) <> 0) and (fBlocks[0] = 'BSXFlags') then
           if not Assigned(nif.BlockByType('BSXFlags')) and (nif.BlocksCount <> 0) and nif.RootNode.IsNiObject('NiNode') then
             nif.RootNode.AddExtraData('BSXFlags').EditValues['Name'] := 'BSX';
 
@@ -495,7 +599,7 @@ begin
     // *.BGSM file
     else if SameText(ext, '.bgsm') then begin
       BGSM := TwbBGSMFile.Create;
-      BGSM.LoadFromFile(aInputDirectory + aFileName);
+      BGSM.LoadFromData(aFile.GetData);
 
       bChanged := ModifyElement(BGSM, fPath, fValue, fOldPath, fOldValue, fValueMode, fOldValueCheck, fOldValueMode, Log, regexp) or bChanged;
     end
@@ -503,7 +607,7 @@ begin
     // *.BGEM file
     else if SameText(ext, '.bgem') then begin
       BGEM := TwbBGEMFile.Create;
-      BGEM.LoadFromFile(aInputDirectory + aFileName);
+      BGEM.LoadFromData(aFile.GetData);
 
       bChanged := ModifyElement(BGEM, fPath, fValue, fOldPath, fOldValue, fValueMode, fOldValueCheck, fOldValueMode, Log, regexp) or bChanged;
     end;
@@ -515,17 +619,17 @@ begin
     end;
 
     if bChanged and fReportOnly then begin
-      fManager.AddMessage(aFileName);
+      Log.Insert(0, aFile.FileName);
+      Log.Add('');
       fManager.AddMessages(Log);
-      fManager.AddMessage('');
     end;
 
   finally
-    if Assigned(nif) then nif.Free;
-    if Assigned(BGSM) then BGSM.Free;
-    if Assigned(BGEM) then BGEM.Free;
-    if Assigned(Log) then Log.Free;
-    if Assigned(regexp) then regexp.Free;
+    nif.Free;
+    BGSM.Free;
+    BGEM.Free;
+    Log.Free;
+    regexp.Free;
   end;
 
 end;

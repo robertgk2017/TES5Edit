@@ -11,25 +11,13 @@ unit wbLOD;
 interface
 
 uses
-  Windows,
-  Classes,
-  SysUtils,
-  IniFiles,
-  Forms,
-  IOUtils,
-  Masks,
-  wbInterface,
-  wbImplementation,
-  wbHelpers,
-  wbSort,
-  wbStreams,
-  wbDataFormat,
-  wbDataFormatNif,
-  wbDataFormatMaterial,
+  System.Classes,
+  System.IniFiles,
+  System.SysUtils,
+
   ImagingTypes,
-  ImagingFormats,
-  ImagingCanvases,
-  Imaging;
+
+  wbInterface;
 
 const
   {$IFDEF WIN64}
@@ -103,12 +91,10 @@ type
     Stride, LODLevelMin, LODLevelMax, ObjectLevel: Integer;
     procedure Init;
     function GetSize: Integer;
-    function BlockForCell(Cell: TwbGridCell; LODLevel: Integer): TwbGridCell;
-    procedure LoadFromData(aData: TBytes);
+    function BlockForCell(const Cell: TwbGridCell; LODLevel: Integer): TwbGridCell;
+    procedure LoadFromData(const aData: TBytes);
     property Size: Integer read GetSize;
   end;
-
-  TGameResourceType = (resMesh, resTexture, resSound, resMusic, resMaterial);
 
   // source texture for atlas builder
   TSourceAtlasTexture = record
@@ -154,7 +140,7 @@ type
     Width, Height: Single;
     ShiftX, ShiftY, ShiftZ, ScaleFactor: Single;
     Image: TImageData;
-    function LoadFromData(aData: TBytes): Boolean;
+    function LoadFromData(const aData: TBytes): Boolean;
   end;
   PwbLodTES5Tree = ^TwbLodTES5Tree;
 
@@ -176,20 +162,20 @@ type
     function GetTreesListCount: Integer;
     function GetTreesList(Index: Integer): TwbLodTES5TreeType;
     function GetAtlasRect(Index: Integer): TAtlasRect;
-    function GetTreeByFormID(aFormID: TwbFormID): PwbLodTES5Tree;
+    function GetTreeByFormID(const aFormID: TwbFormID): PwbLodTES5Tree;
   public
-    constructor Create(WorldspaceID: string);
+    constructor Create(const WorldspaceID: string);
     destructor Destroy; override;
-    procedure LoadFromData(aData: TBytes);
-    procedure SaveToFile(aFileName: string);
-    procedure LoadAtlas(aData: TBytes);
-    function SaveAtlas(aFileName: string): Boolean;
+    procedure LoadFromData(const aData: TBytes);
+    procedure SaveToFile(const aFileName: string);
+    procedure LoadAtlas(const aData: TBytes);
+    function SaveAtlas(const aFileName: string): Boolean;
     procedure ChangeAtlasBrightness(aBrightness: integer);
-    procedure SaveFromAtlas(aIndex: Integer; aFileName: string);
+    procedure SaveFromAtlas(aIndex: Integer; const aFileName: string);
     procedure CopyFromAtlas(aIndex: Integer; var Img: TImageData; ImgX, ImgY: Integer);
     function BuildAtlas(MaxAtlasSize: Integer): Boolean;
-    function BillboardFileName(aFileName, aModelName: string; aFormID: TwbFormID): string;
-    function AddTree(aFileName, aModelName: string; aFormID: TwbFormID; aWidth, aHeight: Single): PwbLodTES5Tree;
+    function BillboardFileName(const aFileName, aModelName: string; const aFormID: TwbFormID): string;
+    function AddTree(const aFileName, aModelName: string; const aFormID: TwbFormID; aWidth, aHeight: Single): PwbLodTES5Tree;
     property WorldspaceID: string read fWorldspaceID write fWorldspaceID;
     property ListFileName: string read GetListFileName;
     property AtlasFileName: string read GetAtlasFileName;
@@ -197,7 +183,7 @@ type
     property TreesList[Index: Integer]: TwbLodTES5TreeType read GetTreesList;
     property AtlasRect[Index: Integer]: TAtlasRect read GetAtlasRect;
     property Atlas: TImageData read fAtlas;
-    property TreeByFormID[aFormID: TwbFormID]: PwbLodTES5Tree read GetTreeByFormID;
+    property TreeByFormID[const aFormID: TwbFormID]: PwbLodTES5Tree read GetTreeByFormID;
     property RefAllowDuplicates: Boolean read fRefAllowDuplicates write fRefAllowDuplicates;
     property RefFormIDs: TList read fRefFormIDs;
   end;
@@ -210,22 +196,21 @@ type
     Types: array of record Index, Count: Integer; end;
     Refs: array of array of TwbLodTES5TreeRef;
     function GetBlockFileName: string;
-    procedure Init(Trees: TwbLodTES5TreeList; aCell: TwbGridCell; aLODLevel: Integer = 4);
+    procedure Init(Trees: TwbLodTES5TreeList; const aCell: TwbGridCell; aLODLevel: Integer = 4);
     procedure Clear;
-    procedure LoadFromData(aData: TBytes);
-    procedure SaveToFile(aFileName: string);
-    function AddReference(aFormID: TwbFormID; aTreeIndex: Integer;
-      Pos: TwbVector; Scale: Single): Boolean;
+    procedure LoadFromData(const aData: TBytes);
+    procedure SaveToFile(const aFileName: string);
+    function AddReference(const aFormID: TwbFormID; aTreeIndex: Integer;
+      const Pos: TwbVector; Scale: Single): Boolean;
     property FileName: string read GetBlockFileName;
   end;
 
 function wbLODExtraOptionsFileName(const PluginName, WorldspaceID: string): string;
 function wbLODSettingsFileName(const WorldspaceID: string): string;
 function wbLODTreeBlockFileExt: string;
-function wbNormalizeResourceName(const aName: string; aResType: TGameResourceType): string;
 function wbDefaultNormalTexture(aGameMode: TwbGameMode): string;
 function wbDefaultSpecularTexture(aGameMode: TwbGameMode): string;
-procedure wbPrepareImageAlpha(img: TImageData; fmt: TImageFormat; threshold: Integer = 0);
+procedure wbPrepareImageAlpha(const img: TImageData; fmt: TImageFormat; threshold: Integer = 0);
 
 procedure wbGetUVRangeTexturesList(slMeshes, slTextures: TStrings; UVRange: Single = 1.2);
 
@@ -242,7 +227,7 @@ procedure wbBuildAtlasFromTexturesList(
   aMaxTextureSize,
   aMaxTileSize,
   aWidth, aHeight: integer;
-  aName, aMapName: string;
+  const aName, aMapName: string;
   const Settings: TCustomIniFile
 );
 
@@ -307,7 +292,26 @@ const
 implementation
 
 uses
-  Math;
+  System.IOUtils,
+  System.Masks,
+  System.Math,
+
+  Vcl.Forms,
+
+  Winapi.Windows,
+
+  Imaging,
+  ImagingCanvases,
+  ImagingFormats,
+
+  wbBSArchive,
+  wbDataFormat,
+  wbDataFormatMaterial,
+  wbDataFormatNif,
+  wbHash,
+  wbHelpers,
+  wbSort,
+  wbStreams;
 
 function wbLODExtraOptionsFileName(const PluginName, WorldspaceID: string): string;
 begin
@@ -403,7 +407,7 @@ begin
 
   // remove temp file
   if FileExists(s) then
-    DeleteFile(s);
+    System.SysUtils.DeleteFile(s);
 end;
 
 { TwbLodSettings }
@@ -419,13 +423,13 @@ begin
   Result := Ceil(Stride/sqrt(2));
 end;
 
-function TwbLodSettings.BlockForCell(Cell: TwbGridCell; LODLevel: Integer): TwbGridCell;
+function TwbLodSettings.BlockForCell(const Cell: TwbGridCell; LODLevel: Integer): TwbGridCell;
 begin
   Result.x := SWCell.x + ((Cell.x - SWCell.x) div LODLevel) * LODLevel;
   Result.y := SWCell.y + ((Cell.y - SWCell.y) div LODLevel) * LODLevel;
 end;
 
-procedure TwbLodSettings.LoadFromData(aData: TBytes);
+procedure TwbLodSettings.LoadFromData(const aData: TBytes);
 const
   sError = 'Invalid lodsettings file';
 begin
@@ -557,7 +561,7 @@ end;
 
 { TwbLodTES5Tree }
 
-function TwbLodTES5Tree.LoadFromData(aData: TBytes): Boolean;
+function TwbLodTES5Tree.LoadFromData(const aData: TBytes): Boolean;
 begin
   InitImage(Image);
   Result := wbLoadImageFromMemory(@aData[0], Length(aData), Image);
@@ -566,7 +570,7 @@ end;
 
 { TwbLodTES5TreeList }
 
-constructor TwbLodTES5TreeList.Create(WorldspaceID: string);
+constructor TwbLodTES5TreeList.Create(const WorldspaceID: string);
 begin
   fWorldspaceID := WorldspaceID;
   if fWorldspaceID = '' then
@@ -634,7 +638,7 @@ begin
   end;
 end;
 
-function TwbLodTES5TreeList.GetTreeByFormID(aFormID: TwbFormID): PwbLodTES5Tree;
+function TwbLodTES5TreeList.GetTreeByFormID(const aFormID: TwbFormID): PwbLodTES5Tree;
 var
   i: Integer;
 begin
@@ -646,7 +650,7 @@ begin
     end;
 end;
 
-function TwbLodTES5TreeList.BillboardFileName(aFileName, aModelName: string; aFormID: TwbFormID): string;
+function TwbLodTES5TreeList.BillboardFileName(const aFileName, aModelName: string; const aFormID: TwbFormID): string;
 begin
   Result := Format('Textures\Terrain\LODGen\%s\%s_%s.dds', [
     aFileName,
@@ -655,7 +659,7 @@ begin
   ]);
 end;
 
-function TwbLodTES5TreeList.AddTree(aFileName, aModelName: string; aFormID: TwbFormID; aWidth, aHeight: Single): PwbLodTES5Tree;
+function TwbLodTES5TreeList.AddTree(const aFileName, aModelName: string; const aFormID: TwbFormID; aWidth, aHeight: Single): PwbLodTES5Tree;
 var
   i, idx: integer;
 begin
@@ -675,7 +679,7 @@ begin
   Result^.ScaleFactor := 1.0;
 end;
 
-procedure TwbLodTES5TreeList.LoadFromData(aData: TBytes);
+procedure TwbLodTES5TreeList.LoadFromData(const aData: TBytes);
 var
   TreesNum: integer;
 begin
@@ -694,7 +698,7 @@ begin
   Move(aData[4], fTreesList[0], SizeOf(TwbLodTES5TreeType) * TreesNum);
 end;
 
-procedure TwbLodTES5TreeList.SaveToFile(aFileName: string);
+procedure TwbLodTES5TreeList.SaveToFile(const aFileName: string);
 var
   Value: Integer;
 begin
@@ -708,13 +712,13 @@ begin
   end;
 end;
 
-procedure TwbLodTES5TreeList.LoadAtlas(aData: TBytes);
+procedure TwbLodTES5TreeList.LoadAtlas(const aData: TBytes);
 begin
   InitImage(fAtlas);
   LoadImageFromMemory(@aData[0], Length(aData), fAtlas);
 end;
 
-function TwbLodTES5TreeList.SaveAtlas(aFileName: string): Boolean;
+function TwbLodTES5TreeList.SaveAtlas(const aFileName: string): Boolean;
 var
   MipmapImg: TDynImageDataArray;
 begin
@@ -749,7 +753,7 @@ begin
   end;
 end;
 
-procedure TwbLodTES5TreeList.SaveFromAtlas(aIndex: Integer; aFileName: string);
+procedure TwbLodTES5TreeList.SaveFromAtlas(aIndex: Integer; const aFileName: string);
 var
   img: TImageData;
 begin
@@ -857,7 +861,7 @@ end;
 
 { TwbLodTES5TreeBlock }
 
-procedure TwbLodTES5TreeBlock.Init(Trees: TwbLodTES5TreeList; aCell: TwbGridCell; aLODLevel: Integer = 4);
+procedure TwbLodTES5TreeBlock.Init(Trees: TwbLodTES5TreeList; const aCell: TwbGridCell; aLODLevel: Integer = 4);
 begin
   TreeList := Trees;
   Cell := aCell;
@@ -890,7 +894,7 @@ begin
   ]);
 end;
 
-procedure TwbLodTES5TreeBlock.LoadFromData(aData: TBytes);
+procedure TwbLodTES5TreeBlock.LoadFromData(const aData: TBytes);
 const
   sError = 'Invalid tree LOD block file';
 var
@@ -932,7 +936,7 @@ begin
   end;
 end;
 
-procedure TwbLodTES5TreeBlock.SaveToFile(aFileName: string);
+procedure TwbLodTES5TreeBlock.SaveToFile(const aFileName: string);
 var
   Value, i: Integer;
   fs: TFileStream;
@@ -956,8 +960,8 @@ begin
   end;
 end;
 
-function TwbLodTES5TreeBlock.AddReference(aFormID: TwbFormID; aTreeIndex: Integer;
-  Pos: TwbVector; Scale: Single): Boolean;
+function TwbLodTES5TreeBlock.AddReference(const aFormID: TwbFormID; aTreeIndex: Integer;
+  const Pos: TwbVector; Scale: Single): Boolean;
 var
   i, j: integer;
 begin
@@ -993,37 +997,7 @@ begin
   Result := True;
 end;
 
-function wbNormalizeResourceName(const aName: string; aResType: TGameResourceType): string;
-var
-  i: integer;
-begin
-  Result := Trim(StringReplace(LowerCase(aName), '/', '\', [rfReplaceAll]));
-  if Length(Result) < 2 then
-    Exit;
-
-  // absolute path, cut everything before Data or leave only file name
-  i := Pos('data\', Result);
-  if i <> 0 then
-    Delete(Result, 1, Pred(i));
-
-  // starts with slash, remove it
-  if Result[1] = '\' then Delete(Result, 1, 1);
-  // starts with Data, remove it
-  if Copy(Result, 1, 5) = 'data\' then Delete(Result, 1, 5);
-  // root folder in Data for different resource types
-  if (aResType = resMesh) and (Copy(Result, 1, 7) <> 'meshes\') then
-    Result := 'meshes\' + Result
-  else if (aResType = resTexture) and (Copy(Result, 1, 9) <> 'textures\') then
-    Result := 'textures\' + Result
-  else if (aResType = resSound) and (Copy(Result, 1, 6) <> 'sound\') then
-    Result := 'sound\' + Result
-  else if (aResType = resMusic) and (Copy(Result, 1, 6) <> 'music\') then
-    Result := 'music\' + Result
-  else if (aResType = resMaterial) and (Copy(Result, 1, 10) <> 'materials\') then
-    Result := 'materials\' + Result;
-end;
-
-procedure wbPrepareImageAlpha(img: TImageData; fmt: TImageFormat; threshold: Integer = 0);
+procedure wbPrepareImageAlpha(const img: TImageData; fmt: TImageFormat; threshold: Integer = 0);
 var
   x, y: integer;
   c: TColor32Rec;
@@ -1059,7 +1033,7 @@ const
     t: string;
   begin
     if s <> '' then begin
-      t := wbNormalizeResourceName(s, resTexture);
+      t := TwbAsset.GetAssetName(s, '', atTexture);
       if slTextures.IndexOf(t) = -1 then
         slTextures.Add(t);
     end;
@@ -1099,7 +1073,7 @@ begin
         Continue;
       end;
 
-      nifname := wbNormalizeResourceName(slMeshes[i], resMesh);
+      nifname := TwbAsset.GetAssetName(slMeshes[i], '', atMesh);
       if ExtractFileExt(nifname) <> '.nif' then
         Continue;
 
@@ -1150,7 +1124,7 @@ begin
             end;
 
           if not bTiled then begin
-            s := wbNormalizeResourceName(Shader.EditValues['Name'], resMaterial);
+            s := TwbAsset.GetAssetName(Shader.EditValues['Name'], '', atMaterial);
             // getting textures from material first, it has priority over textureset
             if (ExtractFileExt(s) = '.bgsm') and wbContainerHandler.ResourceExists(s) then begin
               try
@@ -1430,7 +1404,7 @@ procedure wbBuildAtlasFromTexturesList(
   aMaxTextureSize,
   aMaxTileSize,
   aWidth, aHeight: integer;
-  aName, aMapName: string;
+  const aName, aMapName: string;
   const Settings: TCustomIniFile
 );
 var
@@ -1998,7 +1972,7 @@ begin
     // fallouts always use _lod mesh only
     Result := ChangeFileExt(aStat.ElementEditValues['Model\MODL'], '') + '_lod.nif';
 
-  Result := wbNormalizeResourceName(Result, resMesh);
+  Result := TwbAsset.GetAssetName(Result, '', atMesh);
   if (aLODLevel <> -1) and not wbContainerHandler.ResourceExists(Result) then
     Result := '';
 end;
@@ -2211,7 +2185,7 @@ begin
 
   if FindFirst(LODPath + aWorldspace.EditorID + '*.lod', faAnyFile, F) = 0 then try
     repeat
-      DeleteFile(LODPath + F.Name);
+      System.SysUtils.DeleteFile(LODPath + F.Name);
       Inc(i);
 
       if StartTick + 500 < GetTickCount then begin
@@ -2226,7 +2200,7 @@ begin
 
     until FindNext(F) <> 0;
   finally
-    FindClose(F);
+    System.SysUtils.FindClose(F);
   end;
 
   if Rule > rClear then begin
@@ -2380,7 +2354,7 @@ var
     if (Length(Res) > 0) and Result^.LoadFromData(Res[High(Res)].GetData) then begin
       //slLog.Add(TreeRec.Name + ' using LOD ' + Result^.Billboard);
       // store checksum of billboard to avoid duplicates in atlas
-      Result^.CRC32 := wbCRC32Data(Res[High(Res)].GetData);
+      Result^.CRC32 := TwbHash.CRC32(Res[High(Res)].GetData);
       // load tree data
       Res := wbContainerHandler.OpenResource(ChangeFileExt(Result^.Billboard, '.txt'));
       if Length(Res) > 0 then begin
@@ -2409,7 +2383,7 @@ var
       Result^.Index := -1;
   end;
 
-  procedure GetLargeReferencesPlugin(const aElement: IwbElement; sl: TStringList; ChunkSW, ChunkNE: TwbGridCell);
+  procedure GetLargeReferencesPlugin(const aElement: IwbElement; sl: TStringList; const ChunkSW, ChunkNE: TwbGridCell);
   var
     i, j: integer;
     Grids, GridEntry, References, ReferenceEntry: IwbContainerElementRef;
@@ -2455,7 +2429,7 @@ var
         end;
   end;
 
-  procedure GetLargeReferences(Wrld: IwbMainRecord; sl: TStringList; ChunkSW, ChunkNE: TwbGridCell);
+  procedure GetLargeReferences(Wrld: IwbMainRecord; sl: TStringList; const ChunkSW, ChunkNE: TwbGridCell);
   var
     i: integer;
   begin
@@ -2693,7 +2667,7 @@ begin
 
         if FindFirst(ExtractFilePath(LODPath + Lst.AtlasFileName) + '*.' + wbLODTreeBlockFileExt, faAnyFile, F) = 0 then try
           repeat
-            DeleteFile(ExtractFilePath(LODPath + Lst.AtlasFileName) + F.Name);
+            System.SysUtils.DeleteFile(ExtractFilePath(LODPath + Lst.AtlasFileName) + F.Name);
             if StartTick + 500 < GetTickCount then begin
               Application.MainForm.Caption := 'Deleting old LOD files: ' + aWorldspace.Name +
                 ' Elapsed Time: ' + FormatDateTime('nn:ss', Now - wbStartTime);
@@ -2704,7 +2678,7 @@ begin
               Abort;
           until FindNext(F) <> 0;
         finally
-          FindClose(F);
+          System.SysUtils.FindClose(F);
         end;
 
         if Length(LOD4) > 0 then begin
@@ -3158,7 +3132,7 @@ begin
           if slLODTextures.Count > 1 then begin
             // remove HD LOD texture if there
             if wbIsSkyrim then begin
-              i := slLODTextures.IndexOf(wbNormalizeResourceName(aWorldspace.WinningOverride.ElementEditValues['TNAM'], resTexture));
+              i := slLODTextures.IndexOf(TwbAsset.GetAssetName(aWorldspace.WinningOverride.ElementEditValues['TNAM'], '', atTexture));
               if i <> -1 then slLODTextures.Delete(i);
             end;
 
@@ -3210,7 +3184,7 @@ begin
         // disable traditional Trees LOD if trees are generated as objects
         if bTrees3D and (ErrCode = 0) then begin
           s := wbDataPath + lst.ListFileName;
-          if FileExists(s) then DeleteFile(s);
+          if FileExists(s) then System.SysUtils.DeleteFile(s);
           if wbContainerHandler.ResourceExists(lst.ListFileName) then begin
             ForceDirectories(ExtractFilePath(s));
             SetLength(Bytes, 4);
@@ -3465,8 +3439,8 @@ var
           for n := 0 to Pred(Entries.ElementCount) do begin
             Entry := Entries.Elements[n] as IwbContainer;
             // export everything in case full model is used for LOD - there may be a wild card * for base
-            basemat := Lowercase(wbNormalizeResourceName(Entry.ElementEditValues['BNAM'], resMaterial));
-            swapmat := Lowercase(wbNormalizeResourceName(Entry.ElementEditValues['SNAM'], resMaterial));
+            basemat := LowerCase(TwbAsset.GetAssetName(Entry.ElementEditValues['BNAM'], '', atMaterial));
+            swapmat := LowerCase(TwbAsset.GetAssetName(Entry.ElementEditValues['SNAM'], '', atMaterial));
             slSwapMat.Add(swapmat);
             slBaseMat.Add(basemat);
             // list of swap materials for atlas
@@ -3705,7 +3679,7 @@ begin
               except on E: Exception do
                 wbProgressCallback('<Warning: Error reading "' + s + '": ' + E.Message + '>');
               end;
-              slLODTextures.Add(wbNormalizeResourceName(bgsm.EditValues['Textures\Diffuse'], resTexture));
+              slLODTextures.Add(TwbAsset.GetAssetName(bgsm.EditValues['Textures\Diffuse'], '', atTexture));
             end;
           finally
             bgsm.Free;

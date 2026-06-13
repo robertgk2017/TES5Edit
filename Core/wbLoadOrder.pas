@@ -13,9 +13,9 @@ unit wbLoadOrder;
 interface
 
 uses
-  System.Types,
-  System.Classes,
   System.SysUtils,
+
+  wbHash,
   wbInterface;
 
 type
@@ -136,9 +136,10 @@ function wbModulesByLoadOrder(aIncludeTemplates: Boolean = False): TwbModuleInfo
 implementation
 
 uses
+  System.Classes,
   System.IOUtils,
-  System.Generics.Defaults,
-  System.Generics.Collections,
+  System.Types,
+
   wbHelpers,
   wbImplementation,
   wbSort;
@@ -199,7 +200,7 @@ begin
     if Result = 0 then begin
       Result := CmpI32(a.miCCIndex, b.miCCIndex);
       if Result = 0 then begin
-        if ((mfIsESM in a.miFlags) = (mfIsESM in b.miFlags)) or (wbGameMode in [gmTES4, gmTES4R]) then begin
+        if ((mfIsESM in a.miFlags) = (mfIsESM in b.miFlags)) or (wbGameMode in [gmTES4R]) then begin
           Result := CmpI32(a.miPluginsTxtIndex, b.miPluginsTxtIndex);
           if Result = 0 then begin
             Result := CmpDouble(a.miDateTime, b.miDateTime);
@@ -237,7 +238,7 @@ begin
     if Result = 0 then begin
       Result := CmpI32(a.miCCIndex, b.miCCIndex);
       if Result = 0 then begin
-          if ((mfIsESM in a.miFlags) = (mfIsESM in b.miFlags)) or (wbGameMode in [gmTES4, gmTES4R]) then begin
+          if ((mfIsESM in a.miFlags) = (mfIsESM in b.miFlags)) or (wbGameMode in [gmTES4R]) then begin
             Result := CmpI32(a.miCombinedIndex, b.miCombinedIndex);
             if Result = 0 then begin
               Result := CmpI32(a.miPluginsTxtIndex, b.miPluginsTxtIndex);
@@ -558,67 +559,62 @@ begin
   for i := Low(_ModulesLoadOrder) to High(_ModulesLoadOrder) do
     _ModulesLoadOrder[i].miCombinedIndex := i;
 
-  if   (not wbIsStarfield)
-    or wbRedPill
-  then begin
-    TwbModuleInfo.AddNewModule('<new file>.esp', True);
+  TwbModuleInfo.AddNewModule('<new file>.esp', True);
+  if not wbIsStarfield  then
     with TwbModuleInfo.AddNewModule('<new file>.esp', True)^ do begin
       Include(miFlags, mfHasESMFlag);
       Include(miFlags, mfIsESM);
     end;
-    if wbIsLightSupported then begin
-      with TwbModuleInfo.AddNewModule('<new file>.esp', True)^ do
-        Include(miFlags, mfHasLightFlag);
-      with TwbModuleInfo.AddNewModule('<new file>.esp', True)^ do begin
-        Include(miFlags, mfHasESMFlag);
-        Include(miFlags, mfHasLightFlag);
-        Include(miFlags, mfIsESM);
-      end;
+  if wbIsLightSupported and not wbIsStarfield then begin
+    with TwbModuleInfo.AddNewModule('<new file>.esp', True)^ do
+      Include(miFlags, mfHasLightFlag);
+    with TwbModuleInfo.AddNewModule('<new file>.esp', True)^ do begin
+      Include(miFlags, mfHasESMFlag);
+      Include(miFlags, mfHasLightFlag);
+      Include(miFlags, mfIsESM);
     end;
-    if wbIsMediumSupported then begin
-      with TwbModuleInfo.AddNewModule('<new file>.esp', True)^ do
-        Include(miFlags, mfHasMediumFlag);
-      with TwbModuleInfo.AddNewModule('<new file>.esp', True)^ do begin
-        Include(miFlags, mfHasESMFlag);
-        Include(miFlags, mfHasMediumFlag);
-        Include(miFlags, mfIsESM);
-      end;
+  end;
+  if wbIsMediumSupported and not wbIsStarfield then begin
+    with TwbModuleInfo.AddNewModule('<new file>.esp', True)^ do
+      Include(miFlags, mfHasMediumFlag);
+    with TwbModuleInfo.AddNewModule('<new file>.esp', True)^ do begin
+      Include(miFlags, mfHasESMFlag);
+      Include(miFlags, mfHasMediumFlag);
+      Include(miFlags, mfIsESM);
     end;
-    if wbIsUpdateSupported then begin
-      with TwbModuleInfo.AddNewModule('<new file>.esp', True)^ do
-        Include(miFlags, mfHasUpdateFlag);
-      with TwbModuleInfo.AddNewModule('<new file>.esp', True)^ do begin
-        Include(miFlags, mfHasESMFlag);
-        Include(miFlags, mfHasUpdateFlag);
-        Include(miFlags, mfIsESM);
-      end;
+  end;
+  if wbIsUpdateSupported and not wbIsStarfield then begin
+    with TwbModuleInfo.AddNewModule('<new file>.esp', True)^ do
+      Include(miFlags, mfHasUpdateFlag);
+    with TwbModuleInfo.AddNewModule('<new file>.esp', True)^ do begin
+      Include(miFlags, mfHasESMFlag);
+      Include(miFlags, mfHasUpdateFlag);
+      Include(miFlags, mfIsESM);
     end;
   end;
 
   with TwbModuleInfo.AddNewModule('<new file>.esm', True)^ do begin
     Include(miFlags, mfHasESMFlag);
     Include(miFlags, mfIsESM);
-    if not (wbStarfieldIsABugInfestedHellhole and wbIsStarfield) then begin
-      if wbIsLightSupported then begin
-        with TwbModuleInfo.AddNewModule('<new file>.esm', True)^ do begin
-          Include(miFlags, mfHasLightFlag);
-          Include(miFlags, mfHasESMFlag);
-          Include(miFlags, mfIsESM);
-        end;
+    if wbIsLightSupported then begin
+      with TwbModuleInfo.AddNewModule('<new file>.esm', True)^ do begin
+        Include(miFlags, mfHasLightFlag);
+        Include(miFlags, mfHasESMFlag);
+        Include(miFlags, mfIsESM);
       end;
-      if wbIsMediumSupported then begin
-        with TwbModuleInfo.AddNewModule('<new file>.esm', True)^ do begin
-          Include(miFlags, mfHasMediumFlag);
-          Include(miFlags, mfHasESMFlag);
-          Include(miFlags, mfIsESM);
-        end;
+    end;
+    if wbIsMediumSupported then begin
+      with TwbModuleInfo.AddNewModule('<new file>.esm', True)^ do begin
+        Include(miFlags, mfHasMediumFlag);
+        Include(miFlags, mfHasESMFlag);
+        Include(miFlags, mfIsESM);
       end;
-      if wbIsUpdateSupported then begin
-        with TwbModuleInfo.AddNewModule('<new file>.esm', True)^ do begin
-          Include(miFlags, mfHasUpdateFlag);
-          Include(miFlags, mfHasESMFlag);
-          Include(miFlags, mfIsESM);
-        end;
+    end;
+    if wbIsUpdateSupported and not wbIsStarfield then begin
+      with TwbModuleInfo.AddNewModule('<new file>.esm', True)^ do begin
+        Include(miFlags, mfHasUpdateFlag);
+        Include(miFlags, mfHasESMFlag);
+        Include(miFlags, mfIsESM);
       end;
     end;
   end;
@@ -764,7 +760,7 @@ begin
     aCRC32 := _File.CRC32
   else begin
     if miCRC32 = 0 then
-      miCRC32 := wbCRC32File(wbDataPath + miOriginalName);
+      miCRC32 := TwbHash.CRC32(wbDataPath + miOriginalName);
     aCRC32 := miCRC32;
   end;
   Result := aCRC32.IsValid;
@@ -785,7 +781,7 @@ begin
   if Assigned(miFile) then
     Exit(_File.CRC32 = aCRC32);
   if miCRC32 = 0 then
-    miCRC32 := wbCRC32File(wbDataPath + miOriginalName);
+    miCRC32 := TwbHash.CRC32(wbDataPath + miOriginalName);
   Result := aCRC32 = miCRC32;
 end;
 
@@ -828,7 +824,7 @@ begin
   if miCCIndex < High(Integer) then
     Result := Result + '[CC:'+miCCIndex.ToString+']';
   if Result = '' then begin
-    if (mfIsESM in miFlags) and not (wbGameMode in [gmTES4, gmTES4R]) then
+    if (mfIsESM in miFlags) and not (wbGameMode in [gmTES4R]) then
       Result := Result + '[ESM]';
 
     if miPluginsTxtIndex < High(Integer) then

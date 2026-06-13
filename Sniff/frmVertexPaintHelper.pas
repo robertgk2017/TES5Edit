@@ -11,8 +11,12 @@ unit frmVertexPaintHelper;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.Imaging.pngimage, Vcl.ExtCtrls;
+  System.Classes,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Imaging.pngimage;
 
 type
   TFormVertexPaintHelper = class(TForm)
@@ -31,6 +35,9 @@ var
 implementation
 
 {$R *.dfm}
+
+uses
+  Winapi.Windows;
 
 procedure TFormVertexPaintHelper.FormKeyDown(Sender: TObject; var Key: Word;
   Shift: TShiftState);

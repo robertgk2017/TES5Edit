@@ -2,10 +2,10 @@ object FormMain: TFormMain
   Left = 0
   Top = 0
   Caption = 'S'#39'Lanter'#39's NIF Helper'
-  ClientHeight = 591
+  ClientHeight = 611
   ClientWidth = 838
   Color = clWindow
-  Constraints.MinHeight = 630
+  Constraints.MinHeight = 650
   Constraints.MinWidth = 850
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -22,7 +22,7 @@ object FormMain: TFormMain
     Left = 0
     Top = 0
     Width = 838
-    Height = 129
+    Height = 145
     Align = alTop
     BevelOuter = bvNone
     Caption = 'pnlInput'
@@ -32,10 +32,10 @@ object FormMain: TFormMain
     TabOrder = 0
     DesignSize = (
       838
-      129)
+      145)
     object Image1: TImage
       Left = 0
-      Top = 63
+      Top = 79
       Width = 838
       Height = 66
       Align = alBottom
@@ -106,16 +106,28 @@ object FormMain: TFormMain
     end
     object Label2: TLabel
       Left = 8
-      Top = 15
+      Top = 31
       Width = 106
       Height = 16
       Alignment = taRightJustify
       AutoSize = False
-      Caption = 'Input directory'
+      Caption = 'Input dir or bsa'
+    end
+    object Label4: TLabel
+      AlignWithMargins = True
+      Left = 3
+      Top = 3
+      Width = 832
+      Height = 16
+      Align = alTop
+      Alignment = taCenter
+      Caption = 
+        'Choose input directory or BSA/BA2 archive, or drag&&drop folders' +
+        '/files or a single archive to run selected operation on them'
     end
     object chkInputSubdir: TCheckBox
       Left = 120
-      Top = 42
+      Top = 58
       Width = 161
       Height = 17
       Caption = 'Include subdirectories'
@@ -125,7 +137,7 @@ object FormMain: TFormMain
     end
     object btnInputBrowse: TButton
       Left = 779
-      Top = 11
+      Top = 27
       Width = 45
       Height = 25
       Anchors = [akTop, akRight]
@@ -135,7 +147,7 @@ object FormMain: TFormMain
     end
     object chkSkipOnErrors: TCheckBox
       Left = 287
-      Top = 42
+      Top = 58
       Width = 114
       Height = 17
       Hint = 'Don'#39't stop when a file can not be loaded'
@@ -146,7 +158,7 @@ object FormMain: TFormMain
     end
     object edPathContains: TLabeledEdit
       Left = 492
-      Top = 39
+      Top = 55
       Width = 185
       Height = 24
       Hint = 
@@ -164,7 +176,7 @@ object FormMain: TFormMain
     end
     object edThreads: TLabeledEdit
       Left = 740
-      Top = 39
+      Top = 55
       Width = 33
       Height = 24
       Hint = 
@@ -183,7 +195,7 @@ object FormMain: TFormMain
     end
     object edInput: TComboBox
       Left = 120
-      Top = 11
+      Top = 27
       Width = 653
       Height = 24
       Anchors = [akLeft, akTop, akRight]
@@ -193,7 +205,7 @@ object FormMain: TFormMain
   end
   object pnlOutput: TPanel
     Left = 0
-    Top = 407
+    Top = 427
     Width = 838
     Height = 129
     Align = alBottom
@@ -317,7 +329,7 @@ object FormMain: TFormMain
   end
   object pnlControl: TPanel
     Left = 0
-    Top = 536
+    Top = 556
     Width = 838
     Height = 55
     Align = alBottom
@@ -369,9 +381,9 @@ object FormMain: TFormMain
   end
   object pnlOperation: TPanel
     Left = 0
-    Top = 129
+    Top = 145
     Width = 838
-    Height = 278
+    Height = 282
     Align = alClient
     BevelEdges = [beTop, beBottom]
     BevelOuter = bvNone
@@ -428,11 +440,11 @@ object FormMain: TFormMain
     object lvProcs: TListView
       AlignWithMargins = True
       Left = 8
-      Top = 0
+      Top = 30
       Width = 241
-      Height = 278
+      Height = 252
       Margins.Left = 8
-      Margins.Top = 0
+      Margins.Top = 30
       Margins.Right = 0
       Margins.Bottom = 0
       Align = alLeft
@@ -464,7 +476,7 @@ object FormMain: TFormMain
       Left = 257
       Top = 54
       Width = 573
-      Height = 221
+      Height = 225
       Margins.Left = 8
       Margins.Top = 54
       Margins.Right = 8
@@ -475,6 +487,28 @@ object FormMain: TFormMain
       ShowCaption = False
       TabOrder = 1
     end
+    object edProcFilter: TLabeledEdit
+      Left = 120
+      Top = 2
+      Width = 128
+      Height = 24
+      EditLabel.Width = 34
+      EditLabel.Height = 24
+      EditLabel.Caption = 'Filter:'
+      LabelPosition = lpLeft
+      TabOrder = 2
+      Text = ''
+      OnChange = edProcFilterChange
+    end
+    object cmbProcGame: TComboBox
+      Left = 8
+      Top = 2
+      Width = 65
+      Height = 24
+      Style = csDropDownList
+      TabOrder = 3
+      OnClick = edProcFilterChange
+    end
   end
   object menuPopup: TPopupMenu
     AutoHotkeys = maManual
@@ -482,6 +516,19 @@ object FormMain: TFormMain
     Top = 544
     object mniStyle: TMenuItem
       Caption = 'Theme'
+    end
+  end
+  object menuInput: TPopupMenu
+    AutoHotkeys = maManual
+    Left = 336
+    Top = 544
+    object mniInputFolder: TMenuItem
+      Caption = 'Choose folder...'
+      OnClick = mniInputFolderClick
+    end
+    object mniInputArchive: TMenuItem
+      Caption = 'Choose archive...'
+      OnClick = mniInputArchiveClick
     end
   end
 end

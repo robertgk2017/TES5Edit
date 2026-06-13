@@ -3,8 +3,13 @@ unit frmSearchReplace;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, ExtCtrls;
+  System.Classes,
+
+  Vcl.Controls,
+  Vcl.ExtCtrls,
+  Vcl.Forms,
+  Vcl.Mask,
+  Vcl.StdCtrls;
 
 type
   TFormSearchReplace = class(TForm)
@@ -31,6 +36,11 @@ var
   FormSearchReplace: TFormSearchReplace;
 
 implementation
+
+uses
+  Vcl.Dialogs,
+
+  Winapi.Windows;
 
 {$R *.dfm}
 

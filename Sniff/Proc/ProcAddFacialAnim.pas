@@ -11,9 +11,14 @@ unit ProcAddFacialAnim;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes,
-  Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs, SniffProcessor,
-  Vcl.StdCtrls;
+  System.Classes,
+  System.SysUtils,
+
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.StdCtrls,
+
+  SniffProcessor;
 
 type
   TFrameAddFacialAnim = class(TFrame)
@@ -45,7 +50,7 @@ type
     procedure OnHide; override;
     procedure OnStart; override;
 
-    function ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes; override;
+    function ProcessFile(aFile: TProcFileObject): TBytes; override;
   end;
 
 implementation
@@ -54,6 +59,7 @@ implementation
 
 uses
   System.StrUtils,
+
   wbDataFormat,
   wbDataFormatNif;
 
@@ -152,7 +158,7 @@ begin
 
 end;
 
-function TProcAddFacialAnim.ProcessFile(const aInputDirectory, aOutputDirectory: string; var aFileName: string): TBytes;
+function TProcAddFacialAnim.ProcessFile(aFile: TProcFileObject): TBytes;
 const
   sHeadAnims = 'HeadAnims';
   sHeadAnims0 = 'HeadAnims:0';
@@ -163,7 +169,7 @@ var
 begin
   nif := TwbNifFile.Create;
   try
-    nif.LoadFromFile(aInputDirectory + aFileName);
+    nif.LoadFromData(aFile.GetData);
 
     if nif.BlocksCount = 0 then
       Exit;

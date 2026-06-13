@@ -11,7 +11,7 @@ unit wbDataFormatNifTypes;
 interface
 
 uses
-  Types, SysUtils, StrUtils, Math, wbDataFormat;
+  wbDataFormat;
 
 var
   // True: Euler YPR, False: Angle and Axis
@@ -165,12 +165,17 @@ function wbLookAtFlags(const aName, aDefaultValue: string; const aEvents: array 
 function wbAdditionalDataInfo(const aName: string; const aEvents: array of const): TdfDef;
 function wbAdditionalDataBlock(const aName: string; const aEvents: array of const): TdfDef;
 function wbBSPackedAdditionalDataBlock(const aName: string; const aEvents: array of const): TdfDef;
-function wbBoundingVolume(const aName: string; const aEvents: array of const): TdfDef;
+function wbBoundingVolume(const aName: string): TdfDef;
 
 
 implementation
 
 uses
+  System.Math,
+  System.StrUtils,
+  System.SysUtils,
+  System.Types,
+
   wbNifMath;
 
 procedure GetTextHexColor(const aElement: TdfElement; var aText: string);
@@ -1188,12 +1193,12 @@ end;
 function wbhkConstraintType(const aName, aDefaultValue: string; const aEvents: array of const): TdfDef;
 begin
   Result := dfEnum(aName, dtU32, [
-    0, 'BallAndSocket',
+    0, 'Ball And Socket',
     1, 'Hinge',
     2, 'Limited Hinge',
     6, 'Prismatic',
     7, 'Ragdoll',
-    8, 'StiffSpring',
+    8, 'Stiff Spring',
     13, 'Malleable'
   ], aDefaultValue, aEvents);
 end;
@@ -1728,13 +1733,13 @@ end;
 function wbbhkCMSDChunk(const aName: string; const aEvents: array of const): TdfDef;
 begin
   Result := dfStruct(aName, [
-    wbVector4('Translation'),
+    wbVector4('Offset'),
     dfInteger('Material Index', dtU32),
     dfInteger('Reference', dtU16),
     dfInteger('Transform Index', dtU16),
     dfArray('Vertices', dfInteger('Vertices', dtU16), -4),
     dfArray('Indices', dfInteger('Indices', dtU16), -4),
-    dfArray('Strips', dfInteger('Strips', dtU16), -4),
+    dfArray('Strip Lengths', dfInteger('Strip Length', dtU16), -4),
     dfArray('Welding Info', dfInteger('Welding Info', dtU16), -4)
   ], aEvents);
 end;
@@ -2455,7 +2460,7 @@ begin
     dfInteger('Block Index', dtS32),
     dfInteger('Channel Offset', dtS32),
     dfInteger('Unknown Byte 1', dtU8, '2')
-  ])
+  ]);
 end;
 
 function AdditionalDataBlock_EnData(const e: TdfElement): Boolean; begin Result := e.NativeValues['..\Has Data'] <> 0; end;
@@ -2503,7 +2508,7 @@ begin
 end;
 function BoundingVolume_EnType5(const e: TdfElement): Boolean; begin Result := e.NativeValues['..\Collision Type'] = 5; end;
 
-function wbBoundingVolume(const aName: string; const aEvents: array of const): TdfDef;
+function wbBoundingVolume(const aName: string): TdfDef;
 begin
   Result := dfStruct(aName, [
     dfEnum('Collision Type', dtS32, [
@@ -2534,7 +2539,7 @@ begin
       wbNiPlane('Plane'),
       wbVector3('Center')
     ], [DF_OnGetEnabled, @BoundingVolume_EnType5])
-  ], aEvents);
+  ]);
 end;
 
 

@@ -3,8 +3,8 @@ object frmModuleSelect: TfrmModuleSelect
   Top = 0
   BorderIcons = [biSystemMenu, biMaximize]
   Caption = 'Module Selection'
-  ClientHeight = 604
-  ClientWidth = 860
+  ClientHeight = 613
+  ClientWidth = 898
   Color = clBtnFace
   ParentFont = True
   KeyPreview = True
@@ -14,12 +14,12 @@ object frmModuleSelect: TfrmModuleSelect
   OnKeyDown = FormKeyDown
   OnShow = FormShow
   DesignSize = (
-    860
-    604)
+    898
+    613)
   TextHeight = 15
   object lblPreset: TLabel
-    Left = 355
-    Top = 11
+    Left = 415
+    Top = 8
     Width = 35
     Height = 15
     Anchors = [akTop, akRight]
@@ -27,27 +27,27 @@ object frmModuleSelect: TfrmModuleSelect
     FocusControl = cbPreset
   end
   object btnOK: TButton
-    Left = 761
-    Top = 571
+    Left = 821
+    Top = 580
     Width = 75
     Height = 25
     Anchors = [akRight, akBottom]
     Caption = 'OK'
     ModalResult = 1
-    TabOrder = 8
+    TabOrder = 9
     OnClick = btnOKClick
   end
   object vstModules: TVirtualStringTree
     Left = 8
     Top = 37
-    Width = 828
-    Height = 530
+    Width = 888
+    Height = 539
     Anchors = [akLeft, akTop, akRight, akBottom]
     Header.AutoSizeIndex = 0
     Header.Options = [hoAutoResize, hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
     Header.SortColumn = 0
     PopupMenu = pmuModules
-    TabOrder = 5
+    TabOrder = 6
     TreeOptions.MiscOptions = [toAcceptOLEDrop, toCheckSupport, toFullRepaintOnResize, toInitOnSave, toToggleOnDblClick, toWheelPanning, toEditOnClick]
     TreeOptions.PaintOptions = [toPopupMode, toShowButtons, toShowDropmark, toShowHorzGridLines, toShowRoot, toShowTreeLines, toShowVertGridLines, toThemeAware, toUseBlendedImages, toFullVertGridLines, toUseBlendedSelection]
     TreeOptions.SelectionOptions = [toFullRowSelect, toLevelSelectConstraint, toMultiSelect, toRightClickSelect, toSiblingSelectConstraint]
@@ -133,19 +133,19 @@ object frmModuleSelect: TfrmModuleSelect
   end
   object pnlError: TPanel
     Left = 8
-    Top = 582
-    Width = 661
-    Height = 25
+    Top = 580
+    Width = 721
+    Height = 26
     Alignment = taLeftJustify
-    Anchors = [akLeft, akTop, akRight]
+    Anchors = [akLeft, akRight, akBottom]
     BevelOuter = bvLowered
     BorderWidth = 3
-    TabOrder = 6
+    TabOrder = 7
   end
   object edFilter: TLabeledEdit
-    Left = 39
-    Top = 8
-    Width = 310
+    Left = 40
+    Top = 5
+    Width = 314
     Height = 23
     Anchors = [akLeft, akTop, akRight]
     EditLabel.Width = 29
@@ -154,40 +154,51 @@ object frmModuleSelect: TfrmModuleSelect
     LabelPosition = lpLeft
     TabOrder = 0
     Text = ''
+    StyleElements = [seFont, seBorder]
     OnChange = edFilterChange
     OnKeyDown = edFilterKeyDown
   end
+  object cbRegExFilter: TCheckBox
+    Left = 359
+    Top = 4
+    Width = 52
+    Height = 24
+    Anchors = [akTop, akRight]
+    Caption = '&RegEx'
+    TabOrder = 1
+    OnClick = cbRegExFilterClick
+  end
   object btnCancel: TButton
-    Left = 680
-    Top = 571
+    Left = 740
+    Top = 580
     Width = 75
     Height = 25
     Anchors = [akRight, akBottom]
     Caption = 'Cancel'
     ModalResult = 2
-    TabOrder = 7
+    TabOrder = 8
     Visible = False
   end
   object bnDelete: TButton
-    Left = 761
+    Left = 821
     Top = 4
     Width = 75
     Height = 25
     Action = acPresetDelete
     Anchors = [akTop, akRight]
-    TabOrder = 4
+    TabOrder = 5
   end
   object bnSave: TButton
-    Left = 680
+    Left = 740
     Top = 4
     Width = 75
     Height = 25
     Action = acPresetSave
     Anchors = [akTop, akRight]
-    TabOrder = 3
+    TabOrder = 4
   end
   object bnLoad: TButton
-    Left = 599
+    Left = 659
     Top = 4
     Width = 75
     Height = 25
@@ -195,15 +206,15 @@ object frmModuleSelect: TfrmModuleSelect
     Anchors = [akTop, akRight]
     BiDiMode = bdRightToLeft
     ParentBiDiMode = False
-    TabOrder = 2
+    TabOrder = 3
   end
   object cbPreset: TComboBox
-    Left = 396
-    Top = 8
+    Left = 456
+    Top = 5
     Width = 197
     Height = 23
     Anchors = [akTop, akRight]
-    TabOrder = 1
+    TabOrder = 2
     OnKeyPress = cbPresetKeyPress
   end
   object pmuModules: TPopupMenu

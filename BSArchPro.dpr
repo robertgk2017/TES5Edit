@@ -17,32 +17,28 @@ program BSArchPro;
 {$ENDIF}
 
 uses
+  MSHeap,
   {$IFDEF EXCEPTION_LOGGING_ENABLED}
   nxExceptionHook,
-  {$ENDIF}
-  System.Classes,
-  System.SysUtils,
-  Vcl.Themes,
-  Vcl.Styles,
-  Vcl.Styles.Hooks,
-  Vcl.Styles.Ext,
-  Vcl.Styles.Utils.Menus,
-  Vcl.Styles.Utils.Forms,
-  Vcl.Styles.Utils.StdCtrls,
-  Vcl.Styles.Utils.ComCtrls,
-  Vcl.Styles.Utils.ScreenTips,
-  Vcl.Styles.Utils.SysControls,
-  Vcl.Styles.Utils.SysStyleHook,
-  Vcl.Forms,
-  Vcl.Dialogs,
+  {$ENDIF }
   System.IOUtils,
-  frmMain in 'BSArch\frmMain.pas' {FormMain},
+  System.SysUtils,
+
+  Vcl.Dialogs,
+  Vcl.Forms,
+  Vcl.Themes,
+
   wbBSArchive in 'Core\wbBSArchive.pas',
-  wbAssets in 'BSArch\wbAssets.pas',
-  frmSearchReplace in 'BSArch\frmSearchReplace.pas' {FormSearchReplace},
+  wbCompression in 'Core\wbCompression.pas',
+  wbDDS in 'Core\wbDDS.pas',
+  wbHash in 'Core\wbHash.pas',
+  wbStreams in 'Core\wbStreams.pas',
   wbTaskProgress in 'Core\wbTaskProgress.pas' {FormTaskProgress},
+
   frmArchiveInfo in 'BSArch\frmArchiveInfo.pas' {FormArchiveInfo},
-  frmPack in 'BSArch\frmPack.pas' {FormPack};
+  frmMain in 'BSArch\frmMain.pas' {FormMain},
+  frmPack in 'BSArch\frmPack.pas' {FormPack},
+  frmSearchReplace in 'BSArch\frmSearchReplace.pas' {FormSearchReplace};
 
 {$R *.res}
 
@@ -69,6 +65,9 @@ begin
   {$ENDIF}
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
+  Application.ShowHint := True;
+  Application.HintPause := 200;
+  Application.HintHidePause := 10000;
   Application.Title := 'BSArchPro';
   bapInitStyles;
   Application.CreateForm(TFormMain, FormMain);
