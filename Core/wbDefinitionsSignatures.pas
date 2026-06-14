@@ -277,6 +277,7 @@ const
   CLSZ : TwbSignature = 'CLSZ'; { New to Fallout 4 }
   CMIC : TwbSignature = 'CMIC'; { New To Fallout 76 }
   CMNY : TwbSignature = 'CMNY';
+  CMPI : TwbSignature = 'CMPI'; { New to Fallout 76 }
   CMPO : TwbSignature = 'CMPO'; { New to Fallout 4 }
   CMPT : TwbSignature = 'CMPT'; { New To Fallout 76 }
   CNAM : TwbSignature = 'CNAM';
