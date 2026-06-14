@@ -10517,7 +10517,7 @@ begin
     wbDESC,
     wbTexturedModel('Has Scope', [MOD3, MO3T], [wbMO3S]),
     wbFormIDCK(EFSD, 'Scope Effect', [EFSH]),
-    wbByteArray(NNAM, 'Unused', 0, cpIgnore, False), // leftover
+    wbString(NNAM, 'Embedded Weapon Node),
     wbFormIDCk(INAM, 'Impact Data Set', [IPDS, NULL]),
     wbFormIDCk(WNAM, '1st Person Model Object', [STAT, NULL]),
     wbFormIDCk(SNAM, 'Attack Sound', [SNDR]),
@@ -10543,17 +10543,26 @@ begin
         {0x0004}'Has Scope (unused)',
         {0x0008}'Can''t Drop',
         {0x0010}'Hide Backpack (unused)',
-        {0x0020}'Embedded Weapon (unused)',
+        {0x0020}'Embedded Weapon',
         {0x0040}'Don''t Use 1st Person IS Anim (unused)',
         {0x0080}'Non-playable'
-      ], [1, 2, 4, 5, 6])).IncludeFlag(dfCollapsed, wbCollapseFlags),
+      ], [1, 2, 4, 6])).IncludeFlag(dfCollapsed, wbCollapseFlags),
       wbUnused(2),
       wbFloat('Sight FOV'),
       wbByteArray('Unknown', 4),
       wbInteger('Base VATS To-Hit Chance', itU8),
       wbInteger('Attack Animation', itU8, wbAttackAnimationEnum),
       wbInteger('# Projectiles', itU8),
-      wbInteger('Embedded Weapon AV (unused)', itU8),
+      wbInteger('Embedded Weapon Actor Value', itU8, 
+        wbEnum([
+        {0} 'Perception Condition',
+        {1} 'Endurance Condition',
+        {2} 'Left Attack Condition',
+        {3} 'Right Attack Condition',
+        {4} 'Left Mobility Condition',
+        {5} 'Right Mobility Condition',
+        {6} 'Brain Condition'
+        ])),
       wbFloat('Range Min'),
       wbFloat('Range Max'),
       wbInteger('On Hit', itU32, wbEnum([
