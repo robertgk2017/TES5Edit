@@ -10543,10 +10543,10 @@ begin
         {0x0004}'Has Scope (unused)',
         {0x0008}'Can''t Drop',
         {0x0010}'Hide Backpack (unused)',
-        {0x0020}'Embedded Weapon (unused)',
+        {0x0020}'Embedded Weapon',
         {0x0040}'Don''t Use 1st Person IS Anim (unused)',
         {0x0080}'Non-playable'
-      ], [1, 2, 4, 5, 6])).IncludeFlag(dfCollapsed, wbCollapseFlags),
+      ], [1, 2, 4, 6])).IncludeFlag(dfCollapsed, wbCollapseFlags),
       wbUnused(2),
       wbFloat('Sight FOV'),
       wbByteArray('Unknown', 4),
