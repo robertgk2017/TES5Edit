@@ -2232,19 +2232,6 @@ begin
     Exit(1);
 end;
 
-function wbEmbeddedWeaponActorValueEnum: IwbEnumDef;
-begin
-  Result := wbEnum([
-    {0} 'Perception Condition',
-    {1} 'Endurance Condition',
-    {2} 'Left Attack Condition',
-    {3} 'Right Attack Condition',
-    {4} 'Left Mobility Condition',
-    {5} 'Right Mobility Condition',
-    {6} 'Brain Condition'
-  ]);
-end;
-
 procedure ReferenceRecord(const aSignature: TwbSignature; const aName: string);
 begin
   wbRefRecord(aSignature, aName,
@@ -10566,7 +10553,16 @@ begin
       wbInteger('Base VATS To-Hit Chance', itU8),
       wbInteger('Attack Animation', itU8, wbAttackAnimationEnum),
       wbInteger('# Projectiles', itU8),
-      wbInteger('Embedded Weapon Actor Value', itU8, wbEmbeddedWeaponActorValueEnum),
+      wbInteger('Embedded Weapon Actor Value', itU8, 
+        wbEnum([
+        {0} 'Perception Condition',
+        {1} 'Endurance Condition',
+        {2} 'Left Attack Condition',
+        {3} 'Right Attack Condition',
+        {4} 'Left Mobility Condition',
+        {5} 'Right Mobility Condition',
+        {6} 'Brain Condition'
+        ])),
       wbFloat('Range Min'),
       wbFloat('Range Max'),
       wbInteger('On Hit', itU32, wbEnum([
