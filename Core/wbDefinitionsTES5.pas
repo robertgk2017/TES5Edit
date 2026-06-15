@@ -10517,7 +10517,7 @@ begin
     wbDESC,
     wbTexturedModel('Has Scope', [MOD3, MO3T], [wbMO3S]),
     wbFormIDCK(EFSD, 'Scope Effect', [EFSH]),
-    wbString(NNAM, 'Embedded Weapon Node),
+    wbString(NNAM, 'Embedded Weapon Node'),
     wbFormIDCk(INAM, 'Impact Data Set', [IPDS, NULL]),
     wbFormIDCk(WNAM, '1st Person Model Object', [STAT, NULL]),
     wbFormIDCk(SNAM, 'Attack Sound', [SNDR]),

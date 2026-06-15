@@ -4,6 +4,210 @@ If you share your mods on Nexus Mods and use xEdit as a major component in devel
 
 xEdit is crucial to our shared modding community and your contribution - no matter the size - is invaluable and deeply appreciated.
 
+# What's New in xEdit 4.1.5q?
+
+## TL;DR
+
+Development continues with ~250 commits since 4.1.5p, focused on Starfield .esp editing and small/medium master support, a major Referenced By tab overhaul, regular-expression filtering, BSArch Xbox-texture and compression-library work, and a large Fallout 76 record expansion.
+
+### Key highlights
+* Starfield - .esp editing is now enabled (with restrictions), including editing of modules that use small or medium masters; modules with a blueprint master can't be saved, and blueprints can't be masters
+* Referenced By tab overhaul - filtering, sticky/column sorting, alt-navigation, Ctrl+A select-all, and selection counts
+* Regular-expression (PerlRegex) filtering in the main window, module selection, and view filter, with a typing delay
+* BSArch/Archive - Xbox texture support, Find Identical Assets, shared-file space reporting, and integration of libdeflate/lz4/xxHash as submodules
+* Fallout 76 - large record/subrecord expansion (new TEPF, TRAP, and CMPT records; Enlighten, rewards, and many decoded fields) plus updated Form/HEDR versions
+* Starfield - Freelanes updates, Reflection organization, and recent-DLC record additions
+* Scripting - new wbSelectedFiles, TStrings extensions, ScriptProcessSignatures, and an adapter refactor for faster host-function dispatch
+* SNIFF - new operations (Find Textures, Merge Properties, Transform Information), Xbox texture and .BSA/.BA2 support, and many fixer/tweaker additions
+
+### Contributors
+robertgk2017, Jonathan Ostrus (jbostrus), eckserah, Bobbyclue, fireundubh, Cecell, ElminsterAU, sibir, sheson, c6, GammaMetroid, and thanks to Cobb and Ianpatt for assistance.
+
+## Bugfixes
+
+* Fix access violation in the DIAL/DLBR/DLVW branch-quest reachability error check (null QNAM or unresolved quest)
+* Ensure ChildGroups are removed when a containing MainRecord is removed
+* [FO4] Don't remove XWEM on Fallout 4 - the engine reuses that subrecord for an unrelated purpose
+* Fix DoubleBuffered handling for UI controls (VirtualTrees)
+* Reset a union's result to its Default Value (and update sibling unions) when switching the active member
+* Implement dfHasZeroTerminator handling for TwbStringDef
+* Fix REGN RDAT type lookup to walk up to the Region Data Entry container
+* [TES4] Fix ESM ordering
+* [TES3] Fix Less/Greater-than operators being reversed in the INFO condition enum
+
+## Major Features
+
+### Starfield - .esp editing and small/medium master support (contributed by Jonathan Ostrus and robertgk2017)
+* Starfield .esp editing is now enabled, with restrictions: an .esp may be loaded as a master for editing but cannot be saved as a master, and the small/medium flags cannot be set on .esps
+* Edit modules that are, or use, small or medium masters; setting or removing the small/medium flag within xEdit is intentionally disabled (changing a published master's flag is destructive - export from the Creation Kit instead)
+* Support Starfield's larger master limits - up to 252 full, 4095 light, and 254 medium masters in one file
+* Master removal/cleaning reworked: the engine requires the full master chain, so adding a master also adds its required up-chain masters, and those are no longer removed during cleaning (other games are unchanged)
+* Disallow saving modules that have a blueprint master; blueprints may not be masters to other modules
+* Disable creating Update files in Starfield until they are supported
+
+### Referenced By tab (contributed by Jonathan Ostrus)
+* Added filtering of the Referenced By list, plus alt navigation and Ctrl+A to select all (#829, #851)
+* New sorting: click the Record column to sort by the displayed name, click again to sort by the fully-qualified load-order FormID; click the File column to sort by the displayed "[index] name", click again for the raw filename
+* Hold Ctrl while clicking a column header to reverse the sort; a chevron in the caption shows the direction
+* The caption now shows counts, e.g. "Referenced By (45 / F: 10 / S: 1)" - total / visible after filter / selected
+* Show the selected count on the 'Compare Selected' popup-menu entry (#851)
+
+### Regular-expression filtering (contributed by robertgk2017 and Jonathan Ostrus)
+* Added PerlRegex support for filters
+* Regular-expression filtering in the main window and module-selection file filter boxes
+* Added a typing delay so the view filter no longer reapplies on every keystroke
+* The Enter key now starts filtering from any element on the filter form
+
+### Other
+* Add invalid-filename character detection (contributed by Jonathan Ostrus)
+* New non-template modules now also receive the game master when Always Load Game Master is set (contributed by Jonathan Ostrus)
+* Container Item summaries now surface the referenced FormID as a clickable link (e.g. '5x ItemName'); Component summaries likewise in FO4/FO76 (contributed by Jonathan Ostrus)
+* Strip a typed plugin extension from new-file input so 'MyMod.esp' no longer becomes 'MyMod.esp.esp' (contributed by Cecell and Jonathan Ostrus)
+* Add a game-mode selection dialog instead of forcing the Fallout 4 default (contributed by Jonathan Ostrus)
+* Log which masters are removed during Clean Masters (contributed by Jonathan Ostrus)
+* Master handling for non-Starfield games: an option to require the full master hierarchy when adding a master, and the `EnforceAllMasters` CLI argument to apply that enforcement to any game mode (contributed by Jonathan Ostrus)
+* #988 Show the filename in square brackets in the column header when comparing records (contributed by Jonathan Ostrus)
+* #950 Hold Shift to skip the EDID-change prompt when copying as new, single or multiple selection (contributed by Jonathan Ostrus)
+* #1022 Support the command-line argument `GenerateSEQ:filename.ext` (contributed by Jonathan Ostrus)
+* #1458 Alt+click a view-tree node to fully expand just that node's subtree (contributed by Jonathan Ostrus)
+* Replace TMemo with TRichEdit in three bundled edit-script dialogs (Assets Browser, NIF batch texture replacement, RegEx Workbench), where TMemo is aliased to TSynMemo (contributed by sheson)
+* Integrate libdeflate, lz4, and xxHash as Git submodules for archive compression/hashing
+
+## Definition Updates
+
+### All Games
+* CELL \ DATA - Update flags (FO3/FNV/TES5/FO4/FO76/SF1)
+* REFR \ XPRM - Make defs consistent across games (FO3/FNV/TES5/FO4/FO76/SF1)
+* REFR \ XAPD - Convert Parent Activate Only to Boolean (FNV/TES5/FO4/FO76)
+* REGN \ RDAT - Make the last 2 bytes wbUnused(2) (FO3/FNV/TES5/FO4/FO76/SF1)
+* File Header \ ONAM - Make dfCollapsed and dfExcludeFromBuildRef (FO3/FNV/TES5/FO4/FO76/SF1)
+* DIAL \ INOM/INOA - Make dfCollapsed
+* DIAL/DLBR/DLVW - Reachability adjustments and a new error check (TES5/FO4/FO76/SF1)
+* SCEN \ VMAD - Sort Phase Fragments, which the CK writes in random order (TES5/FO4/FO76/SF1)
+* wbConditions \ IsOwner - Display the Player when the Owner parameter is NULL (confirmed by Ianpatt)
+* Preserve a single space in dialogue text
+* MESG - Update defs and move shared callbacks to Common
+* SOUND \ SDSC - Make Required and disallow NULL, verified against the CK (TES5/FO4/FO76)
+* INFO \ ENAM \ Reset Hours - Set float digits to 2 (TES5/FO4/FO76/SF1)
+* IDLE \ DATA \ Flags - Rename Parent to Loose, confirmed by Cobb (TES5/FO4/FO76)
+* PERK \ Effects \ DATA - Quest Stage is a 2-byte integer (FO3/FNV/TES5)
+* QUST \ Aliases - Update Fill Type handling; add error detection for non-optional unfilled aliases and event-started quests missing from the Story Manager (TES5/FO4/FO76/SF1)
+* HDPT - Updates (TES5/FO4/FO76/SF1)
+* PACK \ PSDT - Fix the schedule enum for form version >= 122 and make the definition consistent across games (contributed by Jonathan Ostrus)
+
+### Common
+* MODT - 3rd Counter is SRGB Count
+* WTHR \ Cloud Textures - Add back missing layers #29-#31 (M0TX/N0TX/O0TX) (contributed by Jonathan Ostrus)
+* Refactor LSCR/LNAM into shared Common defs - TES4/FO3/FNV (contributed by sibir)
+* wbEnchantment - Add dfStructFirstNotRequired
+* wbLandLayers - Switch AfterLoad to ToStr to show the default landscape texture used
+* Add TwbDivFDef class
+* VMAD - Move shared functions to Common (TES5/FO4/FO76/SF1)
+* Move LGDI rank handling to Common defs (contributed by Jonathan Ostrus)
+* Convert Common variables to functions (removes the DefineCommon procedure)
+* Remove redundant wbPosRot/wbDATAPosRot aliases in favor of wbVec3PosRot
+* Move two functions from wbImplementation to wbInterface to break a unit-dependency cycle
+
+### TES4
+* CSTY \ CSTD - Fix OptionalFrom
+* wbConditionVariableNameToInt - Fix exceptions/handling (TES4/FO3/FNV)
+
+### FO3/FNV
+* Update the FO3 condition function list (contributed by c6)
+* EXPL - Add a missing flag and cleanup
+* RCCT \ DATA - Convert to Boolean with AfterLoad to hide unused bits (FNV)
+
+### TES5
+* BOOK - Update data flags AfterSet; BOOK/LIGH handling cleanup
+* PERK \ Effects - Alignment fix
+* FACT \ DATA - Update flags list
+* LIGH \ DATA \ Flags - Add Flag 15 (Linear) for Community Shaders
+* REFR \ Water Current Velocities - Add a missing Union name; make water-current defs consistent across TES5/FO4/FO76
+* NNAM is not required - setting the Loading Screen NIF to NONE in the CK removes NNAM entirely (TES5/FO4) (contributed by sibir)
+* WEAP - Decode the Embedded Weapon flag, node, and Actor Value, previously marked unused (#1491, contributed by GammaMetroid)
+
+### FO4
+* BNDS \ DNAM - Change default values from Edit to Native (fixes copying as override)
+* MESG \ TNAM - Should not be marked required
+
+### FO4/FO76
+* IMAD \ Depth Of Field - Add a Form Version check for NAM5 and NAM6
+* wbOBTSReq - Set Include/Property Count as cpBenign (also OMOD)
+
+### FO4/FO76/SF1
+* NOCM - Add EDID, SetRequired/DefaultEditValue, and match the corrected FO76 structure
+* INNR \ Naming Rules \ Ruleset \ Count - Make cpBenign and dfSkipImplicitEdit
+
+### FO76
+* Add the new TEPF record type
+* Large record/subrecord expansion (contributed by eckserah; also touches Fallout 4 and shared Common defs):
+  - New records: TRAP and CMPT (Camp Title); the existing PLYR (Player Reference) gained Base and position/rotation fields; plus many newly decoded subrecords
+  - Rewards (XPCT/CODG), Enlighten (ENLM/ENLT/ENLS), Auto UV (AUUV), Physics Sync (PHST), and DMGT status subrecords
+  - Additional blend modes, ZTestFunc values, and template flags (shared Common defs); ACBS (FO4 + FO76 NPC_) and LVLI flag updates
+  - New challenge types, keyword/icon types, and DEST stage handling
+* BPVB - Move to the end of the Body Part struct
+* CELL VISI and wbAmbientColors fixes; updated QUST info (contributed by eckserah)
+* Update Form and HEDR versions; decode a few more unknowns
+
+### SF1
+* Reflection support organization; recent-DLC sub-records added (some still unknown); Form Version is now 581
+* Freelanes updates (contributed by Bobbyclue, robertgk2017, and Jonathan Ostrus): a new condition, a perk entry point and entry function type, BGSAdaptiveTriggerData/BGSQualityUpgrade components, package groups, terminal backgrounds, and a REFR FNAM flag
+* New records GWED (Gravity Wielder Effect Data) and TDED (Track Damage Effect Data), with matching MGEF archetypes (Gravity Wielder, Track Damage) linked via Assoc. Item
+* SCEN struct fixes; LGDI - define rank/quality tiers and handling (keywords, re-roll/pick and quality-upgrade costs) (contributed by Jonathan Ostrus)
+* PERK \ PRUC - Define as Quantum Essence Upgrade Cost (contributed by Jonathan Ostrus and Bobbyclue)
+* Decode perk upgrade challenges - small tweaks are supported, but full editing is best done in the Creation Kit (the JSON keys can be confusing) (contributed by Jonathan Ostrus)
+* TERM Art Theme - correct terminal-background indices (Terran Armada is now 11) (contributed by robertgk2017 and Jonathan Ostrus)
+* Fix Location Alias fill-type name; QUST Reference Alias - add a Match Conditions named struct
+* Add the new DLC .esm files to the DLC list
+* Add a Geometries root asset folder for Starfield .mesh files
+
+## Scripting
+
+* Add `wbSelectedFiles` and several TStrings/TStringList extension methods (AddPair, Contains, LoadFromFile/SaveToFile, and more) (contributed by fireundubh), and update `wbSelectedFilesToFileNames` to return file objects and support group nodes (contributed by Jonathan Ostrus)
+* Add the `ScriptProcessSignatures` variable to restrict Process() to a comma-separated signature list, main records only (contributed by Jonathan Ostrus)
+* Expose `IwbElement.ContainingSubRecord` and `TwbAsset.AssetTypeByExtension/Folder`
+* Replace wbNormalizeResourceName with TwbAsset.GetAssetName
+* Skip empty Initialize/Process/Finalize functions; sort procedure implementations and registration calls (contributed by fireundubh)
+* Refactor the script adapter into interface-specific units with O(1) hash-based host-function dispatch (contributed by fireundubh)
+* Add missing declarations and fix argument lists in the scripting API reference (xEditAPI.pas) (contributed by Jonathan Ostrus)
+* [Assets Manager] Refactor onto the new TwbAsset class with optimizations; Oblivion book-image handling; Skyrim NPC FaceGen .nif detection now respects template/CharGen flags and the race FaceGen Head flag; don't report RACE .egt files on Skyrim; Papyrus source handling fixes
+* [Undelete and Disable References] Move undeleted references to Z = -30000 and set their enable parent to the player ($14) with the opposite-of-parent flag
+
+## SNIFF
+
+* Update to version 1.9.2
+* Reorganized operations: added Find Textures, Merge Properties, and Transform Information; reworked Havok Search Material; added an operation-list filter; removed several standalone operations (Change Partition Slot, Find Several Strips, Priority of Controlled Blocks, Rename Controlled Blocks, Rename Strings)
+* Add support for .BSA/.BA2 archives, and for Xbox textures in Find Textures
+* [Universal Fixer] Fix bhkCollisionObject flags; stricter Solver Deactivation for clutter/related collision layers; remove non-standard and control (0..31) characters from texture paths; remove the Set_Local flag when unneeded; fix Accum Root Name on NiControllerSequences
+* [Universal Tweaker] Add "Round" and "Mul and Round" options (round, or multiply by a value then round the result)
+* [Check For Errors] Expanded checks - collision/MOPP and collision order, multiple-strip geometry, _0/_1.nif morph-model mismatches, vertex-color alpha/HDR, invalid SHADER_NOLIGHTING, invalid Manager/Accum Root Name on NiControllerSequence, and zero ragdoll Cone Max Angle (jittering)
+* [Optimize Animations] Support .nif files, not just .kf
+* [Update Havok Inertia] Handle Compressed Mesh Chunks that are not tied to a Chunk Transform
+* [Update Ragdoll Constraint] Option to convert all constraints to bhkMalleableConstraint
+* [Apply Transforms] Skip the root block; remove bad handling of skinned BSTriShapes
+* [Unskin Mesh] Ignore BSTriShapes
+* [Vertex Color Painting] Add a shape-name filter and skip-color option; fix loop control in Remove mode
+* [Copy Geometry Blocks] Optionally copy shader data and texture set
+* [Real Time Reflections] Add a Blend Intensity setting
+* [Add NiLODNode] Choose between NiRangeLODData and NiScreenLODData
+* [Havok Information] Selectable list for additional fields
+* Particle-system handling and consistency-flag fixes; bhkCMSDChunk field-name updates
+* Move Windows-version detection to MSHeap
+
+## BSArch
+
+* Add Xbox texture support: BSArch unpacks Xbox-format textures (shared core); BSArchPro also packs and converts PC textures to Xbox format
+* Add a Find Identical Assets function (find duplicate files)
+* Account for and show shared-file count and saved space when packing; sort identical files first
+* Support packing from multiple sources combined with '+' (including existing .BSA/.BA2 archives), enabling archive merge/override workflows
+* Support split archive packing by size (-split:N GB), producing numbered archives when the limit is exceeded
+* Add a Filter argument to selectively pack assets by name or extension
+* Set Compressed where applicable; fix the compression type per game mode; handle empty and NOR error texture paths in .nifs
+* The pack '-z' flag now accepts a compression type (-z:zlib|lz4|lz4f); omitting the type uses the game default
+* Fix File/Folder hashing in games pre-Skyrim
+* Return a non-zero exit code on error; fix a false DDS warning (BSArchPro)
+* Fix luminance DDS texture-format detection
+
 # What's New in xEdit 4.1.5p?
 
 ## TL;DR

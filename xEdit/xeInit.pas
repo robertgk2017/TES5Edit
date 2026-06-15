@@ -1586,6 +1586,10 @@ begin
     gmSF1:
       xeIconResource := 'xSFICON';
   end;
+
+  if FindCmdLineSwitch('exceptiontest') then try
+    raise Exception.Create('Exception Test');
+  except end;
 end;
 
 function xeDoInit: Boolean;

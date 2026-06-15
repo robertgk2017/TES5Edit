@@ -355,7 +355,7 @@ end;
 procedure Main;
 begin
   {$IFDEF EXCEPTION_LOGGING_ENABLED}
-  nxEHAppVersion := 'BSArch v' + csBSAVersion;
+  nxEHAppVersion := 'BSArch v' + cBSArchVersion;
   {$ENDIF}
   WriteLn('');
   WriteLn('BSArch v' + cBSArchVersion{$IFDEF WIN64} + ' x64'{$ENDIF WIN64} + ' by zilav, ElminsterAU, Sheson');

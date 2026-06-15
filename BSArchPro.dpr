@@ -61,7 +61,7 @@ end;
 
 begin
   {$IFDEF EXCEPTION_LOGGING_ENABLED}
-  nxEHAppVersion := 'BSArchPro v' + csBSAVersion;
+  nxEHAppVersion := 'BSArchPro v' + cBSArchVersion;
   {$ENDIF}
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
