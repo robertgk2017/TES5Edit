@@ -2573,6 +2573,7 @@ type
     function SetAfterLoad(const aAfterLoad : TwbAfterLoadCallback): IwbValueDef;
     function SetAfterSet(const aAfterSet : TwbAfterSetCallback): IwbValueDef;
     function SetDontShow(const aDontShow : TwbDontShowCallback): IwbValueDef;
+    function SetGetCP(const aGetCP : TwbGetConflictPriority): IwbValueDef;
 
     procedure PrepareSave(const aDataContainer : IwbDataContainer);
 
@@ -6596,6 +6597,7 @@ type
     function SetAfterLoad(const aAfterLoad : TwbAfterLoadCallback): IwbValueDef;
     function SetAfterSet(const aAfterSet : TwbAfterSetCallback): IwbValueDef;
     function SetDontShow(const aDontShow : TwbDontShowCallback): IwbValueDef;
+    function SetGetCP(const aGetCP: TwbGetConflictPriority): IwbValueDef;
 
     procedure PrepareSave(const aDataContainer : IwbDataContainer); virtual;
 
@@ -19837,6 +19839,15 @@ begin
 
   Result := Self;
   ndDontShow := aDontShow;
+end;
+
+function TwbValueDef.SetGetCP(const aGetCP: TwbGetConflictPriority): IwbValueDef;
+begin
+  if defIsLocked then
+    Exit(TwbValueDef(Duplicate).SetGetCP(aGetCP));
+
+  Result := Self;
+  defGetCP := aGetCP;
 end;
 
 function TwbValueDef.SetIsRemovable(const aCallback: TwbIsRemovableCallback): IwbValueDef;
