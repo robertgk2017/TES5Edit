@@ -5598,9 +5598,9 @@ begin
       ),
       wbArray('Edge Links',
         wbStruct('Edge Link', [
-          wbInteger('Type', itU32, wbNavmeshEdgeLinkEnum, cpIgnore),
-          wbFormIDCk('Navmesh', [NAVM], False, cpIgnore),
-          wbInteger('Triangle', itS16, nil, cpIgnore)
+          wbInteger('Type', itU32, wbNavmeshEdgeLinkEnum).SetGetCP(wbNAVMEdgeLinksGetCP),
+          wbFormIDCk('Navmesh', [NAVM]).SetGetCP(wbNAVMEdgeLinksGetCP),
+          wbInteger('Triangle', itS16).SetGetCP(wbNAVMEdgeLinksGetCP)
         ]).SetSummaryKey([2, 1])
           .SetSummaryMemberPrefixSuffix(2, 'Tri: [', ']')
           .SetSummaryMemberPrefixSuffix(1, 'Nav: ', '')

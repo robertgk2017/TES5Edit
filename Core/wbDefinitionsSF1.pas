@@ -4247,10 +4247,10 @@ begin
       ),
       wbArray('Edge Links',
         wbStruct('Edge Link', [
-          wbInteger('Type', itU32, wbNavmeshEdgeLinkEnum),
-          wbFormIDCk('Navmesh', [NAVM], False, cpIgnore),
-          wbInteger('Triangle', itS16, nil, cpIgnore),
-          wbByteArray('Edge Index', 1, cpIgnore)
+          wbInteger('Type', itU32, wbNavmeshEdgeLinkEnum).SetGetCP(wbNAVMEdgeLinksGetCP),
+          wbFormIDCk('Navmesh', [NAVM]).SetGetCP(wbNAVMEdgeLinksGetCP),
+          wbInteger('Triangle', itS16).SetGetCP(wbNAVMEdgeLinksGetCP),
+          wbByteArray('Edge Index', 1).SetGetCP(wbNAVMEdgeLinksGetCP)
         ], cpIgnore),
       -1, cpIgnore).IncludeFlag(dfNotAlignable),
       wbArrayS('Door Links',

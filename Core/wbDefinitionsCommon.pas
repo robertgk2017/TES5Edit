@@ -124,9 +124,10 @@ function wbGetPropertyValueArrayItems(const aContainer: IwbContainerElementRef):
 function wbGetREGNType               (const aElement: IwbElement): Integer;
 function wbGetScriptObjFormat        (const aElement: IwbElement): Integer;
 
-{>>> Get Conflict Priority Callbacks <<<} //2
-procedure wbLandNormalsGetCP(const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
-procedure wbModelInfoGetCP  (const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
+{>>> Get Conflict Priority Callbacks <<<} //3
+procedure wbLandNormalsGetCP  (const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
+procedure wbModelInfoGetCP    (const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
+procedure wbNAVMEdgeLinksGetCP(const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
 
 {>>> Integer Formaters <<<} //1
 function wbBoolEnumSummary(const aTrueSummary: string; const aFalseSummary: string = ''): IwbEnumDef;
@@ -2194,7 +2195,7 @@ begin
   end;
 end;
 
-{>>> Get Conflict Priority Callbacks <<<} //2
+{>>> Get Conflict Priority Callbacks <<<} //3
 
 procedure wbLandNormalsGetCP(const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
 begin
@@ -2226,6 +2227,14 @@ begin
     Exit;
 
   if MainRecord.Version < 38 then
+    aConflictPriority := cpIgnore;
+end;
+
+procedure wbNAVMEdgeLinksGetCP(const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
+begin
+  if wbSimpleRecords then
+    aConflictPriority := cpNormal
+  else
     aConflictPriority := cpIgnore;
 end;
 
