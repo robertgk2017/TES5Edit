@@ -363,7 +363,7 @@ type
   end;
 
 const
-  wbConditionFunctions : array[0..637] of TConditionFunction = (
+  wbConditionFunctions : array[0..638] of TConditionFunction = (
     (Index:   0; Name: 'GetWantBlocking'),
     (Index:   1; Name: 'GetDistance'; ParamType1: ptReference),
     (Index:   2; Name: 'AddItem'), { ObjID (Form ID), Count, Flag (Opt), Level (Opt), Equip (Opt) }
@@ -953,6 +953,7 @@ const
     (Index: 935; Name: 'IsLastDamageCripplingLimb'; Desc: 'True if last source of damage crippled a limb'),
     (Index: 936; Name: 'GetCurrentCAMPWeatherHasKeyword'; ParamType1: ptKeyword),
     (Index: 937; Name: 'GetCurrentWeatherOverrideHasKeyword'; ParamType1: ptKeyword),
+    (Index: 938; Name: 'HasActiveChallenge'; Desc: 'Does the subject player currently have the given challenge?'; ParamType1: ptChallenge),
     (Index: 5000; Name: 'IsInAirOrFloating'; Desc: 'Is the Havok state InAir or IsFloating?'),
     (Index: 5001; Name: 'GetIsForm'; ParamType1: ptBaseObject),
     (Index: 5002; Name: 'GetIsInDailyOps'),
@@ -6463,7 +6464,10 @@ begin
     'Loadout',
     'District',
     'Player Title',
-    'Fish'
+    'Fish',
+    'Camp Title',
+    'Camp Icon',
+    'Infestation Event Playlist'
 ]);
 
   wbMiscStatEnum := wbEnum([], [
@@ -7208,7 +7212,8 @@ begin
     {14} 'Durability',
     {15} 'Biped World Model',
     {16} 'Model Swap',
-    {17} 'Weight Mult'
+    {17} 'Weight Mult',
+    {18} 'Perk'
   ]);
 
   wbActorPropertyEnum := wbEnum([
@@ -7635,7 +7640,7 @@ begin
     ),
     wbFloat(PAHD, 'Unknown Float'),
     wbCTRN,
-    wbFromSize(1, NVNM, wbNVNMRecordVal, False),
+    wbNVNM,
     wbUnknown(MNAM),
     wbLODLevelOverride
   ]);
@@ -15291,7 +15296,7 @@ begin
         wbFloat('Unknown')
       ])
     ])),
-    wbUnknown(RCBN)
+    wbInteger(RCBN, 'Region Can''t be Nuked', itU8, wbBoolEnum)
   ], True);
 
   wbRecord(SOUN, 'Sound Marker', [
@@ -16270,29 +16275,14 @@ begin
       wbRStruct('Menu Item', [
         wbLStringKC(ITXT, 'Item Text', 0, cpTranslate),
         wbLStringKC(RNAM, 'Response Text', 0, cpTranslate),
-        wbInteger(ANAM, 'Type', itU8, wbEnum([], [
-           0, 'Unknown 0',
-           1, 'Unknown 1',
-           2, 'Unknown 2',
-           3, 'Unknown 3',
-           4, 'Submenu - Terminal',
-           5, 'Submenu - Return to Top Level',
-           6, 'Submenu - Force Redraw',
-           7, 'Unknown 7',
-           8, 'Display Text',
-           9, 'Unknown 9',
-          10, 'Unknown 10',
-          11, 'Unknown 11',
-          12, 'Unknown 12',
-          13, 'Unknown 13',
-          14, 'Unknown 14',
-          15, 'Unknown 15',
-          16, 'Display Image',
-          68, 'Unknown 68',
-          69, 'Unknown 69',
-          70, 'Unknown 70',
-          71, 'Unknown 71',
-          72, 'Unknown 72'
+        wbInteger(ANAM, 'Type', itU8, wbFlags([
+          'Return to Top',
+          'Redraw',
+          'Submenu',
+          'Display Text',
+          'Display Image',
+          'Holotape',
+          'Template'
         ]), cpNormal, True),
         wbInteger(ITID, 'Item ID', itU16),
         wbLStringKC(UNAM, 'Display Text', 0, cpTranslate),
@@ -16510,12 +16500,12 @@ begin
       wbFloat('Value'),
       wbInteger('Min Level', itU8),
       wbInteger('Special', itU8, wbSpecialTypeEnum),
-      wbInteger('Race Restriction', itU8,
-        wbEnum([
-        {0} 'None',
-        {1} 'Human',
-        {2} 'Ghoul'
-        ]))
+      wbInteger('Race Restriction', itU8, wbEnum([
+        'None',
+        'Human',
+        'Ghoul'
+      ])),
+      wbBelowVersion(208, wbUnused)
     ]),
     wbFormIDCk(PCDV, 'Perk Card Value', [GLOB]),
     wbFormIDCk(SNAM, 'Sound', [SNDR]),
@@ -17026,14 +17016,25 @@ begin
     wbConditions
   ]).SetSummaryKey([2]).IncludeFlag(dfSummaryNoName);
 
-  wbRecord(TEPF, 'Unknown - TEPF', [
+  wbRecord(TEPF, 'Infestation Event Playlist',
+    wbFlags(wbFlagsList([
+      {0x00000004}  2, 'Unknown 2',
+      {0x00000200}  9, 'Unknown 9'
+    ])), [
     wbEDID,
-    wbUnknown(EPEG),
-    wbUnknown(EPCD),
-    wbUnknown(EPPR),
-    wbUnknown(EPNQ),
-    wbUnknown(EPLA),
-    wbUnknown(EPQT)
+    wbFormID(EPEG, 'Playlist Enabled Global'),
+    wbInteger(EPCD, 'Cooldown', itU32),
+    wbInteger(EPPR, 'Priority', itU32),
+    wbInteger(EPNQ, 'Unknown Int', itU32),
+    wbRArray('Playlist Quests',
+      wbRStruct('Quest Info', [
+        wbFormID(EPQA, 'Quest'),
+        wbFormIDCk(EPSI, 'Spell Modifier', [SPEL])
+      ])
+    ),
+    wbInteger(EPFL, 'Unknown Byte', itU8),
+    wbArray(EPLA, 'Location Array', wbFormID('Location')),
+    wbFormID(EPQT, 'Master Quest')
   ]);
 
   wbRecord(TRAP, 'Trap', [
@@ -17049,10 +17050,10 @@ begin
     wbOPDSs,
     wbXALG,
     wbFTAGs,
-    wbFull,
+    wbFULL,
     wbGenericModel,
     wbDEST,
-    wbRArray('Factions', wbDOFA),
+    wbRArray('Factions', wbDOFA, cpNormal),
     wbKeywords,
     wbPRPS,
     wbNTRM,
@@ -17068,22 +17069,21 @@ begin
     wbQSTI,
     wbAIID,
     wbATTX,
-    wbInteger(FNAM, 'Flags', itU16,
-      wbFlags([
-      {0} 'No Displacement',
-      {1} 'Ignored By Sandbox',
-      {2} 'Unknown 2',
-      {3} 'Unknown 3',
-      {4} 'Is A Radio',
-      {5} 'Is A Lookat Trigger',
-      {6} 'Unknown 6'
+    wbInteger(FNAM, 'Flags', itU16, wbFlags([
+      'No Displacement',
+      'Ignored by Sandbox',
+      'Unknown 2', {Only used on DefaultProceduralWater [ACTI:00000019]}
+      'Unknown 3', {Currently Unused}
+      'Is a Radio',
+      'Is a Lookat Trigger',
+      'Unknown 6' {Currently Unused}
     ])).IncludeFlag(dfCollapsed, wbCollapseFlags),
     wbInteger(LAVT, 'Lookat Value', itU32),
     wbInteger(LAMN, 'Lookat Minimum', itU32),
     wbInteger(LAMX, 'Lookat Maximum', itU32),
     wbFormIDCk(KNAM, 'Interaction Keyword', [KYWD]),
     wbStruct(RADR, 'Radio Receiver', [
-      wbFromVersion(92, wbFormIDCk('Sound Model', [SOPM,NULL])),
+      wbFromVersion(92, wbFormIDCk('Sound Model', [SOPM, NULL])),
       wbFloat('Frequency'),
       wbFloat('Volume'),
       wbInteger('Starts Active', itU8, wbBoolEnum),
@@ -17097,15 +17097,16 @@ begin
         wbFromVersion(191, wbFormID('Excluded Item List')),
         wbInteger('Unknown', itU32),
         wbInteger('Max Amount', itU32)
-      ])),
+      ])
+    ),
     wbFloat(PAHD, 'Unknown Float'),
     wbCTRN,
     wbUnknown(TRCD),
     wbUnknown(TRRE),
     wbUnknown(TRST),
     wbUnknown(TRTY),
-    wbFormIDCk(TREF, 'Trap Effect', [SPEL,NULL]),
-    wbFromSize(1, NVNM, wbNVNMRecordVal, False),
+    wbFormIDCk(TREF, 'Trap Effect', [SPEL, NULL]),
+    wbNVNM,
     wbUnknown(MNAM),
     wbLODLevelOverride
   ]);
@@ -17655,6 +17656,10 @@ begin
     ]).SetRequired
   ]);
 
+  wbRecord(CMPI, 'Camp Icon', [
+    wbEDID
+  ]);
+
   wbAddGroupOrder(GMST);
   wbAddGroupOrder(KYWD);
   wbAddGroupOrder(ENTM); //new in Fallout 76
@@ -17860,6 +17865,7 @@ begin
   wbAddGroupOrder(PLYT);
   wbAddGroupOrder(FISH);
   wbAddGroupOrder(CMPT);
+  wbAddGroupOrder(CMPI);
   wbAddGroupOrder(TEPF);
   wbNexusModsUrl := 'https://www.nexusmods.com/fallout76/mods/30';
   {if wbToolMode = tmLODgen then
