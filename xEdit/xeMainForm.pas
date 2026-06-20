@@ -18586,13 +18586,6 @@ begin
 end;
 
 procedure TfrmMain.vstViewDblClick(Sender: TObject);
-var
-  NodeDatas                   : PViewNodeDatas;
-  i                           : Integer;
-  ModalEdit                   : Boolean;
-  ViewFocusedElement              : IwbElement;
-  Element                     : IwbElement;
-  Def                         : IwbNamedDef;
 begin
   UserWasActive := True;
 
@@ -18609,24 +18602,26 @@ begin
     Exit;
   end;
 
-  NodeDatas := vstView.GetNodeData(vstViewFocusedNode);
+  var NodeDatas : PViewNodeDatas := vstView.GetNodeData(vstViewFocusedNode);
   if Assigned(NodeDatas) then begin
 
+    var ViewFocusedElement: IwbElement;
     if vstView.FocusedColumn > 0 then
       ViewFocusedElement := NodeDatas[Pred(vstView.FocusedColumn)].Element
     else
       ViewFocusedElement := nil;
+
     EditFocusedViewElement := False;
-    Element := ViewFocusedElement;
+    var Element := ViewFocusedElement;
     if not Assigned(Element) then
-      for i := Low(ActiveRecords) to High(ActiveRecords) do begin
+      for var I := Low(ActiveRecords) to High(ActiveRecords) do begin
         Element := NodeDatas[i].Element;
         if Assigned(Element) then
           Break;
       end;
 
     if Assigned(Element) then begin
-      Def := Element.ResolvedValueDef;
+      var Def := Element.ResolvedValueDef;
 
       if Assigned(ViewFocusedElement) and Assigned(Def) and ViewFocusedElement.IsEditable then
         if Def.DefType in [dtInteger, dtFlag, dtFloat] then begin
@@ -18635,22 +18630,17 @@ begin
         end;
     end;
 
-    with TfrmViewElements.Create(nil) do begin
+    with TfrmViewElements.Create(Self) do begin
       Caption := vstView.Path(vstViewFocusedNode, 0,{ ttNormal,} '\');
       Settings := Self.Settings;
+
       if Assigned(ActiveMaster) then
         Caption := ActiveMaster.Name + '\' + Caption;
 
-      ModalEdit := wbIKnowWhatImDoing or (GetKeyState(VK_SHIFT) < 0);
+      for var I := Low(ActiveRecords) to High(ActiveRecords) do
+        AddElement(NodeDatas[i].Element, vstView.FocusedColumn = Succ(i), NodeDatas[i].Element.IsEditable);
 
-      for i := Low(ActiveRecords) to High(ActiveRecords) do
-        AddElement(NodeDatas[i].Element, vstView.FocusedColumn = Succ(i),
-          ModalEdit and Assigned(NodeDatas[i].Element) and NodeDatas[i].Element.IsEditable);
-      if not ModalEdit then
-        Show
-      else begin
-        ShowModal;
-      end;
+      ShowModal;
     end;
   end;
 end;
