@@ -13117,10 +13117,10 @@ var
           lAllowHardcodedRangeUse := lFile.AllowHardcodedRangeUse;
 
         HeaderUpdated := False;
-        OldFormID := GetFormID;
+        OldFormID := GetFixedFormID;
         if not OldFormID.IsNull then begin
           NewFormID := FixupFormID(OldFormID, aOld, aNew, aOldCount, aNewCount, lAllowHardcodedRangeUse);
-          if OldFormID <> NewFormID then begin
+          if GetFormID <> NewFormID then begin
             MakeHeaderWriteable;
             mrStruct.mrsFormID^ := NewFormID;
             mrFixedFormID := TwbFormID.Null;
