@@ -20157,10 +20157,11 @@ begin
             Result := 'Found a '+Found+' reference, expected: ' + fidcValidRefs.CommaText
           else begin
             if fidcPersistent then
-              if not MainRecord.WinningOverride.Flags.IsPersistent then begin
-                Result := 'Target is not persistent';
-                Exit;
-              end;
+              if MainRecord.Def.GetIsReference then
+                if not MainRecord.WinningOverride.Flags.IsPersistent then begin
+                  Result := 'Target is not persistent';
+                  Exit;
+                end;
             if not CheckFlst(MainRecord) then
               Result := 'Referenced FLST contains invalid entry';
           end;
