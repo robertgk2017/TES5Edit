@@ -2318,6 +2318,7 @@ type
   TwbCountCallback                  = reference to function(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Cardinal;
   TwbDontShowCallback               = reference to function(const aElement: IwbElement): Boolean;
   TwbFloatNormalizer                = reference to function(const aElement: IwbElement; aFloat: Extended): Extended;
+  TwbFormIDFilterCallback           = reference to function(const aElement: IwbElement; const aMainRecord: IwbMainRecord): Boolean;
   TwbGetChapterNameCallback         = reference to function(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): string;
   TwbGetChapterTypeCallback         = reference to function(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
   TwbGetChapterTypeNameCallback     = reference to function(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): string;
@@ -2805,6 +2806,8 @@ type
 
   IwbIntegerDef = interface(IwbValueDef)
     ['{00A270B0-ACFC-444C-A7E8-A577BD40704E}']
+    function SetFormIDFilter(const aFormIDFilterCallback: TwbFormIDFilterCallback): IwbIntegerDef;
+
     function ToInt(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Int64;
     procedure FromInt(aValue: Int64; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement);
 
@@ -7115,6 +7118,8 @@ type
     function CompareExchangeFormID(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override;
 
     {---IwbIntegerDef---}
+    function SetFormIDFilter(const aFormIDFilterCallback: TwbFormIDFilterCallback): IwbIntegerDef;
+
     function ToInt(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Int64;
     procedure FromInt(aValue: Int64; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement);
     function GetFormater(const aElement: IwbElement): IwbIntegerDefFormater;
@@ -7494,7 +7499,7 @@ type
     function IsValidMainRecord(const aMainRecord: IwbMainRecord): Boolean; virtual;
 
     function GetExactIdentString: string; virtual;
-    function GetExactIdent: Integer;
+    function GetExactIdent: Integer; virtual;
 
     function FindRecordForAVCode(aInt: Int64; const aElement: IwbElement): IwbMainRecord;
 
@@ -7544,6 +7549,8 @@ type
     fidcValidFlstRefs    : TStringList;
     fidcPersistent       : Boolean;
     fidcNoReach          : Boolean;
+    fidcFilterCallback   : TwbFormIDFilterCallback;
+    fidcActiveElement    : IwbElement;
   protected
     constructor Clone(const aSource: TwbDef); override;
     constructor Create(const aValidRefs     : TwbSignatures;
@@ -7558,6 +7565,7 @@ type
     function IsValidMainRecord(const aMainRecord: IwbMainRecord): Boolean; override;
 
     function GetExactIdentString: string; override;
+    function GetExactIdent: Integer; override;
 
     {---IwbDef---}
     procedure Report(const aParents: TwbDefPath); override;
@@ -7567,6 +7575,7 @@ type
     function Check(aInt: Int64; const aElement: IwbElement): string; override;
     function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override;
     function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
+    function GetEditInfo(const aElement: IwbElement): TwbStringArray; override;
 
     {---IwbFormIDChecked---}
     function GetSignature(aIndex: Integer): TwbSignature;
@@ -13475,6 +13484,17 @@ begin
 
   Result := Self;
   inDefault := aValue;
+end;
+
+function TwbIntegerDef.SetFormIDFilter(const aFormIDFilterCallback: TwbFormIDFilterCallback): IwbIntegerDef;
+begin
+  if defIsLocked then
+    Exit(TwbIntegerDef(Duplicate).SetFormIDFilter(aFormIDFilterCallback));
+
+  Result := Self;
+
+  if Assigned(inFormater) and (inFormater is TwbFormIDChecked) then
+    TwbFormIDChecked(inFormater).fidcFilterCallback := aFormIDFilterCallback;
 end;
 
 procedure TwbIntegerDef.SetLinksTo(aBasePtr, aEndPtr: Pointer; const aElement, aValue: IwbElement);
@@ -20187,8 +20207,11 @@ end;
 
 constructor TwbFormIDChecked.Clone(const aSource: TwbDef);
 begin
-  with aSource as TwbFormIDChecked do
-    Self.Create(fidcValidRefsArr, fidcValidFlstRefsArr, fidcPersistent, fidcNoReach).AfterClone(aSource);
+  with aSource as TwbFormIDChecked do begin
+    Self.Create(fidcValidRefsArr, fidcValidFlstRefsArr, fidcPersistent, fidcNoReach);
+    Self.fidcFilterCallback := fidcFilterCallback;
+    Self.AfterClone(aSource);
+  end;
 end;
 
 constructor TwbFormIDChecked.Create(const aValidRefs     : TwbSignatures;
@@ -20252,9 +20275,37 @@ begin
   end;
 end;
 
+function TwbFormIDChecked.GetEditInfo(const aElement: IwbElement): TwbStringArray;
+begin
+  fidcActiveElement := aElement;
+  try
+    Result := inherited GetEditInfo(aElement);
+  finally
+    fidcActiveElement := nil;
+
+    if Assigned(fidcFilterCallback) then
+      fidExactIdent := 0;
+  end;
+end;
+
+function TwbFormIDChecked.GetExactIdent: Integer;
+begin
+  if Assigned(fidcFilterCallback) and Assigned(fidcActiveElement) then
+    fidExactIdent := 0;
+
+  Result := inherited GetExactIdent;
+end;
+
 function TwbFormIDChecked.GetExactIdentString: string;
 begin
   Result := inherited GetExactIdentString + '|' + fidcValidRefs.CommaText + '|' + fidcValidFlstRefs.CommaText;
+
+  if Assigned(fidcFilterCallback) and Assigned(fidcActiveElement) then
+  begin
+    var lMainRecord := fidcActiveElement.ContainingMainRecord;
+    if Assigned(lMainRecord) then
+      Result := Result + '|Context_' + lMainRecord.FixedFormID.ToString;
+  end;
 end;
 
 function TwbFormIDChecked.GetNoReach: Boolean;
@@ -20298,6 +20349,12 @@ begin
     Exit;
 
   Result := not fidcPersistent or aMainRecord.IsPersistent;
+
+  if not Result then
+    Exit;
+
+  if Assigned(fidcFilterCallback) then
+    Result := fidcFilterCallback(fidcActiveElement, aMainRecord);
 end;
 
 procedure TwbFormIDChecked.Report(const aParents: TwbDefPath);
