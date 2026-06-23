@@ -536,6 +536,7 @@ begin
 
   // MOPP collision complexity check
   var tris := 0; var coltris := 0;
+  var verts := 0; var colverts := 0;
   for var i := 0 to Pred(nif.BlocksCount) do begin
     var block := nif.Blocks[i];
 
@@ -553,6 +554,7 @@ begin
 
     else if block.BlockType = 'bhkCompressedMeshShapeData' then begin
       Inc(coltris, block.Elements['Big Tris'].Count);
+      Inc(colverts, block.Elements['Big Verts'].Count);
       for var chunk in block.Elements['Chunks'] do begin
         var stripslen := 0;
         for var strip in chunk.Elements['Strip Lengths'] do begin
@@ -561,24 +563,35 @@ begin
           Inc(stripslen, s);
         end;
         Inc(coltris, (chunk.Elements['Indices'].Count - stripslen) div 3);
+        Inc(colverts, (chunk.Elements['Vertices'].Count) div 3);
       end;
     end
 
     else if block.IsNiObject('NiTriBasedGeom') then begin
       var data := TwbNifBlock(block.Elements['Data'].LinksTo);
       if not Assigned(data) then Continue;
-      if data.IsNiObject('NiTriBasedGeomData') then
+      if data.IsNiObject('NiTriBasedGeomData') then begin
         Inc(tris, Integer(data.NativeValues['Num Triangles']));
+        Inc(verts, Integer(data.NativeValues['Num Vertices']));
+      end;
     end
 
-    else if block.IsNiObject('BSTriShape') then
+    else if block.IsNiObject('BSTriShape') then begin
       Inc(tris, Integer(block.NativeValues['Num Triangles']));
+      Inc(verts, Integer(block.NativeValues['Num Vertices']));
+    end;
   end;
 
-  if (tris > 10) and (coltris > 10) then begin
+  if (tris > 1000) and (coltris > 1000) then begin
     var ratio := Round(coltris / tris * 100);
     if ratio > 50 then
       Log.Add(#9 + Format('MOPP collision tris to geometry tris ratio is %d%% (%d/%d), poorly optimized collision', [ratio, coltris, tris]));
+  end;
+
+  if (Verts > 1000) and (colverts > 1000) then begin
+    var ratio := Round(colverts / verts * 100);
+    if ratio > 50 then
+      Log.Add(#9 + Format('MOPP collision verts to geometry verts ratio is %d%% (%d/%d), poorly optimized collision', [ratio, colverts, verts]));
   end;
 end;
 
