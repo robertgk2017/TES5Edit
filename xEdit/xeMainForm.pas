@@ -18637,8 +18637,11 @@ begin
       if Assigned(ActiveMaster) then
         Caption := ActiveMaster.Name + '\' + Caption;
 
-      for var I := Low(ActiveRecords) to High(ActiveRecords) do
-        AddElement(NodeDatas[i].Element, vstView.FocusedColumn = Succ(i), NodeDatas[i].Element.IsEditable);
+      for var I := Low(ActiveRecords) to High(ActiveRecords) do begin
+        var lNodeElement := NodeDatas[i].Element;
+        if Assigned(lNodeElement) then
+          AddElement(lNodeElement, vstView.FocusedColumn = Succ(i), lNodeElement.IsEditable);
+      end;
 
       ShowModal;
     end;
