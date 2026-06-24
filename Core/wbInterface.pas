@@ -4352,8 +4352,43 @@ function wbStruct(const aSignature           : TwbSignature;
                         aGetCP               : TwbGetConflictPriority = nil)
                                              : IwbSubRecordWithStructDef; overload;
 
+function wbStruct(const aSignature           : TwbSignature;
+                  const aName                : string;
+                  const aMembers             : array of IwbValueDef;
+                  {$IFDEF WIN32}
+                  const aElementMap          : array of Cardinal;
+                  {$ENDIF WIN32}
+                  {$IFDEF WIN64}
+                  const aElementMap          : array of UInt64;
+                  {$ENDIF WIN64}
+                        aPriority            : TwbConflictPriority = cpNormal;
+                        aRequired            : Boolean = False;
+                        aDontShow            : TwbDontShowCallback = nil;
+                        aOptionalFromElement : Integer = -1;
+                        aAfterLoad           : TwbAfterLoadCallback = nil;
+                        aAfterSet            : TwbAfterSetCallback = nil;
+                        aGetCP               : TwbGetConflictPriority = nil)
+                                             : IwbSubRecordWithStructDef; overload;
+
 function wbStruct(const aName                : string;
                   const aMembers             : array of IwbValueDef;
+                        aPriority            : TwbConflictPriority = cpNormal;
+                        aRequired            : Boolean = False;
+                        aDontShow            : TwbDontShowCallback = nil;
+                        aOptionalFromElement : Integer = -1;
+                        aAfterLoad           : TwbAfterLoadCallback = nil;
+                        aAfterSet            : TwbAfterSetCallback = nil;
+                        aGetCP               : TwbGetConflictPriority = nil)
+                                             : IwbStructDef; overload;
+
+function wbStruct(const aName                : string;
+                  const aMembers             : array of IwbValueDef;
+                  {$IFDEF WIN32}
+                  const aElementMap          : array of Cardinal;
+                  {$ENDIF WIN32}
+                  {$IFDEF WIN64}
+                  const aElementMap          : array of UInt64;
+                  {$ENDIF WIN64}
                         aPriority            : TwbConflictPriority = cpNormal;
                         aRequired            : Boolean = False;
                         aDontShow            : TwbDontShowCallback = nil;
@@ -9413,6 +9448,27 @@ begin
   Result := wbSubRecord(aSignature, aName, wbStruct('', aMembers, aPriority, False, nil, aOptionalFromElement), aAfterLoad, aAfterSet, aPriority, aRequired, False, aDontShow, aGetCP) as IwbSubRecordWithStructDef;
 end;
 
+function wbStruct(const aSignature           : TwbSignature;
+                  const aName                : string;
+                  const aMembers             : array of IwbValueDef;
+                  {$IFDEF WIN32}
+                  const aElementMap          : array of Cardinal;
+                  {$ENDIF WIN32}
+                  {$IFDEF WIN64}
+                  const aElementMap          : array of UInt64;
+                  {$ENDIF WIN64}
+                        aPriority            : TwbConflictPriority = cpNormal;
+                        aRequired            : Boolean = False;
+                        aDontShow            : TwbDontShowCallback = nil;
+                        aOptionalFromElement : Integer = -1;
+                        aAfterLoad           : TwbAfterLoadCallback = nil;
+                        aAfterSet            : TwbAfterSetCallback = nil;
+                        aGetCP               : TwbGetConflictPriority = nil)
+                                             : IwbSubRecordWithStructDef; overload;
+begin
+  Result := wbSubRecord(aSignature, aName, wbStruct('', aMembers, aElementMap, aPriority, False, nil, aOptionalFromElement), aAfterLoad, aAfterSet, aPriority, aRequired, False, aDontShow, aGetCP) as IwbSubRecordWithStructDef;
+end;
+
 function wbStruct(const aName                : string;
                   const aMembers             : array of IwbValueDef;
                         aPriority            : TwbConflictPriority = cpNormal;
@@ -9425,6 +9481,26 @@ function wbStruct(const aName                : string;
                                              : IwbStructDef; overload;
 begin
   Result := TwbStructDef.Create(aPriority, aRequired, aName, aMembers, [], [], [], aOptionalFromElement, aDontShow, aAfterLoad, aAfterSet, aGetCP);
+end;
+
+function wbStruct(const aName                : string;
+                  const aMembers             : array of IwbValueDef;
+                  {$IFDEF WIN32}
+                  const aElementMap          : array of Cardinal;
+                  {$ENDIF WIN32}
+                  {$IFDEF WIN64}
+                  const aElementMap          : array of UInt64;
+                  {$ENDIF WIN64}
+                        aPriority            : TwbConflictPriority = cpNormal;
+                        aRequired            : Boolean = False;
+                        aDontShow            : TwbDontShowCallback = nil;
+                        aOptionalFromElement : Integer = -1;
+                        aAfterLoad           : TwbAfterLoadCallback = nil;
+                        aAfterSet            : TwbAfterSetCallback = nil;
+                        aGetCP               : TwbGetConflictPriority = nil)
+                                             : IwbStructDef; overload;
+begin
+Result := TwbStructDef.Create(aPriority, aRequired, aName, aMembers, [], [], aElementMap, aOptionalFromElement, aDontShow, aAfterLoad, aAfterSet, aGetCP)
 end;
 
 function wbStructC(const aName                : string;
