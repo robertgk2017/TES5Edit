@@ -287,7 +287,6 @@ var
   wbEnforceAllMasters                : Boolean    = False;  // adds all masters of masters when adding a master and prevents cleaning them
 
   wbCS                               : Boolean    = False;
-  wbOBME                             : Boolean    = False;
   wbVRESL                            : Boolean    = False;
 
   wbAllowMakePartial                 : Boolean    = False;

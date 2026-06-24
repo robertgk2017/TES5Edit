@@ -1070,7 +1070,6 @@ begin
       wbCanSortINFO         := True;
       wbAllowESPMasters     := True;
       wbAllowESPMastersOnSave := True;
-      wbOBME                := FileExists(wbDataPath + 'OBSE\Plugins\OBME.dll');
     end;
     gmTES4R: begin
       wbLoadBSAs            := False;

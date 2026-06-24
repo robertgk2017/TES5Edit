@@ -36,14 +36,11 @@ var
   wbMagicSchoolEnum: IwbEnumDef;
   wbMajorSkillEnum: IwbEnumDef;
   wbMiscStatEnum: IwbEnumDef;
-  //wbOBMEResolutionEnum: IwbEnumDef;
   wbSkillEnum: IwbEnumDef;
   wbSpecializationEnum: IwbEnumDef;
 
   wbBipedFlags: IwbFlagsDef;
   wbPGAGFlags: IwbFlagsDef;
-
-  //wbOBMEVersion: IwbStructDef;
 
   wbBodyParts: IwbRecordMemberDef;
   wbCNTOs: IwbRecordMemberDef;
@@ -674,16 +671,6 @@ begin
   end;
 end;
 
-{function wbEDDXDontShow(const aElement: IwbElement): Boolean;
-var
-  MainRecord : IwbMainRecord;
-begin
-  Result := True;
-
-  if Supports(aElement.Container, IwbMainRecord, MainRecord) then
-    Result := not Assigned(MainRecord.ElementBySignature[OBME]);
-end;}
-
 procedure wbEFITAfterLoad(const aElement: IwbElement);
 var
   Container : IwbContainerElementRef;
@@ -715,21 +702,6 @@ begin
     wbEndInternalEdit;
   end;
 end;
-
-{function wbEFITOBMEParamDecider(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
-var
-  ParamInfo: Variant;
-  Container: IwbContainer;
-begin
-  Result := 0;
-  if not wbTryGetContainerFromUnion(aElement, Container) then
-    Exit;
-
-  ParamInfo := Container.ElementNativeValues['..\EFME\EFIT Param Info'];
-  if VarIsNull(ParamInfo) or VarIsEmpty(ParamInfo) then
-  else
-    Result := ParamInfo;
-end;}
 
 function wbEFIXParamDecider(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
 var
@@ -874,22 +846,6 @@ begin
   if (MainRecord.Flags._Flags and $000000C0) = $000000C0 then
     Result := 1;
 end;
-
-{function wbOBMEDontShow(const aElement: IwbElement): Boolean;
-var
-  _File: IwbFile;
-begin
-  if not Assigned(aElement) then begin
-    Result := True;
-    Exit;
-  end;
-
-  Result := False;
-
-  _File := aElement._File;
-  if Assigned(_File) and SameText(_File.FileName, 'Oblivion.esm') then
-    Result := True;
-end;}
 
 function wbPACKPKDTDecider(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
 var
@@ -1277,14 +1233,6 @@ begin
       {33} 'Horses Stolen'
     ]);
 
-  (*wbOBMEResolutionEnum :=
-    wbEnum([
-      {0} 'None',
-      {1} 'FormID',
-      {2} 'Magic Effect Code',
-      {3} 'Actor Value'
-    ]);*)
-
   wbSkillEnum :=
     wbEnum([
       {0}   'Armorer',
@@ -1482,13 +1430,6 @@ begin
             .IncludeFlag(dfCollapsed, wbCollapseConditions)
       ]));
 
-  {wbOBMEVersion :=
-    wbStruct('OBME Version', [
-      wbInteger('Beta', itU8),
-      wbInteger('Minor', itU8),
-      wbInteger('Major', itU8)
-    ]);}
-
   wbPGRP :=
     wbArray(PGRP, 'Points',
       wbStruct('Point', [
@@ -1571,93 +1512,6 @@ begin
           wbFULLReq
         ])
       ]));
-
-  {wbEffectsOBME :=
-    wbRStruct('Effects', [
-      wbRArray('Effects',
-        wbRStruct('Effect', [
-          wbStruct(EFME, 'Oblivion Magic Extender', [
-            wbInteger('Record Version', itU8),
-            wbOBMEVersion,
-            wbInteger('EFIT Param Info', itU8, wbOBMEResolutionEnum),
-            wbInteger('EFIX Param Info', itU8, wbOBMEResolutionEnum),
-            wbUnused($0A)
-          ]),
-          wbStringMgefCode(EFID, 'Magic Effect Code', 4).SetRequired,
-          wbStructSK(EFIT, [4, 5], '', [
-            wbStringMgefCode('Magic Effect Code', 4),
-            wbInteger('Magnitude', itU32),
-            wbInteger('Area', itU32),
-            wbInteger('Duration', itU32),
-            wbInteger('Type', itU32, wbEffectTypeEnum),
-            wbUnion('Param #1', wbEFITOBMEParamDecider, [
-              wbByteArray('Param #1 - Unknown Type', 4),
-              wbFormID('Param #1 - FormID'),
-              wbStringMgefCode('Param #1 - Magic Effect Code', 4),
-              wbFormIDCk('Param #1 - Actor Value', [ACVA])
-            ])
-          ]).SetRequired,
-          wbRStructSK([0], 'Script Effect', [
-            wbStructSK(SCIT, [0], 'Script Effect Data', [
-              wbFormIDCk('Script effect', [SCPT, NULL]),
-              wbInteger('Magic school', itU32, wbMagicSchoolEnum),
-              wbStringMgefCode('Visual Effect Code', 4), //Add Union for null code? KURO
-              wbInteger('Hostile', itU8, wbBoolEnum),
-              wbUnused(3)
-            ], cpNormal, True, nil, 1),
-            wbFULLReq
-          ]),
-          wbString(EFII, 'Icon'),
-          wbStructSK(EFIX, [3], '', [
-            wbInteger('Override Flags', itU32,
-              wbFlags(wbSparseFlags([
-              //Incomplete
-              0,  'Script Hostility',
-              1,  'Effects',
-              2,  'Lowers Actor Value (Default Is False), Flag A On, Flag A Off',
-              3,  'Hostility',
-              4,  'Script/EFIX',
-              5,  'School',
-              6,  'Name',
-              7,  'VFX Code',
-              8,  'Base Cost',
-              9,  'Resistance',
-              11, 'Icon',
-              16, 'Special Treatment for Abilities (Default Is False), Flag B On, Flag B Off',
-              19, 'Base, Max, Offset, Damage, Script Effect Off, Script Effect On, Flag C On, Flag C Off',
-              20, 'Base, Max, Offset, Damage, Script Effect Off, Script Effect On, Flag D On, Flag D Off'
-            ]))).IncludeFlag(dfCollapsed, wbCollapseFlags),
-            wbInteger('Flags', itU32,
-              wbFlags(wbSparseFlags([
-              //Incomplete
-              1,  'Override is Null',
-              2,  'Lowers Actor Value Is True, Flag A On, Flag B On, Flag C On, Flag D On',
-              3,  'Hostility - Beneficial',
-              16, 'Special Treatment for Abilities Is True, Flag A On, Flag B On, Flag C On, Flag D On',
-              19, 'Base, Offset, Script Effect On, FormID, Flag A On, Flag C On',
-              20, 'Base, Damage, Script Effect On, MGEFCode, Flag B On, Flag D On'
-              ]))).IncludeFlag(dfCollapsed, wbCollapseFlags),
-            wbFloat('Base Cost'),
-            wbUnion('Param #2', wbEFIXParamDecider, [
-              wbByteArray('Param #2 - Unknown Type', 4),
-              wbFormID('Param #2 - FormID'),
-              wbStringMgefCode('Param #2 - Magic Effect Code', 4),
-              wbFormIDCk('Param #2 - Actor Value', [ACVA])
-            ]),
-            wbUnknown(16)
-          ]).SetAfterLoad(wbEFITAfterLoad)
-            .SetRequired
-        ])),
-      wbEmpty(EFXX, 'Effects End Marker').SetRequired,
-      wbFULLReq
-    ]);}
-
-    {wbEffects :=
-      wbRArray('Effects',
-        wbRUnion('Effects', [
-          wbEffectsTES4,
-          wbEffectsOBME
-        ]));}
 
   wbSCROs :=
     wbRArray('References',
@@ -1761,11 +1615,6 @@ begin
       10, 'Quest Item'
     ])), [
     wbEDID,
-    {wbStruct(OBME, 'Oblivion Magic Extender', [
-      wbInteger('Record Version', itU8),
-      wbOBMEVersion,
-      wbUnused($1C)
-    ]).SetDontShow(wbOBMEDontShow),}
     wbFULL,
     wbTexturedModel('Model', [MODL, MODB, MODT], []),
     wbICON,
@@ -2401,11 +2250,6 @@ begin
 
   wbRecord(ENCH, 'Enchantment', [
     wbEDID,
-    {wbStruct(OBME, 'Oblivion Magic Extender', [
-      wbInteger('Record Version', itU8),
-      wbOBMEVersion,
-      wbUnused($1C)
-    ]).SetDontShow(wbOBMEDontShow),}
     wbFULL,
     wbStruct(ENIT, 'Data', [
       wbInteger('Type', itU32,
@@ -2615,11 +2459,6 @@ begin
       10, 'Quest Item'
     ])), [
     wbEDID,
-    {wbStruct(OBME, 'Oblivion Magic Extender', [
-      wbInteger('Record Version', itU8),
-      wbOBMEVersion,
-      wbUnused($1C)
-    ]).SetDontShow(wbOBMEDontShow),}
     wbFULL,
     wbTexturedModel('Model', [MODL, MODB, MODT], []),
     wbICON,
@@ -2820,28 +2659,6 @@ begin
       .IncludeFlagOnValue(dfHasZeroTerminator)
       .IncludeFlagOnValue(dfNeedsPrepareSave)
       .SetRequired,
-    {wbStruct(OBME, 'Oblivion Magic Extender', [
-      wbInteger('Record Version', itU8),
-      wbOBMEVersion,
-      wbInteger('Param A Info', itU8, wbOBMEResolutionEnum),
-      wbInteger('Param B Info', itU8, wbOBMEResolutionEnum),
-      wbUnused(2),
-      wbString('Handler', 4),
-      wbInteger('Flag Overrides', itU32,
-        wbFlags(wbSparseFlags([
-          2,  'ParamFlagA',
-          3,  'Beneficial',
-          16, 'ParamFlagB',
-          17, 'Magnitude Is Range',
-          18, 'Atomic Resistance',
-          19, 'ParamFlagC',
-          20, 'ParamFlagD',
-          30, 'Hidden'
-        ], False, 31))).IncludeFlag(dfCollapsed, wbCollapseFlags),
-      wbByteArray('Param B', 4), //Needs a union based on Handler.
-      wbUnused($1C)
-    ]).SetDontShow(wbOBMEDontShow),
-    wbString(EDDX, 'EditorID').SetDontShow(wbEDDXDontShow),}
     wbFULL.SetRequired,
     wbDESC.SetRequired,
     wbICON,
@@ -2876,7 +2693,6 @@ begin
       ).IncludeFlag(dfCollapsed, wbCollapseFlags),
       wbFloat('Base cost'),
       wbUnion('Assoc. Item', wbMGEFFAssocItemDecider, [
-        //wbByteArray('Param A', 4).SetDontShow(wbOBMEDontShow), //Needs a union based on Handler.
         wbByteArray('Unknown', 4),
         wbFormIDCk('Assoc. Weapon', [WEAP]),
         wbFormIDCk('Assoc. Armor', [ARMO, NULL{?}]),
@@ -2894,8 +2710,7 @@ begin
           65, 'Resist Normal Weapons',
           66, 'Resist Paralysis',
           67, 'Resist Poison',
-          68, 'Resist Shock'{,
-         255, 'None (OBME)'}
+          68, 'Resist Shock'
         ])),
       wbInteger('Counter Effect Count', itU16), //!!! must be updated automatically when ESCE length changes!
       wbUnused(2),
@@ -3520,11 +3335,6 @@ begin
 
   wbRecord(SGST, 'Sigil Stone', [
     wbEDID,
-    {wbStruct(OBME, 'Oblivion Magic Extender', [
-      wbInteger('Record Version', itU8),
-      wbOBMEVersion,
-      wbUnused($1C)
-    ]).SetDontShow(wbOBMEDontShow),}
     wbFULL,
     wbTexturedModel('Model', [MODL, MODB, MODT], []),
     wbICON,
@@ -3581,11 +3391,6 @@ begin
 
   wbRecord(SPEL, 'Spell', [
     wbEDID,
-    {wbStruct(OBME, 'Oblivion Magic Extender', [
-      wbInteger('Record Version', itU8),
-      wbOBMEVersion,
-      wbUnused($1C)
-    ]).SetDontShow(wbOBMEDontShow),}
     wbFULL,
     wbStruct(SPIT, 'Data', [
       wbInteger('Type', itU8,

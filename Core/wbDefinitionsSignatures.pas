@@ -991,7 +991,6 @@ const
   NVVX : TwbSignature = 'NVVX';
   O0TX : TwbSignature = 'O0TX';
   OAAT : TwbSignature = 'OAAT';
-  OBME : TwbSignature = 'OBME';
   OBND : TwbSignature = 'OBND';
   OBJT : TwbSignature = 'OBJT';
   OBST : TwbSignature = 'OBST'; { New to Fallout 76 }
