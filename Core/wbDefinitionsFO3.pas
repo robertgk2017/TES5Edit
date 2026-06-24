@@ -1041,77 +1041,18 @@ begin
 end;
 
 function wbMGEFFAssocItemDecider(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
-var
-  Container     : IwbContainer;
-  Archtype      : Variant;
-  DataContainer : IwbDataContainer;
-  Element       : IwbElement;
-const
-  OffsetArchtype = 56;
-
 begin
-  Result := 1;
-  if not wbTryGetContainerFromUnion(aElement, Container) then
+  Result := 0;
+
+  var lContainer: IwbContainer;
+  if not wbTryGetContainerFromUnion(aElement, lContainer) then
     Exit;
 
-  VarClear(ArchType);
-  Element := Container.ElementByName['Archtype'];
-
-  if Assigned(Element) then
-    ArchType := Element.NativeValue
-  else if Supports(Container, IwbDataContainer, DataContainer) and
-          DataContainer.IsValidOffset(aBasePtr, aEndPtr, OffsetArchtype) then begin // we are part a proper structure
-      aBasePtr := PByte(aBasePtr) + OffsetArchtype;
-      ArchType := PCardinal(aBasePtr)^;
-    end;
-
-  if VarIsEmpty(ArchType) then
-    Exit;
-
-  case Integer(ArchType) of
-    01: Result := 2;//Script
-    18: Result := 3;//Bound Item
-    19: Result := 4;//Summon Creature
-  else
-    Result := 0;
-  end;
-end;
-
-procedure wbMGEFAssocItemAfterSet(const aElement: IwbElement; const aOldValue, aNewValue: Variant);
-var
-  Container : IwbContainer;
-  Element   : IwbElement;
-begin
-  if not wbTryGetContainerFromUnion(aElement, Container) then
-    Exit;
-
-  if not (aNewValue <> 0) then
-    Exit;
-
-  Element := Container.ElementByName['Archtype'];
-  if Assigned(Element) and Element.NativeValue = 0 then
-      Element.NativeValue := $FF; // Signals ArchType that it should not mess with us on the next change!
-end;
-
-procedure wbMGEFArchtypeAfterSet(const aElement: IwbElement; const aOldValue, aNewValue: Variant);
-var
-  Container: IwbContainerElementRef;
-begin
-  if VarSameValue(aOldValue, aNewValue) then
-    Exit;
-
-  if not Supports(aElement, IwbContainerElementRef, Container) then
-    Exit;
-
-  if (aNewValue < $FF) and (aOldValue < $FF) then begin
-    Container.ElementNativeValues['..\Assoc. Item'] := 0;
-    case Integer(aNewValue) of
-      11: Container.ElementNativeValues['..\Actor Value'] := 48;//Invisibility
-      12: Container.ElementNativeValues['..\Actor Value'] := 49;//Chameleon
-      24: Container.ElementNativeValues['..\Actor Value'] := 47;//Paralysis
-    else
-      Container.ElementNativeValues['..\Actor Value'] := -1;
-    end;
+  var lArchetype := lContainer.ElementNativeValues['Archetype'];
+  case Integer(lArcheType) of
+    01: Result := 1;//Script
+    18: Result := 2;//Bound Item
+    19: Result := 3;//Summon Creature
   end;
 end;
 
@@ -6142,56 +6083,55 @@ begin
     wbICON,
     wbGenericModel,
     wbStruct(DATA, 'Data', [
-      wbInteger('Flags', itU32,
-        wbFlags(wbSparseFlags([
-          0,  'Hostile',
-          1,  'Recover',
-          2,  'Detrimental',
-          4,  'Self',
-          5,  'Touch',
-          6,  'Target',
-          7,  'No Duration',
-          8,  'No Magnitude',
-          9,  'No Area',
-          10, 'FX Persist',
-          12, 'Gory Visuals',
-          13, 'Display Name Only',
-          15, 'Radio Broadcast ??',
-          19, 'Use skill',
-          20, 'Use attribute',
-          24, 'Painless',
-          25, 'Spray projectile type (or Fog if Bolt is specified as well)',
-          26, 'Bolt projectile type (or Fog if Spray is specified as well)',
-          27, 'No Hit Effect',
-          28, 'No Death Dispel',
-          29, '????'
-        ], False, 30))
-      ).IncludeFlag(dfCollapsed, wbCollapseFlags),
-      {04} wbFloat('Base cost (Unused)'),
-      {08} wbUnion('Assoc. Item', wbMGEFFAssocItemDecider, [
-             wbFormID('Unused', cpIgnore),
-             wbFormID('Assoc. Item'),
-             wbFormIDCk('Assoc. Script', [SCPT, NULL]), //Script
-             wbFormIDCk('Assoc. Item', [WEAP, ARMO, NULL]), //Bound Item
-             wbFormIDCk('Assoc. Creature', [CREA]) //Summon Creature
-           ]).SetAfterSet(wbMGEFAssocItemAfterSet),
-      {12} wbByteArray('Magic School (Unused)', 4),
-      {16} wbInteger('Resistance Type', itS32, wbActorValueEnum),
-      {20} wbInteger('Counter Effect Count', itU16),
-      {22} wbUnused(2),
-      {24} wbFormIDCk('Light', [LIGH, NULL]),
-      {28} wbFloat('Projectile speed'),
-      {32} wbFormIDCk('Effect Shader', [EFSH, NULL]),
-      {36} wbFormIDCk('Object Display Shader', [EFSH, NULL]),
-      {40} wbFormIDCk('Effect sound', [NULL, SOUN]),
-      {44} wbFormIDCk('Bolt sound', [NULL, SOUN]),
-      {48} wbFormIDCk('Hit sound', [NULL, SOUN]),
-      {52} wbFormIDCk('Area sound', [NULL, SOUN]),
-      {56} wbFloat('Constant Effect enchantment factor  (Unused)'),
-      {60} wbFloat('Constant Effect barter factor (Unused)'),
-      {64} wbInteger('Archtype', itU32, wbArchtypeEnum).SetAfterSet(wbMGEFArchtypeAfterSet),
-      {68} wbActorValue
-    ]).SetRequired,
+    {0}  wbInteger('Flags', itU32,
+           wbFlags(wbSparseFlags([
+             0,  'Hostile',
+             1,  'Recover',
+             2,  'Detrimental',
+             4,  'Self',
+             5,  'Touch',
+             6,  'Target',
+             7,  'No Duration',
+             8,  'No Magnitude',
+             9,  'No Area',
+             10, 'FX Persist',
+             12, 'Gory Visuals',
+             13, 'Display Name Only',
+             15, 'Radio Broadcast ??',
+             19, 'Use skill',
+             20, 'Use attribute',
+             24, 'Painless',
+             25, 'Spray projectile type (or Fog if Bolt is specified as well)',
+             26, 'Bolt projectile type (or Fog if Spray is specified as well)',
+             27, 'No Hit Effect',
+             28, 'No Death Dispel',
+             29, '????'
+           ], False, 30))
+         ).IncludeFlag(dfCollapsed, wbCollapseFlags),
+    {1}  wbFloat('Base cost (Unused)'),
+    {2}  wbUnion('Assoc. Item', wbMGEFFAssocItemDecider, [
+         {0} wbFormIDCk('Unused', [NULL]),
+         {1} wbFormIDCk('Assoc. Script', [SCPT, NULL]), //Script
+         {2} wbFormIDCk('Assoc. Item', [WEAP, ARMO, NULL]), //Bound Item
+         {3} wbFormIDCk('Assoc. Creature', [CREA]) //Summon Creature
+         ]),
+    {3}  wbUnused(4),
+    {4}  wbInteger('Resistance Type', itS32, wbActorValueEnum),
+    {5}  wbInteger('Counter Effect Count', itU16),
+    {6}  wbUnused(2),
+    {7}  wbFormIDCk('Light', [LIGH, NULL]),
+    {8}  wbFloat('Projectile speed'),
+    {9}  wbFormIDCk('Effect Shader', [EFSH, NULL]),
+    {10} wbFormIDCk('Object Display Shader', [EFSH, NULL]),
+    {11} wbFormIDCk('Effect sound', [NULL, SOUN]),
+    {12} wbFormIDCk('Bolt sound', [NULL, SOUN]),
+    {13} wbFormIDCk('Hit sound', [NULL, SOUN]),
+    {14} wbFormIDCk('Area sound', [NULL, SOUN]),
+    {15} wbFloat('Constant Effect enchantment factor  (Unused)'),
+    {16} wbFloat('Constant Effect barter factor (Unused)'),
+    {17} wbInteger('Archetype', itU32, wbArchtypeEnum),
+    {18} wbActorValue
+    ], [0,1,17,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,18]).SetRequired,
     wbRArrayS('Counter Effects',
       wbFormIDCk(ESCE, 'Effect', [MGEF])
     ).SetCountPath('DATA\Counter Effect Count')

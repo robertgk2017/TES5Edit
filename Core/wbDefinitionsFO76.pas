@@ -174,8 +174,6 @@ var
   wbCNDC: IwbSubRecordDef;
   wbCITC: IwbSubRecordDef;
   wbCITCReq: IwbSubRecordDef;
-  wbMGEFData: IwbSubRecordStructDef;
-  wbMGEFType: IwbIntegerDef;
   wbSPIT: IwbSubRecordDef;
   wbMIID: IwbSubRecordDef;
   wbDMDC: IwbSubRecordDef;
@@ -2027,129 +2025,29 @@ begin
 end;
 
 function wbMGEFAssocItemDecider(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
-var
-  Container     : IwbContainer;
-  Archtype      : Variant;
-  DataContainer : IwbDataContainer;
-  Element       : IwbElement;
-const
-  OffsetArchtype = 56;
-
 begin
   Result := 0;
-  if not wbTryGetContainerFromUnion(aElement, Container) then
+
+  var lContainer: IwbContainer;
+  if not wbTryGetContainerFromUnion(aElement, lContainer) then
     Exit;
 
-  VarClear(ArchType);
-  Element := Container.ElementByName['Archetype'];
-
-  if Assigned(Element) then
-    ArchType := Element.NativeValue
-  else if Supports(Container, IwbDataContainer, DataContainer) and
-          DataContainer.IsValidOffset(aBasePtr, aEndPtr, OffsetArchtype) then begin // we are part a proper structure
-      aBasePtr := PByte(aBasePtr) + OffsetArchtype;
-      ArchType := PCardinal(aBasePtr)^;
-    end;
-
-  if VarIsEmpty(ArchType) then
-    Exit;
-
-  case Integer(ArchType) of
-    00: Result := 9;  //Value Modifier
-    01: Result := 0;
-    04: Result := 0;
-    05: Result := 0;
-    06: Result := 0;
-    07: Result := 0;
-    08: Result := 0;
-    09: Result := 0;
-    11: Result := 0;
+  var lArchetype := lContainer.ElementNativeValues['Archetype'];
+  case Integer(lArcheType) of
+    0:  Result := 9;  //Value Modifier
     12: Result := 1;  // Light
     17: Result := 2;  // Bound Item
     18: Result := 3;  // Summon Creature
     20: Result := 11; // Telekinesis
-    21: Result := 0;
     25: Result := 4;  // Guide
-    28: Result := 0;
-    31: Result := 0;
-    33: Result := 0;
     34: Result := 8;  // Peak Mod
     35: Result := 5;  // Cloak
     36: Result := 6;  // Werewolf
-    37: Result := 0;
     39: Result := 7;  // Enhance Weapon
     40: Result := 4;  // Spawn Hazard
     45: Result := 10; // Damage
     46: Result := 6;  // Vampire Lord
-    47: Result := 0;
-    48: Result := 0;
-    49: Result := 0;
     50: Result := 12; // Grow Flora
-  else
-    if wbReportMode then
-      wbProgress('Unknown ArchType: ' + Integer(ArchType).ToString);
-  end;
-end;
-
-procedure wbMGEFAssocItemAfterSet(const aElement: IwbElement; const aOldValue, aNewValue: Variant);
-var
-  Container : IwbContainer;
-  Element   : IwbElement;
-begin
-  if not wbTryGetContainerFromUnion(aElement, Container) then
-    Exit;
-
-  if not (aNewValue <> 0) then
-    Exit;
-
-  Element := Container.ElementByName['Archetype'];
-  if Assigned(Element) and (Element.NativeValue = 0) then
-      Element.NativeValue := $FF; // Signals ArchType that it should not mess with us on the next change!
-        // I assume this will alo protect Second AV Weight (The two actor values are after ArchType)
-end;
-
-procedure wbMGEFAV2WeightAfterSet(const aElement: IwbElement; const aOldValue, aNewValue: Variant);
-var
-  Container : IwbContainer;
-  Element   : IwbElement;
-begin
-  if not wbTryGetContainerFromUnion(aElement, Container) then
-    Exit;
-
-  if not (aNewValue <> 0.0) then
-    Exit;
-
-  Element := Container.ElementByName['Archetype'];
-  if Assigned(Element) and (Element.NativeValue = 0) then
-      Element.NativeValue := $FF; // Signals ArchType that it should not mess with us on the next change!
-end;
-
-procedure wbMGEFArchtypeAfterSet(const aElement: IwbElement; const aOldValue, aNewValue: Variant);
-var
-  Container: IwbContainerElementRef;
-begin
-  if VarSameValue(aOldValue, aNewValue) then
-    Exit;
-
-  if not Supports(aElement, IwbContainerElementRef, Container) then
-    Exit;
-
-  if (aNewValue < $FF) and (aOldValue < $FF) then begin
-    Container.ElementNativeValues['..\Assoc. Item'] := 0;
-    case Integer(aNewValue) of
-      06: Container.ElementNativeValues['..\Actor Value'] := 00;//Agression
-      07: Container.ElementNativeValues['..\Actor Value'] := 01;//Confidence
-      08: Container.ElementNativeValues['..\Actor Value'] := 00;//Agression
-      11: Container.ElementNativeValues['..\Actor Value'] := 54;//Invisibility
-      21: Container.ElementNativeValues['..\Actor Value'] := 53;//Paralysis
-      24: Container.ElementNativeValues['..\Actor Value'] := 01;//Confidence
-      38: Container.ElementNativeValues['..\Actor Value'] := 01;//Confidence
-      42: Container.ElementNativeValues['..\Actor Value'] := 01;//Confidence
-    else
-      Container.ElementNativeValues['..\Actor Value'] := -1;
-    end;
-    Container.ElementNativeValues['..\Second Actor Value'] := -1;
-    Container.ElementNativeValues['..\Second AV Weight'] := 0.0;
   end;
 end;
 
@@ -12605,201 +12503,200 @@ begin
     wbEDID
   ]);
 
-  wbMGEFType := wbInteger('Archetype', itU32, wbEnum([
-    {00} 'Value Modifier',
-    {01} 'Script',
-    {02} 'Dispel',
-    {03} 'Cure Disease',
-    {04} 'Absorb',
-    {05} 'Dual Value Modifier',
-    {06} 'Calm',
-    {07} 'Demoralize',
-    {08} 'Frenzy',
-    {09} 'Disarm',
-    {10} 'Command Summoned',
-    {11} 'Invisibility',
-    {12} 'Light',
-    {13} 'Darkness',
-    {14} 'Nighteye',
-    {15} 'Lock',
-    {16} 'Open',
-    {17} 'Bound Weapon',
-    {18} 'Summon Creature',
-    {19} 'Detect Life',
-    {20} 'Player Fear',
-    {21} 'Paralysis',
-    {22} 'Reanimate',
-    {23} 'Soul Trap',
-    {24} 'Turn Undead',
-    {25} 'Guide',
-    {26} 'Damage Item',
-    {27} 'Cure Paralysis',
-    {28} 'Cure Addiction',
-    {29} 'Cure Poison',
-    {30} 'Concussion',
-    {31} 'Stimpak',
-    {32} 'Accumulate Magnitude',
-    {33} 'Stagger',
-    {34} 'Peak Value Modifier',
-    {35} 'Cloak',
-    {36} 'Unknown 36',
-    {37} 'Slow Time',
-    {38} 'Rally',
-    {39} 'Enhance Weapon',
-    {40} 'Spawn Hazard',
-    {41} 'Etherealize',
-    {42} 'Banish',
-    {43} 'Spawn Scripted Ref',
-    {44} 'Disguise',
-    {45} 'Damage',
-    {46} 'Immunity',
-    {47} 'Permanent Reanimate',
-    {48} 'Jetpack',
-    {49} 'Chameleon',
-    {50} 'Grow Flora',
-    {51} 'Corpse Highlight',
-    {52} 'Stunned'
-  ]), cpNormal, False, nil, wbMGEFArchtypeAfterSet);
-
-  wbMGEFData := wbRStruct('Magic Effect Data', [
-    wbStruct(DATA, 'Data', [
-      wbInteger('Flags', itU32, wbFlags([
-        {0x00000001}  'Hostile',
-        {0x00000002}  'Recover',
-        {0x00000004}  'Detrimental',
-        {0x00000008}  'Snap to Navmesh',
-        {0x00000010}  'No Hit Event',
-        {0x00000020}  'Unknown 5',
-        {0x00000040}  'Unknown 6',
-        {0x00000080}  'Unknown 7',
-        {0x00000100}  'Dispel with Keywords',
-        {0x00000200}  'No Duration',
-        {0x00000400}  'No Magnitude',
-        {0x00000800}  'No Area',
-        {0x00001000}  'FX Persist',
-        {0x00002000}  'Unknown 13',
-        {0x00004000}  'Gory Visuals',
-        {0x00008000}  'Hide in UI',
-        {0x00010000}  'Unknown 16',
-        {0x00020000}  'No Recast',
-        {0x00040000}  'Unknown 18',
-        {0x00080000}  'Difficulty Affects Magnitude',
-        {0x00100000}  'Difficulty Affects Duration',
-        {0x00200000}  'Power Affects Magnitude',
-        {0x00400000}  'Power Affects Duration',
-        {0x00800000}  'Unknown 23',
-        {0x01000000}  'Unknown 24',
-        {0x02000000}  'Unknown 25',
-        {0x04000000}  'Painless',
-        {0x08000000}  'No Hit Effect',
-        {0x10000000}  'No Death Dispel',
-        {0x20000000}  'Unknown 29',
-        {0x40000000}  'Unknown 30',
-        {0x80000000}  'Unknown 31'
-      ])).IncludeFlag(dfCollapsed, wbCollapseFlags),
-      wbFromVersion(164, wbInteger('Flags 2', itU32, wbFlags([
-        {0x00000001} { 0} 'Unknown 0',
-        {0x00000002} { 1} 'Unknown 1',
-        {0x00000004} { 2} 'Unknown 2',
-        {0x00000008} { 3} 'Unknown 3',
-        {0x00000010} { 4} 'Unknown 4',
-        {0x00000020} { 4} 'Unknown 5',
-        {0x00000040} { 6} 'Unknown 6',
-        {0x00000080} { 7} 'Unknown 7',
-        {0x00000100} { 8} 'Unknown 8',
-        {0x00000200} { 9} 'Unknown 9',
-        {0x00000400} {10} 'Unknown 10',
-        {0x00000800} {11} 'Unknown 11',
-        {0x00001000} {12} 'Unknown 12',
-        {0x00002000} {13} 'Unknown 13',
-        {0x00004000} {14} 'Unknown 14',
-        {0x00008000} {15} 'Unknown 15',
-        {0x00010000} {16} 'Unknown 16',
-        {0x00020000} {17} 'Unknown 17',
-        {0x00040000} {18} 'Unknown 18',
-        {0x00080000} {19} 'Unknown 19',
-        {0x00100000} {20} 'Unknown 20',
-        {0x00200000} {21} 'Unknown 21',
-        {0x00400000} {22} 'Unknown 22',
-        {0x00800000} {23} 'Unknown 23',
-        {0x01000000} {24} 'Unknown 24',
-        {0x02000000} {25} 'Unknown 25',
-        {0x04000000} {26} 'Unknown 26',
-        {0x08000000} {27} 'Unknown 27',
-        {0x10000000} {28} 'Unknown 28',
-        {0x20000000} {29} 'Unknown 29',
-        {0x40000000} {30} 'Unknown 30',
-        {0x80000000} {31} 'Unknown 31'
-      ])).IncludeFlag(dfCollapsed, wbCollapseFlags)),
-      wbFloat('Base Cost'),
-      wbUnion('Assoc. Item', wbMGEFAssocItemDecider, [
-        wbFormIDCk('Unused', [NULL], False, cpIgnore),
-        wbFormIDCk('Assoc. Item', [LIGH, NULL]),
-        wbFormIDCk('Assoc. Item', [WEAP, ARMO, NULL]),
-        wbFormIDCk('Assoc. Item', [NPC_, NULL]),
-        wbFormIDCk('Assoc. Item', [HAZD, NULL]),
-        wbFormIDCk('Assoc. Item', [SPEL, NULL]),
-        wbFormIDCk('Assoc. Item', [RACE, NULL]),
-        wbFormIDCk('Assoc. Item', [ENCH, NULL]),
-        wbFormIDCk('Assoc. Item', [KYWD, NULL]),
-        wbFormIDCk('Assoc. Item', [STHD, NULL]),
-        wbFormIDCk('Assoc. Item', [DMGT, NULL]),
-        wbFormIDCk('Assoc. Item', [EMOT, NULL]),
-        wbFormIDCk('Assoc. Item', [FLST, NULL])
-      ], cpNormal, False, nil, wbMGEFAssocItemAfterSet),
-      wbByteArray('Magic Skill (unused)', 4),
-      wbFormIDCk('Resist Value', [AVIF, NULL]),
-      wbInteger('Counter Effect Count', itU16),
-      wbUnused(2),
-      wbFormIDCk('Casting Light', [LIGH, NULL]),
-      wbFloat('Taper Weight'),
-      wbFormIDCk('Hit Shader', [EFSH, NULL]),
-      wbFormIDCk('Enchant Shader', [EFSH, NULL]),
-      wbInteger('Minimum Skill Level', itU32),
-      wbStruct('Spellmaking', [
-        wbInteger('Area', itU32),
-        wbFloat('Casting Time')
-      ]),
-      wbFloat('Taper Curve'),
-      wbFloat('Taper Duration'),
-      wbFloat('Second AV Weight', cpNormal, False, nil, wbMGEFAV2WeightAfterSet),
-      wbMGEFType,
-      wbActorValue,
-      wbFormIDCk('Projectile', [PROJ, NULL]),
-      wbFormIDCk('Explosion', [EXPL, NULL]),
-      wbInteger('Casting Type', itU32, wbCastEnum),
-      wbInteger('Delivery', itU32, wbTargetEnum),
-      wbActorValue, //wbInteger('Second Actor Value', itS32, wbActorValueEnum),
-      wbFormIDCk('Casting Art', [ARTO, NULL]),
-      wbFormIDCk('Hit Effect Art', [ARTO, NULL]),
-      wbFormIDCk('Impact Data', [IPDS, NULL]),
-      wbFloat('Skill Usage Multiplier'),
-      wbStruct('Dual Casting', [
-        wbFormIDCk('Art', [DUAL, NULL]),
-        wbFloat('Scale')
-      ]),
-      wbFormIDCk('Enchant Art', [ARTO, NULL]),
-      wbFormIDCk('Hit Visuals', [RFCT, NULL]),
-      wbFormIDCk('Enchant Visuals', [RFCT, NULL]),
-      wbFormIDCk('Equip Ability', [SPEL, NULL]),
-      wbFormIDCk('Image Space Modifier', [IMAD, NULL]),
-      wbFormIDCk('Perk to Apply', [PERK, NULL]),
-      wbInteger('Casting Sound Level', itU32, wbSoundLevelEnum),
-      wbStruct('Script Effect AI', [
-        wbFloat('Score'),
-        wbFloat('Delay Time')
-      ]),
-      wbUnknown
-    ], cpNormal, True)
-  ]);
-
   wbRecord(MGEF, 'Magic Effect', [
     wbEDID,
     wbVMAD,
     wbFULL,
     wbMDOB,
     wbKeywords,
-    wbMGEFData,
+    wbStruct(DATA, 'Data', [
+    {0}  wbInteger('Flags', itU32,
+           wbFlags([
+           {0}  'Hostile',
+           {1}  'Recover',
+           {2}  'Detrimental',
+           {3}  'Snap to Navmesh',
+           {4}  'No Hit Event',
+           {5}  'Unknown 5',
+           {6}  'Unknown 6',
+           {7}  'Unknown 7',
+           {8}  'Dispel with Keywords',
+           {9}  'No Duration',
+           {10} 'No Magnitude',
+           {11} 'No Area',
+           {12} 'FX Persist',
+           {13} 'Unknown 13',
+           {14} 'Gory Visuals',
+           {15} 'Hide in UI',
+           {16} 'Unknown 16',
+           {17} 'No Recast',
+           {18} 'Unknown 18',
+           {19} 'Difficulty Affects Magnitude',
+           {20} 'Difficulty Affects Duration',
+           {21} 'Power Affects Magnitude',
+           {22} 'Power Affects Duration',
+           {23} 'Unknown 23',
+           {24} 'Unknown 24',
+           {25} 'Unknown 25',
+           {26} 'Painless',
+           {27} 'No Hit Effect',
+           {28} 'No Death Dispel',
+           {29} 'Unknown 29',
+           {30} 'Unknown 30',
+           {31} 'Unknown 31'
+           ])
+         ).IncludeFlag(dfCollapsed, wbCollapseFlags),
+    {1}  wbFromVersion(164, wbInteger('Flags 2', itU32,
+           wbFlags([
+           {0}  'Unknown 0',
+           {1}  'Unknown 1',
+           {2}  'Unknown 2',
+           {3}  'Unknown 3',
+           {4}  'Unknown 4',
+           {4}  'Unknown 5',
+           {6}  'Unknown 6',
+           {7}  'Unknown 7',
+           {8}  'Unknown 8',
+           {9}  'Unknown 9',
+           {10} 'Unknown 10',
+           {11} 'Unknown 11',
+           {12} 'Unknown 12',
+           {13} 'Unknown 13',
+           {14} 'Unknown 14',
+           {15} 'Unknown 15',
+           {16} 'Unknown 16',
+           {17} 'Unknown 17',
+           {18} 'Unknown 18',
+           {19} 'Unknown 19',
+           {20} 'Unknown 20',
+           {21} 'Unknown 21',
+           {22} 'Unknown 22',
+           {23} 'Unknown 23',
+           {24} 'Unknown 24',
+           {25} 'Unknown 25',
+           {26} 'Unknown 26',
+           {27} 'Unknown 27',
+           {28} 'Unknown 28',
+           {29} 'Unknown 29',
+           {30} 'Unknown 30',
+           {31} 'Unknown 31'
+           ])
+         ).IncludeFlag(dfCollapsed, wbCollapseFlags)),
+    {2}  wbFloat('Base Cost'),
+    {3}  wbUnion('Assoc. Item', wbMGEFAssocItemDecider, [
+         {0}  wbFormIDCk('Unused', [NULL]),
+         {1}  wbFormIDCk('Assoc. Item', [LIGH, NULL]),
+         {2}  wbFormIDCk('Assoc. Item', [WEAP, ARMO, NULL]),
+         {3}  wbFormIDCk('Assoc. Item', [NPC_, NULL]),
+         {4}  wbFormIDCk('Assoc. Item', [HAZD, NULL]),
+         {5}  wbFormIDCk('Assoc. Item', [SPEL, NULL]),
+         {6}  wbFormIDCk('Assoc. Item', [RACE, NULL]),
+         {7}  wbFormIDCk('Assoc. Item', [ENCH, NULL]),
+         {8}  wbFormIDCk('Assoc. Item', [KYWD, NULL]),
+         {9}  wbFormIDCk('Assoc. Item', [STHD, NULL]),
+         {10} wbFormIDCk('Assoc. Item', [DMGT, NULL]),
+         {11} wbFormIDCk('Assoc. Item', [EMOT, NULL]),
+         {12} wbFormIDCk('Assoc. Item', [FLST, NULL])
+         ]),
+    {4}  wbUnused(4),
+    {5}  wbFormIDCk('Resist Value', [AVIF, NULL]),
+    {6}  wbInteger('Counter Effect Count', itU16),
+    {7}  wbUnused(2),
+    {8}  wbFormIDCk('Casting Light', [LIGH, NULL]),
+    {9}  wbFloat('Taper Weight'),
+    {10} wbFormIDCk('Hit Shader', [EFSH, NULL]),
+    {11} wbFormIDCk('Enchant Shader', [EFSH, NULL]),
+    {12} wbInteger('Minimum Skill Level', itU32),
+    {13} wbStruct('Spellmaking', [
+           wbInteger('Area', itU32),
+           wbFloat('Casting Time')
+         ]),
+    {14} wbFloat('Taper Curve'),
+    {15} wbFloat('Taper Duration'),
+    {16} wbFloat('Second AV Weight'),
+    {17} wbInteger('Archetype', itU32,
+           wbEnum([
+           {0}  'Value Modifier',
+           {1}  'Script',
+           {2}  'Dispel',
+           {3}  'Cure Disease',
+           {4}  'Absorb',
+           {5}  'Dual Value Modifier',
+           {6}  'Calm',
+           {7}  'Demoralize',
+           {8}  'Frenzy',
+           {9}  'Disarm',
+           {10} 'Command Summoned',
+           {11} 'Invisibility',
+           {12} 'Light',
+           {13} 'Darkness',
+           {14} 'Nighteye',
+           {15} 'Lock',
+           {16} 'Open',
+           {17} 'Bound Weapon',
+           {18} 'Summon Creature',
+           {19} 'Detect Life',
+           {20} 'Player Fear',
+           {21} 'Paralysis',
+           {22} 'Reanimate',
+           {23} 'Soul Trap',
+           {24} 'Turn Undead',
+           {25} 'Guide',
+           {26} 'Damage Item',
+           {27} 'Cure Paralysis',
+           {28} 'Cure Addiction',
+           {29} 'Cure Poison',
+           {30} 'Concussion',
+           {31} 'Stimpak',
+           {32} 'Accumulate Magnitude',
+           {33} 'Stagger',
+           {34} 'Peak Value Modifier',
+           {35} 'Cloak',
+           {36} 'Unknown 36',
+           {37} 'Slow Time',
+           {38} 'Rally',
+           {39} 'Enhance Weapon',
+           {40} 'Spawn Hazard',
+           {41} 'Etherealize',
+           {42} 'Banish',
+           {43} 'Spawn Scripted Ref',
+           {44} 'Disguise',
+           {45} 'Damage',
+           {46} 'Immunity',
+           {47} 'Permanent Reanimate',
+           {48} 'Jetpack',
+           {49} 'Chameleon',
+           {50} 'Grow Flora',
+           {51} 'Corpse Highlight',
+           {52} 'Stunned'
+           ])),
+    {18} wbActorValue,
+    {19} wbFormIDCk('Projectile', [PROJ, NULL]),
+    {20} wbFormIDCk('Explosion', [EXPL, NULL]),
+    {21} wbInteger('Casting Type', itU32, wbCastEnum),
+    {22} wbInteger('Delivery', itU32, wbTargetEnum),
+    {23} wbActorValue, //wbInteger('Second Actor Value', itS32, wbActorValueEnum),
+    {24} wbFormIDCk('Casting Art', [ARTO, NULL]),
+    {25} wbFormIDCk('Hit Effect Art', [ARTO, NULL]),
+    {26} wbFormIDCk('Impact Data', [IPDS, NULL]),
+    {27} wbFloat('Skill Usage Multiplier'),
+    {28} wbStruct('Dual Casting', [
+           wbFormIDCk('Art', [DUAL, NULL]),
+           wbFloat('Scale')
+         ]),
+    {29} wbFormIDCk('Enchant Art', [ARTO, NULL]),
+    {30} wbFormIDCk('Hit Visuals', [RFCT, NULL]),
+    {31} wbFormIDCk('Enchant Visuals', [RFCT, NULL]),
+    {32} wbFormIDCk('Equip Ability', [SPEL, NULL]),
+    {33} wbFormIDCk('Image Space Modifier', [IMAD, NULL]),
+    {34} wbFormIDCk('Perk to Apply', [PERK, NULL]),
+    {35} wbInteger('Casting Sound Level', itU32, wbSoundLevelEnum),
+    {36} wbStruct('Script Effect AI', [
+           wbFloat('Score'),
+           wbFloat('Delay Time')
+         ]),
+    {37} wbUnknown
+    ], [0,1,2,17,3,4,5,6,7,8,9,10,11,12,13,14,15,16,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37]).SetRequired,
     wbRArrayS('Counter Effects',
       wbFormIDCk(ESCE, 'Effect', [MGEF])
     ).SetCountPath('DATA\Couner Effect Count'),
