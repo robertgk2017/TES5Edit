@@ -16499,12 +16499,28 @@ begin
   if Assigned(bsdFormater) then
     lValue := bsdFormater.FromEditValue(lValue, aElement);
 
-  FromStringTransform(aBasePtr, aEndPtr, aElement, aValue, ttFromEditValue);
+  if dfStringTrim in DefFlags then begin
+    lValue := Trim(lValue);
+
+    if lValue = '' then
+      lValue := ' ';
+  end;
+
+  FromStringTransform(aBasePtr, aEndPtr, aElement, lValue, ttFromEditValue);
 end;
 
 procedure TwbStringDef.FromNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: Variant);
 begin
-  FromStringTransform(aBasePtr, aEndPtr, aElement, aValue, ttFromNativeValue);
+  var lValue := VarToStr(aValue);
+
+  if dfStringTrim in DefFlags then begin
+    lValue := Trim(lValue);
+
+    if lValue = '' then
+      lValue := ' ';
+  end;
+
+  FromStringTransform(aBasePtr, aEndPtr, aElement, lValue, ttFromNativeValue);
 end;
 
 procedure TwbStringDef.FromStringNative(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string; aTransformType: TwbStringTransformType);
@@ -16808,7 +16824,8 @@ var
 begin
   Result := s;
 
-  if dfStringTrim in DefFlags then begin
+  if (dfStringTrim in DefFlags) then
+  if (aTransformType in [ttToString, ttToSortKey, ttToEditValue, ttFromEditValue, ttFromNativeValue]) then begin
     Result := Trim(Result);
 
     if Result = '' then
