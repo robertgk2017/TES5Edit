@@ -65,7 +65,7 @@ var
   wbEmbeddedScriptReq: IwbRecordMemberDef;
   wbETYP: IwbRecordMemberDef;
   wbETYPReq: IwbRecordMemberDef;
-  wbFULL: IwbRecordMemberDef;
+  wbFULL: IwbSubRecordDef;
   wbFULLReq: IwbRecordMemberDef;
   wbICON: IwbRecordMemberDef;
   wbICONReq: IwbRecordMemberDef;
@@ -4036,9 +4036,7 @@ begin
     wbEDIDReqKC,
     wbQSTI,
     wbQSTR,
-    wbFULL
-      .SetAfterLoad(wbDialogueTextAfterLoad)
-      .SetAfterSet(wbDialogueTextAfterSet),
+    wbFULL.IncludeFlagOnValue(dfStringTrim),
     wbFloat(PNAM, 'Priority')
       .SetDefaultNativeValue(50)
       .SetRequired,
@@ -5818,8 +5816,7 @@ begin
           wbUnused(3)
         ], cpNormal, False, nil, 5),
         wbStringKC(NAM1, 'Response Text', 0, cpTranslate)
-          .SetAfterLoad(wbDialogueTextAfterLoad)
-          .SetAfterSet(wbDialogueTextAfterSet)
+          .IncludeFlagOnValue(dfStringTrim)
           .SetRequired,
         wbString(NAM2, 'Script Notes', 0, cpTranslate).SetRequired,
         wbString(NAM3, 'Edits'),
@@ -5839,9 +5836,7 @@ begin
       wbEmbeddedScriptReq
     ]).SetRequired,
     wbFormIDCk(SNDD, 'Unused', [SOUN]),
-    wbStringKC(RNAM, 'Prompt', 0, cpTranslate)
-      .SetAfterLoad(wbDialogueTextAfterLoad)
-      .SetAfterSet(wbDialogueTextAfterSet),
+    wbStringKC(RNAM, 'Prompt', 0, cpTranslate).IncludeFlagOnValue(dfStringTrim),
     wbFormIDCk(ANAM, 'Speaker', [CREA,NPC_]),
     wbFormIDCk(KNAM, 'ActorValue/Perk', [AVIF,PERK]),
     wbInteger(DNAM, 'Speech Challenge', itU32,

@@ -8322,9 +8322,7 @@ begin
     14, 'Partial Form'
     ]), [14]), [
     wbEDID,
-    wbFULL
-      .SetAfterLoad(wbDialogueTextAfterLoad)
-      .SetAfterSet(wbDialogueTextAfterSet),
+    wbFULL.IncludeFlagOnValue(dfStringTrim),
     wbFloat(PNAM, 'Priority')
       .SetDefaultNativeValue(50)
       .SetRequired,
@@ -12017,8 +12015,7 @@ begin
         wbUnknown(TRAE),
         wbLStringKC(BNAM, 'Comment?'),
         wbLStringKC(NAM1, 'Response Text', 0, cpTranslate)
-          .SetAfterLoad(wbDialogueTextAfterLoad)
-          .SetAfterSet(wbDialogueTextAfterSet)
+          .IncludeFlagOnValue(dfStringTrim)
           .SetRequired,
         wbString(NAM2, 'Script Notes').SetRequired,
         wbString(NAM3, 'Edits').SetRequired,
@@ -12033,9 +12030,7 @@ begin
         .IncludeFlag(dfCollapsed)
     ),
     wbConditions,
-    wbLStringKC(RNAM, 'Prompt', 0, cpTranslate)
-      .SetAfterLoad(wbDialogueTextAfterLoad)
-      .SetAfterSet(wbDialogueTextAfterSet),
+    wbLStringKC(RNAM, 'Prompt', 0, cpTranslate).IncludeFlagOnValue(dfStringTrim),
     wbFormIDCk(ANAM, 'Speaker', [NPC_,VTYP]),
     wbFormIDCk(TSCE, 'Start Scene', [SCEN]),
     wbInteger(ALFT, 'Unknown Int32 1', itU32),

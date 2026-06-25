@@ -48,7 +48,7 @@ var
   wbDESC: IwbRecordMemberDef;
   wbEDID: IwbRecordMemberDef;
   wbEffects: IwbRecordMemberDef;
-  wbFULL: IwbRecordMemberDef;
+  wbFULL: IwbSubRecordDef;
   wbFULLReq: IwbRecordMemberDef;
   wbICON: IwbRecordMemberDef;
   wbPGRP: IwbRecordMemberDef;
@@ -2137,9 +2137,7 @@ begin
     wbEDID,
     wbQSTI,
     wbQSTR,
-    wbFULL
-      .SetAfterLoad(wbDialogueTextAfterLoad)
-      .SetAfterSet(wbDialogueTextAfterSet),
+    wbFULL.IncludeFlagOnValue(dfStringTrim),
     wbInteger(DATA, 'Type', itU8, wbDialogueTypeEnum).SetRequired,
     wbINOM,
     wbINOA
@@ -2441,8 +2439,7 @@ begin
           wbUnused(3)
         ]),
         wbStringKC(NAM1, 'Response Text', 0, cpTranslate)
-          .SetAfterLoad(wbDialogueTextAfterLoad)
-          .SetAfterSet(wbDialogueTextAfterSet)
+          .IncludeFlagOnValue(dfStringTrim)
           .SetRequired,
         wbString(NAM2, 'Actor Notes', 0, cpTranslate)
       ]).SetSummaryKey([1])

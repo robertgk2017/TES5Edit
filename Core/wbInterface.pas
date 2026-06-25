@@ -694,6 +694,7 @@ type
     dfNotAlignable,
     dfRemoveLastOnly,
     dfSkipImplicitEdit,
+    dfStringTrim,
     dfStructFirstNotRequired,
     dfSummaryExcludeNULL,
     dfSummaryMembersNoName,
@@ -16806,6 +16807,14 @@ var
   i: Integer;
 begin
   Result := s;
+
+  if dfStringTrim in DefFlags then begin
+    Result := Trim(Result);
+
+    if Result = '' then
+      Result := ' ';
+  end;
+
   if wbShowStringBytes then begin
     if aTransformType = ttToString then begin
       Result := Result + ' [';

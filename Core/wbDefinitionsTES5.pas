@@ -4672,9 +4672,7 @@ begin
       14, 'Partial Form'
     ]), [14]), [
     wbEDID,
-    wbFULL
-      .SetAfterLoad(wbDialogueTextAfterLoad)
-      .SetAfterSet(wbDialogueTextAfterSet),
+    wbFULL.IncludeFlagOnValue(dfStringTrim),
     wbFloat(PNAM, 'Priority')
       .SetDefaultNativeValue(50)
       .SetRequired,
@@ -7794,9 +7792,7 @@ begin
           wbInteger('Use Emotion Animation', itU8, wbBoolEnum),
           wbUnused(3)
         ]),
-        wbLStringKC(NAM1, 'Response Text', 0, cpTranslate)
-          .SetAfterLoad(wbDialogueTextAfterLoad)
-          .SetAfterSet(wbDialogueTextAfterSet),
+        wbLStringKC(NAM1, 'Response Text', 0, cpTranslate).IncludeFlagOnValue(dfStringTrim),
         wbString(NAM2, 'Script Notes'),
         wbString(NAM3, 'Edits'),
         wbFormIDCk(SNAM, 'Idle Animations: Speaker', [IDLE]),
@@ -7814,9 +7810,7 @@ begin
       ])).IncludeFlag(dfInternalEditOnly)
          .SetDontShow(wbNeverShow),
     {>>> END leftover from earlier CK versions <<<}
-    wbLStringKC(RNAM, 'Prompt', 0, cpTranslate)
-      .SetAfterLoad(wbDialogueTextAfterLoad)
-      .SetAfterSet(wbDialogueTextAfterSet),
+    wbLStringKC(RNAM, 'Prompt', 0, cpTranslate).IncludeFlagOnValue(dfStringTrim),
     wbFormIDCkNoReach(ANAM, 'Speaker', [NPC_]),
     wbFormIDCk(TWAT, 'Walk Away Topic', [DIAL]),
     wbFormIDCk(ONAM, 'Audio Output Override', [SOPM])

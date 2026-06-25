@@ -35,10 +35,9 @@ function wbPlacedAddInfo(const aMainRecord: IwbMainRecord): string;
 function wbROADAddInfo  (const aMainRecord: IwbMainRecord): string;
 function wbSCENAddInfo  (const aMainRecord: IwbMainRecord): string;
 
-{>>> After Load Callbacks <<<} //13
+{>>> After Load Callbacks <<<} //12
 procedure wbACBSLevelMultAfterLoad     (const aElement: IwbElement);
 procedure wbAVIFSkillAfterLoad         (const aElement: IwbElement);
-procedure wbDialogueTextAfterLoad      (const aElement: IwbElement);
 procedure wbDOBJObjectsAfterLoad       (const aElement: IwbElement);
 procedure wbMESGAfterLoad              (const aElement: IwbElement);
 procedure wbPACKDateAfterLoad          (const aElement: IwbElement);
@@ -50,12 +49,11 @@ procedure wbScrollTypeAfterLoad        (const aElement: IwbElement);
 procedure wbSOUNAfterLoad              (const aElement: IwbElement);
 procedure wbWorldAfterLoad             (const aElement: IwbElement);
 
-{>>> After Set Callbacks <<<} //16
+{>>> After Set Callbacks <<<} //15
 procedure wbACBSLevelMultAfterSet                 (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbBOOKDataFlagsAfterSet                 (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbConditionTypeAfterSet                 (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbConditionRunOnAfterSet                (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
-procedure wbDialogueTextAfterSet                  (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbIdleMarkerPNAMAfterSet                (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbIdleMarkerQNAMAfterSet                (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbMESGDNAMAfterSet                      (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
@@ -897,7 +895,7 @@ begin
   end;
 end;
 
-{>>> After Load Callbacks <<<} //13
+{>>> After Load Callbacks <<<} //12
 
 procedure wbACBSLevelMultAfterLoad(const aElement: IwbElement);
 begin
@@ -922,25 +920,6 @@ begin
   if wbBeginInternalEdit then try
     if aElement.NativeValue > 3 then
       aElement.NativeValue := 0;
-  finally
-    wbEndInternalEdit;
-  end;
-end;
-
-procedure wbDialogueTextAfterLoad(const aElement: IwbElement);
-begin
-  if not Assigned(aElement) then
-    Exit;
-
-  if aElement.EditValue = ' ' then
-    Exit;
-
-  if wbBeginInternalEdit then try
-    if not Assigned(aElement._File) then
-      Exit;
-
-    if not aElement._File.IsLocalized then
-      aElement.EditValue := Trim(aElement.EditValue);
   finally
     wbEndInternalEdit;
   end;
@@ -1207,7 +1186,7 @@ begin
   end;
 end;
 
-{>>> After Set Callbacks <<<} //16
+{>>> After Set Callbacks <<<} //15
 
 procedure wbACBSLevelMultAfterSet(const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 begin
@@ -1294,28 +1273,6 @@ begin
   if wbBeginInternalEdit then try
     if aNewValue <> 2 then
       aElement.Container.ElementNativeValues['Reference'] := 0;
-  finally
-    wbEndInternalEdit;
-  end;
-end;
-
-procedure wbDialogueTextAfterSet(const aElement: IwbElement; const aOldValue, aNewValue: Variant);
-begin
-  if not Assigned(aElement) then
-    Exit;
-
-  if VarSameValue(aOldValue, aNewValue) then
-    Exit;
-
-  if aElement.EditValue = ' ' then
-    Exit;
-
-  if wbBeginInternalEdit then try
-    if not Assigned(aElement._File) then
-      Exit;
-
-    if not aElement._File.IsLocalized then
-      aElement.EditValue := Trim(aNewValue);
   finally
     wbEndInternalEdit;
   end;
