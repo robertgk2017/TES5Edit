@@ -2670,6 +2670,7 @@ type
 
   IwbSubRecordWithStructDef = interface(IwbSubRecordDef)
     ['{CE0BDAB8-F4FB-42B8-8013-AE7176C0FCD1}']
+    function SetOptionalFrom(const aOptionalFrom: Integer): IwbSubRecordWithStructDef;
     function SetSummaryKeyOnValue(const aSummaryKey: array of Integer): IwbSubRecordWithStructDef{Self};
     function SetSummaryPrefixSuffixOnValue(aIndex: Integer; const aPrefix, aSuffix: string): IwbSubRecordWithStructDef{Self};
     function SetSummaryMemberMaxDepthOnValue(aIndex, aMaxDepth: Integer): IwbSubRecordWithStructDef{Self};
@@ -2922,6 +2923,7 @@ type
     property MembersByName[const aName: string]: IwbValueDef read GetMemberByName;
     property OptionalFromElement: Integer read GetOptionalFromElement;
 
+    function SetOptionalFrom(const aOptionalFrom: Integer): IwbStructDef;
     function SetSummaryKey(const aSummaryKey: array of Integer): {Self}IwbStructDef;
     function SetSummaryMemberPrefixSuffix(aIndex: Integer; const aPrefix, aSuffix: string): {Self}IwbStructDef;
     function SetSummaryMemberMaxDepth(aIndex, aMaxDepth: Integer): {Self}IwbStructDef;
@@ -6335,6 +6337,7 @@ type
     function SetSummaryLinksToCallbackOnValue(const aCallback: TwbLinksToCallback): IwbSubRecordDef{Self};
 
     {---IwbSubRecordWithStructDef---}
+    function SetOptionalFrom(const aOptionalFrom: Integer): IwbSubRecordWithStructDef;
     function SetSummaryKeyOnValue(const aSummaryKey: array of Integer): {Self}IwbSubRecordWithStructDef;
     function SetSummaryPrefixSuffixOnValue(aIndex: Integer; const aPrefix, aSuffix: string): {Self}IwbSubRecordWithStructDef;
     function SetSummaryMemberMaxDepthOnValue(aIndex, aMaxDepth: Integer): {Self}IwbSubRecordWithStructDef;
@@ -7383,6 +7386,7 @@ type
     function GetMemberByName(const aName: string): IwbValueDef;
     function GetOptionalFromElement: Integer;
 
+    function SetOptionalFrom(const aOptionalFrom: Integer): IwbStructDef;
     function SetSummaryKey(const aSummaryKey: array of Integer): {Self}IwbStructDef;
     function SetSummaryMemberPrefixSuffix(aIndex: Integer; const aPrefix, aSuffix: string): {Self}IwbStructDef;
     function SetSummaryMemberMaxDepth(aIndex, aMaxDepth: Integer): {Self}IwbStructDef;
@@ -11960,6 +11964,18 @@ begin
   Result := Self;
 end;
 
+function TwbSubRecordDef.SetOptionalFrom(const aOptionalFrom: Integer): IwbSubRecordWithStructDef;
+begin
+  if defIsLocked then
+    Exit(TwbSubRecordDef(Duplicate).SetOptionalFrom(aOptionalFrom));
+
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbStructDef).SetOptionalFrom(aOptionalFrom);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
+  Result := Self;
+end;
+
 function TwbSubRecordDef.SetSummaryLinksToCallback(const aCallback: TwbLinksToCallback): IwbRecordMemberDef;
 begin
   if defIsLocked then
@@ -14910,6 +14926,15 @@ begin
     end;
 
   defReported := True;
+end;
+
+function TwbStructDef.SetOptionalFrom(const aOptionalFrom: Integer): IwbStructDef;
+begin
+  if defIsLocked then
+    Exit(TwbStructDef(Duplicate).SetOptionalFrom(aOptionalFrom));
+
+  Result := Self;
+  stOptionalFromElement := aOptionalFrom;
 end;
 
 function TwbStructDef.SetSizeCallback(const aCallback: TwbStructSizeCallback): IwbStructDef;
