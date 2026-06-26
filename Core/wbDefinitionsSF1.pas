@@ -6075,8 +6075,18 @@ begin
   var wbLongitudeToStr := wbLonLanFunc(False);
   var wbLatitudeToStr := wbLonLanFunc(True);
 
-  var wbLongitudeDouble := wbDouble('Longitude', cpNormal, True, 1, 12).SetToStr(wbLongitudeToStr);
-  var wbLatitudeDouble := wbDouble('Latitude', cpNormal, True, 1, 12).SetToStr(wbLatitudeToStr);
+  var wbLongitude :=
+    function(const aConflictPriority : TwbConflictPriority = cpNormal): IwbValueDef
+    begin
+      Result := wbDouble('Longitude', aConflictPriority, True, 1, 12).SetToStr(wbLongitudeToStr);
+    end;
+
+  var wbLatitude :=
+    function(const aConflictPriority : TwbConflictPriority = cpNormal): IwbValueDef
+    begin
+      Result := wbDouble('Latitude', aConflictPriority, True, 1, 12).SetToStr(wbLatitudeToStr);
+    end;
+
 
   wbBaseFormComponents := wbRArray('Base Form Components',
     wbRStructSK([0], 'Component', [
@@ -6837,8 +6847,8 @@ begin
         {4} wbStruct('', [
               wbFormIDCK('Planet', [PNDT, NULL]),
               wbStruct('Position', [
-                wbLongitudeDouble,
-                wbLatitudeDouble
+                wbLongitude(),
+                wbLatitude()
               ]).SetSummaryKey([1, 0])
                 .SetSummaryMemberPrefixSuffix(1, '(', '')
                 .SetSummaryMemberPrefixSuffix(0, '', ')')
@@ -6904,8 +6914,8 @@ begin
               wbInteger('Location Y', itS32),
               wbInteger('Planet System ID', itS32),
               wbInteger('Satellite ID', itS32),
-              wbLongitudeDouble,
-              wbLatitudeDouble    // There is one vanilla record which has a very old date where the data structure is 8 bytes short. Possibly they used 2 floats instead of 2 doubles for lon/lat.
+              wbLongitude(),
+              wbLatitude()    // There is one vanilla record which has a very old date where the data structure is 8 bytes short. Possibly they used 2 floats instead of 2 doubles for lon/lat.
             ], cpNormal, False, nil, 9)
           ]).IncludeFlag(dfUnionStaticResolve)
         ]),
@@ -16187,34 +16197,34 @@ begin
     wbArray(CNAM, 'Master Worldspaces',
       wbStruct('Worldspace', [
         wbStruct('Position', [
-          wbLatitudeDouble,
-          wbLongitudeDouble
+          wbLatitude(cpBenign),
+          wbLongitude(cpBenign)
         ]).SetSummaryKey([0, 1])
           .SetSummaryMemberPrefixSuffix(0, '(', '')
           .SetSummaryMemberPrefixSuffix(1, '', ')')
           .SetSummaryDelimiter(', ')
           .IncludeFlag(dfSummaryMembersNoName)
           .IncludeFlag(dfCollapsed, wbCollapsePosRot),
-        wbFormIDCk('Worldspace', [WRLD])
+        wbFormIDCk('Worldspace', [WRLD], False, cpBenign)
       ])
     ).IncludeFlag(dfArrayCanBeEmpty),
     wbArray(EOVR, 'Edited Worldspaces',
       wbStruct('Worldspace', [
         wbStruct('Position', [
-          wbLatitudeDouble,
-          wbLongitudeDouble
+          wbLatitude(cpBenign),
+          wbLongitude(cpBenign)
         ]).SetSummaryKey([0, 1])
           .SetSummaryMemberPrefixSuffix(0, '(', '')
           .SetSummaryMemberPrefixSuffix(1, '', ')')
           .SetSummaryDelimiter(', ')
           .IncludeFlag(dfSummaryMembersNoName)
           .IncludeFlag(dfCollapsed, wbCollapsePosRot),
-        wbFormIDCk('Worldspace', [WRLD]),
+        wbFormIDCk('Worldspace', [WRLD], False, cpBenign),
         wbInteger('Type', itU8,
           wbEnum([
           {0} 'Removed',
           {1} 'Added'
-          ]))
+          ]), cpBenign)
       ])).IncludeFlag(dfArrayCanBeEmpty),
     wbRArray('Biomes',
       wbStructSK(PPBD, [0], 'Biome', [
