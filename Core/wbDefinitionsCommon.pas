@@ -6207,17 +6207,13 @@ begin
       wbByteColors('Z-').IncludeFlag(dfSummaryNoName)
     ]).SetSummaryKey([0, 1, 2, 3, 4, 5])
       .IncludeFlag(dfCollapsed, wbCollapseDirectionRotation),
-    IsFO76(
-      wbUnused(4),
-      IsSF1(
-        nil,
-        wbFromVersion(34, wbByteColors('Specular')))),
-    IsFO76(
-      wbUnused(4),
-      IsSF1(
-        nil,
-        wbFromVersion(34, wbFloat('Fresnel Power').SetDefaultNativeValue(1))))
-  ]);
+    IsSF1(
+      nil,
+      wbFromVersion(30, wbByteColors('Specular'))),
+    IsSF1(
+      nil,
+      wbFromVersion(30, wbFloat('Fresnel Power').SetDefaultNativeValue(1)))
+  ]).SetOptionalFrom(1);
 end;
 
 function wbAmbientColors(const aName : string = 'Directional Ambient Lighting Colors')
@@ -6233,17 +6229,13 @@ begin
       wbByteColors('Z-').IncludeFlag(dfSummaryNoName)
     ]).SetSummaryKey([0, 1, 2, 3, 4, 5])
       .IncludeFlag(dfCollapsed, wbCollapseDirectionRotation),
-    IsFO76(
-      wbUnused(4),
-      IsSF1(
-        nil,
-        wbFromVersion(34, wbByteColors('Specular')))),
-    IsFO76(
-      wbUnused(4),
-      IsSF1(
-        nil,
-        wbFromVersion(34, wbFloat('Fresnel Power').SetDefaultNativeValue(1))))
-  ]);
+    IsSF1(
+      nil,
+      wbFromVersion(30, wbByteColors('Specular'))),
+    IsSF1(
+      nil,
+      wbFromVersion(30, wbFloat('Fresnel Power').SetDefaultNativeValue(1)))
+  ]).SetOptionalFrom(1);
 end;
 
 function wbByteColors(const aSignature : TwbSignature;
