@@ -1641,7 +1641,7 @@ begin
     if not Assigned(verts) then
       Exit;
 
-    var HasVertex := NativeValues['VertexDesc\VF\VF_NORMAL'];
+    var HasVertex := NativeValues['VertexDesc\VF\VF_VERTEX'];
     var HasNormal := NativeValues['VertexDesc\VF\VF_NORMAL'];
     var HasTangent := NativeValues['VertexDesc\VF\VF_TANGENT'];
     for var i := 0 to Pred(verts.Count) do begin
