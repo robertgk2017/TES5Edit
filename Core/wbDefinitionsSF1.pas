@@ -9239,15 +9239,20 @@ begin
     ).IncludeFlag(dfCollapsed, wbCollapseOther)
      .IncludeFlag(dfExcludeFromBuildRef),
     wbByteArray(SCRN, 'Screenshot'),                                  // If possible then ignored by the runtime. Neither from the CK
-    wbRArray('Transient Types (CK only)', wbStruct(TNAM, 'Transient Type', [ // Ignored by the runtime
-      wbInteger('FormType', itU32),                                   // seen TESTopic 78 (array of DIAL) and BGSScene 126 (array of SCEN)
-      wbArray('Unknown', wbFormIDCk('Unknown',[DIAL,SCEN]))
-    ]))
-    .IncludeFlag(dfExcludeFromBuildRef)
-    .IncludeFlag(dfCollapsed, wbCollapseOther),
+    wbRArray('Transient Types (CK only)',
+      wbStruct(TNAM, 'Transient Type', [
+        wbInteger('Form Type', itU32,
+          wbEnum([], [
+          89,  'Dialogue Topic',
+          136, 'Scene'
+          ])),
+        wbArray('References',
+          wbFormIDCk('Reference', [DIAL, SCEN])
+        ).IncludeFlag(dfCollapsed, wbCollapseOther)
+    ])).IncludeFlag(dfExcludeFromBuildRef),
     wbString(BNAM, 'Branch'),
     wbInteger(INTV, 'Unknown', itU32),                                // Ignored by the runtime, 4 bytes loaded in CK
-    wbInteger(INCC, 'Interior Cell Count', itU32).SetRequired,                    // Size of some array of 12 bytes elements
+    wbInteger(INCC, 'Interior Cell Count', itU32).SetRequired,
     wbUnknown(CHGL)
   ], True, nil, cpNormal, True);
 
