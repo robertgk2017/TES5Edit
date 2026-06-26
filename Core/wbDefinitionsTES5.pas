@@ -6255,8 +6255,14 @@ begin
     wbDODT,
     wbFormIDCk(DNAM, 'Texture Set', [TXST]),
     wbFormIDCk(ENAM, 'Secondary Texture Set', [TXST]),
-    wbFormIDCk(SNAM, 'Sound 1', [SNDR,NULL]),
-    wbFormIDCk(NAM1, 'Sound 2', [SNDR,NULL]),
+    wbUnion(SNAM, 'Sound 1', wbFormVersionDecider(27), [
+      wbFormIDCk('Sound 1', [SOUN,NULL]),
+      wbFormIDCk('Sound 1', [SNDR,NULL])
+    ]).IncludeFlagOnValue(dfUnionStaticResolve),
+    wbUnion(NAM1, 'Sound 2', wbFormVersionDecider(27), [
+      wbFormIDCk('Sound 2', [SOUN,NULL]),
+      wbFormIDCk('Sound 2', [SNDR,NULL])
+    ]).IncludeFlagOnValue(dfUnionStaticResolve),
     wbFormIDCk(NAM2, 'Hazard', [HAZD, NULL])
   ]);
 
