@@ -35,12 +35,13 @@ function wbPlacedAddInfo(const aMainRecord: IwbMainRecord): string;
 function wbROADAddInfo  (const aMainRecord: IwbMainRecord): string;
 function wbSCENAddInfo  (const aMainRecord: IwbMainRecord): string;
 
-{>>> After Load Callbacks <<<} //12
+{>>> After Load Callbacks <<<} //13
 procedure wbACBSLevelMultAfterLoad     (const aElement: IwbElement);
 procedure wbAVIFSkillAfterLoad         (const aElement: IwbElement);
 procedure wbDOBJObjectsAfterLoad       (const aElement: IwbElement);
 procedure wbMESGAfterLoad              (const aElement: IwbElement);
 procedure wbPACKDateAfterLoad          (const aElement: IwbElement);
+procedure wbPACKDataBoolAfterLoad      (const aElement: IwbElement);
 procedure wbPNDTAfterLoad              (const aElement: IwbElement);
 procedure wbRecipeCategoryDataAfterLoad(const aElement: IwbElement);
 procedure wbRPLDAfterLoad              (const aElement: IwbElement);
@@ -49,7 +50,7 @@ procedure wbScrollTypeAfterLoad        (const aElement: IwbElement);
 procedure wbSOUNAfterLoad              (const aElement: IwbElement);
 procedure wbWorldAfterLoad             (const aElement: IwbElement);
 
-{>>> After Set Callbacks <<<} //15
+{>>> After Set Callbacks <<<} //17
 procedure wbACBSLevelMultAfterSet                 (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbBOOKDataFlagsAfterSet                 (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbConditionTypeAfterSet                 (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
@@ -57,6 +58,7 @@ procedure wbConditionRunOnAfterSet                (const aElement: IwbElement; c
 procedure wbIdleMarkerPNAMAfterSet                (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbIdleMarkerQNAMAfterSet                (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbMESGDNAMAfterSet                      (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
+procedure wbPACKDataInputTypeAfterSet             (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbPACKDateAfterSet                      (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbPERKPRKETypeAfterSet                  (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbPERKPRUCAfterSet                      (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
@@ -523,6 +525,9 @@ function wbFloatRGBA(const aName     : string = 'Color';
 function wbIdxAddonNode      : TwbNamedIndex;
 function wbIdxCollisionLayer : TwbNamedIndex;
 
+{>>> String Enum Defs <<<} //1
+function wbPACKDataInputTypeEnum: IwbStringDefFormater;
+
 {>>> Enum Defs <<<} //39
 function wbActorImpactMaterialEnum       : IwbEnumDef;
 function wbAggressionEnum                : IwbEnumDef;
@@ -895,7 +900,7 @@ begin
   end;
 end;
 
-{>>> After Load Callbacks <<<} //12
+{>>> After Load Callbacks <<<} //13
 
 procedure wbACBSLevelMultAfterLoad(const aElement: IwbElement);
 begin
@@ -994,6 +999,19 @@ begin
       aElement.NativeValue := lMaxDate;
     if aElement.NativeValue < 0 then
       aElement.NativeValue := 0;
+  finally
+    wbEndInternalEdit;
+  end;
+end;
+
+procedure wbPACKDataBoolAfterLoad(const aElement: IwbElement);
+begin
+  if not Assigned(aElement) then
+    Exit;
+
+  if wbBeginInternalEdit then try
+    if aElement.NativeValue > 1 then
+      aElement.NativeValue := 1;
   finally
     wbEndInternalEdit;
   end;
@@ -1186,7 +1204,7 @@ begin
   end;
 end;
 
-{>>> After Set Callbacks <<<} //15
+{>>> After Set Callbacks <<<} //17
 
 procedure wbACBSLevelMultAfterSet(const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 begin
@@ -1327,6 +1345,31 @@ begin
       lMainRecord.RemoveElement('TNAM')
     else
       lMainRecord.Add('TNAM', True);
+  finally
+    wbEndInternalEdit;
+  end;
+end;
+
+procedure wbPACKDataInputTypeAfterSet(const aElement: IwbElement; const aOldValue, aNewValue: Variant);
+begin
+  if not Assigned(aElement) then
+    Exit;
+
+  if VarSameValue(aOldValue, aNewValue) then
+    Exit;
+
+  if wbBeginInternalEdit then try
+    var lContainer := aElement.Container;
+    var lValue := lContainer.ElementBySignature[CNAM];
+
+    if (aNewValue = 'Bool') or (aNewValue = 'Int') or (aNewValue = 'Float') or (aNewValue = 'ObjectList') then
+      if Assigned(lValue) then
+        lValue.SetToDefault
+      else
+        lContainer.Add('CNAM', True)
+    else
+      if Assigned(lValue) then
+        lValue.Remove;
   finally
     wbEndInternalEdit;
   end;
@@ -6457,6 +6500,23 @@ end;
 function wbIdxCollisionLayer : TwbNamedIndex;
 begin
   Result := wbNamedIndex('CollisionLayer', True);
+end;
+
+{>>> String Enum Defs <<<} //1
+
+function wbPACKDataInputTypeEnum: IwbStringDefFormater;
+begin
+  Result :=
+    wbStringEnum([
+      'Bool',
+      'Float',
+      'Int',
+      'Location',
+      'ObjectList',
+      'SingleRef',
+      'TargetSelector',
+      'Topic'
+    ]);
 end;
 
 {>>> Enum Defs <<<} //39

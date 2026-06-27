@@ -1949,25 +1949,6 @@ begin
     wbProgressCallback('"'+Container.Name+'" does not contain an element named Type');
 end;
 
-procedure wbPackageDataInputValueTypeAfterSet(const aElement: IwbElement; const aOldValue, aNewValue: Variant);
-var
-  Container : IwbContainerElementRef;
-  Value     : IwbElement;
-begin
-  if aOldValue <> aNewValue then
-    if Supports(aElement.Container, IwbContainerElementRef, Container) then begin
-      Value := Container.ElementByPath['CNAM'];
-      if Assigned(Value) then
-        if (aNewValue = 'Bool') or (aNewValue = 'Int') or (aNewValue = 'Float') or (aNewValue = 'ObjectList') then
-          Value.SetToDefault
-        else
-          Value.Remove
-      else
-        if (aNewValue = 'Bool') or (aNewValue = 'Int') or (aNewValue = 'Float') or (aNewValue = 'ObjectList') then
-          Container.Add('CNAM');
-    end;
-end;
-
 function wbOMODDataFunctionTypeDecider(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
 var
   Container     : IwbContainer;
@@ -15762,11 +15743,13 @@ begin
 
     wbRStruct('Package Data', [
       wbRArray('Data Input Values', wbRStruct('Value', [
-        wbString(ANAM, 'Type').SetAfterSet(wbPackageDataInputValueTypeAfterSet),
+        wbString(ANAM, 'Type')
+          .SetFormaterOnValue(wbPACKDataInputTypeEnum)
+          .SetAfterSet(wbPACKDataInputTypeAfterSet),
         wbRUnion('Typed Input Value', [
           wbUnion(CNAM, 'Value', wbPubPackCNAMDecider, [
             {0} wbByteArray(''),
-            {1} wbInteger('', itU8, wbBoolEnum),
+            {1} wbInteger('', itU8, wbBoolEnum).SetAfterLoad(wbPACKDataBoolAfterLoad),
             {2} wbInteger('', itS32),
             {3} wbFloat('')
           ]).IncludeFlag(dfUnionStaticResolve),

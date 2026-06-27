@@ -1844,25 +1844,6 @@ begin
     wbProgressCallback('"'+Container.Name+'" does not contain an element named Type');
 end;
 
-procedure wbPackageDataInputValueTypeAfterSet(const aElement: IwbElement; const aOldValue, aNewValue: Variant);
-var
-  Container : IwbContainerElementRef;
-  Value     : IwbElement;
-begin
-  if aOldValue <> aNewValue then
-    if Supports(aElement.Container, IwbContainerElementRef, Container) then begin
-      Value := Container.ElementByPath['CNAM'];
-      if Assigned(Value) then
-        if (aNewValue = 'Bool') or (aNewValue = 'Int') or (aNewValue = 'Float') or (aNewValue = 'ObjectList') then
-          Value.SetToDefault
-        else
-          Value.Remove
-      else
-        if (aNewValue = 'Bool') or (aNewValue = 'Int') or (aNewValue = 'Float') or (aNewValue = 'ObjectList') then
-          Container.Add('CNAM');
-    end;
-end;
-
 function wbREFRRecordFlagsDecider(const aElement: IwbElement): Integer;
 begin
   Result := 0;
@@ -8544,13 +8525,15 @@ begin
     wbRStruct('Package Data', [
       wbRArray('Data Input Values',
         wbRStruct('Value', [
-          wbString(ANAM, 'Type').SetAfterSet(wbPackageDataInputValueTypeAfterSet),
+          wbString(ANAM, 'Type')
+            .SetFormaterOnValue(wbPACKDataInputTypeEnum)
+            .SetAfterSet(wbPACKDataInputTypeAfterSet),
           wbUnion(CNAM, 'Value', wbPubPackCNAMDecider, [
-          {0} wbByteArray('Unknown'),
-          {1} wbInteger('Bool', itU8, wbBoolEnum),
+          {0} wbUnknown,
+          {1} wbInteger('Bool', itU8, wbBoolEnum).SetAfterLoad(wbPACKDataBoolAfterLoad),
           {2} wbInteger('Integer', itU32),
           {3} wbFloat('Float')
-          ]),
+          ]).IncludeFlag(dfUnionStaticResolve),
           wbUnknown(BNAM),
           wbPDTOs,
           wbPLDT,
