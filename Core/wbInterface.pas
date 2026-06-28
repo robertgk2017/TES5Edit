@@ -20286,7 +20286,6 @@ begin
               if MainRecord.Def.GetIsReference then
                 if not MainRecord.WinningOverride.Flags.IsPersistent then begin
                   Result := 'Target is not persistent';
-                  Exit;
                 end;
             if not CheckFlst(MainRecord) then
               Result := 'Referenced FLST contains invalid entry';
@@ -20465,23 +20464,20 @@ end;
 
 function TwbFormIDChecked.IsValidMainRecord(const aMainRecord: IwbMainRecord): Boolean;
 begin
-  Result :=  wbDisableFormIDCheck;
+  Result := False;
 
-  if Result then
-    Exit;
+  if wbDisableFormIDCheck then
+    Exit(True);
 
-  Result := IsValid(aMainRecord.Signature) and CheckFlst(aMainRecord);
+  if IsValid(aMainRecord.Signature) and CheckFlst(aMainRecord) then
+    Exit(True);
 
-  if not Result then
-    Exit;
+  if fidcPersistent then
+    if aMainRecord.Def.IsReference and aMainRecord.IsPersistent then
+      Exit(True);
 
-  Result := not fidcPersistent or aMainRecord.IsPersistent;
-
-  if not Result then
-    Exit;
-
-  if Assigned(fidcFilterCallback) then
-    Result := fidcFilterCallback(fidcActiveElement, aMainRecord);
+  if Assigned(fidcFilterCallback) and fidcFilterCallback(fidcActiveElement, aMainRecord) then
+    Exit(True);
 end;
 
 procedure TwbFormIDChecked.Report(const aParents: TwbDefPath);
