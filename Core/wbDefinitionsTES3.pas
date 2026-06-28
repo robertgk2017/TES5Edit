@@ -1639,9 +1639,9 @@ begin
       wbArray(VNML, 'Vertex Normals',
         wbArray('Row',
           wbStruct('Column', [
-            wbInteger('X', itS8, nil, cpBenign, False, nil, nil, 0, wbLandNormalsGetCP),
-            wbInteger('Y', itS8, nil, cpBenign, False, nil, nil, 0, wbLandNormalsGetCP),
-            wbInteger('Z', itS8, nil, cpBenign, False, nil, nil, 0, wbLandNormalsGetCP)
+            wbInteger('X', itS8, nil, cpBenign).SetGetCP(wbLandNormalsGetCP),
+            wbInteger('Y', itS8, nil, cpBenign).SetGetCP(wbLandNormalsGetCP),
+            wbInteger('Z', itS8, nil, cpBenign).SetGetCP(wbLandNormalsGetCP)
           ]).SetSummaryKey([0,1,2])
             .SetSummaryMemberPrefixSuffix(0, '(', '')
             .SetSummaryMemberPrefixSuffix(2, '', ')')

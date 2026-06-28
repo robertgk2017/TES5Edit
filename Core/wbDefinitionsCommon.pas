@@ -8339,13 +8339,13 @@ function wbLandNormals: IwbRecordMemberDef;
 begin
   Result :=
     IfThen(wbSimpleRecords,
-      wbByteArray(VNML, 'Vertex Normals', 3267, cpBenign, False, False, nil, wbLandNormalsGetCP),
+      wbByteArray(VNML, 'Vertex Normals', 3267, cpBenign).SetGetCP(wbLandNormalsGetCP),
       wbArray(VNML, 'Vertex Normals',
         wbArray('Row',
           wbStruct('Column', [
-            wbInteger('X', itU8, nil, cpBenign, False, nil, nil, 0, wbLandNormalsGetCP),
-            wbInteger('Y', itU8, nil, cpBenign, False, nil, nil, 0, wbLandNormalsGetCP),
-            wbInteger('Z', itU8, nil, cpBenign, False, nil, nil, 0, wbLandNormalsGetCP)
+            wbInteger('X', itU8, nil, cpBenign).SetGetCP(wbLandNormalsGetCP),
+            wbInteger('Y', itU8, nil, cpBenign).SetGetCP(wbLandNormalsGetCP),
+            wbInteger('Z', itU8, nil, cpBenign).SetGetCP(wbLandNormalsGetCP)
           ]).SetSummaryKey([0, 1, 2])
             .SetSummaryMemberPrefixSuffix(0, '' + '(', '')
             .SetSummaryMemberPrefixSuffix(2, '', ')')
@@ -8606,7 +8606,9 @@ begin
         wbEmpty('Unused')
       ]).SetSummaryKey([1]),
       NewModelInfo
-    ], cpNormal, False, wbModelInfoDontShow, wbModelInfoGetCP).IncludeFlag(dfCollapsed, wbCollapseModelInfo);
+    ]).SetDontShow(wbModelInfoDontShow)
+      .SetGetCP(wbModelInfoGetCP)
+      .IncludeFlag(dfCollapsed, wbCollapseModelInfo);
   end;
 end;
 

@@ -2269,7 +2269,8 @@ function wbWwiseGUID(const aSignature : TwbSignature;
                            aGetCP     : TwbGetConflictPriority = nil)
                                       : IwbSubRecordDef; overload;
 begin
-  Result := wbGUID(aSignature, aName, aPriority, aRequired, aDontShow, aGetCP);
+  Result := wbGUID(aSignature, aName, aPriority, aRequired, aDontShow);
+  Result.SetGetCP(aGetCP);
   Result.SetToStr(wbWwiseGuidToStr);
   Result.ForValue(procedure(const v: IwbValueDef)
   begin
@@ -2284,7 +2285,8 @@ function wbWwiseGUID(const aName      : string = 'Wwise GUID';
                            aGetCP     : TwbGetConflictPriority = nil)
                                       : IwbGuidDef; overload;
 begin
-  Result := wbGUID(aName, aPriority, aRequired, aDontShow, aGetCP);
+  Result := wbGUID(aName, aPriority, aRequired, aDontShow);
+  Result.SetGetCP(aGetCP);
   Result.SetToStr(wbWwiseGuidToStr).SetStaticEditInfo(@wbWwiseGuidEditInfo);
 end;
 {------------------------------------------------------------------------------}
