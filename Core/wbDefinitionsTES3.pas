@@ -1585,7 +1585,7 @@ begin
       wbInteger(QSTN, 'Quest Named', itU8, wbBoolEnum).SetDefaultNativeValue(1),
       wbInteger(QSTF, 'Quest Finished', itU8, wbBoolEnum).SetDefaultNativeValue(1),
       wbInteger(QSTR, 'Quest Restarted', itU8, wbBoolEnum).SetDefaultNativeValue(1)
-    ], [], cpNormal, False, nil, True),
+    ], [], cpNormal, False, True),
     wbString(BNAM, 'Result')
   ]).SetFormIDBase($90);
 
@@ -2151,7 +2151,7 @@ begin
       wbString(BNAM, 'Global Variable'), //[GLOB]
       wbString(CNAM, 'Faction Owner'), //[FACT]
       wbInteger(INDX, 'Faction Rank', itU32)
-    ], [], cpNormal, False, nil, True),
+    ], [], cpNormal, False, True),
     wbFloat(XCHG, 'Enchantment Charge', cpNormal, False, 1, 0),
     wbString(XSOL, 'Soul'), //[CREA]
     wbInteger(INTV, 'Health', itU32),
@@ -2164,7 +2164,7 @@ begin
       wbInteger(FLTV, 'Lock Level', itU32).SetRequired,
       wbString(KNAM, 'Key'), //[MISC]
       wbString(TNAM, 'Trap') //[ENCH]
-    ], [], cpNormal, False, nil, True),
+    ], [], cpNormal, False, True),
     wbDeleted,
     wbVec3PosRot(DATA, 'Reference Data')
   ]).SetGetFormIDCallback(function(const aMainRecord: IwbMainRecord; out aFormID: TwbFormID): Boolean begin
@@ -2193,7 +2193,8 @@ begin
       wbInteger('Blight', itU8),
       wbInteger('Snow', itU8),
       wbInteger('Blizzard', itU8)
-    ], cpNormal, True, nil, 8),
+    ]).SetOptionalFrom(8)
+      .SetRequired,
     wbString(BNAM, 'Sleep Creature'), //[LEVC]
     wbByteColors(CNAM, 'Region Map Color').SetRequired,
     wbRArray('Region Sounds',

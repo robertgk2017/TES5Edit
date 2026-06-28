@@ -6419,9 +6419,9 @@ function wbFloatColors(const aSignature : TwbSignature;
                                         : IwbRecordMemberDef;
 begin
   Result := wbStruct(aSignature, aName, [
-    wbFloat('Red', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultR),
-    wbFloat('Green', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultG),
-    wbFloat('Blue', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultB)
+    wbFloat('Red', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultR),
+    wbFloat('Green', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultG),
+    wbFloat('Blue', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultB)
   ]).SetToStr(wbRGBAToStr)
     .IncludeFlag(dfCollapsed, wbCollapseRGBA);
 end;
@@ -6433,9 +6433,9 @@ function wbFloatColors(const aName     : string = 'Color';
                                        : IwbValueDef;
 begin
   Result := wbStruct(aName, [
-    wbFloat('Red', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultR),
-    wbFloat('Green', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultG),
-    wbFloat('Blue', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultB)
+    wbFloat('Red', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultR),
+    wbFloat('Green', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultG),
+    wbFloat('Blue', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultB)
   ]).SetToStr(wbRGBAToStr)
     .IncludeFlag(dfCollapsed, wbCollapseRGBA);
 end;
@@ -6450,9 +6450,9 @@ begin
   Assert(Length(aSigs) = 3, 'wbRFloatColors called with incorrect number of signatures.');
 
   Result := wbRStruct(aName, [
-    wbFloat(aSigs[0], 'Red', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultR),
-    wbFloat(aSigs[1], 'Green', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultG),
-    wbFloat(aSigs[2], 'Blue', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultB)
+    wbFloat(aSigs[0], 'Red', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultR),
+    wbFloat(aSigs[1], 'Green', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultG),
+    wbFloat(aSigs[2], 'Blue', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultB)
   ]).SetToStr(wbRGBAToStr)
     .IncludeFlag(dfCollapsed, wbCollapseRGBA);
 end;
@@ -6466,10 +6466,10 @@ function wbFloatRGBA(const aSignature : TwbSignature;
                                       : IwbRecordMemberDef;
 begin
   Result := wbStruct(aSignature, aName, [
-    wbFloat('Red', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultR),
-    wbFloat('Green', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultG),
-    wbFloat('Blue', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultB),
-    wbFloat('Alpha', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultA)
+    wbFloat('Red', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultR),
+    wbFloat('Green', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultG),
+    wbFloat('Blue', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultB),
+    wbFloat('Alpha', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultA)
   ]).SetToStr(wbRGBAToStr)
     .IncludeFlag(dfCollapsed, wbCollapseRGBA);
 end;
@@ -6482,10 +6482,10 @@ function wbFloatRGBA(const aName     : string = 'Color';
                                      : IwbValueDef;
 begin
   Result := wbStruct(aName, [
-    wbFloat('Red', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultR),
-    wbFloat('Green', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultG),
-    wbFloat('Blue', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultB),
-    wbFloat('Alpha', cpNormal, True, 255, 0, nil, wbNormalizeToRange(0, 255), aDefaultA)
+    wbFloat('Red', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultR),
+    wbFloat('Green', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultG),
+    wbFloat('Blue', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultB),
+    wbFloat('Alpha', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultA)
   ]).SetToStr(wbRGBAToStr)
     .IncludeFlag(dfCollapsed, wbCollapseRGBA);
 end;
@@ -7973,7 +7973,7 @@ begin
       wbRStructSK([0], 'Sound', [
         wbFormIDCk(CS2K, 'Keyword', [KYWD]),
         wbFormIDCk(CS2D, 'Sound', [SNDR]).SetRequired
-      ], [], cpNormal, False, nil, True)
+      ], [], cpNormal, False, True)
         .SetSummaryDelimiter(' ')
         .SetSummaryKey([1, 0])
         .SetSummaryMemberPrefixSuffix(0, '{', '}')
@@ -7991,7 +7991,7 @@ begin
       wbInteger('Y', itS32),
       wbInteger('Land Flags', itU8, wbLandFlags).IncludeFlag(dfCollapsed, wbCollapseFlags),
       wbUnused(3)
-    ], cpNormal, False, nil, 2)
+    ], cpNormal, False, 2)
       .SetSummaryKeyOnValue([0, 1, 2])
       .SetSummaryPrefixSuffixOnValue(0, '(', '')
       .SetSummaryPrefixSuffixOnValue(1, '', ')')
@@ -8138,7 +8138,7 @@ begin
       wbRStruct('Icon', [
         wbString(ICON, 'Large Icon FileName').SetRequired,
         wbString(MICO, 'Small Icon FileName')
-      ], [], cpNormal, False, nil, True)
+      ], [], cpNormal, False, True)
   else if wbGameMode = gmFO3 then
     wbICON :=
       wbRStruct('Icon', [
@@ -8371,7 +8371,7 @@ begin
       IsFO4Plus(
         wbUnused(1),
         nil)
-    ], cpNormal, False, nil, 3)
+    ]).SetOptionalFrom(3)
       .SetSummaryDelimiterOnValue(' ')
       .SetSummaryKeyOnValue([0, 3, 2])
       .SetSummaryPrefixSuffixOnValue(0, '[Level: ', ']')
@@ -8680,7 +8680,7 @@ begin
       IsTES4(
         wbFormIDCk(XGLB, 'Global', [GLOB]),
         nil)
-    ], aSkipSigs, cpNormal, False, nil, True)
+    ], aSkipSigs, cpNormal, False, True)
       .SetSummaryKey([0, 1])
       .SetSummaryMemberPrefixSuffix(1, '[Rank: ', ']')
       .SetSummaryDelimiter(' ')
@@ -8832,7 +8832,7 @@ begin
     lMembers[Length(lMembers) - Length(aTextureSubRecords) + I] := aTextureSubRecords[I];
 
   Result :=
-    wbRStruct(aSubRecordName, lMembers, nil, cpNormal, False, nil, True)
+    wbRStruct(aSubRecordName, lMembers, nil, cpNormal, False, True)
       .SetSummaryKey([0])
       .IncludeFlag(dfAllowAnyMember)
       .IncludeFlag(dfCollapsed, wbCollapseModels)

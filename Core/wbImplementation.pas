@@ -22585,7 +22585,7 @@ begin
         aEndPtr := aBasePtr;
         ValueDef := Resolve(ValueDef, aBasePtr, aEndPtr, aContainer);
         if Supports(ValueDef, IwbIntegerDef, IntegerDef) and Supports(IntegerDef.Formater[aContainer], IwbFlagsDef) then
-          ValueDef := wbEmpty(ValueDef.Name, ValueDef.ConflictPriority[nil], False, nil, True)
+          ValueDef := wbEmpty(ValueDef.Name, ValueDef.ConflictPriority[nil], False, True)
         else
           ValueDef := wbEmpty(ValueDef.Name, ValueDef.ConflictPriority[nil]);
       end;

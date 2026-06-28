@@ -1422,10 +1422,12 @@ begin
   wbConditions :=
     wbRArray('Conditions',
       wbRUnion('Condition', [
-      {0} wbStructSK(CTDA, [3,5,6], 'Condition', wbConditionMembers, cpNormal, False, nil, 7)
+      {0} wbStructSK(CTDA, [3,5,6], 'Condition', wbConditionMembers)
+            .SetOptionalFrom(7)
             .SetToStr(wbConditionToStr)
             .IncludeFlag(dfCollapsed, wbCollapseConditions),
-      {1} wbStructSK(CTDT, [3,5,6], 'Condition', wbConditionMembers, cpNormal, False, nil, 7)
+      {1} wbStructSK(CTDT, [3,5,6], 'Condition', wbConditionMembers)
+            .SetOptionalFrom(7)
             .SetToStr(wbConditionToStr)
             .IncludeFlag(dfCollapsed, wbCollapseConditions)
       ]));
@@ -1508,7 +1510,8 @@ begin
             wbInteger('Visual effect name', itU32, wbChar4),
             wbInteger('Hostile', itU8, wbBoolEnum),
             wbUnused(3)
-          ], cpNormal, True, nil, 1),
+          ]).SetOptionalFrom(1)
+            .SetRequired,
           wbFULLReq
         ])
       ]));
@@ -1775,12 +1778,12 @@ begin
       wbByteColors('Ambient Color'),
       wbByteColors('Directional Color'),
       wbByteColors('Fog Color'),
-      wbFloat('Fog Near', cpNormal, True, 1, 4, nil, wbNormalizeToRange(-163840, 163840)),
-      wbFloat('Fog Far', cpNormal, True, 1, 4, nil, wbNormalizeToRange(-163840, 163840)),
+      wbFloat('Fog Near', cpNormal, True, 1, 4, wbNormalizeToRange(-163840, 163840)),
+      wbFloat('Fog Far', cpNormal, True, 1, 4, wbNormalizeToRange(-163840, 163840)),
       wbInteger('Directional Rotation XY', itS32),
       wbInteger('Directional Rotation Z', itS32),
-      wbFloat('Directional Fade', cpNormal, True, 1, 4, nil, wbNormalizeToRange(0, 10), 1),
-      wbFloat('Fog Clip Dist', cpNormal, True, 1, 4, nil, wbNormalizeToRange(0, 163840))
+      wbFloat('Directional Fade', cpNormal, True, 1, 4, wbNormalizeToRange(0, 10), 1),
+      wbFloat('Fog Clip Dist', cpNormal, True, 1, 4, wbNormalizeToRange(0, 163840))
     ]).SetDontShow(wbCellExteriorDontShow)
       .SetIsRemovable(wbCellLightingIsRemovable),
     wbArrayS(XCLR, 'Regions',
@@ -1850,7 +1853,8 @@ begin
       wbInteger('Teaches', itS8, wbSkillEnum),
       wbInteger('Maximum training level', itU8),
       wbInteger('Unused', itU16)
-    ], cpNormal, True, nil, 5)
+    ]).SetOptionalFrom(5)
+      .SetRequired
   ]);
 
   wbRecord(CLMT, 'Climate', [
@@ -2101,7 +2105,8 @@ begin
       wbUnused(3),
       wbFloat('Rushing Attack Distance Mult').SetDefaultNativeValue(1),
       wbInteger('Do Not Acquire', itU32, wbBoolEnum)
-    ], cpNormal, True, nil, 25),
+    ]).SetOptionalFrom(25)
+      .SetRequired,
     wbStruct(CSAD, 'Advanced', [
       wbFloat('Dodge Fatigue Mod Mult').SetDefaultNativeValue(-20),
       wbFloat('Dodge Fatigue Mod Base'),
@@ -2243,7 +2248,8 @@ begin
       wbFloat('Color Key 1 - Color Key Time'),
       wbFloat('Color Key 2 - Color Key Time').SetDefaultNativeValue(0.5),
       wbFloat('Color Key 3 - Color Key Time').SetDefaultNativeValue(1)
-    ], cpNormal, True, nil, 8)
+    ]).SetOptionalFrom(8)
+      .SetRequired
   ]);
 
   wbRecord(ENCH, 'Enchantment', [
@@ -2415,7 +2421,8 @@ begin
         {6} 'Run for Rumors'
         ])
       ).IncludeFlag(dfCollapsed, wbCollapseFlags)
-    ], cpNormal, True, nil, 2),
+    ]).SetOptionalFrom(2)
+      .SetRequired,
     wbFormIDCkNoReach(QSTI, 'Quest', [QUST]).SetRequired,
     wbFormIDCkNoReach(TPIC, 'Previous Topic', [DIAL]),
     wbFormIDCkNoReach(PNAM, 'Previous Info', [INFO,NULL]),
@@ -2541,7 +2548,8 @@ begin
       wbFloat('FOV').SetDefaultNativeValue(90),
       wbInteger('Value', itU32),
       wbFloat('Weight')
-    ], cpNormal, True, nil, 6),
+    ]).SetOptionalFrom(6)
+      .SetRequired,
     wbFloat(FNAM, 'Fade value')
       .SetDefaultNativeValue(1.0)
       .SetRequired,
@@ -2721,7 +2729,8 @@ begin
       wbFormIDCk('Area sound', [SOUN, NULL]),
       wbFloat('Constant Effect enchantment factor'),
       wbFloat('Constant Effect barter factor')
-    ], cpNormal, True, nil, 10).SetRequired,
+    ]).SetOptionalFrom(10)
+      .SetRequired,
     wbArrayS(ESCE, 'Counter Effects', wbInteger('Counter Effect Code', itU32, wbChar4))
       .SetCountPathOnValue('DATA\Counter Effect Count', False)
   ]).SetAfterLoad(wbMGEFAfterLoad)
@@ -3241,7 +3250,8 @@ begin
           wbInteger('Override', itU8, wbBoolEnum),
           wbInteger('Priority', itU8),
           wbUnused(2)
-        ], cpNormal, True, nil, 3),
+        ]).SetOptionalFrom(3)
+          .SetRequired,
         wbArray(RDOT, 'Objects',
           wbStruct('Object', [
             wbFormIDCk('Object', [FLOR, LTEX, STAT, TREE]),
@@ -3382,7 +3392,9 @@ begin
     wbEDID,
     wbString(FNAM, 'Sound Filename'),
     wbStruct(SNDX, 'Sound Data', wbSoundDataMembers).SetRequired,
-    wbStruct(SNDD, 'Sound Data', wbSoundDataMembers, cpNormal, False, nil, 6).SetDontShow(wbAlwaysDontShow)
+    wbStruct(SNDD, 'Sound Data', wbSoundDataMembers)
+      .SetOptionalFrom(6)
+      .SetDontShow(wbAlwaysDontShow)
   ]).SetSummaryKey([1])
     .SetAfterLoad(wbSOUNAfterLoad);
 
@@ -3506,16 +3518,17 @@ begin
         wbFloat('Falloff').SetDefaultNativeValue(0.985),
         wbFloat('Dampner').SetDefaultNativeValue(2),
         wbFloat('Starting Size').SetDefaultNativeValue(0.01)
-      ], cpNormal, True, nil, 0),
+      ]).SetOptionalFrom(0),
       wbStruct('Displacement Simulator', [
         wbFloat('Force').SetDefaultNativeValue(0.4),
         wbFloat('Velocity').SetDefaultNativeValue(0.6),
         wbFloat('Falloff').SetDefaultNativeValue(0.985),
         wbFloat('Dampner').SetDefaultNativeValue(10),
         wbFloat('Starting Size').SetDefaultNativeValue(0.05)
-      ], cpNormal, True, nil, 0),
+      ]).SetOptionalFrom(0),
       wbInteger('Damage', itU16)
-    ], cpNormal, True, nil, 0),
+    ]).SetOptionalFrom(0)
+      .SetRequired,
     wbStruct(GNAM, 'Related Waters', [
       wbFormIDCk('Daytime', [WATR, NULL]),
       wbFormIDCk('Nighttime', [WATR, NULL]),

@@ -2269,7 +2269,8 @@ function wbWwiseGUID(const aSignature : TwbSignature;
                            aGetCP     : TwbGetConflictPriority = nil)
                                       : IwbSubRecordDef; overload;
 begin
-  Result := wbGUID(aSignature, aName, aPriority, aRequired, aDontShow);
+  Result := wbGUID(aSignature, aName, aPriority, aRequired);
+  Result.SetDontShow(aDontShow);
   Result.SetGetCP(aGetCP);
   Result.SetToStr(wbWwiseGuidToStr);
   Result.ForValue(procedure(const v: IwbValueDef)
@@ -2285,7 +2286,8 @@ function wbWwiseGUID(const aName      : string = 'Wwise GUID';
                            aGetCP     : TwbGetConflictPriority = nil)
                                       : IwbGuidDef; overload;
 begin
-  Result := wbGUID(aName, aPriority, aRequired, aDontShow);
+  Result := wbGUID(aName, aPriority, aRequired);
+  Result.SetDontShow(aDontShow);
   Result.SetGetCP(aGetCP);
   Result.SetToStr(wbWwiseGuidToStr).SetStaticEditInfo(@wbWwiseGuidEditInfo);
 end;
@@ -3535,7 +3537,8 @@ begin
       [], wbScriptFragmentsInfoCounter)
     ]).SetSummaryKey([1, 2, 3])
       .IncludeFlag(dfSummaryMembersNoName)
-  ], cpNormal, False, nil, 3).SetSummaryKeyOnValue([2, 3]);
+  ]).SetOptionalFrom(3)
+    .SetSummaryKeyOnValue([2, 3]);
 
   var wbVMADFragmentedPACK := wbStruct(VMAD, 'Virtual Machine Adapter', [
     wbVMADVersion,
@@ -3566,14 +3569,16 @@ begin
       [], wbScriptFragmentsPackCounter)
     ]).SetSummaryKey([1, 2, 3])
       .IncludeFlag(dfSummaryMembersNoName)
-  ], cpNormal, False, nil, 3).SetSummaryKeyOnValue([2, 3]);
+  ]).SetOptionalFrom(3)
+    .SetSummaryKeyOnValue([2, 3]);
 
   var wbVMADFragmentedPERK := wbStruct(VMAD, 'Virtual Machine Adapter', [
     wbVMADVersion,
     wbVMADObjectFormat,
     wbVMADScripts,
     wbScriptFragments
-  ], cpNormal, False, nil, 3).SetSummaryKeyOnValue([2, 3]);
+  ]).SetOptionalFrom(3)
+    .SetSummaryKeyOnValue([2, 3]);
 
   var wbVMADFragmentedQUST := wbStruct(VMAD, 'Virtual Machine Adapter', [
     wbVMADVersion,
@@ -3621,7 +3626,8 @@ begin
         .SetSummaryDelimiter(' ')
         .IncludeFlag(dfSummaryMembersNoName),
     -2)
-  ], cpNormal, False, nil, 3).SetSummaryKeyOnValue([2, 3, 4]);
+  ]).SetOptionalFrom(3)
+    .SetSummaryKeyOnValue([2, 3, 4]);
 
   var wbVMADFragmentedSCEN := wbStruct(VMAD, 'Virtual Machine Adapter', [
     wbVMADVersion,
@@ -3671,14 +3677,16 @@ begin
       -2)
     ]).SetSummaryKey([1, 2, 3, 4])
       .IncludeFlag(dfSummaryMembersNoName)
-  ], cpNormal, False, nil, 3).SetSummaryKeyOnValue([2, 3]);
+  ]).SetOptionalFrom(3)
+    .SetSummaryKeyOnValue([2, 3]);
 
   var wbVMADFragmentedTMLM := wbStruct(VMAD, 'Virtual Machine Adapter',[
     wbVMADVersion,
     wbVMADObjectFormat,
     wbVMADScripts,
     wbScriptFragments
-  ], cpNormal, False, nil, 3).SetSummaryKeyOnValue([2]);
+  ]).SetOptionalFrom(3)
+    .SetSummaryKeyOnValue([2]);
 
   var wbAttackData :=
     wbRArrayS('Attacks',
@@ -3824,11 +3832,11 @@ begin
         ]),
         wbFloat('Radius'),
         wbInteger('Collection Index', itU32)
-      ], cpNormal, False, nil, 3)
-       .SetSummaryKeyOnValue([0, 1])
-       .SetSummaryPrefixSuffixOnValue(0,'[',']')
-       .SetSummaryPrefixSuffixOnValue(1,'','')
-       .IncludeFlagOnValue(dfSummaryMembersNoName);
+      ]).SetOptionalFrom(3)
+        .SetSummaryKeyOnValue([0, 1])
+        .SetSummaryPrefixSuffixOnValue(0,'[',']')
+        .SetSummaryPrefixSuffixOnValue(1,'','')
+        .IncludeFlagOnValue(dfSummaryMembersNoName);
     end;
 
   var wbPLDT := wbLocation(PLDT);
@@ -3836,19 +3844,19 @@ begin
 
   var wbPTDA := wbStruct(PTDA, 'Target Data', [
     wbInteger('Type', itS32,
-      wbEnum([], [
-        0, 'Specific Reference',
-        1, 'Object ID',
-        2, 'Object Type',
-        3, 'Linked Reference',
-        4, 'Ref Alias',
-        5, 'Interrupt Data',
-        6, 'Self',
-        7, 'Keyword',
-        8, 'Ref Collection Alias',
-        9, 'Scene Primary Actor'
-      ]),
-    cpNormal, False, nil, nil, 2),
+      wbEnum([
+        {0} 'Specific Reference',
+        {1} 'Object ID',
+        {2} 'Object Type',
+        {3} 'Linked Reference',
+        {4} 'Ref Alias',
+        {5} 'Interrupt Data',
+        {6} 'Self',
+        {7} 'Keyword',
+        {8} 'Ref Collection Alias',
+        {9} 'Scene Primary Actor'
+      ])
+    ).SetDefaultNativeValue(2),
     wbUnion('Target', wbTypeDecider, [
       {0} wbFormIDCkNoReach('Reference', sigReferences, True),
       {1} wbFormIDCkNoReach('Object ID', [NULL, ACTI, DOOR, STAT, MSTT, FURN, SPEL, NPC_, CONT, ARMO, AMMO, MISC, WEAP, OMOD, BOOK, NOTE, KEYM, ALCH, INGR, LIGH, FACT, FLST, IDLM, TXST, PROJ, PKIN]),
@@ -3883,7 +3891,7 @@ begin
     wbInteger('Flags', itU8, wbFlags(['Unknown 0', '', 'Leveled Lock'])).IncludeFlag(dfCollapsed, wbCollapseFlags),
     wbUnused(3),
     wbInteger('Unknown', itU32)
-  ], cpNormal, False, nil, 4);
+  ]).SetOptionalFrom(4);
 
   var wbMODS := wbFloat(MODS, 'Color Remapping Index');
   var wbMO2S := wbFloat(MO2S, 'Color Remapping Index');
@@ -3971,16 +3979,14 @@ begin
 //          wbModelInfo(DMDT),
 //          wbDMDC,
           wbDMDS.IncludeFlagOnValue(dfSummaryExcludeNULL)
-        ], [], cpNormal, False, nil, True)
+        ], [], cpNormal, False, True)
           .SetSummaryKey([0])
           .IncludeFlag(dfCollapsed, wbCollapseModels),
-        wbEmpty(DSTF, 'End Marker', cpNormal, True)
-      ], [], cpNormal, False, nil)
-        .SetSummaryKey([0, 2])
+        wbEmpty(DSTF, 'End Marker').SetRequired
+      ]).SetSummaryKey([0, 2])
         .IncludeFlag(dfSummaryMembersNoName)
     ).SetCountPath('...\DEST - Header\Stage Count')
-  ], [], cpNormal, False, nil)
-  .SetSummaryKey([3]);
+  ]).SetSummaryKey([3]);
 
   var wbXESP := wbStruct(XESP, 'Enable State Parent', [
     wbFormIDCk('Reference', sigReferences),
@@ -4011,7 +4017,7 @@ begin
 
   var wbSNTP := wbFormIDCk(SNTP, 'Snap Template', [STMP]);
   var wbSNBH := wbFormIDCk(SNBH, 'Snap Behavior', [STBH]);
-  var wbODTYReq := wbFloat(ODTY, 'Dirtiness Scale', cpNormal, True, 1, -1, nil, wbFloatScale0to1); // any record which can have ODTY should always have it
+  var wbODTYReq := wbFloat(ODTY, 'Dirtiness Scale', cpNormal, True, 1, -1, wbFloatScale0to1); // any record which can have ODTY should always have it
   var wbOPDS :=
     wbStruct(OPDS, 'Object Palette Defaults', [
       wbInteger('Flags', itU8, wbFlags([
@@ -4757,7 +4763,7 @@ begin
       wbFloat('Magnitude', cpNormal, True),
       wbFloat('Area'),
       wbInteger('Duration', itU32)
-    ], cpNormal, True, nil, -1);
+    ]).SetRequired;
 
   var wbConditionParameters := [
     //Misc
@@ -6860,8 +6866,8 @@ begin
               wbArray('Data',
                 wbArray('Row',
                   wbStruct('Column', [
-                    wbFloat('Terrain Height', cpNormal, True, 1, 0, nil, wbNormalizeToRange(-800.0, 800.0)),
-                    wbFloat('Water Height', cpNormal, True, 1, 0, nil, wbNormalizeToRange(-800.0, 800.0))
+                    wbFloat('Terrain Height', cpNormal, True, 1, 0, wbNormalizeToRange(-800.0, 800.0)),
+                    wbFloat('Water Height', cpNormal, True, 1, 0, wbNormalizeToRange(-800.0, 800.0))
                   ]).IncludeFlag(dfCollapsed, wbCollapseObjectBounds),
                 16).IncludeFlag(dfCollapsed, wbCollapseObjectBounds),
               16).IncludeFlag(dfCollapsed, wbCollapseObjectBounds)
@@ -6875,7 +6881,7 @@ begin
                   wbFormIDCk('Surface Pattern', [SFPT]),
                   wbUnknown(1),
                   wbUnknown(4) // present on all array entries except last - is usually an index to the pattern array, sometimes with an offset adjustment
-                ], cpNormal, False, nil, 2),
+                ]).SetOptionalFrom(2),
               -1)
             ]),
             //BGSBlockEditorMetaData_Component
@@ -6899,7 +6905,7 @@ begin
               wbInteger('Satellite ID', itS32),
               wbLongitude(),
               wbLatitude()    // There is one vanilla record which has a very old date where the data structure is 8 bytes short. Possibly they used 2 floats instead of 2 doubles for lon/lat.
-            ], cpNormal, False, nil, 9)
+            ]).SetOptionalFrom(9)
           ]).IncludeFlag(dfUnionStaticResolve)
         ]),
         //BGSEffectSequenceComponent
@@ -6974,7 +6980,7 @@ begin
       wbFromVersion(125, wbUnused(3)), // padding
       wbFromVersion(555, wbInteger('Exit Types', itU8, wbMarkerEntryExitTypes).IncludeFlag(dfCollapsed, wbCollapseFlags)),
       wbFromVersion(555, wbUnused(3)) // padding
-    ], cpNormal, False, nil, 4));
+    ]).SetOptionalFrom(4));
 
   var wbObjectModProperties :=
    wbArrayS('Properties', wbStructSK([4], 'Property', [
@@ -7104,12 +7110,13 @@ begin
           wbInteger(XFLG, 'Flags', itU8, wbModelFlags).IncludeFlag(dfCollapsed, wbCollapseFlags)
     //      wbMODS, // can still be read, might not be properly supported anymore, doesn't occur in Starfield.esm
     //      wbMODF  // can still be read, might not be properly supported anymore, doesn't occur in Starfield.esm
-        ], [], cpNormal, aRequired, aDontShow)
-        .SetSummaryKey([1])
-        .IncludeFlag(dfSummaryMembersNoName)
-        .IncludeFlag(dfCollapsed, wbCollapseModels)
-        .IncludeFlag(dfAllowAnyMember)
-        .IncludeFlag(dfStructFirstNotRequired);
+        ]).SetSummaryKey([1])
+          .SetDontShow(aDontShow)
+          .SetRequired(aRequired)
+          .IncludeFlag(dfSummaryMembersNoName)
+          .IncludeFlag(dfCollapsed, wbCollapseModels)
+          .IncludeFlag(dfAllowAnyMember)
+          .IncludeFlag(dfStructFirstNotRequired);
     end;
 
   var wbAVMDMNAMReq :=
@@ -7124,7 +7131,7 @@ begin
     wbRArrayS('Linked References', wbStruct(XLKR, 'Linked Reference', [
       wbFormIDCk('Keyword/Ref', [KYWD] + sigReferences),
       wbFormIDCk('Ref', sigReferences)
-    ], cpNormal, False, nil, 1));
+    ]).SetOptionalFrom(1));
 
   var wbLinkedReferences :=
     wbRStruct('Linked References', [
@@ -7236,18 +7243,18 @@ begin
     ], cpNormal, True);
 
     var wbCSTYPowerWeightingStruct := wbStruct('Power Weighting', [
-      wbFloat('Engines', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Shields', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Guns', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
+      wbFloat('Engines', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Shields', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Guns', cpNormal, True, 1, -1, wbFloatScale0to10),
       wbStruct('Shield Based Guns', [
-        wbFloat('EM', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-        wbFloat('Hull', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-        wbFloat('Shield', cpNormal, True, 1, -1, nil, wbFloatScale0to10)
+        wbFloat('EM', cpNormal, True, 1, -1, wbFloatScale0to10),
+        wbFloat('Hull', cpNormal, True, 1, -1, wbFloatScale0to10),
+        wbFloat('Shield', cpNormal, True, 1, -1, wbFloatScale0to10)
       ]),
         wbStruct('Hull Based Guns', [
-        wbFloat('EM', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-        wbFloat('Hull', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-        wbFloat('Shield', cpNormal, True, 1, -1, nil, wbFloatScale0to10)
+        wbFloat('EM', cpNormal, True, 1, -1, wbFloatScale0to10),
+        wbFloat('Hull', cpNormal, True, 1, -1, wbFloatScale0to10),
+        wbFloat('Shield', cpNormal, True, 1, -1, wbFloatScale0to10)
       ])
     ]);
 
@@ -7256,14 +7263,14 @@ begin
     var wbCSTYManneuverTimingStruct := function(aName: string = 'Timings'):IwbStructDef
     begin
       Result := wbStruct(aName, [
-        wbFloat('Engage', cpNormal, True, 1, -1, nil, wbCSTYNormalizeFloat600),
-        wbFloat('Evade', cpNormal, True, 1, -1, nil, wbCSTYNormalizeFloat600),
-        wbFloat('Acquire', cpNormal, True, 1, -1, nil, wbCSTYNormalizeFloat600),
-        wbFloat('Persue', cpNormal, True, 1, -1, nil, wbCSTYNormalizeFloat600),
-        wbFloat('Disengage', cpNormal, True, 1, -1, nil, wbCSTYNormalizeFloat600),
-        wbFloat('Surround', cpNormal, True, 1, -1, nil, wbCSTYNormalizeFloat600),
+        wbFloat('Engage', cpNormal, True, 1, -1, wbCSTYNormalizeFloat600),
+        wbFloat('Evade', cpNormal, True, 1, -1, wbCSTYNormalizeFloat600),
+        wbFloat('Acquire', cpNormal, True, 1, -1, wbCSTYNormalizeFloat600),
+        wbFloat('Persue', cpNormal, True, 1, -1, wbCSTYNormalizeFloat600),
+        wbFloat('Disengage', cpNormal, True, 1, -1, wbCSTYNormalizeFloat600),
+        wbFloat('Surround', cpNormal, True, 1, -1, wbCSTYNormalizeFloat600),
         wbUnknown(4),
-        wbFloat('Break Stalemate', cpNormal, True, 1, -1, nil, wbCSTYNormalizeFloat600)
+        wbFloat('Break Stalemate', cpNormal, True, 1, -1, wbCSTYNormalizeFloat600)
       ]);
     end;
 
@@ -8883,7 +8890,7 @@ begin
       wbFloat('Shadow Offset'),
       wbUnknown(4),
       wbUnknown(4)
-    ], cpNormal, False, nil, 4),
+    ]).SetOptionalFrom(4),
     wbFloat(XRDS, 'Radius'),
     wbRArray('Water Current Data',
       wbRStruct('Current', [
@@ -9177,7 +9184,7 @@ begin
       wbVec3('Half Extents'),
       wbInteger('Wind - Detached End', itU8, wbBoolEnum),
       wbUnused(3)
-    ], cpNormal, False, nil, 5),
+    ]).SetOptionalFrom(5),
     wbReflection(XNSE),
     wbFormIDCk(XATR, 'Attach Ref', sigReferences),
     wbArray(XLRT, 'Location Ref Type', wbFormIDCk('Ref', [LCRT, NULL])),
@@ -9422,7 +9429,7 @@ begin
       wbFloat('Volume'),
       wbInteger('Starts Active', itU8, wbBoolEnum),
       wbInteger('No Signal Static', itU8, wbBoolEnum)
-    ], cpNormal, False, nil),
+    ]),
     wbRStruct('Conditions', [
       wbCITCReq,
       wbConditions.SetRequired
@@ -9562,7 +9569,7 @@ begin
        wbFloat('Cone of Fire - Iron Sights Mult'),
        wbFloat('Recoil - Base Stability'),
        wbInteger('Cone of Fire Ignores Movement', itU8, wbBoolEnum)
-    ], cpNormal, False, nil, 16)
+    ]).SetOptionalFrom(16)
   ]);
 
   {subrecords checked against Starfield.esm}
@@ -9604,11 +9611,11 @@ begin
     wbStruct(DATA, 'Data', [
       wbInteger('Value', itU32),
       wbFloat('Weight')
-    ], cpNormal, True, nil, 1)
-    .SetSummaryKeyOnValue([0,1])
-    .SetSummaryPrefixSuffixOnValue(0, 'Value = ',', ')
-    .SetSummaryPrefixSuffixOnValue(1, 'Weight = ','')
-    ,
+    ]).SetOptionalFrom(1)
+      .SetSummaryKeyOnValue([0,1])
+      .SetSummaryPrefixSuffixOnValue(0, 'Value = ',', ')
+      .SetSummaryPrefixSuffixOnValue(1, 'Weight = ','')
+      .SetRequired,
     wbStructSK(DNAM, [0], '', [
       wbFormIDCk('Projectile', [PROJ, NULL]),
       wbInteger('Flags', itU8, wbFlags([
@@ -10724,7 +10731,8 @@ begin
       wbFloat('Location Spring'),
       wbFloat('Target Spring'),
       wbVec3('Rotation Offset')
-    ], cpNormal, True, nil, 9),
+    ]).SetOptionalFrom(9)
+      .SetRequired,
     wbFormIDCk(MNAM, 'Image Space Modifier', [IMAD]),
     wbString(GNAM, 'Animation')
   ]);
@@ -11198,119 +11206,121 @@ begin
     ])), [
     wbEDID,
     wbStruct(CSGD, 'General', [
-      wbFloat('Offensive Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Defensive Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Group Offensive Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Equipment Score Mult - Melee', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Equipment Score Mult - Magic', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Equipment Score Mult - Ranged', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Equipment Score Mult - Shout', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Equipment Score Mult - Unarmed', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Equipment Score Mult - Staff', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Avoid Threat Chance', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Dodge Threat Chance', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Evade Threat Chance', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Heal Ally Distance', cpNormal, True, 1, -1, nil, wbFloatScale0to100),
-      wbFloat('Jump Cost Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Taunt Delay Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to10)
+      wbFloat('Offensive Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Defensive Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Group Offensive Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Equipment Score Mult - Melee', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Equipment Score Mult - Magic', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Equipment Score Mult - Ranged', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Equipment Score Mult - Shout', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Equipment Score Mult - Unarmed', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Equipment Score Mult - Staff', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Avoid Threat Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Dodge Threat Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Evade Threat Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Heal Ally Distance', cpNormal, True, 1, -1, wbFloatScale0to100),
+      wbFloat('Jump Cost Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Taunt Delay Mult', cpNormal, True, 1, -1, wbFloatScale0to10)
     ], cpNormal, True),
     wbStruct(CSME, 'Melee', [
-      wbFloat('Attack Staggered Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Power Attack Staggered Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Power Attack Blocking Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Bash Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Bash Recoil Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Bash Attack Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Bash Power Attack Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Special Attack Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Block When Staggered Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Attack When Staggered Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to10)
-    ], cpNormal, True, nil, 9),
+      wbFloat('Attack Staggered Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Power Attack Staggered Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Power Attack Blocking Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Bash Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Bash Recoil Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Bash Attack Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Bash Power Attack Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Special Attack Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Block When Staggered Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Attack When Staggered Mult', cpNormal, True, 1, -1, wbFloatScale0to10)
+    ]).SetOptionalFrom(9)
+      .SetRequired,
     wbStruct(CSRA, 'Ranged', [
-      wbFloat('Ranged Accuracy Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Throw Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Grenade - Advanced Throwing Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Grenade - Flash Target Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Grenade - Throw At Group Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Grenade - Close Range Attack Chance Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1)
-    ], cpNormal, True),
+      wbFloat('Ranged Accuracy Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Throw Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Grenade - Advanced Throwing Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Grenade - Flash Target Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Grenade - Throw At Group Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Grenade - Close Range Attack Chance Mult', cpNormal, True, 1, -1, wbFloatScale0to1)
+    ]).SetRequired,
     wbStruct(CSCR, 'Close Range', [
-      wbFloat('Dueling - Circle Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Dueling - Fallback Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Flanking - Flank Distance', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Flanking - Stalk Time', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Charging - Charge Distance', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Charging - Throw Probability', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Charging - Sprint Fast Probability', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Charging - Sideswipe Probability', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Charging - Disengane Probability', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
+      wbFloat('Dueling - Circle Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Dueling - Fallback Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Flanking - Flank Distance', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Flanking - Stalk Time', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Charging - Charge Distance', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Charging - Throw Probability', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Charging - Sprint Fast Probability', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Charging - Sideswipe Probability', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Charging - Disengane Probability', cpNormal, True, 1, -1, wbFloatScale0to1),
       wbInteger('Charging - Throw Max Targets', itU32),
-      wbFloat('Flanking - Flank Variance', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Retreat - Chance', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Retreat - Distance Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1)
-    ], cpNormal, True),
+      wbFloat('Flanking - Flank Variance', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Retreat - Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Retreat - Distance Mult', cpNormal, True, 1, -1, wbFloatScale0to1)
+    ]).SetRequired,
     wbStruct(CSLR, 'Long Range', [
-      wbFloat('Strafe Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Adjust Range Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Crouch Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Wait Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Range Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Provide Suppressive Fire Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Retreat - Chance', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Retreat - Hide Time Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Retreat - Distance Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1)
-    ], cpNormal, True, nil, 3),
+      wbFloat('Strafe Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Adjust Range Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Crouch Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Wait Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Range Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Provide Suppressive Fire Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Retreat - Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Retreat - Hide Time Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Retreat - Distance Mult', cpNormal, True, 1, -1, wbFloatScale0to1)
+    ]).SetOptionalFrom(3)
+      .SetRequired,
     wbStruct(CSCV, 'Cover Search', [
-      wbFloat('Cover Search Distance Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Suppression Sensitivity', cpNormal, True, 1, -1, nil, wbFloatScale0to1)
-    ], cpNormal, True),
+      wbFloat('Cover Search Distance Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Suppression Sensitivity', cpNormal, True, 1, -1, wbFloatScale0to1)
+    ]).SetRequired,
     wbStruct(CSFL, 'Flight', [
-      wbFloat('Hover Chance', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Dive Bomb Chance', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Ground Attack Chance', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Hover Time', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Ground Attack Time', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Perch Attack Chance', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Perch Attack Time', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Flying Attack Chance', cpNormal, True, 1, -1, nil, wbFloatScale0to1)
-    ], cpNormal, True),
+      wbFloat('Hover Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Dive Bomb Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Ground Attack Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Hover Time', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Ground Attack Time', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Perch Attack Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Perch Attack Time', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Flying Attack Chance', cpNormal, True, 1, -1, wbFloatScale0to1)
+    ]).SetRequired,
     wbStruct(CSTN, 'Tunnel', [
-      wbFloat('Cost Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Chance', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Max Distance', cpNormal, True, 1, -1, nil, wbNormalizeToRange(0.0, 1000.0)),
-      wbFloat('Speed Mult', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Min Time', cpNormal, True, 1, -1, nil, wbCSTYNormalizeFloat30),
-      wbFloat('Max Time', cpNormal, True, 1, -1, nil, wbCSTYNormalizeFloat30),
-      wbFloat('Maximum Time', cpNormal, True, 1, -1, nil, wbCSTYNormalizeFloat30),
-      wbFloat('Cooldown', cpNormal, True, 1, -1, nil, wbCSTYNormalizeFloat30)
+      wbFloat('Cost Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Max Distance', cpNormal, True, 1, -1, wbNormalizeToRange(0.0, 1000.0)),
+      wbFloat('Speed Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Min Time', cpNormal, True, 1, -1, wbCSTYNormalizeFloat30),
+      wbFloat('Max Time', cpNormal, True, 1, -1, wbCSTYNormalizeFloat30),
+      wbFloat('Maximum Time', cpNormal, True, 1, -1, wbCSTYNormalizeFloat30),
+      wbFloat('Cooldown', cpNormal, True, 1, -1, wbCSTYNormalizeFloat30)
     ]),
     wbStruct(CSSG, 'Space General', [
-      wbFloat('Pilot Skill', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Accuracy', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Target Shield', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Adjustment', cpNormal, True, 1, -1, nil, wbNormalizeToRange(0.0, 60.0)),
+      wbFloat('Pilot Skill', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Accuracy', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Target Shield', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Adjustment', cpNormal, True, 1, -1, wbNormalizeToRange(0.0, 60.0)),
       wbStruct('Engage Maneuver Chance', [
-        wbFloat('Direct Attack', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-        wbFloat('Pass', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-        wbFloat('Lead Turn', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-        wbFloat('Slide Turn', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-        wbFloat('Barrel Roll', cpNormal, True, 1, -1, nil, wbFloatScale0to1)
+        wbFloat('Direct Attack', cpNormal, True, 1, -1, wbFloatScale0to1),
+        wbFloat('Pass', cpNormal, True, 1, -1, wbFloatScale0to1),
+        wbFloat('Lead Turn', cpNormal, True, 1, -1, wbFloatScale0to1),
+        wbFloat('Slide Turn', cpNormal, True, 1, -1, wbFloatScale0to1),
+        wbFloat('Barrel Roll', cpNormal, True, 1, -1, wbFloatScale0to1)
       ]),
       wbStruct('Evade Maneuver Chance', [
-        wbFloat('Break', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-        wbFloat('Scissors', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-        wbFloat('Cut', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-        wbFloat('Boost', cpNormal, True, 1, -1, nil, wbFloatScale0to1)
+        wbFloat('Break', cpNormal, True, 1, -1, wbFloatScale0to1),
+        wbFloat('Scissors', cpNormal, True, 1, -1, wbFloatScale0to1),
+        wbFloat('Cut', cpNormal, True, 1, -1, wbFloatScale0to1),
+        wbFloat('Boost', cpNormal, True, 1, -1, wbFloatScale0to1)
       ]),
       wbStruct('Acquire Maneuver Chance', [
-        wbFloat('Sliceback', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-        wbFloat('Strafe Turn', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-        wbFloat('Acquire', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-        wbFloat('Turn', cpNormal, True, 1, -1, nil, wbFloatScale0to1)
+        wbFloat('Sliceback', cpNormal, True, 1, -1, wbFloatScale0to1),
+        wbFloat('Strafe Turn', cpNormal, True, 1, -1, wbFloatScale0to1),
+        wbFloat('Acquire', cpNormal, True, 1, -1, wbFloatScale0to1),
+        wbFloat('Turn', cpNormal, True, 1, -1, wbFloatScale0to1)
       ]),
       wbFloat('Disengage Maneuver Chance'),
-      wbFloat('Missile Seeking Strength', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      wbFloat('Min Time Between Boosts', cpNormal, True, 1, -1, nil, wbNormalizeToRange(0.0, 60.0)),
+      wbFloat('Missile Seeking Strength', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Min Time Between Boosts', cpNormal, True, 1, -1, wbNormalizeToRange(0.0, 60.0)),
       wbInteger('Combat Strafing', itU8, wbBoolEnum),
       wbInteger('Rolls During Boost', itU8, wbBoolEnum),
       wbUnused(2), //padding
@@ -11321,9 +11331,9 @@ begin
       wbCSTYManneuverTimingStruct('Reentry Delays')
     ]),
     wbStruct(CSSR, 'Space Repair', [
-      wbFloat('Damage Threshold', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Faraway Distance %', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      wbFloat('Power to Use', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
+      wbFloat('Damage Threshold', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Faraway Distance %', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Power to Use', cpNormal, True, 1, -1, wbFloatScale0to1),
       wbStruct('In Close Power Weighting Tables', [
         wbCSTYPowerWeightingStruct
       ]),
@@ -11332,7 +11342,7 @@ begin
       ])
     ]),
     wbStruct(CSSA, 'Space Approaching', [
-      wbFloat('Min Distance', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
+      wbFloat('Min Distance', cpNormal, True, 1, -1, wbFloatScale0to1),
       wbCSTYPowerWeightingStruct
     ]),
     wbStruct(CSSD, 'Space Detection', [
@@ -11899,7 +11909,7 @@ begin
       wbFloat('Charge Time'),
       wbFormIDCk('Base Enchantment', [ENCH, NULL]),
       wbFormIDCk('Worn Restrictions', [FLST, NULL])
-    ], cpNormal, True, nil),
+    ]).SetRequired,
     wbEffectsReq
   ]);
 
@@ -11967,10 +11977,10 @@ begin
         'Extra Large'
       ])),
       wbStruct('Spawn', [
-        wbFloat('X', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-        wbFloat('Y', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-        wbFloat('Z', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-        wbFloat('Spread Degrees', cpNormal, True, 1, -1, nil, wbNormalizeToRange(0, 180)),
+        wbFloat('X', cpNormal, True, 1, -1, wbFloatScale0to1),
+        wbFloat('Y', cpNormal, True, 1, -1, wbFloatScale0to1),
+        wbFloat('Z', cpNormal, True, 1, -1, wbFloatScale0to1),
+        wbFloat('Spread Degrees', cpNormal, True, 1, -1, wbNormalizeToRange(0, 180)),
         wbInteger('Count', itU32)
       ]),
       wbFloat('Duration')
@@ -12029,7 +12039,9 @@ begin
         {0x00020000} 'Ignore Crimes: Smuggling',
         {0x00040000} 'Report Crimes By Members Against Members'
       ])).IncludeFlag(dfCollapsed, wbCollapseFlags)
-    ], cpNormal, True, nil, 1).SetSummaryKeyOnValue([0]),
+    ]).SetOptionalFrom(1)
+      .SetSummaryKeyOnValue([0])
+      .SetRequired,
     wbFormIDCk(CRGR, 'Shared Crime Faction List', [FLST]),
     wbStruct(CRVA, 'Crime Values', [
       wbInteger('Arrest', itU8, wbBoolEnum),
@@ -12043,8 +12055,8 @@ begin
       wbInteger('Escape', itU16),
       wbInteger('Piracy', itU16),
       wbFloat('Smuggle Multiplier')
-    ], cpNormal, False, nil, 7)
-    .SetSummaryKeyOnValue([0,1]),
+    ]).SetOptionalFrom(7)
+      .SetSummaryKeyOnValue([0,1]),
     wbArray(PRIS, 'Prisons',
       wbStruct('Prison Location', [
         wbFormIDCk('Prison Door Marker', [NULL, REFR]),
@@ -12176,10 +12188,10 @@ begin
       .SetFlagHasDontShow(28, wbFlagNavmeshOnlyCutDontShow)
       .SetFlagHasDontShow(29, wbFlagNavmeshIgnoreErosionDontShow)
       .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
-    wbString(EDID, 'Editor ID', 0, cpBenign, True, nil, wbFLSTEDIDAfterSet),
+    wbString(EDID, 'Editor ID', 0, cpBenign, True, wbFLSTEDIDAfterSet),
     wbBaseFormComponents,
     wbFULL,
-    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID'), cpNormal, False, nil, nil, nil, wbFLSTLNAMIsSorted),
+    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID'), cpNormal, False, nil, nil, wbFLSTLNAMIsSorted),
     wbRStructs('Conditional Entries', 'Conditional Entry', [
       wbInteger(INAM, 'Index', itU32),
       wbCITCReq,
@@ -12448,7 +12460,7 @@ begin
       wbInteger(DNAM, 'Override Density', itS16).SetDefaultEditValue('-1')
     ])),
     wbRArray('Landscape Textures', wbFormIDCk(LNAM, 'Landscape Texture', [LTEX])),
-    wbFloat(YNAM, 'Painted Material Threshold', cpNormal, True, 100.0, 0, nil, wbNormalizeToRange(0.1, 1.0)).SetDefaultEditValue('28.0')
+    wbFloat(YNAM, 'Painted Material Threshold', cpNormal, True, 100.0, 0, wbNormalizeToRange(0.1, 1.0)).SetDefaultNativeValue(28.0)
   ]);
 
   {subrecords checked against Starfield.esm}
@@ -12487,7 +12499,7 @@ begin
 
   {subrecords checked against Starfield.esm}
   wbRecord(GMST, 'Game Setting', [
-    wbString(EDID, 'Editor ID', 0, cpCritical, True, nil, wbGMSTEDIDAfterSet),
+    wbString(EDID, 'Editor ID', 0, cpCritical, True, wbGMSTEDIDAfterSet),
     wbXALG,
     wbUnion(DATA, 'Value', wbGMSTUnionDecider, [
       wbLString('Name', 0, cpTranslate),
@@ -12616,10 +12628,10 @@ begin
     wbBaseFormComponents,
     wbGenericModel(True),
     wbStruct(DNAM, 'Data', [
-      { 0} wbFloat('Contrast', cpNormal, True, 1, -1, nil, wbFloatScale0to100),
-      { 4} wbFloat('Cluster Scale', cpNormal, True, 1, -1, nil, wbFloatScale0to10),
-      { 8} wbFloat('Height Range', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
-      {12} wbFloat('Color Range', cpNormal, True, 1, -1, nil, wbFloatScale0to1),
+      { 0} wbFloat('Contrast', cpNormal, True, 1, -1, wbFloatScale0to100),
+      { 4} wbFloat('Cluster Scale', cpNormal, True, 1, -1, wbFloatScale0to10),
+      { 8} wbFloat('Height Range', cpNormal, True, 1, -1, wbFloatScale0to1),
+      {12} wbFloat('Color Range', cpNormal, True, 1, -1, wbFloatScale0to1),
       {16} wbFloat('Wind Frequency'),
       {20} wbFloat('Above Water Clamp - Value').SetDefaultEditValue('Default'),
       {24} wbFloat('Below Water Clamp - Value').SetDefaultEditValue('Default'),
@@ -12632,7 +12644,7 @@ begin
         'Fits Slope',
         'Apply Between'
       ])).IncludeFlag(dfCollapsed, wbCollapseFlags),
-      {32} wbFloat('Coverage', cpNormal, True, 1, -1, nil, wbFloatScale0to100),
+      {32} wbFloat('Coverage', cpNormal, True, 1, -1, wbFloatScale0to100),
       {36} wbInteger('Dirtiness Min', itU8, wbDiv(255)),
       {37} wbInteger('Dirtiness Max', itu8, wbDiv(255))
     ], cpNormal, True)
@@ -13920,7 +13932,8 @@ begin
       wbFloat('Far Height Mid'),
       wbFloat('Far Height Range'),
       wbUnknown(4)
-    ], cpNormal, True, nil, 15),
+    ]).SetOptionalFrom(15)
+      .SetRequired,
     wbAmbientColors(DALC)
   ]);
 
@@ -14078,7 +14091,7 @@ begin
       wbInteger('Friction', itU8),
       wbInteger('Restitution', itU8)
     ], cpNormal, True).SetSummaryKeyOnValue([0,1]),
-    wbFloat(QNAM, 'Dirtiness', cpNormal, True, 1, -1, nil, wbFloatScale0to1).SetDefaultEditValue('1.0')
+    wbFloat(QNAM, 'Dirtiness', cpNormal, True, 1, -1, wbFloatScale0to1).SetDefaultNativeValue(1.0)
   ]).SetSummaryKey([1]);
 
   {subrecords checked against Starfield.esm}
@@ -16904,7 +16917,7 @@ begin
         ], cpNormal, True)
         .SetSummaryKeyOnValue([0, 1])
         .IncludeFlag(dfTerminator)
-      ], [], cpNormal, False, nil, True)
+      ], [], cpNormal, False, True)
       .IncludeFlag(dfAllowAnyMember)
     ),
     wbFloat(PTOP, 'Idle Chatter Time Min'),
@@ -16975,7 +16988,7 @@ begin
         wbFormIDCk('Weather', [WTHR]),
         wbInteger('Chance', itU32),
         wbFormIDCk('Global', [GLOB, NULL])
-      ]), 0, cpNormal, False, nil, nil, wbREGNWeatherDontShow)
+      ])).SetDontShow(wbREGNWeatherDontShow)
     ]))
   ], True);
 
@@ -17942,7 +17955,8 @@ begin
       wbUnused(4),
       wbFloat('Particle Density'),
       wbUnused(4)
-    ], cpNormal, True, nil, 10),
+    ]).SetOptionalFrom(10)
+      .SetRequired,
     wbString(MNAM, 'Particle Texture')
   ]);
 
@@ -18016,7 +18030,8 @@ begin
       wbFloat,
       wbFloat('Leaf Amplitude'),
       wbFloat('Leaf Frequency')
-    ], cpNormal, True, nil, 2),
+    ]).SetOptionalFrom(2)
+      .SetRequired,
     wbSoundReference(STLS, 'Ambient Sound'),
     wbNVNM
   ], False);
@@ -18529,15 +18544,16 @@ begin
     wbBaseFormComponents,
     wbStruct(DATA, 'Data', [
       wbVec3PosRot,
-      wbFloat('Scale').SetDefaultEditValue('1.0'),
+      wbFloat('Scale').SetDefaultNativeValue(1.0),
       wbFloat('Zoom Min'),
       wbFloat('Zoom Max')
-    ], cpNormal, True, nil, 2)
+    ]).SetOptionalFrom(2)
       .SetSummaryKeyOnValue([0,1,2,3])
       .SetSummaryPrefixSuffixOnValue(1, '','x')
       .SetSummaryPrefixSuffixOnValue(2, 'From ','')
       .SetSummaryPrefixSuffixOnValue(3, 'to ',' ')
-      .IncludeFlagOnValue(dfSummaryMembersNoName),
+      .IncludeFlagOnValue(dfSummaryMembersNoName)
+      .SetRequired,
     wbInteger(BNAM, 'Basis', itU8,
       wbEnum([
       {0} 'World Bound',

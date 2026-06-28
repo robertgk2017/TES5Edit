@@ -775,8 +775,9 @@ begin
       wbModelInfo(MODT),
       wbMODS,
       wbMODD
-    ], [], cpNormal, aRequired, aDontShow, True)
+    ], [], cpNormal, aRequired, True)
     .SetSummaryKey([0])
+    .SetDontShow(aDontShow)
     .IncludeFlag(dfSummaryMembersNoName)
     .IncludeFlag(dfSummaryNoSortKey)
     .IncludeFlag(dfCollapsed, wbCollapseModels);
@@ -3065,7 +3066,7 @@ begin
             wbInteger('Unused', itU32, nil, cpIgnore),
             wbFormIDCkNoReach('Reference', [ACHR, ACRE, PBEA, PGRE, PLYR, PMIS, REFR], True)
           ])
-      ], cpNormal, False, nil, 7)
+      ]).SetOptionalFrom(7)
         .SetAfterLoad(wbConditionsfterLoad)
         .SetToStr(wbConditionToStr)
         .IncludeFlag(dfCollapsed, wbCollapseConditions));
@@ -3654,7 +3655,7 @@ begin
       wbFloat('Directional Fade'),
       wbFloat('Fog Clip Dist'),
       wbFloat('Fog Power')
-    ], cpNormal, False, nil, 7)
+    ]).SetOptionalFrom(7)
       .SetDontShow(wbCellExteriorDontShow)
       .SetIsRemovable(wbCellLightingIsRemovable),
     wbArray(IMPF, 'Footstep Materials', wbString('Unknown', 30), [
@@ -4058,7 +4059,8 @@ begin
         {1} 'Top-level'
         ])
       ).IncludeFlag(dfCollapsed, wbCollapseFlags)
-    ], cpNormal, True, nil, 1),
+    ]).SetOptionalFrom(1)
+      .SetRequired,
     wbINOM,
     wbINOA
   ]);
@@ -4179,7 +4181,8 @@ begin
       wbFloat('Addon Models - Scale End'),
       wbFloat('Addon Models - Scale In Time'),
       wbFloat('Addon Models - Scale Out Time')
-    ], cpNormal, True, nil, 57)
+    ]).SetOptionalFrom(57)
+      .SetRequired
   ]).SetAfterLoad(wbEFSHAfterLoad);
 
   wbRecord(ENCH, 'Object Effect', [
@@ -4234,7 +4237,8 @@ begin
           {1} 'Allow Sell'
         ])).IncludeFlag(dfCollapsed, wbCollapseFlags),
       wbUnused(2)
-    ], cpNormal, True, nil, 1),
+    ]).SetOptionalFrom(1)
+      .SetRequired,
     wbFloat(CNAM, 'Unused'),
     wbRArrayS('Ranks',
       wbRStructSK([0], 'Rank', [
@@ -5077,7 +5081,7 @@ begin
         {48} wbFloat('Grass Dimmer'),
         {52} wbFloat('Tree Dimmer'),
         {56} wbFromVersion(10, wbFloat('Skin Dimmer'))
-      ], cpNormal, False, nil, 14),
+      ]).SetOptionalFrom(14),
       wbStruct('Bloom', [
         {60} wbFloat('Blur Radius'),
         {64} wbFloat('Alpha Mult Interior'),
@@ -5117,7 +5121,8 @@ begin
         ], True))
       ).IncludeFlag(dfCollapsed, wbCollapseFlags),
       wbFromVersion(13, wbUnused(3))
-    ], cpNormal, True, nil, 5)
+    ]).SetOptionalFrom(5)
+      .SetRequired
   ]);
 
   wbRecord(IMAD, 'Image Space Adapter', [
@@ -5179,7 +5184,8 @@ begin
       wbInteger('Radial Blur Down Start', itU32),
       wbInteger('Fade Color', itU32),
       wbInteger('Motion Blur Strength', itU32)
-    ], cpNormal, True, nil, 8),
+    ]).SetOptionalFrom(8)
+      .SetRequired,
     wbTimeInterpolators(BNAM, 'Blur Radius'),
     wbTimeInterpolators(VNAM, 'Double Vision Strength'),
     wbArray(TNAM, 'Tint Color', wbColorInterpolator).SetRequired,
@@ -5230,7 +5236,7 @@ begin
     wbString(EDID, 'Editor ID', 0, cpBenign)
       .SetAfterSet(wbFLSTEDIDAfterSet)
       .SetRequired,
-    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID'), cpNormal, False, nil, nil, nil, wbFLSTLNAMIsSorted)
+    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID'), cpNormal, False, nil, nil, wbFLSTLNAMIsSorted)
   ]);
 
   wbRecord(PERK, 'Perk', [
@@ -5245,7 +5251,8 @@ begin
       wbInteger('Ranks', itU8),
       wbInteger('Playable', itU8, wbBoolEnum),
       wbInteger('Hidden', itU8, wbBoolEnum)
-    ], cpNormal, True, nil, 4),
+    ]).SetOptionalFrom(4)
+      .SetRequired,
     wbRArrayS('Effects',
       wbRStructSK([0, 1], 'Effect', [
         wbStructSK(PRKE, [1, 2, 0], 'Header', [
@@ -5458,7 +5465,8 @@ begin
       {28} wbFloat('Max Time'),
       {32} wbFloat('Min Time'),
       {36} wbFloat('Target % Between Actors')
-    ], cpNormal, True, nil, 7),
+    ]).SetOptionalFrom(7)
+      .SetRequired,
     wbFormIDCk(MNAM, 'Image Space Modifier', [IMAD])
   ]);
 
@@ -5525,7 +5533,8 @@ begin
       wbFormIDCk('Hollow Metal', [IPCT, NULL]),
       wbFormIDCk('Organic Bug', [IPCT, NULL]),
       wbFormIDCk('Organic Glow', [IPCT, NULL])
-    ], cpNormal, True, nil, 9)
+    ]).SetOptionalFrom(9)
+      .SetRequired
   ]);
 
   wbRecord(ECZN, 'Encounter Zone', [
@@ -5750,7 +5759,8 @@ begin
       wbInteger('Replay Delay', itS16),
       wbInteger('No Attacking', itU8, wbBoolEnum),
       wbUnused(1)
-    ], cpNormal, True, nil, 4)
+    ]).SetOptionalFrom(4)
+      .SetRequired
   ]);
 
   wbRecord(INFO, 'Dialog response',
@@ -5788,7 +5798,8 @@ begin
         {1} 'Always Darken'
         ])
       ).IncludeFlag(dfCollapsed, wbCollapseFlags)
-    ], cpNormal, True, nil, 3),
+    ]).SetOptionalFrom(3)
+      .SetRequired,
     wbFormIDCkNoReach(QSTI, 'Quest', [QUST]).SetRequired,
     wbFormIDCkNoReach(TPIC, 'Previous Topic', [DIAL]),
     wbFormIDCkNoReach(PNAM, 'Previous INFO', [INFO,NULL]),
@@ -5814,7 +5825,7 @@ begin
           wbFormIDCk('Sound', [SOUN,NULL]),
           wbInteger('Use Emotion Animation', itU8, wbBoolEnum),
           wbUnused(3)
-        ], cpNormal, False, nil, 5),
+        ]).SetOptionalFrom(5),
         wbStringKC(NAM1, 'Response Text', 0, cpTranslate)
           .IncludeFlagOnValue(dfStringTrim)
           .SetRequired,
@@ -6338,7 +6349,7 @@ begin
         ], False, 9), True)
       ).IncludeFlag(dfCollapsed, wbCollapseFlags),
       wbUnion('Type Specific Flags', wbPKDTSpecificFlagsDecider, [
-        wbEmpty('Type Specific Flags (missing)', cpIgnore, False, nil, True),
+        wbEmpty('Type Specific Flags (missing)', cpIgnore, False, True),
         wbInteger('Type Specific Flags - Find', itU16,
           wbFlags(wbSparseFlags([
             8, 'Allow Buying',
@@ -6409,7 +6420,8 @@ begin
         wbInteger('Type Specific Flags - Use Weapon', itU16, wbFlags([], True)).IncludeFlag(dfCollapsed, wbCollapseFlags)
       ]),
       wbUnused(2)
-    ], cpNormal, True, nil, 2),
+    ]).SetOptionalFrom(2)
+      .SetRequired,
     wbRStruct('Locations', [
       wbStruct(PLDT, 'Location 1', [
         wbInteger('Type', itU32,
@@ -6459,7 +6471,7 @@ begin
         ]),
         wbInteger('Radius', itS32)
       ])
-    ], [], cpNormal, False, nil, True),
+    ], [], cpNormal, False, True),
     wbStruct(PSDT, 'Schedule', [
       wbInteger('Month', itS8,
         wbPackagePSDTMonthValueToStr,
@@ -6488,7 +6500,7 @@ begin
       ]),
       wbInteger('Count / Distance', itS32),
       wbFloat('Unknown')
-    ], cpNormal, False, nil, 3),
+    ]).SetOptionalFrom(3),
     wbConditions,
     wbIdleAnimation,
     wbFormIDCk(CNAM, 'Combat Style', [CSTY]),
@@ -6496,9 +6508,9 @@ begin
     wbInteger(PKE2, 'Escort Distance', itU32),
     wbFloat(PKFD, 'Follow - Start Location - Trigger Radius'),
     wbStruct(PKPT, 'Patrol Flags', [
-      wbInteger('Repeatable', itU8, wbBoolEnum, cpNormal, False, nil, nil, 1),
+      wbInteger('Repeatable', itU8, wbBoolEnum).SetDefaultNativeValue(1),
       wbUnused(1)
-    ], cpNormal, False, nil, 1),
+    ]).SetOptionalFrom(1),
     wbStruct(PKW3, 'Use Weapon Data', [
       wbInteger('Flags', itU32,
         wbFlags(wbSparseFlags([
@@ -6545,7 +6557,7 @@ begin
       ]),
       wbInteger('Count / Distance', itS32),
       wbFloat('Unknown')
-    ], cpNormal, False, nil, 3),
+    ]).SetOptionalFrom(3),
     wbEmpty(PUID, 'Use Item Marker'),
     wbEmpty(PKAM, 'Ambush Marker'),
     wbStruct(PKDD, 'Dialogue Data', [
@@ -6564,7 +6576,7 @@ begin
           {1} 'Say To'
         ])),
       wbByteArray('Unknown', 4)
-    ], cpNormal, False, nil, 3),
+    ]).SetOptionalFrom(3),
     wbStruct(PLD2, 'Location 2 (again??)', [
       wbInteger('Type', itU32,
         wbEnum([
@@ -6626,7 +6638,8 @@ begin
       wbInteger('Priority', itU8),
       wbUnused(2),
       wbFloat('Quest Delay')
-    ], cpNormal, True, nil, 3),
+    ]).SetOptionalFrom(3)
+      .SetRequired,
     wbConditions,
     wbRArrayS('Stages', wbRStructSK([0], 'Stage', [
       wbInteger(INDX, 'Stage Index', itS16),
@@ -6962,7 +6975,7 @@ begin
       ).IncludeFlag(dfCollapsed, wbCollapseFlags),
       wbUnused(3),
       wbByteArray('Unknown', 8)
-    ], cpNormal, False, nil, 5),
+    ]).SetOptionalFrom(5),
 
     {--- Extra ---}
     wbInteger(XCNT, 'Count', itS32),
@@ -7392,7 +7405,8 @@ begin
       wbFloat('Noise Properties - Noise Layer One - Amplitude Scale'),
       wbFloat('Noise Properties - Noise Layer Two - Amplitude Scale'),
       wbFloat('Noise Properties - Noise Layer Three - Amplitude Scale')
-    ], cpNormal, True, nil, 43),
+    ]).SetOptionalFrom(43)
+      .SetRequired,
     wbStruct(DATA, 'Visual Data', [
       wbUnused(16),
       wbFloat('Water Properties - Sun Power'),
@@ -7630,7 +7644,8 @@ begin
      {124} wbFloat('Sight Usage'),
      {128} wbFloat('Semi-Automatic Fire Delay Min'),
      {132} wbFloat('Semi-Automatic Fire Delay Max')
-    ], cpNormal, True, nil, 36),
+    ]).SetOptionalFrom(36)
+      .SetRequired,
 
    wbStruct(CRDT, 'Critical Data', [
       {00} wbInteger('Critical Damage', itU16),

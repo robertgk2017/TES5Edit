@@ -149,7 +149,7 @@ var
   wbETYP: IwbSubRecordDef;
   wbETYPReq: IwbSubRecordDef;
   wbEFID: IwbSubRecordDef;
-  wbEFIT: IwbSubRecordDef;
+  wbEFIT: IwbRecordMemberDef;
   wbEffectsReq: IwbSubRecordArrayDef;
   wbFirstPersonFlagsU32: IwbValueDef;
   wbBOD2: IwbSubRecordDef;
@@ -266,7 +266,7 @@ var
   wbXATP: IwbSubRecordDef;
   wbXWPK: IwbSubRecordStructDef;
   wbWaterData: IwbSubRecordStructDef;
-  wbPERKData: IwbSubRecordDef;
+  wbPERKData: IwbRecordMemberDef;
   wbPerkEffect: IwbSubRecordStructDef;
   wbReward: IwbRecordMemberDef;
   wbCTRN: IwbSubRecordDef;
@@ -1399,12 +1399,13 @@ begin
       wbENLS,
       wbAUUV,
       wbMODD
-    ], [], cpNormal, aRequired, aDontShow)
-    .SetSummaryKey([0])
-    .IncludeFlag(dfSummaryMembersNoName)
-    .IncludeFlag(dfSummaryNoSortKey)
-    .IncludeFlag(dfCollapsed, wbCollapseModels)
-    .IncludeFlag(dfAllowAnyMember);
+    ]).SetSummaryKey([0])
+      .SetDontShow(aDontShow)
+      .SetRequired(aRequired)
+      .IncludeFlag(dfSummaryMembersNoName)
+      .IncludeFlag(dfSummaryNoSortKey)
+      .IncludeFlag(dfCollapsed, wbCollapseModels)
+      .IncludeFlag(dfAllowAnyMember);
 end;
 
 { function wbACTIBase(aRequired: Boolean = False; aDontShow: TwbDontShowCallback = nil): IwbRecordMemberDef;
@@ -4034,7 +4035,7 @@ begin
           wbVec3('Center'),
           wbVec3('Radius')
         ])
-    ], cpNormal, False, nil, 11),
+    ]).SetOptionalFrom(11),
     wbFormIDCk(XRL2, 'Lighting Template', [LGTM]),
     wbFormIDCk(XMSP, 'Material Swap', [MSWP]),
     wbXLWT,
@@ -4116,7 +4117,8 @@ begin
       wbInteger('Playable', itU8, wbBoolEnum),
       wbInteger('Hidden', itU8, wbBoolEnum),
       wbByteArray('Unknown', 1)
-    ], cpNormal, True, nil, 6);
+    ]).SetOptionalFrom(6)
+      .SetRequired;
 
   wbCOED := wbStructExSK(COED, [2], [0, 1], 'Extra Data', [
     {00} wbFormIDCkNoReach('Owner', [NPC_, FACT, NULL]),
@@ -4838,7 +4840,7 @@ begin
   wbXLKR := wbRArrayS('Linked References', wbStructSK(XLKR, [0], 'Linked Reference', [
     wbFormIDCk('Keyword/Ref', [KYWD, PLYR, ACHR, REFR, PGRE, PHZD, PMIS, PARW, PBAR, PBEA, PCON, PFLA, NULL]),
     wbFromSize(8, wbFormIDCk('Ref', sigReferences))
-  ], cpNormal, False, nil, 1));
+  ]).SetOptionalFrom(1));
 
   wbXATP := wbEmpty(XATP, 'Activation Point');
   wbXWPK := wbRStruct('Workshop Pack-in', [
@@ -5060,7 +5062,7 @@ begin
           .IncludeFlag(dfCollapsed, wbCollapseFragments),
       [], wbScriptFragmentsInfoCounter)
     ])
-  ], cpNormal, False, nil, 3);
+  ]).SetOptionalFrom(3);
 
   wbVMADFragmentedPACK := wbStruct(VMAD, 'Virtual Machine Adapter', [
     wbVMADVersion,
@@ -5088,7 +5090,7 @@ begin
           .IncludeFlag(dfCollapsed, wbCollapseFragments),
       [], wbScriptFragmentsPackCounter)
     ])
-  ], cpNormal, False, nil, 3);
+  ]).SetOptionalFrom(3);
 
   wbVMADFragmentedPERK := wbStruct(VMAD, 'Virtual Machine Adapter', [
     wbVMADVersion,
@@ -5112,7 +5114,7 @@ begin
       -2)
     ]),
     wbUnknown
-  ], cpNormal, False, nil, 3);
+  ]).SetOptionalFrom(3);
 
   wbVMADFragmentedQUST := wbStruct(VMAD, 'Virtual Machine Adapter', [
     wbVMADVersion,
@@ -5156,7 +5158,7 @@ begin
       .SetSummaryDelimiter(' ')
       .IncludeFlag(dfSummaryMembersNoName)
     , -2)
-  ], cpNormal, False, nil, 3);
+  ]).SetOptionalFrom(3);
 
   wbVMADFragmentedSCEN := wbStruct(VMAD, 'Virtual Machine Adapter', [
     wbVMADVersion,
@@ -5203,7 +5205,7 @@ begin
           .IncludeFlag(dfCollapsed, wbCollapseFragments)
         , -2)
     ])
-  ], cpNormal, False, nil, 3);
+  ]).SetOptionalFrom(3);
 
   wbLocationEnum := wbEnum([
     {0} 'Near reference', // string dump: '%s' in '%s' radius %u
@@ -5278,7 +5280,7 @@ begin
     ]),
     wbInteger('Radius', itS32),
     wbInteger('Collection Index', itU32)
-  ], cpNormal, False, nil, 3);
+  ]).SetOptionalFrom(3);
 
   wbPLVD := wbStruct(PLVD, 'Location', [
     wbInteger('Type', itS32, wbLocationEnum),
@@ -5301,7 +5303,7 @@ begin
     ]),
     wbInteger('Radius', itS32),
     wbInteger('Collection Index', itU32)
-  ], cpNormal, False, nil, 3);
+  ]).SetOptionalFrom(3);
 
   wbTargetData := wbStruct('Target Data', [
     wbInteger('Type', itS32, wbEnum([
@@ -5314,7 +5316,7 @@ begin
       {6} 'Self',
       {7} 'Keyword',
       {8} 'Unknown 8'
-    ]), cpNormal, False, nil, nil, 2),
+    ])).SetDefaultNativeValue(2),
     wbUnion('Target', wbTypeDecider, [
       {0} wbFormIDCkNoReach('Reference', sigReferences, True),
       {1} wbFormIDCkNoReach('Object ID', [NULL, ACTI, DOOR, STAT, MSTT, FURN, SPEL, NPC_, CONT, ARMO, AMMO, MISC, WEAP, OMOD, BOOK, NOTE, KEYM, ALCH, INGR, LIGH, FACT, FLST, IDLM, TXST, PROJ]),
@@ -5629,7 +5631,7 @@ begin
           wbVec3('Center'),
           wbVec3('Radius')
         ])
-    ], cpNormal, False, nil, 11),
+    ]).SetOptionalFrom(11),
     wbFormIDCk(XRL2, 'Lighting Template', [LGTM]),
     wbFormIDCk(XMSP, 'Material Swap', [MSWP]),
 
@@ -6604,7 +6606,8 @@ begin
       wbInteger('Area', itU32),
       wbInteger('Duration', itU32),
       wbUnknown { If form version is less than 154 or greater than 182 this is empty. If form version is between 154 and 165 then its a 12 byte value. If form version is between 166 and 182 then this is an 8 byte value. }
-    ], cpNormal, True, nil, -1, wbEFITAfterLoad);
+    ]).SetAfterLoad(wbEFITAfterLoad)
+      .SetRequired;
 
   var wbConditionParameters := [
     //Misc
@@ -6863,11 +6866,9 @@ begin
             .IncludeFlag(dfAllowAnyMember)
         ),
         wbEmpty(DSTF, 'End Marker', cpNormal, True)
-      ], [], cpNormal, False, nil)
-        .SetSummaryKey([0, 2])
-        .IncludeFlag(dfSummaryMembersNoName)
-    )
-  ], [], cpNormal, False, nil, True).IncludeFlag(dfAllowAnyMember);
+      ]).SetSummaryKey([0, 2])
+        .IncludeFlag(dfSummaryMembersNoName))
+  ], [], cpNormal, False, True).IncludeFlag(dfAllowAnyMember);
 
   wbReward := wbRStruct('Reward', [
     wbUnknown(CTRG),
@@ -6894,7 +6895,7 @@ begin
     wbConditions,
     wbFormIDCk(DNAM, 'Reward Record', [GMRW]),
     wbEmpty(ITME, 'Reward End Marker')
-  ], [], cpNormal, False, nil, True).IncludeFlag(dfAllowAnyMember);
+  ], [], cpNormal, False, True).IncludeFlag(dfAllowAnyMember);
 
   wbAttackData := wbRStructSK([1], 'Attack', [
     wbStruct(ATKD, 'Attack Data', [
@@ -7068,7 +7069,7 @@ begin
         'Unused 7'
       ])).IncludeFlag(dfCollapsed, wbCollapseFlags)),
       wbFromVersion(125, wbUnused(3))
-    ], cpNormal, False, nil, 4);
+    ]).SetOptionalFrom(4);
 
   wbSNAMMarkerParams := wbArray(SNAM, 'Marker Parameters', wbNAMMarkerParam);
   wbZNAMMarkerParams := wbArray(ZNAM, 'Marker Parameters', wbNAMMarkerParam);
@@ -7303,7 +7304,7 @@ begin
         wbEmpty(OBTF, 'Editor Only'),
         wbFULL,
         wbOBTSReq
-      ], [], cpNormal, False, nil, True)
+      ], [], cpNormal, False, True)
     ).SetCountPath(OBTE),
     wbEmpty(STOP, 'Marker', cpNormal, True)
   ]);
@@ -7506,7 +7507,7 @@ begin
       wbFloat('Volume'),
       wbInteger('Starts Active', itU8, wbBoolEnum),
       wbFromVersion(121, wbInteger('No Signal Static', itU8, wbBoolEnum))
-    ], cpNormal, False, nil, 4),
+    ]).SetOptionalFrom(4),
     wbCNDCs,
     wbFormIDCk(GCDA, 'Global Cooldown Timer', [GLOB]),
     wbArray(VEND, 'Vendable Item Datas',
@@ -7638,7 +7639,8 @@ begin
     wbStruct(DATA, 'Data', [
       wbInteger('Value', itU32),
       wbFloat('Weight')
-    ], cpNormal, True, nil, 1),
+    ]).SetOptionalFrom(1)
+      .SetRequired,
     wbStruct(DNAM, '', [
       wbFormIDCk('Projectile', [PROJ, NULL]),
       wbInteger('Flags', itU8, wbFlags([
@@ -7991,7 +7993,7 @@ begin
         wbVec3('Center'),
         wbVec3('Radius')
       ])
-    ], cpNormal, False, nil, 11)
+    ]).SetOptionalFrom(11)
       .SetDontShow(wbCellExteriorDontShow)
       .SetIsRemovable(wbCellLightingIsRemovable),
 
@@ -8115,7 +8117,8 @@ begin
       wbUnused(4),
       wbFloat('Particle Density'),
       wbUnused(4)
-    ], cpNormal, True, nil, 10),
+    ]).SetOptionalFrom(10)
+      .SetRequired,
     wbString(MNAM, 'Particle Texture')
   ]);
 
@@ -8245,7 +8248,8 @@ begin
       wbFloat('Special Attack Mult'),
       wbFloat('Block When Staggered Mult'),
       wbFloat('Attack When Staggered Mult')
-    ], cpNormal, True, nil, 9),
+    ]).SetOptionalFrom(9)
+      .SetRequired,
     wbFloat(CSRA, 'Ranged Accuracy Mult', cpNormal, True),
     wbStruct(CSCR, 'Close Range', [
       wbFloat('Dueling - Circle Mult'),
@@ -8266,7 +8270,8 @@ begin
       wbFloat('Crouch Mult'),
       wbFloat('Wait Mult'),
       wbFloat('Range Mult')
-    ], cpNormal, True, nil, 3),
+    ]).SetOptionalFrom(3)
+      .SetRequired,
     wbFloat(CSCV, 'Cover Search Distance Mult', cpNormal, True),
     wbStruct(CSFL, 'Flight', [
       wbFloat('Hover Chance'),
@@ -8280,7 +8285,8 @@ begin
       wbFloat('Unknown 1'),
       wbInteger('Flying Strafe Attack Altitude Min', itU32),
       wbInteger('Flying Strafe Attack Altitude Max', itU32)
-    ], cpNormal, True, nil, 7),
+    ]).SetOptionalFrom(7)
+      .SetRequired,
     wbInteger(DATA, 'Flags', itU32, wbFlags([
       {0x01} 'Dueling',
       {0x02} 'Flanking',
@@ -8617,7 +8623,8 @@ begin
       wbFloat('Charge Time'),
       wbFormIDCk('Base Enchantment', [ENCH, NULL]),
       wbFormIDCk('Worn Restrictions', [FLST, NULL])
-    ], cpNormal, True, nil, 8),
+    ]).SetOptionalFrom(8)
+      .SetRequired,
     wbEffectsReq,
     wbMIID
   ]);
@@ -8679,7 +8686,8 @@ begin
         {0x00008000} 'Can Be Owner',
         {0x00010000} 'Ignore Crimes: Werewolf (unused)'
       ])).IncludeFlag(dfCollapsed, wbCollapseFlags)
-    ], cpNormal, True, nil, 1),
+    ]).SetOptionalFrom(1)
+      .SetRequired,
     wbFormIDCk(JAIL, 'Exterior Jail Marker', [REFR]),
     wbFormIDCk(WAIT, 'Follower Wait Marker', [REFR]),
     wbFormIDCk(STOL, 'Stolen Goods Container', [REFR]),
@@ -8698,7 +8706,7 @@ begin
       wbFloat('Steal Multiplier'),
       wbInteger('Escape', itU16),
       wbInteger('Werewolf (unused)', itU16)
-    ], cpNormal, False, nil, 7),
+    ]).SetOptionalFrom(7),
     wbRArrayS('Ranks', wbFactionRank),
     wbFormIDCk(VEND, 'Vendor Buy/Sell List', [FLST]),
     wbFormIDCk(VENC, 'Merchant Container', [REFR]),
@@ -8826,7 +8834,7 @@ begin
       wbFloat('Volume'),
       wbInteger('Starts Active', itU8, wbBoolEnum),
       wbInteger('No Signal Static', itU8, wbBoolEnum)
-    ], cpNormal, False, nil, 4),
+    ]).SetOptionalFrom(4),
     wbFloat(PAHD, 'Unknown Float'),
     wbCTRN,
     wbCOCT,
@@ -8904,7 +8912,7 @@ begin
   ]);
 
   wbRecord(GMST, 'Game Setting', [
-    wbString(EDID, 'Editor ID', 0, cpCritical, True, nil, wbGMSTEDIDAfterSet),
+    wbString(EDID, 'Editor ID', 0, cpCritical, True, wbGMSTEDIDAfterSet),
     wbUnion(DATA, 'Value', wbGMSTUnionDecider, [
       wbLString('Name', 0, cpTranslate),
       wbInteger('Int', itS32),
@@ -9423,7 +9431,8 @@ begin
       ])),
       wbFromVersion(173, wbFloat('Base Weapon Damage Mult')),
       wbFromVersion(206, wbFloat)
-    ], cpNormal, True, nil, 13),
+    ]).SetOptionalFrom(13)
+      .SetRequired,
     wbDamageTypeArray('Damage Type')
   ]);
 
@@ -9520,7 +9529,8 @@ begin
       ])),
       wbFloat('Vignette Radius'),
       wbFloat('Vignette Strength')
-    ], cpNormal, True, nil, 5),
+    ]).SetOptionalFrom(5)
+      .SetRequired,
     wbStruct(XNAM, 'Camera Parameters', [
       wbFloat('Exposure Value'),
       wbFloat('UnknownFloat2'),
@@ -9662,10 +9672,10 @@ begin
           {0x00000002} 2, 'Unknown 2',   //0066CD08
           {0x00000200} 9, 'Unknown 9'    //0066CD08
     ])), [
-    wbString(EDID, 'Editor ID', 0, cpBenign, True, nil, wbFLSTEDIDAfterSet),
+    wbString(EDID, 'Editor ID', 0, cpBenign, True, wbFLSTEDIDAfterSet),
     wbXALG,
     wbFULL,
-    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID').IncludeFlag(dfNoReport), cpNormal, False, nil, nil, nil, wbFLSTLNAMIsSorted)
+    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID').IncludeFlag(dfNoReport), cpNormal, False, nil, nil, wbFLSTLNAMIsSorted)
   ]);
 
   var wbPerkConditions :=
@@ -10108,7 +10118,8 @@ begin
       wbFloat('Location Spring'),
       wbFloat('Target Spring'),
       wbVec3('Rotation Offset')
-    ], cpNormal, True, nil, 9),
+    ]).SetOptionalFrom(9)
+      .SetRequired,
     wbFormIDCk(MNAM, 'Image Space Modifier', [IMAD])
   ]);
 
@@ -10874,7 +10885,8 @@ begin
         wbVec3('Center'),
         wbVec3('Radius')
       ])
-    ], cpNormal, True, nil, 15),
+    ]).SetOptionalFrom(15)
+      .SetRequired,
     wbAmbientColors(DALC),
     wbFormIDCk(WGDR, 'God Rays', [GDRY])
   ]);
@@ -11597,7 +11609,7 @@ begin
     wbEDID,
     wbGenericModel,
     wbRArray('Property Data',
-      wbByteArray(DNAM, 'Data', 0, cpIgnore, False, False, wbNeverShow)
+      wbByteArray(DNAM, 'Data', 0, cpIgnore).SetDontShow(wbNeverShow)
     ),
     wbStruct(DATA, 'Directional Material Data', [
       wbFloat('Falloff Scale'),
@@ -11883,7 +11895,8 @@ begin
       ])).IncludeFlag(dfCollapsed, wbCollapseFlags),
       wbFromVersion(137, wbFloat('Unknown')),
       wbFromVersion(175, wbFloat('Position Range'))
-    ], cpNormal, True, nil, 7)
+    ]).SetOptionalFrom(7)
+      .SetRequired
   ]);
 
   wbRecord(IDLE, 'Idle Animation',
@@ -12209,7 +12222,8 @@ begin
       wbInteger('Value', itU32),
       wbFloat('Weight'),
       wbUnknown
-    ], cpNormal, True, nil, 10),
+    ]).SetOptionalFrom(10)
+      .SetRequired,
     wbFloat(LILS),  // float suggested by xDump - all current 76 records are 0.0f or 1.0f
     wbString(NAM0, 'Gobo'),
     wbFormIDCk(LNAM, 'Lens', [LENS]),
@@ -12785,9 +12799,9 @@ begin
     wbConditions,
     wbFormIDCk(CNAM, 'Created Object', sigBaseObjects),
     wbFormIDCkNoReach(BNAM, 'Workbench Keyword', [KYWD]),
-    wbByteArray(NAM1, 'Unused', 0, cpIgnore, False, False, wbNeverShow), // co_PA_FusionCore01
-    wbByteArray(NAM2, 'Unused', 0, cpIgnore, False, False, wbNeverShow), // co_PA_FusionCore01
-    wbByteArray(NAM3, 'Unused', 0, cpIgnore, False, False, wbNeverShow), // co_PA_FusionCore01
+    wbUnused(NAM1),
+    wbUnused(NAM2),
+    wbUnused(NAM3),
     wbFormIDCk(ANAM, 'Menu Art Object', [ARTO]),
     wbFormIDCk(GNAM, 'Learn Recipe From', [ALCH,AMMO,ARMO,BOOK,CHAL,MISC,WEAP]),
     wbFormIDCk(INAM, 'Camp Maximum', [GLOB]),
@@ -12801,13 +12815,13 @@ begin
       wbFloat('Priority (UI sort order)'),
       wbInteger('Created Object Count', itU16),
       wbUnused(2)
-    ], cpNormal, False, nil, 1),
+    ]).SetOptionalFrom(1),
     wbFormIDCk(CIFK, 'Constructible Instantiation Filter Keyword', [KYWD]),
     wbUnknown(RECF), // only cares about 0x1 and 0x2 and 0x3
     wbStruct(INTV, 'Data', [
       wbInteger('Created Object Count', itU16),
       wbInteger('Priority', itU16)
-    ], cpNormal, False, nil, 1)
+    ]).SetOptionalFrom(1)
   ]);
 
   wbRecord(NPC_, 'Non-Player Character',
@@ -13008,7 +13022,8 @@ begin
           wbInteger('Value', itU8, wbDiv(100)),
           wbByteColors('Color'),
           wbInteger('Template Color Index', itS16)
-        ], cpNormal, True, nil, 1)
+        ]).SetOptionalFrom(1)
+          .SetRequired
       ])
     ),
     wbStruct(MRSV, 'Body Morph Region Values', [
@@ -13946,7 +13961,7 @@ begin
     wbFloat('TH'),
     wbFloat('W'),
     wbUnknown
-  ], cpNormal, False, nil, 1); // only a single value in HandyRace
+  ]).SetOptionalFrom(1); // only a single value in HandyRace
 
   wbPHWT := wbRStruct('FaceFX Phonemes', [
     wbRStruct('IY', [wbPhonemeTargets]),
@@ -14335,7 +14350,7 @@ begin
         ], cpNormal, True)
         .SetSummaryKeyOnValue([0, 1])
         .IncludeFlag(dfTerminator)
-      ], [], cpNormal, False, nil, True)
+      ], [], cpNormal, False, True)
     ),
     wbFloat(PTOP, 'Idle Chatter Time Min'),
     wbFloat(NTOP, 'Idle Chatter Time Max'),
@@ -14544,7 +14559,7 @@ begin
       wbFloat('Shadow Depth Bias'),
       wbFloat('Near Clip'),
       wbFloat('Volumetric Intensity')
-    ], cpNormal, False, nil, 4),
+    ]).SetOptionalFrom(4),
     {--- Lit Water ---}
     wbRArrayS('Lit Water',
       wbFormIDCk(XLTW, 'Water', [REFR])
@@ -14642,7 +14657,7 @@ begin
           wbVec3('Center'),
           wbVec3('Radius')
         ])
-    ], cpNormal, False, nil, 11),
+    ]).SetOptionalFrom(11),
     wbFormIDCk(XRL2, 'Lighting Template', [LGTM]),
     wbFormIDCk(XMSP, 'Material Swap', [MSWP]),
     wbXLWT,
@@ -14669,7 +14684,7 @@ begin
       wbUnused(3), // junk data?
       wbBelowVersion(131, wbFloat('Unknown')), // not shown in editor
       wbBelowVersion(131, wbFloat('Unknown')) // not shown in editor
-    ], cpNormal, False, nil, 5),
+    ]).SetOptionalFrom(5),
     wbStruct(XPDD, 'Projected Decal Data', [
       wbFloat('Width Scale'),
       wbFloat('Height Scale'),
@@ -14744,7 +14759,7 @@ begin
       wbUnused(3),
       wbInteger('Unknown', itU8), { Exe does an |= 1 on this byte }
       wbUnused(3)
-    ], cpNormal, False, nil, 4),
+    ]).SetOptionalFrom(4),
 
     wbXEZN,
 
@@ -14769,7 +14784,7 @@ begin
     wbRArray('Linked References', wbStruct(XLKR, 'Linked Reference', [
       wbFormIDCk('Keyword/Ref', [KYWD, PLYR, ACHR, REFR, PGRE, PHZD, PMIS, PARW, PBAR, PBEA, PCON, PFLA, NULL]),
       wbFormIDCk('Ref', sigReferences)
-    ], cpNormal, False, nil, 1)),
+    ]).SetOptionalFrom(1)),
 
     wbRArray('Patrol', wbRStruct('Data', [
       wbFloat(XPRD, 'Idle Time', cpNormal, True),
@@ -15049,7 +15064,7 @@ begin
       wbICON,
 
       {--- Sound ---}
-      wbFormIDCk(RDMO, 'Music', [MUSC], False, cpNormal, False, wbREGNSoundDontShow),
+      wbFormIDCk(RDMO, 'Music', [MUSC]).SetDontShow(wbREGNSoundDontShow),
       wbRegionSounds,
       wbRArray('Sounds', wbStruct(RDSN, 'Sound', [
         wbFormIDCk('Sound', [SNDR, NULL]),
@@ -15058,7 +15073,7 @@ begin
       ])).IncludeFlag(dfCollapsed, wbCollapseSounds),
 
             {--- Map ---}
-      wbLString(RDMP, 'Map Name', 0, cpTranslate, False, wbREGNMapDontShow),
+      wbLString(RDMP, 'Map Name', 0, cpTranslate).SetDontShow(wbREGNMapDontShow),
 
       {followed by one of these: }
 
@@ -15151,14 +15166,14 @@ begin
       wbArrayS(RDGS, 'Grasses', wbStructSK([0], 'Grass', [
         wbFormIDCk('Grass', [GRAS]),
         wbByteArray('Unknown',4)
-      ]), 0, cpNormal, False, nil, nil, wbREGNGrassDontShow),
+      ])).SetDontShow(wbREGNGrassDontShow),
 
       {--- Weather ---}
       wbArrayS(RDWT, 'Weather Types', wbStructSK([0], 'Weather Type', [
         wbFormIDCk('Weather', [WTHR]),
         wbInteger('Chance', itU32),
         wbFormIDCk('Global', [GLOB, NULL])
-      ]), 0, cpNormal, False, nil, nil, wbREGNWeatherDontShow),
+      ])).SetDontShow(wbREGNWeatherDontShow),
 
       wbUnknown(RDWR),
 
@@ -15183,7 +15198,7 @@ begin
       wbFloat('Min Time'),
       wbFloat('Max Time'),
       wbInteger('Stackable', itU8, wbBoolEnum)
-    ], cpNormal, False, nil, 2),
+    ]).SetOptionalFrom(2),
     wbBEVA,
     wbFEVA
   ]);
@@ -15315,7 +15330,8 @@ begin
       wbFormIDCk('Material', [MATO, NULL]),
       wbFloat('Leaf Amplitude'),
       wbFloat('Leaf Frequency')
-    ], cpNormal, True, nil, 2),
+    ]).SetOptionalFrom(2)
+      .SetRequired,
     wbInteger(STXF, 'Disable Optimization', itU8, wbBoolEnum),
     wbNVNM,
     wbStruct(MNAM, 'Distant LOD', [ {>>> Contains null-terminated mesh FileName followed by random data up to 260 bytes <<<}
@@ -15472,7 +15488,8 @@ begin
           Int64($864804BE), 'BSOverdrive',
           Int64($EF575F7F), 'BSStateVariableFilter',
           Int64($18837B4F), 'BSDelayEffect'
-        ]), cpNormal, False, False, nil, nil, Int64($864804BE)).SetAfterSet(wbAECHTypeAfterSet),
+        ])).SetDefaultNativeValue(Int64($864804BE))
+           .SetAfterSet(wbAECHTypeAfterSet),
         wbStruct(DNAM, 'Data', [
           wbInteger('Enabled', itU32, wbBoolEnum),
           wbUnion('Value', wbAECHDataDecider, [
@@ -16134,7 +16151,7 @@ begin
     wbRArray('Holotapes',
       wbStruct(CNTO, 'Holotape', [
         wbFormIDCk('Item', [NULL, NOTE]),
-        wbInteger('Count', itS32, nil, cpNormal, False, nil, nil, 1)
+        wbInteger('Count', itS32).SetDefaultNativeValue(1)
       ])
     ).SetCountPath(COCT),
     wbMNAMFurnitureMarker,
@@ -16197,7 +16214,8 @@ begin
       wbFloat('Scale'),
       wbFloat('Zoom Min'),
       wbFloat('Zoom Max')
-    ], cpNormal, True, nil, 2)
+    ]).SetOptionalFrom(2)
+      .SetRequired
   ]);
 
 {>>> Start of new Fallout 76 Records <<<}
@@ -16330,7 +16348,8 @@ begin
     wbStruct(DATA, 'Data', [
       wbInteger('Value', itU32),
       wbFloat('Weight')
-    ], cpNormal, True, nil, 1),
+    ]).SetOptionalFrom(1)
+      .SetRequired,
     wbFULL,
     wbGenericModel,
     wbDESC,
@@ -16355,7 +16374,8 @@ begin
     wbStruct(DATA, 'Data', [
       wbInteger('Value', itU32),
       wbFloat('Weight')
-    ], cpNormal, True, nil, 1),
+    ]).SetOptionalFrom(1)
+      .SetRequired,
     wbFULL,
     wbVCRY,
     wbFormIDCk(PAEQ, 'Default Power Armor Equipment', [LVLI])
@@ -16970,7 +16990,7 @@ begin
       wbFloat('Volume'),
       wbInteger('Starts Active', itU8, wbBoolEnum),
       wbFromVersion(121, wbInteger('No Signal Static', itU8, wbBoolEnum))
-    ], cpNormal, False, nil, 4),
+    ]).SetOptionalFrom(4),
     wbCNDCs,
     wbFormIDCk(GCDA, 'Global Cooldown Timer', [GLOB]),
     wbArray(VEND, 'Vendable Item Datas',
@@ -17062,7 +17082,8 @@ begin
       wbFloat('Unknown 3'),
       wbFloat('Unknown 4'),
       wbFloat('Unknown 5')
-    ], cpNormal, True, nil, 4),
+    ]).SetOptionalFrom(4)
+      .SetRequired,
     wbUnknown(AWSD),
     wbByteArray(GNAM, 'Unused', 0),
     wbVec3(NAM0, 'Linear Velocity'),

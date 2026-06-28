@@ -1846,7 +1846,7 @@ var
   wbInitialDataType          : IwbUnionDef;
   wbChangeFlags010Flags      : IwbFlagsDef;
   wbCoSaveChunk              : IwbStructDef;
-  wbCoSaveChunks             : IwbArrayDef;
+  wbCoSaveChunks             : IwbValueDef;
   wbCoSavePlugin             : IwbStructDef;
   wbCoSavePlugins            : IwbArrayDef;
 
@@ -6888,7 +6888,7 @@ begin
   ]);
 //  wbCoSaveChunk.TreeLeaf := True;
 
-  wbCoSaveChunks := wbArray('Chunks', wbCoSaveChunk, wbCoSaveChunkCounter, cpNormal, false, wbDontShowBranch);
+  wbCoSaveChunks := wbArray('Chunks', wbCoSaveChunk, wbCoSaveChunkCounter).SetDontShow(wbDontShowBranch);
   wbCoSavePlugin := wbStructC('Plugin', nil, wbCoSaveArrayType, wbCoSaveArrayTypeName, nil, [
     wbInteger('Opcode Base', itU32),
     wbInteger('Chunks count', itU32),
