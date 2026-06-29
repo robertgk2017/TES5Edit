@@ -8047,7 +8047,7 @@ begin
         wbByteArray('Unknown', 4),
         wbInteger('Combined Mesh', itU32, wbCombinedMeshIDToStr, wbCombinedMeshIDToInt),
         wbByteArray('Unknown', 4)
-      ]), wbCELLCombinedRefsCounter, cpNormal, False, nil, wbCELLCombinedRefsAfterSet)
+      ]), wbCELLCombinedRefsCounter).SetAfterSet(wbCELLCombinedRefsAfterSet)
     ]),
     wbStruct(XCRP, 'Enable State Parents', [
       wbInteger('Unknown Int', itU32),
@@ -8912,7 +8912,7 @@ begin
   ]);
 
   wbRecord(GMST, 'Game Setting', [
-    wbString(EDID, 'Editor ID', 0, cpCritical, True, wbGMSTEDIDAfterSet),
+    wbString(EDID, 'Editor ID', 0, cpCritical, True).SetAfterSet(wbGMSTEDIDAfterSet),
     wbUnion(DATA, 'Value', wbGMSTUnionDecider, [
       wbLString('Name', 0, cpTranslate),
       wbInteger('Int', itS32),
@@ -9672,10 +9672,10 @@ begin
           {0x00000002} 2, 'Unknown 2',   //0066CD08
           {0x00000200} 9, 'Unknown 9'    //0066CD08
     ])), [
-    wbString(EDID, 'Editor ID', 0, cpBenign, True, wbFLSTEDIDAfterSet),
+    wbString(EDID, 'Editor ID', 0, cpBenign, True).SetAfterSet(wbFLSTEDIDAfterSet),
     wbXALG,
     wbFULL,
-    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID').IncludeFlag(dfNoReport), cpNormal, False, nil, nil, wbFLSTLNAMIsSorted)
+    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID').IncludeFlag(dfNoReport), cpNormal, False, nil, wbFLSTLNAMIsSorted)
   ]);
 
   var wbPerkConditions :=
@@ -9698,7 +9698,7 @@ begin
         ]),
         wbFormIDCk('Ability', [SPEL]),
         wbStructSK([0, 1], 'Entry Point', [
-          wbInteger('Entry Point', itU8, wbEntryPointsEnum, cpNormal, True, nil{, wbPERKEntryPointAfterSet}),
+          wbInteger('Entry Point', itU8, wbEntryPointsEnum),
           wbInteger('Function', itU8, wbEnum([
             {0} 'Null Function',
             {1} 'Set Value', // EPFT=1

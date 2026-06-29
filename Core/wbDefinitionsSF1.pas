@@ -7323,7 +7323,7 @@ begin
         ]),
         wbFormIDCk('Ability', [SPEL]),
         wbStructSK([0, 1], 'Entry Point', [
-          wbInteger('Entry Point', itU8, wbEntryPointsEnum, cpNormal, True, nil{, wbPERKEntryPointAfterSet}),
+          wbInteger('Entry Point', itU8, wbEntryPointsEnum),
           wbInteger('Function', itU8, wbEnum([
             {0} 'Unknown 0',
             {1} 'Set Value', // EPFT=1
@@ -12188,10 +12188,10 @@ begin
       .SetFlagHasDontShow(28, wbFlagNavmeshOnlyCutDontShow)
       .SetFlagHasDontShow(29, wbFlagNavmeshIgnoreErosionDontShow)
       .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
-    wbString(EDID, 'Editor ID', 0, cpBenign, True, wbFLSTEDIDAfterSet),
+    wbString(EDID, 'Editor ID', 0, cpBenign, True).SetAfterSet(wbFLSTEDIDAfterSet),
     wbBaseFormComponents,
     wbFULL,
-    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID'), cpNormal, False, nil, nil, wbFLSTLNAMIsSorted),
+    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID'), cpNormal, False, nil, wbFLSTLNAMIsSorted),
     wbRStructs('Conditional Entries', 'Conditional Entry', [
       wbInteger(INAM, 'Index', itU32),
       wbCITCReq,
@@ -12499,7 +12499,7 @@ begin
 
   {subrecords checked against Starfield.esm}
   wbRecord(GMST, 'Game Setting', [
-    wbString(EDID, 'Editor ID', 0, cpCritical, True, wbGMSTEDIDAfterSet),
+    wbString(EDID, 'Editor ID', 0, cpCritical, True).SetAfterSet(wbGMSTEDIDAfterSet),
     wbXALG,
     wbUnion(DATA, 'Value', wbGMSTUnionDecider, [
       wbLString('Name', 0, cpTranslate),
@@ -12554,7 +12554,7 @@ begin
             wbInteger(VNAM, 'Default Value', itU8, wbBoolEnum).SetRequired,
             wbInteger(WNAM, 'Default Value', itU8, wbBoolEnum).SetRequired,
             wbUnused(GPOD).IncludeFlag(dfDontAssign).IncludeFlag(dfDontSave) // only here to allow comparison alignment
-          ], [], cpNormal, True),
+          ]).SetRequired,
           wbRStruct('Float Data', [
             wbFloat(VNAM, 'Default Value').SetRequired,
             wbFloat(WNAM, 'Default Value').SetRequired,
@@ -12562,10 +12562,10 @@ begin
               wbFloat('Min'),
               wbFloat('Max'),
               wbFloat('Step')
-            ], cpNormal, True)
-          ], [], cpNormal, True)
-        ], [], cpNormal, True)
-      ], [], cpNormal, True),
+            ]).SetRequired
+          ]).SetRequired
+        ]).SetRequired
+      ]).SetRequired,
     wbRStructs('Rewards', 'Reward', [
       wbLStringKC(VOVS, 'Description'),
       wbFloat(VORV, 'Setting Value'),
