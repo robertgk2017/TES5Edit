@@ -5796,7 +5796,7 @@ begin
 
   wbRecord(FLST, 'FormID List', [
     wbString(EDID, 'Editor ID', 0, cpBenign, True).SetAfterSet(wbFLSTEDIDAfterSet),
-    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID'), cpNormal, False, nil, wbFLSTLNAMIsSorted)
+    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID'), cpNormal, False, wbFLSTLNAMIsSorted)
   ]);
 
   wbPerkConditions :=
@@ -6219,7 +6219,7 @@ begin
            {56} wbInteger('Melee', itS32, wbDiv(1000))
          ])
     ], cpNormal, False),
-    wbArray(RAFB, 'Feedback Dynamic Bones', wbInteger('Bone', itU16), 0, nil, cpNormal, False),
+    wbArray(RAFB, 'Feedback Dynamic Bones', wbInteger('Bone', itU16)),
     wbStruct(RAPS, 'Pose Matching Data', [
     {00} wbArray('Match Bones', wbInteger('Bone', itU16, wbHideFFFF), 3),
     {06} wbInteger('Flags', itU8, wbFlags([

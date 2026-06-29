@@ -5377,7 +5377,7 @@ begin
       ])
     ]);
 
-  wbPDTOs := wbRArray('Topic', wbPDTO, cpNormal, False, nil);
+  wbPDTOs := wbRArray('Topic', wbPDTO);
 
   wbXLCM := wbInteger(XLCM, 'Leveled Creature Modifier', itS32, wbEnum([
     'Easy',
@@ -9675,7 +9675,7 @@ begin
     wbString(EDID, 'Editor ID', 0, cpBenign, True).SetAfterSet(wbFLSTEDIDAfterSet),
     wbXALG,
     wbFULL,
-    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID').IncludeFlag(dfNoReport), cpNormal, False, nil, wbFLSTLNAMIsSorted)
+    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID').IncludeFlag(dfNoReport), cpNormal, False, wbFLSTLNAMIsSorted)
   ]);
 
   var wbPerkConditions :=
@@ -10847,8 +10847,9 @@ begin
       wbStructSK([0], 'Object', [
         wbInteger('Use', itU32, wbEnum([], c), cpNormalIgnoreEmpty),
         wbFormID('Object ID', cpNormalIgnoreEmpty).IncludeFlag(dfNoReport)
-      ]), 0, cpNormalIgnoreEmpty, True, wbDOBJObjectsAfterLoad
-    )
+      ]), 0, cpNormalIgnoreEmpty
+    ).SetAfterLoad(wbDOBJObjectsAfterLoad)
+     .SetRequired
   ]);
 
   wbRecord(LGTM, 'Lighting Template', [

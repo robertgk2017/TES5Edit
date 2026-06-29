@@ -4009,7 +4009,7 @@ begin
       ])
     ]);
 
-  var wbPDTOs := wbRArray('Topic', wbPDTO, cpNormal, False, nil);
+  var wbPDTOs := wbRArray('Topic', wbPDTO);
 
   var wbFloatScale0to1 := wbNormalizeToRange(0.0, 1.0);
   var wbFloatScale0to10 := wbNormalizeToRange(0.0, 10.0);
@@ -6247,7 +6247,7 @@ begin
           ]).SetRequired,
           wbRstruct('Unknown', [
             wbInteger(EXAC, 'Count', itU32).SetRequired.IncludeFlag(dfSkipImplicitEdit), // count for EXAS array
-            wbRArray('Unknown', wbString(EXAS), cpNormal, False, nil).SetCountPath(EXAC)
+            wbRArray('Unknown', wbString(EXAS)).SetCountPath(EXAC)
           ]).SetRequired,
           wbString(EXBS).SetRequired
         ]),
@@ -11717,8 +11717,9 @@ begin
       wbStructSK([0], 'Object', [
         wbInteger('Use', itU32, wbEnum([], lDOBJUsesVarRecs3), cpNormalIgnoreEmpty),
         wbFormID('Object ID', cpNormalIgnoreEmpty)
-      ]), 0, cpNormalIgnoreEmpty, True, wbDOBJObjectsAfterLoad
-    )
+      ]), 0, cpNormalIgnoreEmpty
+    ).SetAfterLoad(wbDOBJObjectsAfterLoad)
+     .SetRequired
   ]);
 
   {subrecords checked against Starfield.esm}
@@ -12191,7 +12192,7 @@ begin
     wbString(EDID, 'Editor ID', 0, cpBenign, True).SetAfterSet(wbFLSTEDIDAfterSet),
     wbBaseFormComponents,
     wbFULL,
-    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID'), cpNormal, False, nil, wbFLSTLNAMIsSorted),
+    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID'), cpNormal, False, wbFLSTLNAMIsSorted),
     wbRStructs('Conditional Entries', 'Conditional Entry', [
       wbInteger(INAM, 'Index', itU32),
       wbCITCReq,

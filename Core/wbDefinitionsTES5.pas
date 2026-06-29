@@ -3087,7 +3087,7 @@ begin
       ])
     ]);
 
-  wbPDTOs := wbRArray('Topic', wbPDTO, cpNormal, False, nil);
+  wbPDTOs := wbRArray('Topic', wbPDTO);
 
   wbXLCM := wbInteger(XLCM, 'Level Modifier', itS32, wbEnum([
     'Easy',
@@ -5883,15 +5883,17 @@ begin
   ]);
 
   wbRecord(FLST, 'FormID List', [
-    wbString(EDID, 'Editor ID', 0, cpBenign, True).SetAfterSet(wbFLSTEDIDAfterSet),
-    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID'), cpNormal, False, nil, wbFLSTLNAMIsSorted)
+    wbString(EDID, 'Editor ID', 0, cpBenign)
+      .SetAfterSet(wbFLSTEDIDAfterSet)
+      .SetRequired,
+    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID'), cpNormal, False, wbFLSTLNAMIsSorted)
   ]);
 
   var wbPerkConditions :=
     wbRStructExSK([0], [1], 'Perk Condition', [
-      wbInteger(PRKC, 'Run On (Tab Index)', itS8{, wbPRKCToStr, wbPRKCToInt}),
+      wbInteger(PRKC, 'Run On (Tab Index)', itS8),
       wbConditions.SetRequired
-    ], [], cpNormal, False{, nil, nil, wbPERKPRKCDontShow});
+    ]);
 
   var wbPerkEffect :=
     wbRStructExSK([0,1,3], [2], 'Effect', [

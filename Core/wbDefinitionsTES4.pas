@@ -1552,7 +1552,7 @@ begin
           wbUnused(3),
           wbString('Form Type', 4),
           wbInteger('Offset (Unused)', itU32)
-        ]), 0, nil, cpIgnore).IncludeFlag(dfCollapsed, wbCollapseOther)),
+        ]), 0, cpIgnore).IncludeFlag(dfCollapsed, wbCollapseOther)),
     wbByteArray(DELE, 'Version Control (Unused)', 8, cpIgnore),
     wbString(CNAM, 'Author', 0, cpTranslate).SetRequired,
     wbString(SNAM, 'Description', 0, cpTranslate),
