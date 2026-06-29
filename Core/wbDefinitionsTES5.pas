@@ -7960,8 +7960,8 @@ begin
       wbFloat('Weight', cpNormal, True, 1, 4).SetDontShow(wbLIGHCarryDontShow)
     ]).SetRequired,
     wbFloat(FNAM, 'Fade Value', cpNormal, True, 1, 4)
-      .SetDefaultNativeValue(1)
-      .SetNormalizer(wbNormalizeToRange(0, 10)),
+      .SetNormalizer(wbNormalizeToRange(0, 10))
+      .SetDefaultNativeValue(1),
     wbFormIDCk(SNAM, 'Sound', [SNDR]),
     IsSSE(
       wbFormIDCk(LNAM, 'Lens Flare', [LENS]),

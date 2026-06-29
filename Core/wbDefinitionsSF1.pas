@@ -12467,8 +12467,8 @@ begin
     ])),
     wbRArray('Landscape Textures', wbFormIDCk(LNAM, 'Landscape Texture', [LTEX])),
     wbFloat(YNAM, 'Painted Material Threshold', cpNormal, True, 100.0, 0)
-      .SetDefaultNativeValue(28.0)
       .SetNormalizer(wbNormalizeToRange(0.1, 1.0))
+      .SetDefaultNativeValue(28.0)
   ]);
 
   {subrecords checked against Starfield.esm}
