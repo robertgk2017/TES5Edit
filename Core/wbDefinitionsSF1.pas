@@ -4017,7 +4017,10 @@ begin
 
   var wbSNTP := wbFormIDCk(SNTP, 'Snap Template', [STMP]);
   var wbSNBH := wbFormIDCk(SNBH, 'Snap Behavior', [STBH]);
-  var wbODTYReq := wbFloat(ODTY, 'Dirtiness Scale', cpNormal, True, 1, -1, wbFloatScale0to1); // any record which can have ODTY should always have it
+  var wbODTYReq := wbFloat(ODTY, 'Dirtiness Scale') // any record which can have ODTY should always have it
+    .SetNormalizer(wbFloatScale0to1)
+    .SetRequired;
+
   var wbOPDS :=
     wbStruct(OPDS, 'Object Palette Defaults', [
       wbInteger('Flags', itU8, wbFlags([
@@ -6866,8 +6869,8 @@ begin
               wbArray('Data',
                 wbArray('Row',
                   wbStruct('Column', [
-                    wbFloat('Terrain Height', cpNormal, True, 1, 0, wbNormalizeToRange(-800.0, 800.0)),
-                    wbFloat('Water Height', cpNormal, True, 1, 0, wbNormalizeToRange(-800.0, 800.0))
+                    wbFloat('Terrain Height', cpNormal, True, 1, 0).SetNormalizer(wbNormalizeToRange(-800.0, 800.0)),
+                    wbFloat('Water Height', cpNormal, True, 1, 0).SetNormalizer(wbNormalizeToRange(-800.0, 800.0))
                   ]).IncludeFlag(dfCollapsed, wbCollapseObjectBounds),
                 16).IncludeFlag(dfCollapsed, wbCollapseObjectBounds),
               16).IncludeFlag(dfCollapsed, wbCollapseObjectBounds)
@@ -7243,18 +7246,18 @@ begin
     ], cpNormal, True);
 
     var wbCSTYPowerWeightingStruct := wbStruct('Power Weighting', [
-      wbFloat('Engines', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Shields', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Guns', cpNormal, True, 1, -1, wbFloatScale0to10),
+      wbFloat('Engines').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Shields').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Guns').SetNormalizer(wbFloatScale0to10),
       wbStruct('Shield Based Guns', [
-        wbFloat('EM', cpNormal, True, 1, -1, wbFloatScale0to10),
-        wbFloat('Hull', cpNormal, True, 1, -1, wbFloatScale0to10),
-        wbFloat('Shield', cpNormal, True, 1, -1, wbFloatScale0to10)
+        wbFloat('EM').SetNormalizer(wbFloatScale0to10),
+        wbFloat('Hull').SetNormalizer(wbFloatScale0to10),
+        wbFloat('Shield').SetNormalizer(wbFloatScale0to10)
       ]),
         wbStruct('Hull Based Guns', [
-        wbFloat('EM', cpNormal, True, 1, -1, wbFloatScale0to10),
-        wbFloat('Hull', cpNormal, True, 1, -1, wbFloatScale0to10),
-        wbFloat('Shield', cpNormal, True, 1, -1, wbFloatScale0to10)
+        wbFloat('EM').SetNormalizer(wbFloatScale0to10),
+        wbFloat('Hull').SetNormalizer(wbFloatScale0to10),
+        wbFloat('Shield').SetNormalizer(wbFloatScale0to10)
       ])
     ]);
 
@@ -7263,14 +7266,14 @@ begin
     var wbCSTYManneuverTimingStruct := function(aName: string = 'Timings'):IwbStructDef
     begin
       Result := wbStruct(aName, [
-        wbFloat('Engage', cpNormal, True, 1, -1, wbCSTYNormalizeFloat600),
-        wbFloat('Evade', cpNormal, True, 1, -1, wbCSTYNormalizeFloat600),
-        wbFloat('Acquire', cpNormal, True, 1, -1, wbCSTYNormalizeFloat600),
-        wbFloat('Persue', cpNormal, True, 1, -1, wbCSTYNormalizeFloat600),
-        wbFloat('Disengage', cpNormal, True, 1, -1, wbCSTYNormalizeFloat600),
-        wbFloat('Surround', cpNormal, True, 1, -1, wbCSTYNormalizeFloat600),
+        wbFloat('Engage').SetNormalizer(wbCSTYNormalizeFloat600),
+        wbFloat('Evade').SetNormalizer(wbCSTYNormalizeFloat600),
+        wbFloat('Acquire').SetNormalizer(wbCSTYNormalizeFloat600),
+        wbFloat('Persue').SetNormalizer(wbCSTYNormalizeFloat600),
+        wbFloat('Disengage').SetNormalizer(wbCSTYNormalizeFloat600),
+        wbFloat('Surround').SetNormalizer(wbCSTYNormalizeFloat600),
         wbUnknown(4),
-        wbFloat('Break Stalemate', cpNormal, True, 1, -1, wbCSTYNormalizeFloat600)
+        wbFloat('Break Stalemate').SetNormalizer(wbCSTYNormalizeFloat600)
       ]);
     end;
 
@@ -11206,121 +11209,121 @@ begin
     ])), [
     wbEDID,
     wbStruct(CSGD, 'General', [
-      wbFloat('Offensive Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Defensive Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Group Offensive Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Equipment Score Mult - Melee', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Equipment Score Mult - Magic', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Equipment Score Mult - Ranged', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Equipment Score Mult - Shout', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Equipment Score Mult - Unarmed', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Equipment Score Mult - Staff', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Avoid Threat Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Dodge Threat Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Evade Threat Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Heal Ally Distance', cpNormal, True, 1, -1, wbFloatScale0to100),
-      wbFloat('Jump Cost Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Taunt Delay Mult', cpNormal, True, 1, -1, wbFloatScale0to10)
+      wbFloat('Offensive Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Defensive Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Group Offensive Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Equipment Score Mult - Melee').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Equipment Score Mult - Magic').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Equipment Score Mult - Ranged').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Equipment Score Mult - Shout').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Equipment Score Mult - Unarmed').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Equipment Score Mult - Staff').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Avoid Threat Chance').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Dodge Threat Chance').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Evade Threat Chance').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Heal Ally Distance').SetNormalizer(wbFloatScale0to100),
+      wbFloat('Jump Cost Mult').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Taunt Delay Mult').SetNormalizer(wbFloatScale0to10)
     ], cpNormal, True),
     wbStruct(CSME, 'Melee', [
-      wbFloat('Attack Staggered Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Power Attack Staggered Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Power Attack Blocking Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Bash Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Bash Recoil Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Bash Attack Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Bash Power Attack Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Special Attack Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Block When Staggered Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Attack When Staggered Mult', cpNormal, True, 1, -1, wbFloatScale0to10)
+      wbFloat('Attack Staggered Mult').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Power Attack Staggered Mult').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Power Attack Blocking Mult').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Bash Mult').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Bash Recoil Mult').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Bash Attack Mult').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Bash Power Attack Mult').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Special Attack Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Block When Staggered Mult').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Attack When Staggered Mult').SetNormalizer(wbFloatScale0to10)
     ]).SetOptionalFrom(9)
       .SetRequired,
     wbStruct(CSRA, 'Ranged', [
-      wbFloat('Ranged Accuracy Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Throw Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Grenade - Advanced Throwing Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Grenade - Flash Target Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Grenade - Throw At Group Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Grenade - Close Range Attack Chance Mult', cpNormal, True, 1, -1, wbFloatScale0to1)
+      wbFloat('Ranged Accuracy Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Throw Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Grenade - Advanced Throwing Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Grenade - Flash Target Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Grenade - Throw At Group Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Grenade - Close Range Attack Chance Mult').SetNormalizer(wbFloatScale0to1)
     ]).SetRequired,
     wbStruct(CSCR, 'Close Range', [
-      wbFloat('Dueling - Circle Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Dueling - Fallback Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Flanking - Flank Distance', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Flanking - Stalk Time', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Charging - Charge Distance', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Charging - Throw Probability', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Charging - Sprint Fast Probability', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Charging - Sideswipe Probability', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Charging - Disengane Probability', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Dueling - Circle Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Dueling - Fallback Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Flanking - Flank Distance').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Flanking - Stalk Time').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Charging - Charge Distance').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Charging - Throw Probability').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Charging - Sprint Fast Probability').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Charging - Sideswipe Probability').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Charging - Disengane Probability').SetNormalizer(wbFloatScale0to1),
       wbInteger('Charging - Throw Max Targets', itU32),
-      wbFloat('Flanking - Flank Variance', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Retreat - Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Retreat - Distance Mult', cpNormal, True, 1, -1, wbFloatScale0to1)
+      wbFloat('Flanking - Flank Variance').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Retreat - Chance').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Retreat - Distance Mult').SetNormalizer(wbFloatScale0to1)
     ]).SetRequired,
     wbStruct(CSLR, 'Long Range', [
-      wbFloat('Strafe Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Adjust Range Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Crouch Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Wait Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Range Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Provide Suppressive Fire Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Retreat - Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Retreat - Hide Time Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Retreat - Distance Mult', cpNormal, True, 1, -1, wbFloatScale0to1)
+      wbFloat('Strafe Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Adjust Range Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Crouch Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Wait Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Range Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Provide Suppressive Fire Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Retreat - Chance').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Retreat - Hide Time Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Retreat - Distance Mult').SetNormalizer(wbFloatScale0to1)
     ]).SetOptionalFrom(3)
       .SetRequired,
     wbStruct(CSCV, 'Cover Search', [
-      wbFloat('Cover Search Distance Mult', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Suppression Sensitivity', cpNormal, True, 1, -1, wbFloatScale0to1)
+      wbFloat('Cover Search Distance Mult').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Suppression Sensitivity').SetNormalizer(wbFloatScale0to1)
     ]).SetRequired,
     wbStruct(CSFL, 'Flight', [
-      wbFloat('Hover Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Dive Bomb Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Ground Attack Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Hover Time', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Ground Attack Time', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Perch Attack Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Perch Attack Time', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Flying Attack Chance', cpNormal, True, 1, -1, wbFloatScale0to1)
+      wbFloat('Hover Chance').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Dive Bomb Chance').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Ground Attack Chance').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Hover Time').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Ground Attack Time').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Perch Attack Chance').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Perch Attack Time').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Flying Attack Chance').SetNormalizer(wbFloatScale0to1)
     ]).SetRequired,
     wbStruct(CSTN, 'Tunnel', [
-      wbFloat('Cost Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Chance', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Max Distance', cpNormal, True, 1, -1, wbNormalizeToRange(0.0, 1000.0)),
-      wbFloat('Speed Mult', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Min Time', cpNormal, True, 1, -1, wbCSTYNormalizeFloat30),
-      wbFloat('Max Time', cpNormal, True, 1, -1, wbCSTYNormalizeFloat30),
-      wbFloat('Maximum Time', cpNormal, True, 1, -1, wbCSTYNormalizeFloat30),
-      wbFloat('Cooldown', cpNormal, True, 1, -1, wbCSTYNormalizeFloat30)
+      wbFloat('Cost Mult').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Chance').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Max Distance').SetNormalizer(wbNormalizeToRange(0.0, 1000.0)),
+      wbFloat('Speed Mult').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Min Time').SetNormalizer(wbCSTYNormalizeFloat30),
+      wbFloat('Max Time').SetNormalizer(wbCSTYNormalizeFloat30),
+      wbFloat('Maximum Time').SetNormalizer(wbCSTYNormalizeFloat30),
+      wbFloat('Cooldown').SetNormalizer(wbCSTYNormalizeFloat30)
     ]),
     wbStruct(CSSG, 'Space General', [
-      wbFloat('Pilot Skill', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Accuracy', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Target Shield', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Adjustment', cpNormal, True, 1, -1, wbNormalizeToRange(0.0, 60.0)),
+      wbFloat('Pilot Skill').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Accuracy').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Target Shield').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Adjustment').SetNormalizer(wbNormalizeToRange(0.0, 60.0)),
       wbStruct('Engage Maneuver Chance', [
-        wbFloat('Direct Attack', cpNormal, True, 1, -1, wbFloatScale0to1),
-        wbFloat('Pass', cpNormal, True, 1, -1, wbFloatScale0to1),
-        wbFloat('Lead Turn', cpNormal, True, 1, -1, wbFloatScale0to1),
-        wbFloat('Slide Turn', cpNormal, True, 1, -1, wbFloatScale0to1),
-        wbFloat('Barrel Roll', cpNormal, True, 1, -1, wbFloatScale0to1)
+        wbFloat('Direct Attack').SetNormalizer(wbFloatScale0to1),
+        wbFloat('Pass').SetNormalizer(wbFloatScale0to1),
+        wbFloat('Lead Turn').SetNormalizer(wbFloatScale0to1),
+        wbFloat('Slide Turn').SetNormalizer(wbFloatScale0to1),
+        wbFloat('Barrel Roll').SetNormalizer(wbFloatScale0to1)
       ]),
       wbStruct('Evade Maneuver Chance', [
-        wbFloat('Break', cpNormal, True, 1, -1, wbFloatScale0to1),
-        wbFloat('Scissors', cpNormal, True, 1, -1, wbFloatScale0to1),
-        wbFloat('Cut', cpNormal, True, 1, -1, wbFloatScale0to1),
-        wbFloat('Boost', cpNormal, True, 1, -1, wbFloatScale0to1)
+        wbFloat('Break').SetNormalizer(wbFloatScale0to1),
+        wbFloat('Scissors').SetNormalizer(wbFloatScale0to1),
+        wbFloat('Cut').SetNormalizer(wbFloatScale0to1),
+        wbFloat('Boost').SetNormalizer(wbFloatScale0to1)
       ]),
       wbStruct('Acquire Maneuver Chance', [
-        wbFloat('Sliceback', cpNormal, True, 1, -1, wbFloatScale0to1),
-        wbFloat('Strafe Turn', cpNormal, True, 1, -1, wbFloatScale0to1),
-        wbFloat('Acquire', cpNormal, True, 1, -1, wbFloatScale0to1),
-        wbFloat('Turn', cpNormal, True, 1, -1, wbFloatScale0to1)
+        wbFloat('Sliceback').SetNormalizer(wbFloatScale0to1),
+        wbFloat('Strafe Turn').SetNormalizer(wbFloatScale0to1),
+        wbFloat('Acquire').SetNormalizer(wbFloatScale0to1),
+        wbFloat('Turn').SetNormalizer(wbFloatScale0to1)
       ]),
       wbFloat('Disengage Maneuver Chance'),
-      wbFloat('Missile Seeking Strength', cpNormal, True, 1, -1, wbFloatScale0to10),
-      wbFloat('Min Time Between Boosts', cpNormal, True, 1, -1, wbNormalizeToRange(0.0, 60.0)),
+      wbFloat('Missile Seeking Strength').SetNormalizer(wbFloatScale0to10),
+      wbFloat('Min Time Between Boosts').SetNormalizer(wbNormalizeToRange(0.0, 60.0)),
       wbInteger('Combat Strafing', itU8, wbBoolEnum),
       wbInteger('Rolls During Boost', itU8, wbBoolEnum),
       wbUnused(2), //padding
@@ -11331,9 +11334,9 @@ begin
       wbCSTYManneuverTimingStruct('Reentry Delays')
     ]),
     wbStruct(CSSR, 'Space Repair', [
-      wbFloat('Damage Threshold', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Faraway Distance %', cpNormal, True, 1, -1, wbFloatScale0to1),
-      wbFloat('Power to Use', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Damage Threshold').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Faraway Distance %').SetNormalizer(wbFloatScale0to1),
+      wbFloat('Power to Use').SetNormalizer(wbFloatScale0to1),
       wbStruct('In Close Power Weighting Tables', [
         wbCSTYPowerWeightingStruct
       ]),
@@ -11342,7 +11345,7 @@ begin
       ])
     ]),
     wbStruct(CSSA, 'Space Approaching', [
-      wbFloat('Min Distance', cpNormal, True, 1, -1, wbFloatScale0to1),
+      wbFloat('Min Distance').SetNormalizer(wbFloatScale0to1),
       wbCSTYPowerWeightingStruct
     ]),
     wbStruct(CSSD, 'Space Detection', [
@@ -11978,10 +11981,10 @@ begin
         'Extra Large'
       ])),
       wbStruct('Spawn', [
-        wbFloat('X', cpNormal, True, 1, -1, wbFloatScale0to1),
-        wbFloat('Y', cpNormal, True, 1, -1, wbFloatScale0to1),
-        wbFloat('Z', cpNormal, True, 1, -1, wbFloatScale0to1),
-        wbFloat('Spread Degrees', cpNormal, True, 1, -1, wbNormalizeToRange(0, 180)),
+        wbFloat('X').SetNormalizer(wbFloatScale0to1),
+        wbFloat('Y').SetNormalizer(wbFloatScale0to1),
+        wbFloat('Z').SetNormalizer(wbFloatScale0to1),
+        wbFloat('Spread Degrees').SetNormalizer(wbNormalizeToRange(0.0, 180.0)),
         wbInteger('Count', itU32)
       ]),
       wbFloat('Duration')
@@ -12461,7 +12464,9 @@ begin
       wbInteger(DNAM, 'Override Density', itS16).SetDefaultEditValue('-1')
     ])),
     wbRArray('Landscape Textures', wbFormIDCk(LNAM, 'Landscape Texture', [LTEX])),
-    wbFloat(YNAM, 'Painted Material Threshold', cpNormal, True, 100.0, 0, wbNormalizeToRange(0.1, 1.0)).SetDefaultNativeValue(28.0)
+    wbFloat(YNAM, 'Painted Material Threshold', cpNormal, True, 100.0, 0)
+      .SetDefaultNativeValue(28.0)
+      .SetNormalizer(wbNormalizeToRange(0.1, 1.0))
   ]);
 
   {subrecords checked against Starfield.esm}
@@ -12629,10 +12634,10 @@ begin
     wbBaseFormComponents,
     wbGenericModel(True),
     wbStruct(DNAM, 'Data', [
-      { 0} wbFloat('Contrast', cpNormal, True, 1, -1, wbFloatScale0to100),
-      { 4} wbFloat('Cluster Scale', cpNormal, True, 1, -1, wbFloatScale0to10),
-      { 8} wbFloat('Height Range', cpNormal, True, 1, -1, wbFloatScale0to1),
-      {12} wbFloat('Color Range', cpNormal, True, 1, -1, wbFloatScale0to1),
+      { 0} wbFloat('Contrast').SetNormalizer(wbFloatScale0to100),
+      { 4} wbFloat('Cluster Scale').SetNormalizer(wbFloatScale0to10),
+      { 8} wbFloat('Height Range').SetNormalizer(wbFloatScale0to1),
+      {12} wbFloat('Color Range').SetNormalizer(wbFloatScale0to1),
       {16} wbFloat('Wind Frequency'),
       {20} wbFloat('Above Water Clamp - Value').SetDefaultEditValue('Default'),
       {24} wbFloat('Below Water Clamp - Value').SetDefaultEditValue('Default'),
@@ -12645,7 +12650,7 @@ begin
         'Fits Slope',
         'Apply Between'
       ])).IncludeFlag(dfCollapsed, wbCollapseFlags),
-      {32} wbFloat('Coverage', cpNormal, True, 1, -1, wbFloatScale0to100),
+      {32} wbFloat('Coverage').SetNormalizer(wbFloatScale0to100),
       {36} wbInteger('Dirtiness Min', itU8, wbDiv(255)),
       {37} wbInteger('Dirtiness Max', itu8, wbDiv(255))
     ], cpNormal, True)
@@ -14092,7 +14097,7 @@ begin
       wbInteger('Friction', itU8),
       wbInteger('Restitution', itU8)
     ], cpNormal, True).SetSummaryKeyOnValue([0,1]),
-    wbFloat(QNAM, 'Dirtiness', cpNormal, True, 1, -1, wbFloatScale0to1).SetDefaultNativeValue(1.0)
+    wbFloat(QNAM, 'Dirtiness').SetNormalizer(wbFloatScale0to1).SetDefaultNativeValue(1.0)
   ]).SetSummaryKey([1]);
 
   {subrecords checked against Starfield.esm}

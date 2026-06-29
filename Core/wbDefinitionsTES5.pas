@@ -2632,7 +2632,7 @@ begin
   wbFULLReq := wbLStringKC(FULL, 'Name', 0, cpTranslate, True);
   wbDESC := wbLStringKC(DESC, 'Description', 0, cpTranslate);
   wbDESCReq := wbLStringKC(DESC, 'Description', 0, cpTranslate, True);
-  wbXSCL := wbFloat(XSCL, 'Scale', cpNormal, False, 1, -1, wbNormalizeToRange(0.0, 10.0));
+  wbXSCL := wbFloat(XSCL, 'Scale').SetNormalizer(wbNormalizeToRange(0.0, 10.0));
 
   wbScriptPropertyObject := wbUnion('Object Union', wbScriptObjFormatDecider, [
     wbStructSK([2, 1], 'Object v2', [
@@ -7942,7 +7942,8 @@ begin
       ).SetAfterSet(wbLIGHDataFlagsAfterSet)
        .IncludeFlag(dfCollapsed, wbCollapseFlags),
       wbFloat('Falloff Exponent', cpNormal, True, 1, 4).SetDontShow(wbLIGHFalloffDontShow),
-      wbFloat('FOV', cpNormal, True, 1, 4, wbNormalizeToRange(0.001, 160))
+      wbFloat('FOV', cpNormal, True, 1, 4)
+        .SetNormalizer(wbNormalizeToRange(0.001, 160))
         .SetDefaultNativeValue(90)
         .SetDontShow(wbLIGHShadowSpotDontShow),
       wbFloat('Near Clip', cpNormal, True, 1, 4)
@@ -7956,7 +7957,9 @@ begin
       wbInteger('Value', itU32).SetDontShow(wbLIGHCarryDontShow),
       wbFloat('Weight', cpNormal, True, 1, 4).SetDontShow(wbLIGHCarryDontShow)
     ]).SetRequired,
-    wbFloat(FNAM, 'Fade Value', cpNormal, True, 1, 4, wbNormalizeToRange(0, 10)).SetDefaultNativeValue(1),
+    wbFloat(FNAM, 'Fade Value', cpNormal, True, 1, 4)
+      .SetDefaultNativeValue(1)
+      .SetNormalizer(wbNormalizeToRange(0, 10)),
     wbFormIDCk(SNAM, 'Sound', [SNDR]),
     IsSSE(
       wbFormIDCk(LNAM, 'Lens Flare', [LENS]),

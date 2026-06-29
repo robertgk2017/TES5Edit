@@ -1778,12 +1778,14 @@ begin
       wbByteColors('Ambient Color'),
       wbByteColors('Directional Color'),
       wbByteColors('Fog Color'),
-      wbFloat('Fog Near', cpNormal, True, 1, 4, wbNormalizeToRange(-163840, 163840)),
-      wbFloat('Fog Far', cpNormal, True, 1, 4, wbNormalizeToRange(-163840, 163840)),
+      wbFloat('Fog Near', cpNormal, True, 1, 4).SetNormalizer(wbNormalizeToRange(-163840, 163840)),
+      wbFloat('Fog Far', cpNormal, True, 1, 4).SetNormalizer(wbNormalizeToRange(-163840, 163840)),
       wbInteger('Directional Rotation XY', itS32),
       wbInteger('Directional Rotation Z', itS32),
-      wbFloat('Directional Fade', cpNormal, True, 1, 4, wbNormalizeToRange(0, 10)).SetDefaultNativeValue(1),
-      wbFloat('Fog Clip Dist', cpNormal, True, 1, 4, wbNormalizeToRange(0, 163840))
+      wbFloat('Directional Fade', cpNormal, True, 1, 4)
+        .SetNormalizer(wbNormalizeToRange(0, 10))
+        .SetDefaultNativeValue(1),
+      wbFloat('Fog Clip Dist', cpNormal, True, 1, 4).SetNormalizer(wbNormalizeToRange(-163840, 163840))
     ]).SetDontShow(wbCellExteriorDontShow)
       .SetIsRemovable(wbCellLightingIsRemovable),
     wbArrayS(XCLR, 'Regions',

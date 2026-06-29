@@ -2663,6 +2663,8 @@ type
     function SetDefaultNativeValue(const aValue: Variant): IwbSubRecordDef{Self};
     function SetDefaultEditValues(const aValues: array of string): IwbRecordMemberDef{Self};
 
+    function SetNormalizer(const aNormalizer: TwbFloatNormalizer): IwbSubRecordDef;
+
     function ForValue(const aCallback: TwbSubRecordForValueCallback): IwbSubRecordDef{Self};
 
     function SetLinksToCallbackOnValue(const aCallback: TwbLinksToCallback): IwbSubRecordDef{Self};
@@ -2841,6 +2843,8 @@ type
   IwbFloatDef = interface(IwbValueDef)
     ['{29F116C6-0208-4D55-ACA7-2A9BB17BF80B}']
     function GetKind: TwbFloatKind;
+
+    function SetNormalizer(const aNormalizer: TwbFloatNormalizer): IwbFloatDef;
 
     property Kind: TwbFloatKind
       read GetKind;
@@ -3622,22 +3626,19 @@ function wbHalf(const aSignature  : TwbSignature;
                       aPriority   : TwbConflictPriority = cpNormal;
                       aRequired   : Boolean = False;
                       aScale      : Extended = 1.0;
-                      aDigits     : Integer = -1;
-                      aNormalizer : TwbFloatNormalizer = nil)
+                      aDigits     : Integer = -1)
                                   : IwbSubRecordDef; overload;
 
 function wbHalf(const aName       : string = 'Unknown';
                       aPriority   : TwbConflictPriority = cpNormal;
                       aRequired   : Boolean = False;
                       aScale      : Extended = 1.0;
-                      aDigits     : Integer = -1;
-                      aNormalizer : TwbFloatNormalizer = nil)
+                      aDigits     : Integer = -1)
                                   : IwbFloatDef; overload;
 
 function wbHalf(const aName       : string;
                       aPriority   : TwbConflictPriority;
-                      aRequired   : Boolean;
-                      aNormalizer : TwbFloatNormalizer = nil)
+                      aRequired   : Boolean)
                                   : IwbFloatDef; overload;
 
 function wbFloat(const aSignature  : TwbSignature;
@@ -3645,16 +3646,14 @@ function wbFloat(const aSignature  : TwbSignature;
                        aPriority   : TwbConflictPriority = cpNormal;
                        aRequired   : Boolean = False;
                        aScale      : Extended = 1.0;
-                       aDigits     : Integer = -1;
-                       aNormalizer : TwbFloatNormalizer = nil)
+                       aDigits     : Integer = -1)
                                    : IwbSubRecordDef; overload;
 
 function wbFloat(const aName       : string = 'Unknown';
                        aPriority   : TwbConflictPriority = cpNormal;
                        aRequired   : Boolean = False;
                        aScale      : Extended = 1.0;
-                       aDigits     : Integer = -1;
-                       aNormalizer : TwbFloatNormalizer = nil)
+                       aDigits     : Integer = -1)
                                    : IwbFloatDef; overload;
 
 function wbFloatAngle(const aSignature  : TwbSignature;
@@ -3673,22 +3672,19 @@ function wbDouble(const aSignature  : TwbSignature;
                         aPriority   : TwbConflictPriority = cpNormal;
                         aRequired   : Boolean = False;
                         aScale      : Extended = 1.0;
-                        aDigits     : Integer = -1;
-                        aNormalizer : TwbFloatNormalizer = nil)
+                        aDigits     : Integer = -1)
                                     : IwbSubRecordDef; overload;
 
 function wbDouble(const aName       : string = 'Unknown';
                         aPriority   : TwbConflictPriority = cpNormal;
                         aRequired   : Boolean = False;
                         aScale      : Extended = 1.0;
-                        aDigits     : Integer = -1;
-                        aNormalizer : TwbFloatNormalizer = nil)
+                        aDigits     : Integer = -1)
                                     : IwbFloatDef; overload;
 
 function wbDouble(const aName       : string;
                         aPriority   : TwbConflictPriority;
-                        aRequired   : Boolean;
-                        aNormalizer : TwbFloatNormalizer = nil)
+                        aRequired   : Boolean)
                                     : IwbFloatDef; overload;
 
 function wbFloatT(const aSignature  : TwbSignature;
@@ -3696,22 +3692,19 @@ function wbFloatT(const aSignature  : TwbSignature;
                         aPriority   : TwbConflictPriority = cpNormal;
                         aRequired   : Boolean = False;
                         aScale      : Extended = 1.0;
-                        aDigits     : Integer = -1;
-                        aNormalizer : TwbFloatNormalizer = nil)
+                        aDigits     : Integer = -1)
                                     : IwbSubRecordDef; overload;
 
 function wbFloatT(const aName       : string = 'Unknown';
                         aPriority   : TwbConflictPriority = cpNormal;
                         aRequired   : Boolean = False;
                         aScale      : Extended = 1.0;
-                        aDigits     : Integer = -1;
-                        aNormalizer : TwbFloatNormalizer = nil)
+                        aDigits     : Integer = -1)
                                     : IwbFloatDef; overload;
 
 function wbFloatT(const aName       : string;
                         aPriority   : TwbConflictPriority;
-                        aRequired   : Boolean;
-                        aNormalizer : TwbFloatNormalizer = nil)
+                        aRequired   : Boolean)
                                     : IwbFloatDef; overload;
 
 function wbDoubleT(const aSignature  : TwbSignature;
@@ -3719,22 +3712,19 @@ function wbDoubleT(const aSignature  : TwbSignature;
                          aPriority   : TwbConflictPriority = cpNormal;
                          aRequired   : Boolean = False;
                          aScale      : Extended = 1.0;
-                         aDigits     : Integer = -1;
-                         aNormalizer : TwbFloatNormalizer = nil)
+                         aDigits     : Integer = -1)
                                      : IwbSubRecordDef; overload;
 
 function wbDoubleT(const aName       : string = 'Unknown';
                          aPriority   : TwbConflictPriority = cpNormal;
                          aRequired   : Boolean = False;
                          aScale      : Extended = 1.0;
-                         aDigits     : Integer = -1;
-                         aNormalizer : TwbFloatNormalizer = nil)
+                         aDigits     : Integer = -1)
                                      : IwbFloatDef; overload;
 
 function wbDoubleT(const aName       : string;
                          aPriority   : TwbConflictPriority;
-                         aRequired   : Boolean;
-                         aNormalizer : TwbFloatNormalizer = nil)
+                         aRequired   : Boolean)
                                      : IwbFloatDef; overload;
 
 {--- wbArray - list of identical elements -------------------------------------}
@@ -5845,6 +5835,8 @@ type
     function SetDefaultNativeValue(const aValue: Variant): IwbSubRecordDef;
     function SetDefaultEditValues(const aValues: array of string): IwbRecordMemberDef;
 
+    function SetNormalizer(const aNormalizer: TwbFloatNormalizer): IwbSubRecordDef;
+
     function ForValue(const aCallback: TwbSubRecordForValueCallback): {Self}IwbSubRecordDef;
 
     function SetLinksToCallbackOnValue(const aCallback: TwbLinksToCallback): IwbSubRecordDef{Self};
@@ -6686,13 +6678,14 @@ type
 
     {---IwbFloatDef---}
     function GetKind: TwbFloatKind;
+
+    function SetNormalizer(const aNormalizer: TwbFloatNormalizer): IwbFloatDef;
   public
     constructor Create(aPriority   : TwbConflictPriority;
                        aRequired   : Boolean;
                  const aName       : string;
                        aScale      : Extended;
                        aDigits     : Integer;
-                       aNormalizer : TwbFloatNormalizer;
                        aKind       : TwbFloatKind;
                        aTerminator : Boolean); reintroduce;
   end;
@@ -8002,11 +7995,10 @@ function wbHalf(const aSignature  : TwbSignature;
                       aPriority   : TwbConflictPriority = cpNormal;
                       aRequired   : Boolean = False;
                       aScale      : Extended = 1.0;
-                      aDigits     : Integer = -1;
-                      aNormalizer : TwbFloatNormalizer = nil)
+                      aDigits     : Integer = -1)
                                   : IwbSubRecordDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbHalf('', aPriority, False, aScale, aDigits, aNormalizer), aPriority, aRequired, False);
+  Result := wbSubRecord(aSignature, aName, wbHalf('', aPriority, False, aScale, aDigits), aPriority, aRequired, False);
 end;
 
 function wbFloat(const aSignature  : TwbSignature;
@@ -8014,11 +8006,10 @@ function wbFloat(const aSignature  : TwbSignature;
                        aPriority   : TwbConflictPriority = cpNormal;
                        aRequired   : Boolean = False;
                        aScale      : Extended = 1.0;
-                       aDigits     : Integer = -1;
-                       aNormalizer : TwbFloatNormalizer = nil)
+                       aDigits     : Integer = -1)
                                    : IwbSubRecordDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbFloat('', aPriority, False, aScale, aDigits, aNormalizer), aPriority, aRequired, False);
+  Result := wbSubRecord(aSignature, aName, wbFloat('', aPriority, False, aScale, aDigits), aPriority, aRequired, False);
 end;
 
 function wbFloatAngle(const aSignature  : TwbSignature;
@@ -8027,7 +8018,8 @@ function wbFloatAngle(const aSignature  : TwbSignature;
                             aRequired   : Boolean = False)
                                         : IwbSubRecordDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbFloat('', aPriority, False, wbRadiansToDegreesScale, wbAngleDigits, wbNormalizeRadians), aPriority, aRequired, False);
+  Result := wbSubRecord(aSignature, aName, wbFloat('', aPriority, False, wbRadiansToDegreesScale, wbAngleDigits), aPriority, aRequired, False);
+  Result.SetNormalizer(wbNormalizeRadians);
 end;
 
 function wbDouble(const aSignature  : TwbSignature;
@@ -8035,33 +8027,30 @@ function wbDouble(const aSignature  : TwbSignature;
                         aPriority   : TwbConflictPriority = cpNormal;
                         aRequired   : Boolean = False;
                         aScale      : Extended = 1.0;
-                        aDigits     : Integer = -1;
-                        aNormalizer : TwbFloatNormalizer = nil)
+                        aDigits     : Integer = -1)
                                     : IwbSubRecordDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbDouble('', aPriority, False, aScale, aDigits, aNormalizer), aPriority, aRequired, False);
+  Result := wbSubRecord(aSignature, aName, wbDouble('', aPriority, False, aScale, aDigits), aPriority, aRequired, False);
 end;
 
 function wbHalf(const aName       : string = 'Unknown';
                       aPriority   : TwbConflictPriority = cpNormal;
                       aRequired   : Boolean = False;
                       aScale      : Extended = 1.0;
-                      aDigits     : Integer = -1;
-                      aNormalizer : TwbFloatNormalizer = nil)
+                      aDigits     : Integer = -1)
                                   : IwbFloatDef; overload;
 begin
-  Result := TwbFloatDef.Create(aPriority, aRequired, aName, aScale, aDigits, aNormalizer, fkHalf, False);
+  Result := TwbFloatDef.Create(aPriority, aRequired, aName, aScale, aDigits, fkHalf, False);
 end;
 
 function wbFloat(const aName       : string = 'Unknown';
                        aPriority   : TwbConflictPriority = cpNormal;
                        aRequired   : Boolean = False;
                        aScale      : Extended = 1.0;
-                       aDigits     : Integer = -1;
-                       aNormalizer : TwbFloatNormalizer = nil)
+                       aDigits     : Integer = -1)
                                    : IwbFloatDef; overload;
 begin
-  Result := TwbFloatDef.Create(aPriority, aRequired, aName, aScale, aDigits, aNormalizer, fkSingle, False);
+  Result := TwbFloatDef.Create(aPriority, aRequired, aName, aScale, aDigits, fkSingle, False);
 end;
 
 function wbFloatAngle(const aName       : string = 'Unknown Angle';
@@ -8069,7 +8058,8 @@ function wbFloatAngle(const aName       : string = 'Unknown Angle';
                             aRequired   : Boolean = False)
                                         : IwbFloatDef; overload;
 begin
-  Result := TwbFloatDef.Create(aPriority, aRequired, aName, wbRadiansToDegreesScale, wbAngleDigits, wbNormalizeRadians, fkSingle, False);
+  Result := TwbFloatDef.Create(aPriority, aRequired, aName, wbRadiansToDegreesScale, wbAngleDigits, fkSingle, False);
+  Result.SetNormalizer(wbNormalizeRadians)
 end;
 
 
@@ -8077,29 +8067,26 @@ function wbDouble(const aName       : string = 'Unknown';
                         aPriority   : TwbConflictPriority = cpNormal;
                         aRequired   : Boolean = False;
                         aScale      : Extended = 1.0;
-                        aDigits     : Integer = -1;
-                        aNormalizer : TwbFloatNormalizer = nil)
+                        aDigits     : Integer = -1)
                                     : IwbFloatDef; overload;
 begin
-  Result := TwbFloatDef.Create(aPriority, aRequired, aName, aScale, aDigits, aNormalizer, fkDouble, False);
+  Result := TwbFloatDef.Create(aPriority, aRequired, aName, aScale, aDigits, fkDouble, False);
 end;
 
 function wbHalf(const aName       : string;
                       aPriority   : TwbConflictPriority;
-                      aRequired   : Boolean;
-                      aNormalizer : TwbFloatNormalizer = nil)
+                      aRequired   : Boolean)
                                   : IwbFloatDef; overload;
 begin
-  Result := TwbFloatDef.Create(aPriority, aRequired, aName, 1.0, -1, aNormalizer, fkHalf, False);
+  Result := TwbFloatDef.Create(aPriority, aRequired, aName, 1.0, -1, fkHalf, False);
 end;
 
 function wbDouble(const aName       : string;
                         aPriority   : TwbConflictPriority;
-                        aRequired   : Boolean;
-                        aNormalizer : TwbFloatNormalizer = nil)
+                        aRequired   : Boolean)
                                     : IwbFloatDef; overload;
 begin
-  Result := TwbFloatDef.Create(aPriority, aRequired, aName, 1.0, -1, aNormalizer, fkDouble, False);
+  Result := TwbFloatDef.Create(aPriority, aRequired, aName, 1.0, -1, fkDouble, False);
 end;
 
 function wbFloatT(const aSignature  : TwbSignature;
@@ -8107,11 +8094,10 @@ function wbFloatT(const aSignature  : TwbSignature;
                         aPriority   : TwbConflictPriority = cpNormal;
                         aRequired   : Boolean = False;
                         aScale      : Extended = 1.0;
-                        aDigits     : Integer = -1;
-                        aNormalizer : TwbFloatNormalizer = nil)
+                        aDigits     : Integer = -1)
                                     : IwbSubRecordDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbFloatT('', aPriority, False, aScale, aDigits, aNormalizer), aPriority, aRequired, False);
+  Result := wbSubRecord(aSignature, aName, wbFloatT('', aPriority, False, aScale, aDigits), aPriority, aRequired, False);
 end;
 
 function wbDoubleT(const aSignature  : TwbSignature;
@@ -8119,51 +8105,46 @@ function wbDoubleT(const aSignature  : TwbSignature;
                          aPriority   : TwbConflictPriority = cpNormal;
                          aRequired   : Boolean = False;
                          aScale      : Extended = 1.0;
-                         aDigits     : Integer = -1;
-                         aNormalizer : TwbFloatNormalizer = nil)
+                         aDigits     : Integer = -1)
                                      : IwbSubRecordDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbDoubleT('', aPriority, False, aScale, aDigits,aNormalizer), aPriority, aRequired, False);
+  Result := wbSubRecord(aSignature, aName, wbDoubleT('', aPriority, False, aScale, aDigits), aPriority, aRequired, False);
 end;
 
 function wbFloatT(const aName       : string = 'Unknown';
                         aPriority   : TwbConflictPriority = cpNormal;
                         aRequired   : Boolean = False;
                         aScale      : Extended = 1.0;
-                        aDigits     : Integer = -1;
-                        aNormalizer : TwbFloatNormalizer = nil)
+                        aDigits     : Integer = -1)
                                     : IwbFloatDef; overload;
 begin
-  Result := TwbFloatDef.Create(aPriority, aRequired, aName, aScale, aDigits, aNormalizer, fkSingle, True);
+  Result := TwbFloatDef.Create(aPriority, aRequired, aName, aScale, aDigits, fkSingle, True);
 end;
 
 function wbDoubleT(const aName       : string = 'Unknown';
                          aPriority   : TwbConflictPriority = cpNormal;
                          aRequired   : Boolean = False;
                          aScale      : Extended = 1.0;
-                         aDigits     : Integer = -1;
-                         aNormalizer : TwbFloatNormalizer = nil)
+                         aDigits     : Integer = -1)
                                      : IwbFloatDef; overload;
 begin
-  Result := TwbFloatDef.Create(aPriority, aRequired, aName, aScale, aDigits, aNormalizer, fkDouble, True);
+  Result := TwbFloatDef.Create(aPriority, aRequired, aName, aScale, aDigits, fkDouble, True);
 end;
 
 function wbFloatT(const aName       : string;
                         aPriority   : TwbConflictPriority;
-                        aRequired   : Boolean;
-                        aNormalizer : TwbFloatNormalizer = nil)
+                        aRequired   : Boolean)
                                     : IwbFloatDef; overload;
 begin
-  Result := TwbFloatDef.Create(aPriority, aRequired, aName, 1.0, -1, aNormalizer, fkSingle, True);
+  Result := TwbFloatDef.Create(aPriority, aRequired, aName, 1.0, -1, fkSingle, True);
 end;
 
 function wbDoubleT(const aName       : string;
                          aPriority   : TwbConflictPriority;
-                         aRequired   : Boolean;
-                         aNormalizer : TwbFloatNormalizer = nil)
+                         aRequired   : Boolean)
                                      : IwbFloatDef; overload;
 begin
-  Result := TwbFloatDef.Create(aPriority, aRequired, aName, 1.0, -1, aNormalizer, fkDouble, True);
+  Result := TwbFloatDef.Create(aPriority, aRequired, aName, 1.0, -1, fkDouble, True);
 end;
 
 {--- wbArray - list of identical elements -------------------------------------}
@@ -10883,6 +10864,18 @@ begin
 
   if Assigned(srValue) then begin
     srValue := srValue.SetLinksToCallback(aCallback);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
+  Result := Self;
+end;
+
+function TwbSubRecordDef.SetNormalizer(const aNormalizer: TwbFloatNormalizer): IwbSubRecordDef;
+begin
+  if defIsLocked then
+    Exit(TwbSubRecordDef(Duplicate).SetNormalizer(aNormalizer));
+
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbFloatDef).SetNormalizer(aNormalizer);
     srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
   end;
   Result := Self;
@@ -15786,6 +15779,7 @@ begin
   with Self as TwbFloatDef do
   begin
     Self.fdDefault := fdDefault;
+    Self.fdNormalizer := fdNormalizer;
   end;
 end;
 
@@ -15830,7 +15824,7 @@ end;
 constructor TwbFloatDef.Clone(const aSource: TwbDef);
 begin
   with aSource as TwbFloatDef do
-    Self.Create(defPriority, defRequired, ndName, fdScale, fdDigits, fdNormalizer, fdKind, ndTerminator).AfterClone(aSource);
+    Self.Create(defPriority, defRequired, ndName, fdScale, fdDigits, fdKind, ndTerminator).AfterClone(aSource);
 end;
 
 constructor TwbFloatDef.Create(aPriority   : TwbConflictPriority;
@@ -15838,13 +15832,11 @@ constructor TwbFloatDef.Create(aPriority   : TwbConflictPriority;
                          const aName       : string;
                                aScale      : Extended;
                                aDigits     : Integer;
-                               aNormalizer : TwbFloatNormalizer;
                                aKind       : TwbFloatKind;
                                aTerminator : Boolean);
 begin
   fdScale := aScale;
   fdDigits := aDigits;
-  fdNormalizer := aNormalizer;
   fdKind := aKind;
   if fdDigits <> Low(Integer) then
     if fdDigits < 0 then begin
@@ -16066,6 +16058,15 @@ begin
 
   Result := Self;
   fdDefault := aValue;
+end;
+
+function TwbFloatDef.SetNormalizer(const aNormalizer: TwbFloatNormalizer): IwbFloatDef;
+begin
+  if DefIsLocked then
+    Exit(TwbFloatDef(Duplicate).SetNormalizer(aNormalizer));
+
+  Result := Self;
+  fdNormalizer := aNormalizer;
 end;
 
 function TwbFloatDef.SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean;
