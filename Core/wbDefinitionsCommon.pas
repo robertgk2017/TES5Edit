@@ -7991,7 +7991,7 @@ begin
       wbInteger('Y', itS32),
       wbInteger('Land Flags', itU8, wbLandFlags).IncludeFlag(dfCollapsed, wbCollapseFlags),
       wbUnused(3)
-    ], cpNormal, False, 2)
+    ]).SetOptionalFrom(2)
       .SetSummaryKeyOnValue([0, 1, 2])
       .SetSummaryPrefixSuffixOnValue(0, '(', '')
       .SetSummaryPrefixSuffixOnValue(1, '', ')')
