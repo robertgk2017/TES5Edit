@@ -912,7 +912,7 @@ begin
         wbStringForward(MAST, 'Filename').SetRequired,
         wbInteger(DATA, 'Master Size', itU64, nil, cpIgnore, True)
     ])).IncludeFlag(dfInternalEditOnly, not wbAllowMasterFilesEdit)
-  ], False, nil, cpNormal, True)
+  ], False, cpNormal, True)
     .SetGetFormIDCallback(function(const aMainRecord: IwbMainRecord; out aFormID: TwbFormID): Boolean begin
        Result := True;
        aFormID := TwbFormID.Null;

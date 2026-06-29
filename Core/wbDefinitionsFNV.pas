@@ -7276,7 +7276,7 @@ begin
       wbEmbeddedScriptReq,
       wbFormIDCk(TNAM, 'Topic', [DIAL, NULL], False, cpNormal, True)
     ], [], cpNormal, True)
-  ], False, nil, cpNormal, False, wbPACKAfterLoad);
+  ]).SetAfterLoad(wbPACKAfterLoad);
 
   wbRecord(QUST, 'Quest', [
     wbEDIDReq,
@@ -8030,7 +8030,7 @@ begin
      .IncludeFlag(dfCollapsed, wbCollapseOther)
      .IncludeFlag(dfExcludeFromBuildRef),
     wbByteArray(SCRN, 'Screenshot')
-  ], True, nil, cpNormal, True);
+  ], True, cpNormal, True);
 
   wbRecord(PLYR, 'Player Reference', [
     wbEDID,
@@ -8607,7 +8607,7 @@ begin
       wbFormIDCk('Nighttime', [WATR, NULL]),
       wbFormIDCk('Underwater', [WATR, NULL])
     ], cpNormal, True)
-  ], False, nil, cpNormal, False, wbWATRAfterLoad);
+  ]).SetAfterLoad(wbWATRAfterLoad);
 
   wbRecord(WEAP, 'Weapon',
     wbFlags(wbFlagsList([
@@ -8875,7 +8875,7 @@ begin
       wbUnused(2)
     ]).SetOptionalFrom(4),
     wbInteger(VNAM, 'Sound Level', itU32, wbSoundLevelEnum, cpNormal, True)
-  ], True, nil, cpNormal, False, wbWEAPAfterLoad);
+  ], True).SetAfterLoad(wbWEAPAfterLoad);
 
   wbRecord(WTHR, 'Weather', [
     wbEDIDReq,

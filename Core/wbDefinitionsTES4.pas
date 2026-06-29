@@ -1561,7 +1561,7 @@ begin
         wbStringForward(MAST, 'Filename').SetRequired,
         wbUnused(DATA, 8).SetRequired
       ])).IncludeFlag(dfInternalEditOnly, not wbAllowMasterFilesEdit)
-  ], False, nil, cpNormal, True);
+  ], False, cpNormal, True);
 
   wbRefRecord(ACHR, 'Placed NPC',
     wbFlags(wbFlagsList([

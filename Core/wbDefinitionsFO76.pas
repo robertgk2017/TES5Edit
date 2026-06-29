@@ -7739,7 +7739,7 @@ begin
     wbFormIDCk(ABPO, 'Armor Backpack Position Offset', [NULL, TRNS]),
     wbDIQO,
     wbVCRY
-  ], False, nil, cpNormal, False, wbARMOAfterLoad);
+  ]).SetAfterLoad(wbARMOAfterLoad);
 
   wbRecord(ARMA, 'Armor Addon',
     wbFlags(wbFlagsList([
@@ -7789,7 +7789,7 @@ begin
     wbFormIDCk(ONAM, 'Art Object', [ARTO]),
     wbArmorAddonBSMPSequence,
     wbInteger(VONL, 'Unknown Bool', itU8, wbBoolEnum)
-  ], False, nil, cpNormal, False, wbARMAAfterLoad);
+  ]).SetAfterLoad(wbARMAAfterLoad);
 
   wbRecord(BOOK, 'Book',
     wbFlags(wbFlagsList([
@@ -13403,7 +13403,7 @@ begin
       wbFormIDCk(INAM, 'Idle', [IDLE, NULL], False, cpNormal, True),
       wbPDTOs
     ], [], cpNormal, True)
-  ], False, nil, cpNormal, False, nil {wbPACKAfterLoad});
+  ]);
 
   wbQUSTAliasFlagsActual := wbFlags([
     {0x00000000001} { 0} 'Reserves Location/Reference',
@@ -15379,7 +15379,7 @@ begin
     ])).IncludeFlag(dfExcludeFromBuildRef),          // Ignored by the runtime
     wbInteger(INTV, 'Unknown', itU32),                    // Ignored by the runtime, 4 bytes loaded in CK   Possibly a version
     wbInteger(INCC, 'Interior Cell Count', itU32).SetRequired
-  ], True, nil, cpNormal, True);
+  ], True, cpNormal, True);
 
   wbRecord(PLYR, 'Player Reference', [
     wbEDID,
@@ -17350,7 +17350,7 @@ begin
       wbFormID(WTDS, 'Sound')
     ], []),
     wbFloat(WSAM, 'Sneak Attack Multiplier')
-  ], False, nil, cpNormal, False, nil{wbWEAPAfterLoad});
+  ]);
 
   wbRecord(WTHR, 'Weather',
     wbFlags(wbFlagsList([

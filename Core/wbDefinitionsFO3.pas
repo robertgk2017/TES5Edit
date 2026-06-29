@@ -7310,7 +7310,7 @@ begin
      .IncludeFlag(dfCollapsed, wbCollapseOther)
      .IncludeFlag(dfExcludeFromBuildRef),
     wbByteArray(SCRN, 'Screenshot')
-  ], True, nil, cpNormal, True);
+  ], True, cpNormal, True);
 
   wbRecord(PLYR, 'Player Reference', [
     wbEDID,

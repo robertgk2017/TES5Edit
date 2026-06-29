@@ -4078,7 +4078,7 @@ begin
     ], cpNormal, True),
     wbInteger(DNAM, 'Armor Rating', itS32, wbDiv(100), cpNormal, True),
     wbFormIDCk(TNAM, 'Template Armor', [ARMO])
-  ], False, nil, cpNormal, False, wbARMOAfterLoad);
+  ]).SetAfterLoad(wbARMOAfterLoad);
 
   wbRecord(ARMA, 'Armor Addon', [
     wbEDID,
@@ -4118,7 +4118,8 @@ begin
     wbRArrayS('Additional Races', wbFormIDCK(MODL, 'Race', [RACE, NULL])),
     wbFormIDCk(SNDD, 'Footstep Sound', [FSTS, NULL]),
     wbFormIDCk(ONAM, 'Art Object', [ARTO])
-  ], False, nil, cpNormal, False, wbARMAAfterLoad).SetSummaryKey([4]);
+  ]).SetSummaryKey([4])
+    .SetAfterLoad(wbARMAAfterLoad);
 
   wbRecord(BOOK, 'Book', [
     wbEDID,
@@ -10125,7 +10126,7 @@ begin
     wbByteArray(SCRN, 'Screenshot'),
     wbUnknown(INTV),
     wbInteger(INCC, 'Interior Cell Count', itU32).SetRequired
-  ], True, nil, cpNormal, True);
+  ], True, cpNormal, True);
 
   wbRecord(PLYR, 'Player Reference', [
     wbEDID,
@@ -10533,7 +10534,7 @@ begin
     ]),
     wbInteger(VNAM, 'Detection Sound Level', itU32, wbSoundlevelEnum),
     wbFormIDCk(CNAM, 'Template', [WEAP])
-  ], False, nil, cpNormal, False, wbWEAPAfterLoad);
+  ]).SetAfterLoad(wbWEAPAfterLoad);
 
   wbRecord(WTHR, 'Weather', [
     wbEDID,

@@ -9244,7 +9244,7 @@ begin
     wbInteger(INTV, 'Unknown', itU32),                                // Ignored by the runtime, 4 bytes loaded in CK
     wbInteger(INCC, 'Interior Cell Count', itU32).SetRequired,
     wbUnknown(CHGL)
-  ], True, nil, cpNormal, True);
+  ], True, cpNormal, True);
 
   {subrecords checked against Starfield.esm}
   wbRecord(AACT, 'Action',
@@ -9545,7 +9545,7 @@ begin
     ], cpNormal, True),
     wbLStringKC(DNAM, 'Addiction Name', 0, cpTranslate),
     wbEffects
-  ], False, nil, cpNormal, False);
+  ]);
 
   {subrecords checked against Starfield.esm}
   wbRecord(AMDL, 'Aim Model', [
@@ -9631,7 +9631,7 @@ begin
     wbString(NAM1, 'Casing Model'),
     //wbModelInfo(NAM2)
     wbFLLD
-  ], False, nil, cpNormal, False);
+  ]);
 
   {subrecords checked against Starfield.esm}
   wbRecord(AMBS, 'Ambience Set', [
@@ -9863,7 +9863,7 @@ begin
       wbInteger(BSMP, 'Gender', itU32, wbSexEnum),
       wbRArrayS('Modifiers', wbFormIDCk(BNAM, 'Modifier', [BMOD]))
     ])
-  ], False, nil, cpNormal, False).SetIgnoreList([FLLD, XFLG]);
+  ]).SetIgnoreList([FLLD, XFLG]);
 
   {subrecords checked against Starfield.esm}
   wbRecord(ARMO, 'Armor',
@@ -9924,7 +9924,7 @@ begin
       wbWwiseGuid('Category'),
       wbWwiseGuid('Variant')
     ]).IncludeFlag(dfCollapsed, wbCollapseSounds)
-  ], False, nil, cpNormal, False).SetIgnoreList([FLLD, XFLG]);
+  ]).SetIgnoreList([FLLD, XFLG]);
 
   {subrecords checked against Starfield.esm}
   wbRecord(ARTO, 'Art Object', [
@@ -12168,7 +12168,7 @@ begin
     wbFormIDCk(FMIG, 'Min Global', [GLOB]),
     wbFormIDCk(FLXP, 'Explosion', [EXPL]),
     wbSoundReference(FHLS, 'Harvest Looping Sound')
-  ], False, nil, cpNormal, False, nil, nil);
+  ]);
 
   {subrecords checked against Starfield.esm}
   wbRecord(FLST, 'FormID List',
@@ -12846,7 +12846,7 @@ begin
     wbFormIDCk(RNAM, 'Actor Action', [AACT]),
     wbFormIDCk(QNAM, 'Animation Flavor', [KYWD]),
     wbFormIDCk(PNAM, 'Animation Archetype', [KYWD])
-  ], False, nil, cpNormal, False);
+  ]);
 
   {subrecords checked against Starfield.esm}
   wbRecord(IMAD, 'Image Space Adapter', [
@@ -14748,7 +14748,7 @@ begin
       'Non-Instanced Key'
     ])).IncludeFlag(dfCollapsed, wbCollapseFlags),
     wbLStringKC(NNAM, 'Short Name', 0, cpTranslate)
-  ], False, nil, cpNormal, False);
+  ]);
 
   {subrecords checked against Starfield.esm}
   wbRecord(MOVT, 'Movement Type', [
@@ -15904,7 +15904,7 @@ begin
       wbFormIDCk(INAM, 'Idle', [IDLE, NULL], False, cpNormal, True),
       wbPDTOs
     ], [], cpNormal, True)
-  ], False, nil, cpNormal, False, nil {wbPACKAfterLoad});
+  ]);
 
   {subrecords checked against Starfield.esm}
   wbRecord(PCBN, 'Planet Content Manager Branch Node', [

@@ -3256,7 +3256,6 @@ function wbRecord(const aSignature      : TwbSignature;
                   const aName           : string;
                   const aMembers        : array of IwbRecordMemberDef;
                         aAllowUnordered : Boolean = False;
-                        aAddInfoCallback: TwbAddInfoCallback = nil;
                         aPriority       : TwbConflictPriority = cpNormal;
                         aRequired       : Boolean = False;
                         aAfterLoad      : TwbAfterLoadCallback = nil;
@@ -3268,7 +3267,6 @@ function wbRecord(const aSignature      : TwbSignature;
                   const aRecordFlags    : IwbIntegerDefFormater;
                   const aMembers        : array of IwbRecordMemberDef;
                         aAllowUnordered : Boolean = False;
-                        aAddInfoCallback: TwbAddInfoCallback = nil;
                         aPriority       : TwbConflictPriority = cpNormal;
                         aRequired       : Boolean = False;
                         aAfterLoad      : TwbAfterLoadCallback = nil;
@@ -3280,7 +3278,6 @@ function wbRecord(const aSignature      : TwbSignature;
                   const aKnownSRs       : PwbKnownSubRecordSignatures;
                   const aMembers        : array of IwbRecordMemberDef;
                         aAllowUnordered : Boolean = False;
-                        aAddInfoCallback: TwbAddInfoCallback = nil;
                         aPriority       : TwbConflictPriority = cpNormal;
                         aRequired       : Boolean = False;
                         aAfterLoad      : TwbAfterLoadCallback = nil;
@@ -3293,7 +3290,6 @@ function wbRecord(const aSignature      : TwbSignature;
                   const aRecordFlags    : IwbIntegerDefFormater;
                   const aMembers        : array of IwbRecordMemberDef;
                         aAllowUnordered : Boolean = False;
-                        aAddInfoCallback: TwbAddInfoCallback = nil;
                         aPriority       : TwbConflictPriority = cpNormal;
                         aRequired       : Boolean = False;
                         aAfterLoad      : TwbAfterLoadCallback = nil;
@@ -3304,7 +3300,6 @@ function wbRefRecord(const aSignature      : TwbSignature;
                      const aName           : string;
                      const aMembers        : array of IwbRecordMemberDef;
                            aAllowUnordered : Boolean = False;
-                           aAddInfoCallback: TwbAddInfoCallback = nil;
                            aPriority       : TwbConflictPriority = cpNormal;
                            aRequired       : Boolean = False;
                            aAfterLoad      : TwbAfterLoadCallback = nil;
@@ -3316,7 +3311,6 @@ function wbRefRecord(const aSignature      : TwbSignature;
                      const aRecordFlags    : IwbIntegerDefFormater;
                      const aMembers        : array of IwbRecordMemberDef;
                            aAllowUnordered : Boolean = False;
-                           aAddInfoCallback: TwbAddInfoCallback = nil;
                            aPriority       : TwbConflictPriority = cpNormal;
                            aRequired       : Boolean = False;
                            aAfterLoad      : TwbAfterLoadCallback = nil;
@@ -5880,10 +5874,10 @@ type
                  const aRecordFlags     : IwbIntegerDefFormater;
                  const aMembers         : array of IwbRecordMemberDef;
                        aAllowUnordered  : Boolean;
-                       aAddInfoCallback : TwbAddInfoCallback;
                        aAfterLoad       : TwbAfterLoadCallback;
                        aAfterSet        : TwbAfterSetCallback;
                        aIsReference     : Boolean);
+
     procedure AfterClone(const aSource: TwbDef); override;
     destructor Destroy; override;
 
@@ -7644,28 +7638,26 @@ function wbRecord(const aSignature       : TwbSignature;
                   const aKnownSRs        : PwbKnownSubRecordSignatures;
                   const aMembers         : array of IwbRecordMemberDef;
                         aAllowUnordered  : Boolean = False;
-                        aAddInfoCallback : TwbAddInfoCallback = nil;
                         aPriority        : TwbConflictPriority = cpNormal;
                         aRequired        : Boolean = False;
                         aAfterLoad       : TwbAfterLoadCallback = nil;
                         aAfterSet        : TwbAfterSetCallback = nil)
                                          : IwbMainRecordDef;
 begin
-  Result := wbRecord(aSignature, aName, aKnownSRs, nil, aMembers, aAllowUnordered, aAddInfoCallback, aPriority, aRequired, aAfterLoad, aAfterSet);
+  Result := wbRecord(aSignature, aName, aKnownSRs, nil, aMembers, aAllowUnordered, aPriority, aRequired, aAfterLoad, aAfterSet);
 end;
 
 function wbRecord(const aSignature       : TwbSignature;
                   const aName            : string;
                   const aMembers         : array of IwbRecordMemberDef;
                         aAllowUnordered  : Boolean = False;
-                        aAddInfoCallback : TwbAddInfoCallback = nil;
                         aPriority        : TwbConflictPriority = cpNormal;
                         aRequired        : Boolean = False;
                         aAfterLoad       : TwbAfterLoadCallback = nil;
                         aAfterSet        : TwbAfterSetCallback = nil)
                                          : IwbMainRecordDef;
 begin
-  Result := wbRecord(aSignature, aName, nil, nil, aMembers, aAllowUnordered, aAddInfoCallback, aPriority, aRequired, aAfterLoad, aAfterSet);
+  Result := wbRecord(aSignature, aName, nil, nil, aMembers, aAllowUnordered, aPriority, aRequired, aAfterLoad, aAfterSet);
 end;
 
 function wbRecord(const aSignature       : TwbSignature;
@@ -7674,7 +7666,6 @@ function wbRecord(const aSignature       : TwbSignature;
                   const aRecordFlags     : IwbIntegerDefFormater;
                   const aMembers         : array of IwbRecordMemberDef;
                         aAllowUnordered  : Boolean;
-                        aAddInfoCallback : TwbAddInfoCallback;
                         aPriority        : TwbConflictPriority;
                         aRequired        : Boolean;
                         aAfterLoad       : TwbAfterLoadCallback;
@@ -7701,7 +7692,7 @@ begin
     end;
   end;
 
-  Result := TwbMainRecordDef.Create(aPriority, aRequired, aSignature, aName, aKnownSRs, aRecordFlags, aMembers, aAllowUnordered, aAddInfoCallback, aAfterLoad, aAfterSet, aIsReference);
+  Result := TwbMainRecordDef.Create(aPriority, aRequired, aSignature, aName, aKnownSRs, aRecordFlags, aMembers, aAllowUnordered, aAfterLoad, aAfterSet, aIsReference);
   NewIndex := Length(wbRecordDefs);
   SetLength(wbRecordDefs, Succ(NewIndex));
   with wbRecordDefs[NewIndex] do begin
@@ -7718,14 +7709,13 @@ function wbRecord(const aSignature       : TwbSignature;
                   const aRecordFlags     : IwbIntegerDefFormater;
                   const aMembers         : array of IwbRecordMemberDef;
                         aAllowUnordered  : Boolean = False;
-                        aAddInfoCallback : TwbAddInfoCallback = nil;
                         aPriority        : TwbConflictPriority = cpNormal;
                         aRequired        : Boolean = False;
                         aAfterLoad       : TwbAfterLoadCallback = nil;
                         aAfterSet        : TwbAfterSetCallback = nil)
                                          : IwbMainRecordDef;
 begin
-  Result := wbRecord(aSignature, aName, nil, aRecordFlags, aMembers, aAllowUnordered, aAddInfoCallback, aPriority, aRequired, aAfterLoad, aAfterSet, False);
+  Result := wbRecord(aSignature, aName, nil, aRecordFlags, aMembers, aAllowUnordered, aPriority, aRequired, aAfterLoad, aAfterSet, False);
 end;
 
 function wbRecord(const aSignature       : TwbSignature;
@@ -7734,28 +7724,26 @@ function wbRecord(const aSignature       : TwbSignature;
                   const aRecordFlags     : IwbIntegerDefFormater;
                   const aMembers         : array of IwbRecordMemberDef;
                         aAllowUnordered  : Boolean = False;
-                        aAddInfoCallback : TwbAddInfoCallback = nil;
                         aPriority        : TwbConflictPriority = cpNormal;
                         aRequired        : Boolean = False;
                         aAfterLoad       : TwbAfterLoadCallback = nil;
                         aAfterSet        : TwbAfterSetCallback = nil)
                                          : IwbMainRecordDef;
 begin
-  Result := wbRecord(aSignature, aName, aKnownSRs, aRecordFlags, aMembers, aAllowUnordered, aAddInfoCallback, aPriority, aRequired, aAfterLoad, aAfterSet, False);
+  Result := wbRecord(aSignature, aName, aKnownSRs, aRecordFlags, aMembers, aAllowUnordered, aPriority, aRequired, aAfterLoad, aAfterSet, False);
 end;
 
 function wbRefRecord(const aSignature       : TwbSignature;
                      const aName            : string;
                      const aMembers         : array of IwbRecordMemberDef;
                            aAllowUnordered  : Boolean = False;
-                           aAddInfoCallback : TwbAddInfoCallback = nil;
                            aPriority        : TwbConflictPriority = cpNormal;
                            aRequired        : Boolean = False;
                            aAfterLoad       : TwbAfterLoadCallback = nil;
                            aAfterSet        : TwbAfterSetCallback = nil)
                                             : IwbMainRecordDef;
 begin
-  Result := wbRefRecord(aSignature, aName, nil, aMembers, aAllowUnordered, aAddInfoCallback, aPriority, aRequired, aAfterLoad, aAfterSet);
+  Result := wbRefRecord(aSignature, aName, nil, aMembers, aAllowUnordered, aPriority, aRequired, aAfterLoad, aAfterSet);
 end;
 
 function wbRefRecord(const aSignature       : TwbSignature;
@@ -7763,14 +7751,13 @@ function wbRefRecord(const aSignature       : TwbSignature;
                      const aRecordFlags     : IwbIntegerDefFormater;
                      const aMembers         : array of IwbRecordMemberDef;
                            aAllowUnordered  : Boolean = False;
-                           aAddInfoCallback : TwbAddInfoCallback = nil;
                            aPriority        : TwbConflictPriority = cpNormal;
                            aRequired        : Boolean = False;
                            aAfterLoad       : TwbAfterLoadCallback = nil;
                            aAfterSet        : TwbAfterSetCallback = nil)
                                             : IwbMainRecordDef;
 begin
-  Result := wbRecord(aSignature, aName, nil, aRecordFlags, aMembers, aAllowUnordered, aAddInfoCallback, aPriority, aRequired, aAfterLoad, aAfterSet, True);
+  Result := wbRecord(aSignature, aName, nil, aRecordFlags, aMembers, aAllowUnordered, aPriority, aRequired, aAfterLoad, aAfterSet, True);
   wbRefRecordDefs.Add(Result);
 end;
 
@@ -10280,18 +10267,22 @@ end;
 procedure TwbMainRecordDef.AfterClone(const aSource: TwbDef);
 begin
   inherited;
-  recGetFormIDCallback := (aSource as TwbMainRecordDef).recGetFormIDCallback;
-  recIdentityCallback := (aSource as TwbMainRecordDef).recIdentityCallback;
-  recGetEditorIDCallback := (aSource as TwbMainRecordDef).recGetEditorIDCallback;
-  recSetEditorIDCallback := (aSource as TwbMainRecordDef).recSetEditorIDCallback;
-  recGetGridCellCallback := (aSource as TwbMainRecordDef).recGetGridCellCallback;
-  recFormIDBase := (aSource as TwbMainRecordDef).recFormIDBase;
-  recFormIDNameBase := (aSource as TwbMainRecordDef).recFormIDNameBase;
-  recSummaryKey := Copy((aSource as TwbMainRecordDef).recSummaryKey);
-  recSummaryPrefix := Copy((aSource as TwbMainRecordDef).recSummaryPrefix);
-  recSummarySuffix := Copy((aSource as TwbMainRecordDef).recSummarySuffix);
-  recSummaryDelimiter := (aSource as TwbMainRecordDef).recSummaryDelimiter;
-  recBuildIndexKeys := (aSource as TwbMainRecordDef).recBuildIndexKeys;
+  with aSource as TwbMainRecordDef do
+  begin
+    Self.recAddInfoCallback := recAddInfoCallback;
+    Self.recBuildIndexKeys := recBuildIndexKeys;
+    Self.recFormIDBase := recFormIDBase;
+    Self.recFormIDNameBase := recFormIDNameBase;
+    Self.recGetEditorIDCallback := recGetEditorIDCallback;
+    Self.recGetFormIDCallback := recGetFormIDCallback;
+    Self.recGetGridCellCallback := recGetGridCellCallback;
+    Self.recIdentityCallback := recIdentityCallback;
+    Self.recSetEditorIDCallback := recSetEditorIDCallback;
+    Self.recSummaryDelimiter := recSummaryDelimiter;
+    Self.recSummaryKey := Copy(recSummaryKey);
+    Self.recSummaryPrefix := Copy(recSummaryPrefix);
+    Self.recSummarySuffix := Copy(recSummarySuffix);
+  end;
 end;
 
 procedure TwbMainRecordDef.AfterLoad(const aElement: IwbElement);
@@ -10335,7 +10326,7 @@ constructor TwbMainRecordDef.Clone(const aSource: TwbDef);
 begin
   with aSource as TwbMainRecordDef do
     Self.Create(defPriority, defRequired, GetDefaultSignature, ndName, recKnownSRs, recRecordFlags, recMembers,
-      AllowUnordered, recAddInfoCallback, ndAfterLoad, ndAfterSet, rdfIsReference in recDefFlags).AfterClone(aSource);
+      AllowUnordered, ndAfterLoad, ndAfterSet, rdfIsReference in recDefFlags).AfterClone(aSource);
 end;
 
 function TwbMainRecordDef.ContainsMemberFor(const aContainer     : IwbContainerElementRef;
@@ -10356,7 +10347,6 @@ constructor TwbMainRecordDef.Create(aPriority        : TwbConflictPriority;
                               const aRecordFlags     : IwbIntegerDefFormater;
                               const aMembers         : array of IwbRecordMemberDef;
                                     aAllowUnordered  : Boolean;
-                                    aAddInfoCallback : TwbAddInfoCallback;
                                     aAfterLoad       : TwbAfterLoadCallback;
                                     aAfterSet        : TwbAfterSetCallback;
                                     aIsReference     : Boolean);
@@ -10378,8 +10368,6 @@ begin
   recQuickInitLimit := -1;
   if aAllowUnordered then
     Include(recDefFlags, rdfAllowUnordered);
-
-  recAddInfoCallback := aAddInfoCallback;
 
   if Assigned(recRecordFlags) and Assigned(wbRecordFlags) and Assigned(wbMainRecordHeader) then begin
     recRecordHeaderStruct := (wbMainRecordHeader as IwbDefInternal).SetParent(Self, True) as IwbStructDef;

@@ -5832,7 +5832,7 @@ begin
     wbFormIDCk(TNAM, 'Template Armor', [ARMO]),
     wbAPPR,
     wbObjectTemplate
-  ], False, nil, cpNormal, False, wbARMOAfterLoad);
+  ]).SetAfterLoad(wbARMOAfterLoad);
 
   wbRecord(ARMA, 'Armor Addon',
     wbFlags(wbFlagsList([
@@ -5878,7 +5878,7 @@ begin
     wbFormIDCk(SNDD, 'Footstep Sound', [FSTS, NULL]),
     wbFormIDCk(ONAM, 'Art Object', [ARTO]),
     wbArmorAddonBSMPSequence
-  ], False, nil, cpNormal, False, wbARMAAfterLoad);
+  ]).SetAfterLoad(wbARMAAfterLoad);
 
   wbRecord(BOOK, 'Book', [
     wbEDID,
@@ -10643,7 +10643,7 @@ begin
       wbFormIDCk(INAM, 'Idle', [IDLE, NULL], False, cpNormal, True),
       wbPDTOs
     ], [], cpNormal, True)
-  ], False, nil, cpNormal, False, nil {wbPACKAfterLoad});
+  ]);
 
   wbQUSTAliasFlags :=
     wbInteger(FNAM, 'Flags', itU32, wbFlags([
@@ -12114,7 +12114,7 @@ begin
     ])).IncludeFlag(dfExcludeFromBuildRef),
     wbInteger(INTV, 'Unknown', itU32),                    // Ignored by the runtime, 4 bytes loaded in CK
     wbInteger(INCC, 'Interior Cell Count', itU32).SetRequired
-  ], True, nil, cpNormal, True);
+  ], True, cpNormal, True);
 
   wbRecord(PLYR, 'Player Reference', [
     wbEDID,
@@ -13019,7 +13019,7 @@ begin
       'Fast',
       'Very Fast'
     ]))
-  ], False, nil, cpNormal, False, nil{wbWEAPAfterLoad});
+  ]);
 
   wbRecord(WTHR, 'Weather',
     wbFlags(wbFlagsList([
