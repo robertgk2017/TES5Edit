@@ -6419,9 +6419,9 @@ function wbFloatColors(const aSignature : TwbSignature;
                                         : IwbRecordMemberDef;
 begin
   Result := wbStruct(aSignature, aName, [
-    wbFloat('Red', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultR),
-    wbFloat('Green', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultG),
-    wbFloat('Blue', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultB)
+    wbFloat('Red', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultR),
+    wbFloat('Green', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultG),
+    wbFloat('Blue', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultB)
   ]).SetToStr(wbRGBAToStr)
     .IncludeFlag(dfCollapsed, wbCollapseRGBA);
 end;
@@ -6433,9 +6433,9 @@ function wbFloatColors(const aName     : string = 'Color';
                                        : IwbValueDef;
 begin
   Result := wbStruct(aName, [
-    wbFloat('Red', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultR),
-    wbFloat('Green', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultG),
-    wbFloat('Blue', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultB)
+    wbFloat('Red', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultR),
+    wbFloat('Green', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultG),
+    wbFloat('Blue', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultB)
   ]).SetToStr(wbRGBAToStr)
     .IncludeFlag(dfCollapsed, wbCollapseRGBA);
 end;
@@ -6450,9 +6450,9 @@ begin
   Assert(Length(aSigs) = 3, 'wbRFloatColors called with incorrect number of signatures.');
 
   Result := wbRStruct(aName, [
-    wbFloat(aSigs[0], 'Red', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultR),
-    wbFloat(aSigs[1], 'Green', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultG),
-    wbFloat(aSigs[2], 'Blue', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultB)
+    wbFloat(aSigs[0], 'Red', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultR),
+    wbFloat(aSigs[1], 'Green', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultG),
+    wbFloat(aSigs[2], 'Blue', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultB)
   ]).SetToStr(wbRGBAToStr)
     .IncludeFlag(dfCollapsed, wbCollapseRGBA);
 end;
@@ -6466,10 +6466,10 @@ function wbFloatRGBA(const aSignature : TwbSignature;
                                       : IwbRecordMemberDef;
 begin
   Result := wbStruct(aSignature, aName, [
-    wbFloat('Red', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultR),
-    wbFloat('Green', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultG),
-    wbFloat('Blue', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultB),
-    wbFloat('Alpha', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultA)
+    wbFloat('Red', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultR),
+    wbFloat('Green', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultG),
+    wbFloat('Blue', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultB),
+    wbFloat('Alpha', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultA)
   ]).SetToStr(wbRGBAToStr)
     .IncludeFlag(dfCollapsed, wbCollapseRGBA);
 end;
@@ -6482,10 +6482,10 @@ function wbFloatRGBA(const aName     : string = 'Color';
                                      : IwbValueDef;
 begin
   Result := wbStruct(aName, [
-    wbFloat('Red', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultR),
-    wbFloat('Green', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultG),
-    wbFloat('Blue', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultB),
-    wbFloat('Alpha', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255), aDefaultA)
+    wbFloat('Red', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultR),
+    wbFloat('Green', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultG),
+    wbFloat('Blue', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultB),
+    wbFloat('Alpha', cpNormal, True, 255, 0, wbNormalizeToRange(0, 255)).SetDefaultNativeValue(aDefaultA)
   ]).SetToStr(wbRGBAToStr)
     .IncludeFlag(dfCollapsed, wbCollapseRGBA);
 end;

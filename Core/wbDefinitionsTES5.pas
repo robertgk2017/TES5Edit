@@ -7942,7 +7942,9 @@ begin
       ).SetAfterSet(wbLIGHDataFlagsAfterSet)
        .IncludeFlag(dfCollapsed, wbCollapseFlags),
       wbFloat('Falloff Exponent', cpNormal, True, 1, 4).SetDontShow(wbLIGHFalloffDontShow),
-      wbFloat('FOV', cpNormal, True, 1, 4, wbNormalizeToRange(0.001, 160), 90).SetDontShow(wbLIGHShadowSpotDontShow),
+      wbFloat('FOV', cpNormal, True, 1, 4, wbNormalizeToRange(0.001, 160))
+        .SetDefaultNativeValue(90)
+        .SetDontShow(wbLIGHShadowSpotDontShow),
       wbFloat('Near Clip', cpNormal, True, 1, 4)
         .SetDefaultNativeValue(1)
         .SetDontShow(wbLIGHShadowSpotDontShow),
@@ -7954,7 +7956,7 @@ begin
       wbInteger('Value', itU32).SetDontShow(wbLIGHCarryDontShow),
       wbFloat('Weight', cpNormal, True, 1, 4).SetDontShow(wbLIGHCarryDontShow)
     ]).SetRequired,
-    wbFloat(FNAM, 'Fade Value', cpNormal, True, 1, 4, wbNormalizeToRange(0, 10), 1),
+    wbFloat(FNAM, 'Fade Value', cpNormal, True, 1, 4, wbNormalizeToRange(0, 10)).SetDefaultNativeValue(1),
     wbFormIDCk(SNAM, 'Sound', [SNDR]),
     IsSSE(
       wbFormIDCk(LNAM, 'Lens Flare', [LENS]),
@@ -9345,14 +9347,14 @@ begin
         {0x00000010} 'Allow Mounted Combat'
       ])).IncludeFlag(dfCollapsed, wbCollapseFlags),
       wbStruct('Mount Data', [
-        wbFloat('Mount Offset X', cpNormal, False, 1, -1, nil, -63.479000),
+        wbFloat('Mount Offset X').SetDefaultNativeValue(-63.479000),
         wbFloat('Mount Offset Y'),
         wbFloat('Mount Offset Z'),
-        wbFloat('Dismount Offset X', cpNormal, False, 1, -1, nil, -50.0),
+        wbFloat('Dismount Offset X').SetDefaultNativeValue(-50.0),
         wbFloat('Dismount Offset Y'),
-        wbFloat('Dismount Offset Z', cpNormal, False, 1, -1, nil, 65.0),
+        wbFloat('Dismount Offset Z').SetDefaultNativeValue(65.0),
         wbFloat('Mount Camera Offset X'),
-        wbFloat('Mount Camera Offset Y', cpNormal, False, 1, -1, nil, -300.0),
+        wbFloat('Mount Camera Offset Y').SetDefaultNativeValue(-300.0),
         wbFloat('Mount Camera Offset Z')
       ])
       //wbByteArray('Unknown', 4*7)
