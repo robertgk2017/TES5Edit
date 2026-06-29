@@ -5886,7 +5886,9 @@ begin
     wbString(EDID, 'Editor ID', 0, cpBenign)
       .SetAfterSet(wbFLSTEDIDAfterSet)
       .SetRequired,
-    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID'), cpNormal, False, wbFLSTLNAMIsSorted)
+    wbRArrayS('FormIDs',
+      wbFormID(LNAM, 'FormID')
+    ).SetIsSorted(wbFLSTLNAMIsSorted)
   ]);
 
   var wbPerkConditions :=

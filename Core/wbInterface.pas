@@ -2714,6 +2714,7 @@ type
 
     function SetCountPath(const aValue: string): IwbSubRecordArrayDef; overload;
     function SetCountPath(const aValues: array of string): IwbSubRecordArrayDef; overload;
+    function SetIsSorted(const aIsSorted: TwbIsSortedCallback): IwbSubRecordArrayDef;
 
     function SetDefaultEditValues(const aValues: array of string): IwbSubRecordArrayDef;
     function GetDefaultEditValues: TwbStringArray;
@@ -3916,16 +3917,14 @@ function wbArrayS(const aName      : string;
 function wbRArrayS(const aName      : string;
                    const aElement   : IwbRecordMemberDef;
                          aPriority  : TwbConflictPriority = cpNormal;
-                         aRequired  : Boolean = False;
-                         aIsSorted  : TwbIsSortedCallback = nil)
+                         aRequired  : Boolean = False)
                                     : IwbSubRecordArrayDef; overload;
 
 function wbRArrayS(const aName      : string;
                    const aElement   : IwbRecordMemberDef;
                          aCount     : Integer;
                          aPriority  : TwbConflictPriority = cpNormal;
-                         aRequired  : Boolean = False;
-                         aIsSorted  : TwbIsSortedCallback = nil)
+                         aRequired  : Boolean = False)
                                     : IwbSubRecordArrayDef; overload;
 
 
@@ -5899,8 +5898,7 @@ type
                  const aName      : string;
                  const aElement   : IwbRecordMemberDef;
                        aCount     : Integer;
-                       aSorted    : Boolean;
-                       aIsSorted  : TwbIsSortedCallback); reintroduce;
+                       aSorted    : Boolean); reintroduce;
 
     procedure AfterClone(const aSource: TwbDef); override;
 
@@ -5942,6 +5940,7 @@ type
 
     function SetCountPath(const aValue: string): IwbSubRecordArrayDef; overload;
     function SetCountPath(const aValues: array of string): IwbSubRecordArrayDef; overload;
+    function SetIsSorted(const aIsSorted: TwbIsSortedCallback): IwbSubRecordArrayDef;
   end;
 
   TwbSubRecordStructDef = class(TwbRecordMemberDef, IwbSubRecordStructDef, IwbRecordDef)
@@ -8218,7 +8217,7 @@ function wbRArray(const aName      : string;
                         aRequired  : Boolean = False)
                                    : IwbSubRecordArrayDef; overload;
 begin
-  Result := TwbSubRecordArrayDef.Create(aPriority, aRequired, aName, aElement, 0, False, nil);
+  Result := TwbSubRecordArrayDef.Create(aPriority, aRequired, aName, aElement, 0, False);
 end;
 
 function wbRArray(const aName      : string;
@@ -8228,7 +8227,7 @@ function wbRArray(const aName      : string;
                         aRequired  : Boolean = False)
                                    : IwbSubRecordArrayDef; overload;
 begin
-  Result := TwbSubRecordArrayDef.Create(aPriority, aRequired, aName, aElement, aCount, False, nil);
+  Result := TwbSubRecordArrayDef.Create(aPriority, aRequired, aName, aElement, aCount, False);
 end;
 
 
@@ -8387,22 +8386,20 @@ end;
 function wbRArrayS(const aName      : string;
                    const aElement   : IwbRecordMemberDef;
                          aPriority  : TwbConflictPriority = cpNormal;
-                         aRequired  : Boolean = False;
-                         aIsSorted  : TwbIsSortedCallback = nil)
+                         aRequired  : Boolean = False)
                                     : IwbSubRecordArrayDef; overload;
 begin
-  Result := TwbSubRecordArrayDef.Create(aPriority, aRequired, aName, aElement, 0, True, aIsSorted);
+  Result := TwbSubRecordArrayDef.Create(aPriority, aRequired, aName, aElement, 0, True);
 end;
 
 function wbRArrayS(const aName      : string;
                    const aElement   : IwbRecordMemberDef;
                          aCount     : Integer;
                          aPriority  : TwbConflictPriority = cpNormal;
-                         aRequired  : Boolean = False;
-                         aIsSorted  : TwbIsSortedCallback = nil)
+                         aRequired  : Boolean = False)
                                     : IwbSubRecordArrayDef; overload;
 begin
-  Result := TwbSubRecordArrayDef.Create(aPriority, aRequired, aName, aElement, aCount, True, aIsSorted);
+  Result := TwbSubRecordArrayDef.Create(aPriority, aRequired, aName, aElement, aCount, True);
 end;
 
 function wbArrayS(const aSignature : TwbSignature;
@@ -8688,7 +8685,7 @@ function wbRStructsSK(const aName        : string;
                             aRequired    : Boolean = False)
                                          : IwbSubRecordArrayDef; overload;
 begin
-  Result := wbRArrayS(aName, wbRStructSK(aSortKey, aElementName, aMembers, aSkipSigs, aPriority), aPriority, aRequired, nil);
+  Result := wbRArrayS(aName, wbRStructSK(aSortKey, aElementName, aMembers, aSkipSigs, aPriority), aPriority, aRequired);
 end;
 
 function wbEmpty(const aSignature : TwbSignature;
@@ -11049,10 +11046,11 @@ end;
 
 procedure TwbSubRecordArrayDef.AfterClone(const aSource: TwbDef);
 begin
-  inherited AfterClone(aSource);
+  inherited;
   with aSource as TwbSubRecordArrayDef do begin
     Self.sraDefaultEditValues := sraDefaultEditValues;
     Self.sraCountPaths := Copy(sraCountPaths);
+    Self.sraIsSorted := sraIsSorted;
   end;
 end;
 
@@ -11095,15 +11093,14 @@ end;
 constructor TwbSubRecordArrayDef.Clone(const aSource: TwbDef);
 begin
   with aSource as TwbSubRecordArrayDef do
-    Self.Create(defPriority, defRequired, ndName, sraElement, sraCount, sraSorted, sraIsSorted).AfterClone(aSource);
+    Self.Create(defPriority, defRequired, ndName, sraElement, sraCount, sraSorted).AfterClone(aSource);
 end;
 
 constructor TwbSubRecordArrayDef.Create(aPriority  : TwbConflictPriority; aRequired: Boolean;
                                   const aName      : string;
                                   const aElement   : IwbRecordMemberDef;
                                         aCount     : Integer;
-                                        aSorted    : Boolean;
-                                        aIsSorted  : TwbIsSortedCallback);
+                                        aSorted    : Boolean);
 begin
   if wbNeverSorted then
     aSorted := False;
@@ -11111,7 +11108,6 @@ begin
   if Assigned(aElement) then
     sraElement := (aElement as IwbDefInternal).SetParent(Self, False) as IwbRecordMemberDef;
   sraSorted := aSorted;
-  sraIsSorted := aIsSorted;
   sraCount := aCount;
   inherited Create(aPriority, aRequired, aName, False);
 end;
@@ -11277,6 +11273,15 @@ begin
   SetLength(sraDefaultEditValues, Length(aValues));
   for i := Low(aValues) to High(aValues) do
     sraDefaultEditValues[i] := aValues[i];
+end;
+
+function TwbSubRecordArrayDef.SetIsSorted(const aIsSorted: TwbIsSortedCallback): IwbSubRecordArrayDef;
+begin
+  if defIsLocked then
+    Exit(TwbSubRecordArrayDef(Duplicate).SetIsSorted(aIsSorted));
+
+  Result := Self;
+  sraIsSorted := aIsSorted;
 end;
 
 function TwbSubRecordArrayDef.GetDefType: TwbDefType;

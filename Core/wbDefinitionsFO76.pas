@@ -9675,14 +9675,16 @@ begin
     wbString(EDID, 'Editor ID', 0, cpBenign, True).SetAfterSet(wbFLSTEDIDAfterSet),
     wbXALG,
     wbFULL,
-    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID').IncludeFlag(dfNoReport), cpNormal, False, wbFLSTLNAMIsSorted)
+    wbRArrayS('FormIDs',
+      wbFormID(LNAM, 'FormID').IncludeFlag(dfNoReport)
+    ).SetIsSorted(wbFLSTLNAMIsSorted)
   ]);
 
   var wbPerkConditions :=
     wbRStructSK([0], 'Perk Condition', [
-      wbInteger(PRKC, 'Run On (Tab Index)', itS8{, wbPRKCToStr, wbPRKCToInt}),
+      wbInteger(PRKC, 'Run On (Tab Index)', itS8),
       wbConditions.SetRequired
-    ], [], cpNormal, False{, nil, nil, wbPERKPRKCDontShow});
+    ]);
 
   wbPerkEffect :=
     wbRStructSK([0, 1], 'Effect', [

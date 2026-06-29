@@ -12195,7 +12195,9 @@ begin
     wbString(EDID, 'Editor ID', 0, cpBenign, True).SetAfterSet(wbFLSTEDIDAfterSet),
     wbBaseFormComponents,
     wbFULL,
-    wbRArrayS('FormIDs', wbFormID(LNAM, 'FormID'), cpNormal, False, wbFLSTLNAMIsSorted),
+    wbRArrayS('FormIDs',
+      wbFormID(LNAM, 'FormID')
+    ).SetIsSorted(wbFLSTLNAMIsSorted),
     wbRStructs('Conditional Entries', 'Conditional Entry', [
       wbInteger(INAM, 'Index', itU32),
       wbCITCReq,
