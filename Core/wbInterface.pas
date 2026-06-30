@@ -2709,6 +2709,12 @@ type
     function SetNormalizer(const aNormalizer: TwbFloatNormalizer): IwbSubRecordWithFloatDef;
   end;
 
+  IwbSubRecordWithFormIDCheckedDef = interface(IwbSubRecordDef)
+    ['{0B5958D7-499B-4EE8-8694-1660D5741A30}']
+
+    function SetFormIDFilter(const aFormIDFilter: TwbFormIDFilterCallback): IwbSubRecordWithFormIDCheckedDef;
+  end;
+
   IwbSubRecordArrayDef = interface(IwbRecordMemberDef)
     ['{67943BAC-B558-4112-8DBC-C94A44E0B1D1}']
     function GetElement: IwbRecordMemberDef;
@@ -2816,8 +2822,6 @@ type
 
   IwbIntegerDef = interface(IwbValueDef)
     ['{00A270B0-ACFC-444C-A7E8-A577BD40704E}']
-    function SetFormIDFilter(const aFormIDFilterCallback: TwbFormIDFilterCallback): IwbIntegerDef;
-
     function ToInt(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Int64;
     procedure FromInt(aValue: Int64; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement);
 
@@ -2837,6 +2841,12 @@ type
 
     property ExpectedLength[aValue: Int64 = 0]: Integer
       read GetExpectedLength;
+  end;
+
+  IwbIntegerWithFormIDCheckedDef = interface(IwbIntegerDef)
+    ['{03D31A10-6422-43AF-915B-EE163B2AABB0}']
+
+    function SetFormIDFilter(const aFormIDFilter: TwbFormIDFilterCallback): IwbIntegerWithFormIDCheckedDef;
   end;
 
   TwbFloatKind = (
@@ -4256,14 +4266,14 @@ function wbFormIDCk(const aName      : string;
                           aPersistent: Boolean = False;
                           aPriority  : TwbConflictPriority = cpNormal;
                           aRequired  : Boolean = False)
-                                     : IwbIntegerDef; overload;
+                                     : IwbIntegerWithFormIDCheckedDef; overload;
 
 function wbFormIDCkNoReach(const aName      : string;
                            const aValidRefs : TwbSignatures;
                                  aPersistent: Boolean = False;
                                  aPriority  : TwbConflictPriority = cpNormal;
                                  aRequired  : Boolean = False)
-                                            : IwbIntegerDef; overload;
+                                            : IwbIntegerWithFormIDCheckedDef; overload;
 
 function wbFormIDCk(const aSignature     : TwbSignature;
                     const aName          : string;
@@ -4280,7 +4290,7 @@ function wbFormIDCk(const aName          : string;
                           aPersistent    : Boolean = False;
                           aPriority      : TwbConflictPriority = cpNormal;
                           aRequired      : Boolean = False)
-                                         : IwbIntegerDef; overload;
+                                         : IwbIntegerWithFormIDCheckedDef; overload;
 
 function wbFormIDCkNoReach(const aName          : string;
                            const aValidRefs     : TwbSignatures;
@@ -4288,7 +4298,7 @@ function wbFormIDCkNoReach(const aName          : string;
                                  aPersistent    : Boolean = False;
                                  aPriority      : TwbConflictPriority = cpNormal;
                                  aRequired      : Boolean = False)
-                                                : IwbIntegerDef; overload;
+                                                : IwbIntegerWithFormIDCheckedDef; overload;
 
 function wbChar4: IwbChar4;
 
@@ -5773,7 +5783,7 @@ type
     {--- IwbMainRecordDefInternal ---}
   end;
 
-  TwbSubRecordDef = class(TwbSignatureDef, IwbRecordMemberDef, IwbSubRecordDef, IwbSubRecordWithStructDef, IwbSubRecordWithArrayDef, IwbSubRecordWithBaseStringDef, IwbSubRecordWithFloatDef)
+  TwbSubRecordDef = class(TwbSignatureDef, IwbRecordMemberDef, IwbSubRecordDef, IwbSubRecordWithStructDef, IwbSubRecordWithArrayDef, IwbSubRecordWithBaseStringDef, IwbSubRecordWithFloatDef, IwbSubRecordWithFormIDCheckedDef)
   private
     srValue     : IwbValueDef;
     srSizeMatch : Boolean;
@@ -5867,6 +5877,9 @@ type
 
     {---IwbSubRecordWithFloatDef---}
     function SetNormalizer(const aNormalizer: TwbFloatNormalizer): IwbSubRecordWithFloatDef;
+
+    {---IwbSubRecordWithFormIDCheckedDef---}
+    function SetFormIDFilter(const aFormIDFilter: TwbFormIDFilterCallback): IwbSubRecordWithFormIDCheckedDef;
   end;
 
   TwbRecordMemberDef = class(TwbBaseSignatureDef, IwbRecordMemberDef)
@@ -6570,7 +6583,7 @@ type
     function GetSorted: Boolean;
   end;
 
-  TwbIntegerDef = class(TwbValueDef, IwbIntegerDef, IwbIntegerDefInternal)
+  TwbIntegerDef = class(TwbValueDef, IwbIntegerDef, IwbIntegerDefInternal, IwbIntegerWithFormIDCheckedDef)
   private
     inType            : TwbIntType;
     inFormater        : IwbIntegerDefFormater;
@@ -6628,8 +6641,6 @@ type
     function CompareExchangeFormID(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override;
 
     {---IwbIntegerDef---}
-    function SetFormIDFilter(const aFormIDFilterCallback: TwbFormIDFilterCallback): IwbIntegerDef;
-
     function ToInt(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Int64;
     procedure FromInt(aValue: Int64; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement);
     function GetFormater(const aElement: IwbElement): IwbIntegerDefFormater;
@@ -6638,6 +6649,9 @@ type
     function GetExpectedLength(aValue: Int64 = 0): Integer;
 
     function AddOverlay(const aCallback: TwbIntOverlayCallback): IwbIntegerDef;
+
+    {---IwbIntegerWithFormIDCheckedDef---}
+    function SetFormIDFilter(const aFormIDFilter: TwbFormIDFilterCallback): IwbIntegerWithFormIDCheckedDef;
 
     {---IwbIntegerDefInternal---}
     procedure ReplaceFormater(const aFormater: IwbIntegerDefFormater);
@@ -8927,9 +8941,9 @@ function wbFormIDCk(const aName      : string;
                           aPersistent: Boolean = False;
                           aPriority  : TwbConflictPriority = cpNormal;
                           aRequired  : Boolean = False)
-                                     : IwbIntegerDef; overload;
+                                     : IwbIntegerWithFormIDCheckedDef; overload;
 begin
-  Result := wbInteger(aName, itU32, wbFormID(aValidRefs, aPersistent), aPriority, aRequired);
+  Result := wbInteger(aName, itU32, wbFormID(aValidRefs, aPersistent), aPriority, aRequired) as IwbIntegerWithFormIDCheckedDef;
 end;
 
 function wbFormIDCkNoReach(const aName      : string;
@@ -8937,9 +8951,9 @@ function wbFormIDCkNoReach(const aName      : string;
                                  aPersistent: Boolean = False;
                                  aPriority  : TwbConflictPriority = cpNormal;
                                  aRequired  : Boolean = False)
-                                            : IwbIntegerDef; overload;
+                                            : IwbIntegerWithFormIDCheckedDef; overload;
 begin
-  Result := wbInteger(aName, itU32, wbFormIDNoReach(aValidRefs, aPersistent), aPriority, aRequired);
+  Result := wbInteger(aName, itU32, wbFormIDNoReach(aValidRefs, aPersistent), aPriority, aRequired) as IwbIntegerWithFormIDCheckedDef;
 end;
 
 
@@ -8961,9 +8975,9 @@ function wbFormIDCk(const aName          : string;
                           aPersistent    : Boolean = False;
                           aPriority      : TwbConflictPriority = cpNormal;
                           aRequired      : Boolean = False)
-                                         : IwbIntegerDef; overload;
+                                         : IwbIntegerWithFormIDCheckedDef; overload;
 begin
-  Result := wbInteger(aName, itU32, wbFormID(aValidRefs, aValidFlstRefs, aPersistent), aPriority, aRequired);
+  Result := wbInteger(aName, itU32, wbFormID(aValidRefs, aValidFlstRefs, aPersistent), aPriority, aRequired) as IwbIntegerWithFormIDCheckedDef;
 end;
 
 function wbFormIDCkNoReach(const aName          : string;
@@ -8972,9 +8986,9 @@ function wbFormIDCkNoReach(const aName          : string;
                                  aPersistent    : Boolean = False;
                                  aPriority      : TwbConflictPriority = cpNormal;
                                  aRequired      : Boolean = False)
-                                                : IwbIntegerDef; overload;
+                                                : IwbIntegerWithFormIDCheckedDef; overload;
 begin
-  Result := wbInteger(aName, itU32, wbFormIDNoReach(aValidRefs, aValidFlstRefs, aPersistent), aPriority, aRequired);
+  Result := wbInteger(aName, itU32, wbFormIDNoReach(aValidRefs, aValidFlstRefs, aPersistent), aPriority, aRequired) as IwbIntegerWithFormIDCheckedDef;
 end;
 
 
@@ -10839,6 +10853,16 @@ begin
   srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
+function TwbSubRecordDef.SetFormIDFilter(const aFormIDFilter: TwbFormIDFilterCallback): IwbSubRecordWithFormIDCheckedDef;
+begin
+  if defIsLocked then
+    Exit(TwbSubRecordDef(Duplicate).SetFormIDFilter(aFormIDFilter));
+
+  Result := Self;
+  srValue := (srValue as IwbIntegerWithFormIDCheckedDef).SetFormIDFilter(aFormIDFilter);
+  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+end;
+
 function TwbSubRecordDef.SetGetCP(const aGetCP: TwbGetConflictPriority): IwbRecordMemberDef;
 begin
   if defIsLocked then
@@ -12491,15 +12515,15 @@ begin
   inDefault := aValue;
 end;
 
-function TwbIntegerDef.SetFormIDFilter(const aFormIDFilterCallback: TwbFormIDFilterCallback): IwbIntegerDef;
+function TwbIntegerDef.SetFormIDFilter(const aFormIDFilter: TwbFormIDFilterCallback): IwbIntegerWithFormIDCheckedDef;
 begin
   if defIsLocked then
-    Exit(TwbIntegerDef(Duplicate).SetFormIDFilter(aFormIDFilterCallback));
+    Exit(TwbIntegerDef(Duplicate).SetFormIDFilter(aFormIDFilter));
 
   Result := Self;
 
-  if Assigned(inFormater) and (inFormater is TwbFormIDChecked) then
-    TwbFormIDChecked(inFormater).fidcFilterCallback := aFormIDFilterCallback;
+  if Assigned(inFormater) then
+    TwbFormIDChecked(inFormater).fidcFilterCallback := aFormIDFilter;
 end;
 
 procedure TwbIntegerDef.SetLinksTo(aBasePtr, aEndPtr: Pointer; const aElement, aValue: IwbElement);
