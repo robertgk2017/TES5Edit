@@ -3343,19 +3343,18 @@ function wbString(const aName      : string = 'Unknown';
                         aRequired  : Boolean = False)
                                    : IwbStringDef; overload;
 
+function wbStringForward(const aName : string = 'Unknown';
+                               aSize : Integer = 0;
+                               aPriority : TwbConflictPriority = cpNormal;
+                               aRequired : Boolean = False)
+                                         : IwbStringDef; overload;
+
 function wbStringForward(const aSignature : TwbSignature;           // When the editor can leave chars after the ending #0
                          const aName      : string = 'Unknown';
                                aSize      : Integer = 0;
                                aPriority  : TwbConflictPriority = cpNormal;
                                aRequired  : Boolean = False)
                                           : IwbSubRecordWithBaseStringDef; overload;
-
-function wbString(      aForward   : Boolean = False;
-                  const aName      : string = 'Unknown';
-                        aSize      : Integer = 0;
-                        aPriority  : TwbConflictPriority = cpNormal;
-                        aRequired  : Boolean = False)
-                                   : IwbStringDef; overload;
 
 function wbStringT(const aSignature : TwbSignature;
                    const aName      : string = 'Unknown';
@@ -4104,7 +4103,7 @@ function wbStructs(const aSignature   : TwbSignature;
                    const aMembers     : array of IwbValueDef;
                          aPriority    : TwbConflictPriority = cpNormal;
                          aRequired    : Boolean = False)
-                                      : IwbSubRecordDef; overload;
+                                      : IwbSubRecordWithArrayDef; overload;
 
 function wbStructs(const aName        : string;
                    const aElementName : string;
@@ -7561,6 +7560,15 @@ begin
   Result := TwbStringDef.Create(aPriority, aRequired, aName, aSize, False);
 end;
 
+function wbStringForward(const aName : string = 'Unknown';
+                               aSize : Integer = 0;
+                               aPriority : TwbConflictPriority = cpNormal;
+                               aRequired : Boolean = False)
+                                         : IwbStringDef; overload;
+begin
+  Result := TwbStringDef.Create(aPriority, aRequired, aName, aSize, False, True);
+end;
+
 function wbStringForward(const aSignature : TwbSignature;           // When the editor can leave chars after the ending #0
                          const aName      : string = 'Unknown';
                                aSize      : Integer = 0;
@@ -7568,17 +7576,7 @@ function wbStringForward(const aSignature : TwbSignature;           // When the 
                                aRequired  : Boolean = False)
                                           : IwbSubRecordWithBaseStringDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbString(True, '', aSize, aPriority, aRequired), aPriority, aRequired, False) as IwbSubRecordWithBaseStringDef;
-end;
-
-function wbString(      aForward   : Boolean = False;
-                  const aName      : string = 'Unknown';
-                        aSize      : Integer = 0;
-                        aPriority  : TwbConflictPriority = cpNormal;
-                        aRequired  : Boolean = False)
-                                   : IwbStringDef; overload;
-begin
-  Result := TwbStringDef.Create(aPriority, aRequired, aName, aSize, False, aForward);
+  Result := wbSubRecord(aSignature, aName, wbStringForward('', aSize, aPriority, aRequired), aPriority, aRequired, False) as IwbSubRecordWithBaseStringDef;
 end;
 
 function wbStringT(const aSignature : TwbSignature;
@@ -8655,7 +8653,7 @@ function wbStructs(const aSignature   : TwbSignature;
                    const aMembers     : array of IwbValueDef;
                          aPriority    : TwbConflictPriority = cpNormal;
                          aRequired    : Boolean = False)
-                                      : IwbSubRecordDef; overload;
+                                      : IwbSubRecordWithArrayDef; overload;
 begin
   Result := wbArray(aSignature, aName, wbStruct(aElementName, aMembers, aPriority), 0, aPriority, aRequired);
 end;

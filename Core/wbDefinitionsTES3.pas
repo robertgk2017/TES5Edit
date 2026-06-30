@@ -828,7 +828,7 @@ begin
           wbStruct(AI_F, 'Follow', [
             wbVec3('Position'),
             wbInteger('Duration In Hours', itU16),
-            wbString(True, 'Target', 32).SetAfterLoad(wbForwardForReal), //[CREA, NPC_]
+            wbStringForward('Target', 32).SetAfterLoad(wbForwardForReal), //[CREA, NPC_]
             wbInteger('Reset', itU16, wbBoolEnum).SetDefaultNativeValue(1)
           ]).SetRequired,
           wbString(CNDT, 'Follow To Cell') //[CELL]
@@ -837,13 +837,13 @@ begin
           wbStruct(AI_E, 'Escort', [
             wbVec3('Position'),
             wbInteger('Duration In Hours', itU16),
-            wbString(True, 'Target', 32).SetAfterLoad(wbForwardForReal), //[CREA, NPC_]
+            wbStringForward('Target', 32).SetAfterLoad(wbForwardForReal), //[CREA, NPC_]
             wbInteger('Reset', itU16, wbBoolEnum).SetDefaultNativeValue(1)
           ]).SetRequired,
           wbString(CNDT, 'Escort To Cell') //[CELL]
         ]),
         wbStruct(AI_A, 'Activate', [
-          wbString(True, 'Target', 32).SetAfterLoad(wbForwardForReal), //[ACTI, ALCH, APPA, ARMO, BODY, BOOK, CLOT, CONT, CREA, DOOR, ENCH, INGR, LIGH, LEVC, LEVI, LOCK, MISC, NPC_, PROB, REPA, SPEL, STAT, WEAP]
+          wbStringForward('Target', 32).SetAfterLoad(wbForwardForReal), //[ACTI, ALCH, APPA, ARMO, BODY, BOOK, CLOT, CONT, CREA, DOOR, ENCH, INGR, LIGH, LEVC, LEVI, LOCK, MISC, NPC_, PROB, REPA, SPEL, STAT, WEAP]
           wbInteger('Reset', itU8, wbBoolEnum).SetDefaultNativeValue(1)
         ])
       ]));
@@ -2199,7 +2199,7 @@ begin
     wbByteColors(CNAM, 'Region Map Color').SetRequired,
     wbRArray('Region Sounds',
       wbStruct(SNAM, 'Region Sound', [
-        wbString(True, 'Sound', 32).SetAfterLoad(wbForwardForReal), //[SOUN]
+        wbStringForward('Sound', 32).SetAfterLoad(wbForwardForReal), //[SOUN]
         wbInteger('Chance', itU8).SetDefaultNativeValue(50)
       ]).SetSummaryKeyOnValue([0,1])
         .SetSummaryPrefixSuffixOnValue(0, 'Sound: ', ',')
