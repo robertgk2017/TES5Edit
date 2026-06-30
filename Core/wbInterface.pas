@@ -3949,18 +3949,13 @@ function wbStructSK(const aSortKey             : array of Integer;
                           aRequired            : Boolean = False)
                                                : IwbStructDef; overload;
 
-function wbStructSK(const aSortKey             : array of Integer;
-                    const aName                : string;
-                    const aMembers             : array of IwbValueDef;
-                    {$IFDEF WIN32}
-                    const aElementMap          : array of Cardinal;
-                    {$ENDIF WIN32}
-                    {$IFDEF WIN64}
-                    const aElementMap          : array of UInt64;
-                    {$ENDIF WIN64}
-                          aPriority            : TwbConflictPriority = cpNormal;
-                          aRequired            : Boolean = False)
-                                               : IwbStructDef; overload;
+function wbStructSK(const aSortKey    : array of Integer;
+                    const aName       : string;
+                    const aMembers    : array of IwbValueDef;
+                    const aElementMap : TDynCardinalArray;
+                          aPriority   : TwbConflictPriority = cpNormal;
+                          aRequired   : Boolean = False)
+                                      : IwbStructDef; overload;
 
 function wbStructSK(const aSignature           : TwbSignature;
                     const aSortKey             : array of Integer;
@@ -4002,18 +3997,13 @@ function wbStruct(const aSignature           : TwbSignature;
                         aRequired            : Boolean = False)
                                              : IwbSubRecordWithStructDef; overload;
 
-function wbStruct(const aSignature           : TwbSignature;
-                  const aName                : string;
-                  const aMembers             : array of IwbValueDef;
-                  {$IFDEF WIN32}
-                  const aElementMap          : array of Cardinal;
-                  {$ENDIF WIN32}
-                  {$IFDEF WIN64}
-                  const aElementMap          : array of UInt64;
-                  {$ENDIF WIN64}
-                        aPriority            : TwbConflictPriority = cpNormal;
-                        aRequired            : Boolean = False)
-                                             : IwbSubRecordWithStructDef; overload;
+function wbStruct(const aSignature  : TwbSignature;
+                  const aName       : string;
+                  const aMembers    : array of IwbValueDef;
+                  const aElementMap : TDynCardinalArray;
+                        aPriority   : TwbConflictPriority = cpNormal;
+                        aRequired   : Boolean = False)
+                                    : IwbSubRecordWithStructDef; overload;
 
 function wbStruct(const aName                : string;
                   const aMembers             : array of IwbValueDef;
@@ -4021,17 +4011,12 @@ function wbStruct(const aName                : string;
                         aRequired            : Boolean = False)
                                              : IwbStructDef; overload;
 
-function wbStruct(const aName                : string;
-                  const aMembers             : array of IwbValueDef;
-                  {$IFDEF WIN32}
-                  const aElementMap          : array of Cardinal;
-                  {$ENDIF WIN32}
-                  {$IFDEF WIN64}
-                  const aElementMap          : array of UInt64;
-                  {$ENDIF WIN64}
-                        aPriority            : TwbConflictPriority = cpNormal;
-                        aRequired            : Boolean = False)
-                                             : IwbStructDef; overload;
+function wbStruct(const aName       : string;
+                  const aMembers    : array of IwbValueDef;
+                  const aElementMap : TDynCardinalArray;
+                        aPriority   : TwbConflictPriority = cpNormal;
+                        aRequired   : Boolean = False)
+                                    : IwbStructDef; overload;
 
 function wbStructC(const aName                : string;
                          aSizing              : TwbSizeCallback;
@@ -6824,7 +6809,7 @@ type
                  const aMembers    : array of IwbValueDef;
                  const aSortKey    : array of Integer;
                  const aExSortKey  : array of Integer;
-                 const aElementMap : array of {$IFDEF WIN32} Cardinal {$ENDIF} {$IFDEF WIN64} UInt64 {$ENDIF WIN64}); reintroduce;
+                 const aElementMap : TDynCardinalArray); reintroduce;
 
     procedure AfterClone(const aSource: TwbDef); override;
 
@@ -8473,18 +8458,13 @@ begin
   Result := TwbStructDef.Create(aPriority, aRequired, aName, aMembers, aSortKey, [], []);
 end;
 
-function wbStructSK(const aSortKey             : array of Integer;
-                    const aName                : string;
-                    const aMembers             : array of IwbValueDef;
-                    {$IFDEF WIN32}
-                    const aElementMap          : array of Cardinal;
-                    {$ENDIF WIN32}
-                    {$IFDEF WIN64}
-                    const aElementMap          : array of UInt64;
-                    {$ENDIF WIN64}
-                          aPriority            : TwbConflictPriority = cpNormal;
-                          aRequired            : Boolean = False)
-                                               : IwbStructDef; overload;
+function wbStructSK(const aSortKey    : array of Integer;
+                    const aName       : string;
+                    const aMembers    : array of IwbValueDef;
+                    const aElementMap : TDynCardinalArray;
+                          aPriority   : TwbConflictPriority = cpNormal;
+                          aRequired   : Boolean = False)
+                                      : IwbStructDef; overload;
 begin
   Result := TwbStructDef.Create(aPriority, aRequired, aName, aMembers, aSortKey, [], aElementMap);
 end;
@@ -8523,18 +8503,13 @@ begin
   Result := wbSubRecord(aSignature, aName, wbStruct('', aMembers, aPriority, False), aPriority, aRequired, False) as IwbSubRecordWithStructDef;
 end;
 
-function wbStruct(const aSignature           : TwbSignature;
-                  const aName                : string;
-                  const aMembers             : array of IwbValueDef;
-                  {$IFDEF WIN32}
-                  const aElementMap          : array of Cardinal;
-                  {$ENDIF WIN32}
-                  {$IFDEF WIN64}
-                  const aElementMap          : array of UInt64;
-                  {$ENDIF WIN64}
-                        aPriority            : TwbConflictPriority = cpNormal;
-                        aRequired            : Boolean = False)
-                                             : IwbSubRecordWithStructDef; overload;
+function wbStruct(const aSignature  : TwbSignature;
+                  const aName       : string;
+                  const aMembers    : array of IwbValueDef;
+                  const aElementMap : TDynCardinalArray;
+                        aPriority   : TwbConflictPriority = cpNormal;
+                        aRequired   : Boolean = False)
+                                    : IwbSubRecordWithStructDef; overload;
 begin
   Result := wbSubRecord(aSignature, aName, wbStruct('', aMembers, aElementMap, aPriority, False), aPriority, aRequired, False) as IwbSubRecordWithStructDef;
 end;
@@ -8548,17 +8523,12 @@ begin
   Result := TwbStructDef.Create(aPriority, aRequired, aName, aMembers, [], [], []);
 end;
 
-function wbStruct(const aName                : string;
-                  const aMembers             : array of IwbValueDef;
-                  {$IFDEF WIN32}
-                  const aElementMap          : array of Cardinal;
-                  {$ENDIF WIN32}
-                  {$IFDEF WIN64}
-                  const aElementMap          : array of UInt64;
-                  {$ENDIF WIN64}
-                        aPriority            : TwbConflictPriority = cpNormal;
-                        aRequired            : Boolean = False)
-                                             : IwbStructDef; overload;
+function wbStruct(const aName       : string;
+                  const aMembers    : array of IwbValueDef;
+                  const aElementMap : TDynCardinalArray;
+                        aPriority   : TwbConflictPriority = cpNormal;
+                        aRequired   : Boolean = False)
+                                    : IwbStructDef; overload;
 begin
 Result := TwbStructDef.Create(aPriority, aRequired, aName, aMembers, [], [], aElementMap)
 end;
@@ -13634,13 +13604,13 @@ begin
     Self.Create(defPriority, defRequired, ndName, stMembers, stSortKey, stExSortKey, stElementMap).AfterClone(aSource);
 end;
 
-constructor TwbStructDef.Create(aPriority            : TwbConflictPriority;
-                                aRequired            : Boolean;
-                          const aName                : string;
-                          const aMembers             : array of IwbValueDef;
-                          const aSortKey             : array of Integer;
-                          const aExSortKey           : array of Integer;
-                          const aElementMap : array of {$IFDEF WIN32} Cardinal {$ENDIF WIN32} {$IFDEF WIN64} UInt64 {$ENDIF WIN64});
+constructor TwbStructDef.Create(aPriority   : TwbConflictPriority;
+                                aRequired   : Boolean;
+                          const aName       : string;
+                          const aMembers    : array of IwbValueDef;
+                          const aSortKey    : array of Integer;
+                          const aExSortKey  : array of Integer;
+                          const aElementMap : TDynCardinalArray);
 begin
   stSummaryDelimiter := ' ';
   stOptionalFromElement := -1;
