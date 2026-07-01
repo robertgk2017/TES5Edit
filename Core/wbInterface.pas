@@ -2428,6 +2428,11 @@ type
                                const aDataContainer : IwbDataContainer)
                                                     : Integer;
 
+    function GetMemberIndexByName(const aContainer     : IwbContainerElementRef;
+                                  const aName          : string;
+                                  const aDataContainer : IwbDataContainer)
+                                                       : Integer;
+
     function AllowUnordered: Boolean;
     function AdditionalInfoFor(const aMainRecord: IwbMainRecord): string;
 
@@ -5702,6 +5707,12 @@ type
                                const aSignature     : TwbSignature;
                                const aDataContainer : IwbDataContainer)
                                                     : Integer;
+
+    function GetMemberIndexByName(const aContainer     : IwbContainerElementRef;
+                                  const aName          : string;
+                                  const aDataContainer : IwbDataContainer)
+                                                       : Integer;
+
     function AllowUnordered: Boolean;
     function AdditionalInfoFor(const aMainRecord: IwbMainRecord): string;
 
@@ -6007,6 +6018,12 @@ type
                                const aSignature     : TwbSignature;
                                const aDataContainer : IwbDataContainer)
                                                     : Integer;
+
+    function GetMemberIndexByName(const aContainer     : IwbContainerElementRef;
+                                  const aName          : string;
+                                  const aDataContainer : IwbDataContainer)
+                                                       : Integer;
+
     function AllowUnordered: Boolean;
     function AdditionalInfoFor(const aMainRecord: IwbMainRecord): string;
 
@@ -6078,6 +6095,12 @@ type
                                const aSignature     : TwbSignature;
                                const aDataContainer : IwbDataContainer)
                                                     : Integer;
+
+    function GetMemberIndexByName(const aContainer     : IwbContainerElementRef;
+                                  const aName          : string;
+                                  const aDataContainer : IwbDataContainer)
+                                                       : Integer;
+
     function AllowUnordered: Boolean;
     function AdditionalInfoFor(const aMainRecord: IwbMainRecord): string;
 
@@ -9998,6 +10021,17 @@ begin
     Result := nil;
 end;
 
+function TwbMainRecordDef.GetMemberIndexByName(const aContainer     : IwbContainerElementRef;
+                                               const aName          : string;
+                                               const aDataContainer : IwbDataContainer): Integer;
+begin
+  for var I := Low(recMembers) to High(recMembers) do
+    if recMembers[I].Name = aName then
+      Exit(I);
+
+  Result := -1;
+end;
+
 function TwbMainRecordDef.GetMemberIndexFor(const aContainer     : IwbContainerElementRef;
                                             const aSignature     : TwbSignature;
                                             const aDataContainer : IwbDataContainer)
@@ -11476,6 +11510,17 @@ begin
     Result := nil;
 end;
 
+function TwbSubRecordStructDef.GetMemberIndexByName(const aContainer     : IwbContainerElementRef;
+                                                    const aName          : string;
+                                                    const aDataContainer : IwbDataContainer): Integer;
+begin
+  for var I := Low(srsMembers) to High(srsMembers) do
+    if srsMembers[I].Name = aName then
+      Exit(I);
+
+  Result := -1;
+end;
+
 function TwbSubRecordStructDef.GetMemberIndexFor(const aContainer     : IwbContainerElementRef;
                                                  const aSignature     : TwbSignature;
                                                  const aDataContainer : IwbDataContainer)
@@ -11827,6 +11872,26 @@ begin
       if sruMembers[lMemberIndx].CanHandle(aContainer, aSignature, aDataContainer) then
         Exit(sruMembers[lMemberIndx]);
   Result := nil;
+end;
+
+function TwbSubRecordUnionDef.GetMemberIndexByName(const aContainer     : IwbContainerElementRef;
+                                                   const aName          : string;
+                                                   const aDataContainer : IwbDataContainer): Integer;
+begin
+  if Assigned(sruDecider) then
+  begin
+    var lDecidedMemberIdx := sruDecider(aContainer);
+    if (lDecidedMemberIdx >= Low(sruMembers)) and
+       (lDecidedMemberIdx <= High(sruMembers)) and
+       (sruMembers[lDecidedMemberIdx].Name = aName)
+    then
+      Exit(lDecidedMemberIdx);
+  end else
+    for var lMemberIdx := Low(sruMembers) to High(sruMembers) do
+      if sruMembers[lMemberIdx].Name = aName then
+        Exit(lMemberIdx);
+
+  Result := -1;
 end;
 
 function TwbSubRecordUnionDef.GetMemberIndexFor(const aContainer     : IwbContainerElementRef;
