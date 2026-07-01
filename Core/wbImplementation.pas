@@ -21189,36 +21189,43 @@ end;
 { TwbSubRecordStruct }
 
 function TwbSubRecordStruct.Add(const aName: string; aSilent: Boolean): IwbElement;
-var
-  Signature : TwbSignature;
-  Index     : Integer;
-  SelfRef   : IwbContainerElementRef;
 begin
   Result := nil;
 
   if not IsElementEditable(nil) then
     raise Exception.Create('"' + GetName + '" is not editable');
 
-  Result := nil;
+  case CompareValue(Length(aName), 4) of
+    -1: Exit;
+     0: begin
+       var lSignature := StrToSignature(aName);
 
-  if Length(aName) < 4 then
-    Exit;
+       Result := GetElementBySignature(lSignature);
+       if Assigned(Result) then
+         Exit;
 
-  Signature := StrToSignature(aName);
+       var lIndex := srcDef.GetMemberIndexFor(Self, lSignature, nil);
+       if lIndex < 0 then
+         Exit;
 
-  SelfRef := Self;
+       Assign(lIndex, nil, False);
+       Result := GetElementBySignature(lSignature);
+     end;
+     1: begin
+       Result := GetElementByName(aName);
+       if Assigned(Result) then
+         Exit;
 
-  Result := GetElementBySignature(Signature);
-  if Assigned(Result) then
-    Exit;
+       var lIndex := srcDef.GetMemberIndexByName(Self, aName, nil);
+       if lIndex < 0 then
+         Exit;
 
-  Index := srcDef.GetMemberIndexFor(Self, Signature, nil);
-  if Index < 0 then
-    Exit;
-
-  Assign(Index, nil, False);
-  Result := GetElementBySignature(Signature);
-  Assert(Assigned(Result));
+       Assign(lIndex, nil, False);
+       Result := GetElementByName(aName);
+       if Assigned(Result) then
+         Exit;
+     end;
+  end;
 end;
 
 function TwbSubRecordStruct.AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy: Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement;
