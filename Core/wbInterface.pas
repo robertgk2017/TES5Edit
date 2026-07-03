@@ -416,6 +416,7 @@ var
   wbWwiseSoundbankInfos     : TArray<TJSONObject>;
   wbWwiseGUIDs              : TwbWwiseGUIDsDictionary;
   wbWwiseGuidEditInfo       : TwbStringArray;
+  wbWwiseGuidDisplay        : TDictionary<string, string>;
 {$IFDEF USE_CODESITE}
 type
   TwbLoggingArea = (
@@ -9182,7 +9183,8 @@ end;
 procedure wbWwiseLoadSoundbankJSON(const aName: string; const aFilename: string; aOptional: Boolean = True);
 begin
   var lSoundbankInfo := wbContainerHandler.OpenResourceData('', aFilename);
-  if Length(lSoundbankInfo) > 0 then begin
+  if Length(lSoundBankInfo) > 0 then
+  begin
     wbProgress('[%s] Loading Wwise Soundbank Info...', [aName]);
     SetLength(wbWwiseSoundbankInfos, Succ(Length(wbWwiseSoundbankInfos)));
     var lIdx := Pred(Length(wbWwiseSoundbankInfos));
@@ -9193,52 +9195,90 @@ begin
 
       var lCount := 0;
 
-      wbWwiseSoundbankInfos[lIdx].Iterate(procedure(aContainer: TJsonBaseObject)
+      var lRootObj := wbWwiseSoundbankInfos[lIdx].O['SoundBanksInfo'];
+      if Assigned(lRootObj) then
       begin
-        if not (aContainer is TJsonObject) then
-          Exit;
-        var lObject := TJsonObject(aContainer);
-        var lGUIDString := lObject.S['GUID'];
-        if lGUIDString = '' then
-          Exit;
+        var lSoundBanksArray := lRootObj.A['SoundBanks'];
+        if Assigned(lSoundBanksArray) then
+        begin
+          for var I := 0 to Pred(lSoundBanksArray.Count) do
+          begin
+            var lBankObj := lSoundBanksArray.O[I];
+            if not Assigned(lBankObj) then
+              Continue;
 
-        lObject.S['FN'] := aName;
-        var lGUID := StringToGUID(lGUIDString);
-        Inc(lCount);
+            var lEventsArray := lBankObj.A['IncludedEvents'];
+            if not Assigned(lEventsArray) then
+              Continue;
 
-        if not wbWwiseGUIDs.TryAdd(lGUID, lObject) then begin
-          Dec(lCount);
-          var lName := lObject.S['Name'];
-          if lName <> '' then begin
-            var lExistingObject: TJsonObject;
-            if wbWwiseGUIDs.TryGetValue(lGUID, lExistingObject) then begin
-              var lExistingName := lExistingObject.S['Name'];
-              if lExistingName = '' then begin
-                wbWwiseGUIDs.Remove(lGUID);
-                wbWwiseGUIDs.Add(lGUID, lObject);
-              end else if lName <> lExistingName then begin
-                wbProgress('Warning: Multiple names for GUID %s: [%s] <> [%s]', [lGUIDString, lExistingName, lName]);
+            for var J := 0 to Pred(lEventsArray.Count) do
+            begin
+              var lObject := lEventsArray.O[J];
+              if not Assigned(lObject) then
+                Continue;
+
+              var lGUIDString := lObject.S['GUID'];
+              if lGUIDString = '' then
+                Continue;
+
+              lObject.S['FN'] := aName;
+              var lGUID := StringToGUID(lGUIDString);
+              Inc(lCount);
+
+              if not wbWwiseGUIDs.TryAdd(lGUID, lObject) then
+              begin
+                Dec(lCount);
+                var lName := lObject.S['Name'];
+                if lName <> '' then
+                begin
+                  var lExistingObject: TJsonObject;
+                  if wbWwiseGUIDs.TryGetValue(lGUID, lExistingObject) then
+                  begin
+                    var lExistingName := lExistingObject.S['Name'];
+                    if lExistingName = '' then
+                    begin
+                      wbWwiseGUIDs.Remove(lGUID);
+                      wbWwiseGUIDs.Add(lGUID, lObject);
+                    end
+                    else
+                    if lName <> lExistingName then
+                    begin
+                      wbProgress('Warning: Multiple names for GUID %s: [%s] <> [%s]', [lGUIDString, lExistingName, lName]);
+                    end;
+                  end;
+                end;
               end;
             end;
           end;
         end;
-      end);
+      end;
+
       wbProgress('[%s] Indexed %d new GUIDs successfully.', [aName, lCount]);
 
       with TStringList.Create do try
+        Sorted := True;
+        Duplicates := dupIgnore;
+
 
         for var lObject in wbWwiseGUIDs.Values do begin
           var lGuid := lObject.S['GUID'];
           var lName := lObject.S['Name'];
           var lFilename := lObject.S['FN'];
 
-          if lGuid <> '' then begin
+          if lGuid <> '' then
+          begin
+            var lDisplayStr: string;
             if lName <> '' then
-              lGuid := lName + ' ' + lGuid + ' [' + lFilename + ']';
-            Add(lGuid);
+              lDisplayStr := lName + ' [' + lFilename + ']'
+            else
+              lDisplayStr := lGuid;
+
+            Add(lDisplayStr);
+
+            wbWwiseGuidDisplay.TryAdd(lDisplayStr, lGuid);
           end;
         end;
-        Sort;
+
         wbWwiseGuidEditInfo := ToStringArray;
       finally
         Free;
@@ -9246,14 +9286,13 @@ begin
 
     except
       on E: Exception do begin
-  //          FreeAndNil(wbWwiseGUIDs);
-  //          FreeAndNil(wbWwiseSoundbankInfo);
-        wbProgress('Error: Loading Wwise Soundbank Info failed: [%s] %s', [E.ClassName, E.Message]);
+        wbProgress('Error: Loading Wwise Soundbank Info failed: [%s} %s', [E.ClassName, E.Message]);
       end;
     end;
-  end else
-    if not aOptional then
-      wbProgress('Warning: Could not find Wwise Soundbank Info file %s.', [aFilename]);
+  end
+  else
+  if not aOptional then
+    wbProgress('Warning: Could not find Wwise Soundbank Info file %s.', [aFilename]);
 end;
 
 { TwbDef }
@@ -23779,7 +23818,9 @@ begin
 end;
 
 initialization
-  wbWwiseGUIDs := TwbWwiseGUIDsDictionary.Create(20000);
+  wbWwiseGUIDs := TwbWwiseGUIDsDictionary.Create;
+  wbWwiseGuidDisplay := TDictionary<string, string>.Create;
+
   MakeComparers;
 
   wbIdxEditorID := wbNamedIndex('EditorID', False);
@@ -23840,4 +23881,5 @@ finalization
   for var i := Low(wbWwiseSoundbankInfos) to High(wbWwiseSoundbankInfos) do
     FreeAndNil(wbWwiseSoundbankInfos[i]);
   FreeAndNil(wbWwiseGUIDs);
+  FreeAndNil(wbWwiseGuidDisplay);
 end.

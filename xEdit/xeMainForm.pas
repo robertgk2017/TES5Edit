@@ -18624,7 +18624,7 @@ begin
       var Def := Element.ResolvedValueDef;
 
       if Assigned(ViewFocusedElement) and Assigned(Def) and ViewFocusedElement.IsEditable then
-        if Def.DefType in [dtInteger, dtFlag, dtFloat] then begin
+        if Def.DefType in [dtInteger, dtFlag, dtFloat, dtGuid] then begin
           vstView.EditNode(vstViewFocusedNode, vstView.FocusedColumn);
           Exit;
         end;

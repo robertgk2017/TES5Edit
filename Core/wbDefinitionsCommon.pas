@@ -9714,27 +9714,52 @@ begin
 
       var lFilename := lObject.S['FN'];
       var lName := lObject.S['Name'];
+
       if lName <> '' then
-        if aType = ctToSummary then begin
-          aValue := lName;
-          Exit;
-        end else
-          aValue := lName + ' ' + aValue + ' [' + lFilename + ']';
+        aValue := lName + ' [' + lFilename + ']'
+      else
+        aValue := lGUID.ToString;
     end;
 
     ctFromEditValue: begin
       if aValue = '' then
         Exit;
 
-      var lPos := Pos('{', aValue);
-      if lPos < 1 then Exit;
-      if lPos > 1 then
-        Delete(aValue, 1, Pred(lPos));
+      if Assigned(wbWwiseGuidDisplay) then
+      begin
+        var lFoundGuid: string;
+        if wbWwiseGuidDisplay.TryGetValue(aValue, lFoundGuid) then
+        begin
+          aValue := lFoundGuid;
+          Exit;
+        end;
+      end;
 
-      lPos := Pos('}', aValue);
-      if lPos < 1 then Exit;
-      if lPos > 1 then
-        Delete(aValue, Succ(lPos), High(Integer));
+      var lPos := Pos('{', aValue);
+      if lPos > 0 then
+      begin
+        if lPos > 1 then
+          Delete(aValue, 1, Pred(lPos));
+
+        lPos := Pos('}', aValue);
+        if lPos > 0 then
+          Delete(aValue, Succ(lPos), MaxInt);
+        Exit;
+      end;
+
+      var lBracketPos := Pos(' [', aValue);
+      if lBracketPos > 0 then
+      begin
+        var lTargetName := Copy(aValue, 1, lBracketPos -1);
+        for var lObject in wbWwiseGUIDs.Values do
+        begin
+          if lObject.S['Name'] = lTargetName then
+          begin
+            aValue := lObject.S['GUID'];
+            Exit;
+          end;
+        end;
+      end;
     end;
 
     ctEditType:
