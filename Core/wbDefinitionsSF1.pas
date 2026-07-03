@@ -18,7 +18,6 @@ implementation
 
 uses
   System.Classes,
-  System.Generics.Collections,
   System.IOUtils,
   System.Math,
   System.StrUtils,

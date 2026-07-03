@@ -2677,6 +2677,7 @@ type
     function SetDefaultEditValue(const aValue: string): IwbSubRecordDef{Self};
     function SetDefaultNativeValue(const aValue: Variant): IwbSubRecordDef{Self};
     function SetDefaultEditValues(const aValues: array of string): IwbRecordMemberDef{Self};
+    function SetStaticEditInfo(aEditInfo: PwbStringArray): IwbSubRecordDef;
 
     function ForValue(const aCallback: TwbSubRecordForValueCallback): IwbSubRecordDef{Self};
 
@@ -5855,6 +5856,7 @@ type
     function SetDefaultEditValue(const aValue: string): IwbSubRecordDef;
     function SetDefaultNativeValue(const aValue: Variant): IwbSubRecordDef;
     function SetDefaultEditValues(const aValues: array of string): IwbRecordMemberDef;
+    function SetStaticEditInfo(aEditInfo: PwbStringArray): IwbSubRecordDef;
 
     function ForValue(const aCallback: TwbSubRecordForValueCallback): {Self}IwbSubRecordDef;
 
@@ -11050,6 +11052,16 @@ begin
     srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
   end;
   Result := Self;
+end;
+
+function TwbSubRecordDef.SetStaticEditInfo(aEditInfo: PwbStringArray): IwbSubRecordDef;
+begin
+  if defIsLocked then
+    Exit(TwbSubRecordDef(Duplicate).SetStaticEditInfo(aEditInfo));
+
+  Result := Self;
+  srValue := srValue.SetStaticEditInfo(aEditInfo);
+  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryDelimiterOnArray(const aDelimiter: string): IwbSubRecordWithArrayDef;

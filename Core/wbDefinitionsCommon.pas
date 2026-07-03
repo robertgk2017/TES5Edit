@@ -14,6 +14,7 @@ interface
 
 uses
   JsonDataObjects,
+
   wbInterface;
 
 type
@@ -9765,10 +9766,7 @@ begin
   Result.SetDontShow(aDontShow);
   Result.SetGetCP(aGetCP);
   Result.SetToStr(wbWwiseGuidToStr);
-  Result.ForValue(procedure(const v: IwbValueDef)
-  begin
-    v.SetStaticEditInfo(@wbWwiseGuidEditInfo);
-  end);
+  Result.SetStaticEditInfo(@wbWwiseGuidEditInfo);
 end;
 
 function wbWwiseGUID(const aName      : string = 'Wwise GUID';
