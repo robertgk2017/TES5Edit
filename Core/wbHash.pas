@@ -595,7 +595,7 @@ var
   s : AnsiString;
 begin
   if aIgnoreCase then
-    s := AnsiLowerCase(aText)
+    s := AnsiString(AnsiLowerCase(aText))
   else
     s := aText;
 
