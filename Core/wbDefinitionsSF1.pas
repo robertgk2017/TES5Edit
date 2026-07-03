@@ -8443,23 +8443,23 @@ begin
 
   wbRegisterResourcesLoadedHandler(procedure
   begin
-    wbWwiseLoadSoundbankJSON('Starfield', 'sound\soundbanks\soundbanksinfo.json', False);
+    wbWwiseLoadSoundbankJSON('Starfield.esm', 'sound\soundbanks\soundbanksinfo.json', False);
   end);
-  wbQueueLoadSoundBankJSON('Starfield_FX', False);
   wbQueueLoadSoundBankJSON('Init', False);
-  wbQueueLoadSoundBankJSON('Starfield_UI', False);
-  wbQueueLoadSoundBankJSON('Starfield_PHY', False);
   wbQueueLoadSoundBankJSON('Starfield_AMB', False);
-  wbQueueLoadSoundBankJSON('Starfield_FST', False);
-  wbQueueLoadSoundBankJSON('Starfield_OBJ', False);
-  wbQueueLoadSoundBankJSON('Starfield_MUS', False);
-  wbQueueLoadSoundBankJSON('Starfield_WPN', False);
   wbQueueLoadSoundBankJSON('Starfield_DRS', False);
-  wbQueueLoadSoundBankJSON('Starfield_QST', False);
-  wbQueueLoadSoundBankJSON('Starfield_NPC', False);
-  wbQueueLoadSoundBankJSON('Starfield_VEH', False);
+  wbQueueLoadSoundBankJSON('Starfield_FST', False);
+  wbQueueLoadSoundBankJSON('Starfield_FX', False);
   wbQueueLoadSoundBankJSON('Starfield_ITM', False);
+  wbQueueLoadSoundBankJSON('Starfield_MUS', False);
+  wbQueueLoadSoundBankJSON('Starfield_NPC', False);
+  wbQueueLoadSoundBankJSON('Starfield_OBJ', False);
+  wbQueueLoadSoundBankJSON('Starfield_PHY', False);
+  wbQueueLoadSoundBankJSON('Starfield_QST', False);
+  wbQueueLoadSoundBankJSON('Starfield_UI', False);
+  wbQueueLoadSoundBankJSON('Starfield_VEH', False);
   wbQueueLoadSoundBankJSON('Starfield_VOC', False);
+  wbQueueLoadSoundBankJSON('Starfield_WPN', False);
 
   {subrecords checked against Starfield.esm}
   wbRefRecord(ACHR, 'Placed NPC',
