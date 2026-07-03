@@ -743,16 +743,12 @@ function wbTimeInterpolatorsMultAdd(const aSignatureMult : TwbSignature;
 function wbWwiseGUID(const aSignature : TwbSignature;
                      const aName      : string = 'Wwise GUID';
                            aPriority  : TwbConflictPriority = cpNormal;
-                           aRequired  : Boolean = False;
-                           aDontShow  : TwbDontShowCallback = nil;
-                           aGetCP     : TwbGetConflictPriority = nil)
+                           aRequired  : Boolean = False)
                                       : IwbSubRecordDef; overload;
 
 function wbWwiseGUID(const aName      : string = 'Wwise GUID';
                            aPriority  : TwbConflictPriority = cpNormal;
-                           aRequired  : Boolean = False;
-                           aDontShow  : TwbDontShowCallback = nil;
-                           aGetCP     : TwbGetConflictPriority = nil)
+                           aRequired  : Boolean = False)
                                       : IwbGuidDef; overload;
 function wbSoundReference(const aName: string = 'Sound'): IwbValueDef; overload;
 function wbSoundReference(const aSignature: TwbSignature; const aName: string = 'Sound'): IwbRecordMemberDef; overload;
@@ -9757,28 +9753,20 @@ end;
 function wbWwiseGUID(const aSignature : TwbSignature;
                      const aName      : string = 'Wwise GUID';
                            aPriority  : TwbConflictPriority = cpNormal;
-                           aRequired  : Boolean = False;
-                           aDontShow  : TwbDontShowCallback = nil;
-                           aGetCP     : TwbGetConflictPriority = nil)
+                           aRequired  : Boolean = False)
                                       : IwbSubRecordDef;
 begin
   Result := wbGUID(aSignature, aName, aPriority, aRequired);
-  Result.SetDontShow(aDontShow);
-  Result.SetGetCP(aGetCP);
   Result.SetToStr(wbWwiseGuidToStr);
   Result.SetStaticEditInfo(@wbWwiseGuidEditInfo);
 end;
 
 function wbWwiseGUID(const aName      : string = 'Wwise GUID';
                            aPriority  : TwbConflictPriority = cpNormal;
-                           aRequired  : Boolean = False;
-                           aDontShow  : TwbDontShowCallback = nil;
-                           aGetCP     : TwbGetConflictPriority = nil)
+                           aRequired  : Boolean = False)
                                       : IwbGuidDef;
 begin
   Result := wbGUID(aName, aPriority, aRequired);
-  Result.SetDontShow(aDontShow);
-  Result.SetGetCP(aGetCP);
   Result.SetToStr(wbWwiseGuidToStr);
   Result.SetStaticEditInfo(@wbWwiseGuidEditInfo);
 end;
