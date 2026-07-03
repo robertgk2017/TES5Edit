@@ -18,7 +18,10 @@ uses
   System.Generics.Collections,
   System.Generics.Defaults,
   System.SysUtils,
+  System.IOUtils,
   System.UITypes,
+
+  JsonDataObjects,
 
   Vcl.Graphics,
 
@@ -112,6 +115,8 @@ type
 
   TwbStringArray = TArray<string>;
   PwbStringArray = ^TwbStringArray;
+
+  TwbWwiseGUIDsDictionary = TDictionary<TGUID, TJSONObject>;
 
 threadvar
   _wbProgressCallback                : TwbProgressCallback;
@@ -406,6 +411,11 @@ var
   wbKoFiUrl                          : string     = 'https://www.ko-fi.com/ElminsterAU';
   wbPayPalUrl                        : string     = 'https://paypal.me/ElminsterAU';
 
+{===Wwise GUIDs and SoundReference ============================================}
+var
+  wbWwiseSoundbankInfos     : TArray<TJSONObject>;
+  wbWwiseGUIDs              : TwbWwiseGUIDsDictionary;
+  wbWwiseGuidEditInfo       : TwbStringArray;
 {$IFDEF USE_CODESITE}
 type
   TwbLoggingArea = (
@@ -4379,6 +4389,9 @@ function wbFormaterUnion(      aDecider : TwbIntegerDefFormaterUnionDecider;
 
 function wbIsModule(const aFileName: string): Boolean;
 function wbIsSave(const aFileName: string): Boolean;
+
+procedure wbWwiseLoadSoundbankJSON(const aName: string; const aFilename: string; aOptional: Boolean = True);
+procedure wbQueueLoadSoundbankJSON(const aFilename: string; aOptional: Boolean = True);
 
 function wbStr4ToString(aInt: Int64): string;
 
@@ -9151,6 +9164,103 @@ function wbFormaterUnion(      aDecider : TwbIntegerDefFormaterUnionDecider;
                                         : IwbIntegerDefFormaterUnion;
 begin
   Result := TwbIntegerDefFormaterUnion.Create(aDecider, aMembers);
+end;
+
+procedure wbQueueLoadSoundbankJSON(const aFilename: string; aOptional: Boolean = True);
+begin
+  var lFilename := TPath.GetFileNameWithoutExtension(aFilename);
+  var lHash := TwbHash.FNV132(lFilename, True);
+  var lBankName := 'sound\soundbanks\' + UIntToStr(lHash) + '.json';
+  wbRegisterResourcesLoadedHandler(procedure
+  begin
+    wbWwiseLoadSoundbankJSON(aFilename, lBankName, aOptional);
+  end);
+end;
+
+procedure wbWwiseLoadSoundbankJSON(const aName: string; const aFilename: string; aOptional: Boolean = True);
+begin
+  var lSoundbankInfo := wbContainerHandler.OpenResourceData('', aFilename);
+  if Length(lSoundbankInfo) > 0 then begin
+    wbProgress('[%s] Loading Wwise Soundbank Info : %s ...', [aName, aFilename]);
+    SetLength(wbWwiseSoundbankInfos, Succ(Length(wbWwiseSoundbankInfos)));
+    var lIdx := Pred(Length(wbWwiseSoundbankInfos));
+    wbWwiseSoundbankInfos[lIdx] := TJSONObject.Create;
+    try
+      wbWwiseSoundbankInfos[lIdx].FromUtf8JSON(PByte(@lSoundbankInfo[0]), Length(lSoundbankInfo));
+      wbProgress('[%s] Building Wwise GUID Index...', [aName]);
+
+      var lCount := 0;
+
+      wbWwiseSoundbankInfos[lIdx].Iterate(procedure(aContainer: TJsonBaseObject)
+      begin
+        if not (aContainer is TJsonObject) then
+          Exit;
+        var lObject := TJsonObject(aContainer);
+        var lGUIDString := lObject.S['GUID'];
+        if lGUIDString = '' then
+          Exit;
+
+        var lGUID := StringToGUID(lGUIDString);
+
+        if not wbWwiseGUIDs.TryAdd(lGUID, lObject) then begin
+          Inc(lCount);
+
+          var lName := lObject.S['Name'];
+          if lName <> '' then begin
+            var lExistingObject: TJsonObject;
+            if wbWwiseGUIDs.TryGetValue(lGUID, lExistingObject) then begin
+              var lExistingName := lExistingObject.S['Name'];
+              if lExistingName = '' then begin
+                wbWwiseGUIDs.Remove(lGUID);
+                wbWwiseGUIDs.Add(lGUID, lObject);
+              end else if lName <> lExistingName then begin
+                wbProgress('Warning: Multiple names for GUID %s: [%s] <> [%s]', [lGUIDString, lExistingName, lName]);
+              end;
+            end;
+          end;
+        end;
+      end);
+      wbProgress('[%s] Indexed %d GUIDs successfully.', [aName, lCount]);
+
+      with TStringList.Create do try
+        if Assigned(wbWwiseGuidEditInfo) then
+          AddStrings(wbWwiseGuidEditInfo);
+
+        for var lObject in wbWwiseGUIDs.Values do begin
+          var lGuid := lObject.S['GUID'];
+          var lName := lObject.S['Name'];
+          var lObjectPath := lObject.S['ObjectPath'];
+
+          if lGuid <> '' then begin
+            if lName <> '' then
+              lGuid := lName + ' ' + lGuid;
+            if lObjectPath <> '' then begin
+              if Length(lObjectPath) > 64 then begin
+                SetLength(lObjectPath, 61);
+                lObjectPath := lObjectPath + '...';
+              end;
+
+              lGuid := lGuid + ' "' + lObjectPath + '"';
+            end;
+            Add(lGuid);
+          end;
+        end;
+        Sort;
+        wbWwiseGuidEditInfo := ToStringArray;
+      finally
+        Free;
+      end;
+
+    except
+      on E: Exception do begin
+  //          FreeAndNil(wbWwiseGUIDs);
+  //          FreeAndNil(wbWwiseSoundbankInfo);
+        wbProgress('Error: Loading Wwise Soundbank Info failed: [%s] %s', [E.ClassName, E.Message]);
+      end;
+    end;
+  end else
+    if not aOptional then
+      wbProgress('Warning: Could not find Wwise Soundbank Info file %s.', [aFilename]);
 end;
 
 { TwbDef }
@@ -23666,6 +23776,7 @@ begin
 end;
 
 initialization
+  wbWwiseGUIDs := TwbWwiseGUIDsDictionary.Create(20000);
   MakeComparers;
 
   wbIdxEditorID := wbNamedIndex('EditorID', False);
@@ -23723,4 +23834,7 @@ finalization
   FreeAndNil(wbLEncoding[False]);
   FreeAndNil(_MBCSEncodings);
   FreeAndNil(_NamedIndices);
+  for var i := Low(wbWwiseSoundbankInfos) to High(wbWwiseSoundbankInfos) do
+    FreeAndNil(wbWwiseSoundbankInfos[i]);
+  FreeAndNil(wbWwiseGUIDs);
 end.

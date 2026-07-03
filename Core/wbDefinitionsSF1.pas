@@ -59,8 +59,6 @@ var
   wbEventMemberEnum : IwbEnumDef;
 
 type
-  TwbWwiseGUIDsDicationary = TDictionary<TGUID, TJSONObject>;
-
   TConditionParameterType = (
     //Misc
     {1} ptNone,
@@ -2196,125 +2194,6 @@ begin
     end;
 end;
 
-{===Wwise GUIDs and SoundReference ============================================}
-var
-  wbWwiseSoundbankInfo      : TJSONObject;
-  wbWwiseGUIDs              : TwbWwiseGUIDsDicationary;
-  wbWwiseGuidEditInfo       : TwbStringArray;
-{------------------------------------------------------------------------------}
-procedure wbWwiseGuidToStr(var aValue:string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-begin
-  if not Assigned(wbWwiseGUIDs) then
-    Exit;
-
-  case aType of
-    ctToStr, ctToSummary, ctToEditValue: begin
-      if aValue = '' then
-        Exit;
-
-      if aValue = '{00000000-0000-0000-0000-000000000000}' then begin
-        aValue := '';
-        Exit;
-      end;
-
-      var lGUID := StringToGUID(aValue);
-
-      var lObject: TJsonObject;
-      if not wbWwiseGUIDs.TryGetValue(lGUID, lObject) then
-        Exit;
-
-      var lName := lObject.S['Name'];
-      if lName <> '' then
-        if aType = ctToSummary then begin
-          aValue := lName;
-          Exit;
-        end else
-          aValue := lName + ' ' + aValue;
-
-      var lObjectPath := lObject.S['ObjectPath'];
-      if lObjectPath <> '' then begin
-        if (aType = ctToEditValue) and (Length(lObjectPath) > 64) then begin
-          SetLength(lObjectPath, 61);
-          lObjectPath := lObjectPath + '...';
-        end;
-        aValue := aValue + ' "' + lObjectPath + '"';
-      end;
-    end;
-
-    ctFromEditValue: begin
-      if aValue = '' then
-        Exit;
-
-      var lPos := Pos('{', aValue);
-      if lPos < 1 then Exit;
-      if lPos > 1 then
-        Delete(aValue, 1, Pred(lPos));
-
-      lPos := Pos('}', aValue);
-      if lPos < 1 then Exit;
-      if lPos > 1 then
-        Delete(aValue, Succ(lPos), High(Integer));
-    end;
-
-    ctEditType:
-      aValue := 'ComboBox';
-  end;
-end;
-{------------------------------------------------------------------------------}
-function wbWwiseGUID(const aSignature : TwbSignature;
-                     const aName      : string = 'Wwise GUID';
-                           aPriority  : TwbConflictPriority = cpNormal;
-                           aRequired  : Boolean = False;
-                           aDontShow  : TwbDontShowCallback = nil;
-                           aGetCP     : TwbGetConflictPriority = nil)
-                                      : IwbSubRecordDef; overload;
-begin
-  Result := wbGUID(aSignature, aName, aPriority, aRequired);
-  Result.SetDontShow(aDontShow);
-  Result.SetGetCP(aGetCP);
-  Result.SetToStr(wbWwiseGuidToStr);
-  Result.ForValue(procedure(const v: IwbValueDef)
-  begin
-    v.SetStaticEditInfo(@wbWwiseGuidEditInfo);
-  end);
-end;
-{------------------------------------------------------------------------------}
-function wbWwiseGUID(const aName      : string = 'Wwise GUID';
-                           aPriority  : TwbConflictPriority = cpNormal;
-                           aRequired  : Boolean = False;
-                           aDontShow  : TwbDontShowCallback = nil;
-                           aGetCP     : TwbGetConflictPriority = nil)
-                                      : IwbGuidDef; overload;
-begin
-  Result := wbGUID(aName, aPriority, aRequired);
-  Result.SetDontShow(aDontShow);
-  Result.SetGetCP(aGetCP);
-  Result.SetToStr(wbWwiseGuidToStr).SetStaticEditInfo(@wbWwiseGuidEditInfo);
-end;
-{------------------------------------------------------------------------------}
-function wbSoundReference(const aName: string = 'Sound'): IwbValueDef; overload;
-begin
-  Result :=
-    wbStruct(aName, [
-      wbStruct('Event Set', [
-        wbWwiseGuid('Start Event/Form'), // GUID 1
-        wbWwiseGuid('Stop'), // GUID 2
-        wbFormIDCk('Condition', [NULL, CNDF]).IncludeFlag(dfSummaryExcludeNULL)
-      ]).SetSummaryKey([0, 1, 2]),
-      wbStruct('Form Only', [
-        wbFormIDCk('Start Form', [NULL, WWED]).IncludeFlag(dfSummaryExcludeNULL)
-      ]).SetSummaryKey([0])
-    ]).SetSummaryKey([0, 1])
-      .IncludeFlag(dfCollapsed, wbCollapseSounds);
-end;
-{------------------------------------------------------------------------------}
-function wbSoundReference(const aSignature: TwbSignature; const aName: string = 'Sound'): IwbRecordMemberDef; overload;
-begin
-  Result :=
-    wbSubRecord(aSignature, aName, wbSoundReference(''))
-//      .IncludeFlag(dfSummaryMembersNoName)
-      .IncludeFlag(dfCollapsed, wbCollapseSounds);
-end;
 {==============================================================================}
 
 const
@@ -8565,81 +8444,23 @@ begin
 
   wbRegisterResourcesLoadedHandler(procedure
   begin
-    var lSoundbankInfo := wbContainerHandler.OpenResourceData('', 'sound\soundbanks\soundbanksinfo.json');
-    if Length(lSoundbankInfo) > 0 then begin
-      wbProgress('Loading Wwise Soundbank Info...');
-      wbWwiseSoundbankInfo := TJSONObject.Create;
-      try
-        wbWwiseSoundbankInfo.FromUtf8JSON(PByte(@lSoundbankInfo[0]), Length(lSoundbankInfo));
-        wbProgress('Building Wwise GUID Index...');
-
-        wbWwiseGUIDs := TwbWwiseGUIDsDicationary.Create(20000);
-        wbWwiseSoundbankInfo.Iterate(procedure(aContainer: TJsonBaseObject)
-        begin
-          if not (aContainer is TJsonObject) then
-            Exit;
-          var lObject := TJsonObject(aContainer);
-          var lGUIDString := lObject.S['GUID'];
-          if lGUIDString = '' then
-            Exit;
-
-          var lGUID := StringToGUID(lGUIDString);
-
-          if not wbWwiseGUIDs.TryAdd(lGUID, lObject) then begin
-
-            var lName := lObject.S['Name'];
-            if lName <> '' then begin
-              var lExistingObject: TJsonObject;
-              if wbWwiseGUIDs.TryGetValue(lGUID, lExistingObject) then begin
-                var lExistingName := lExistingObject.S['Name'];
-                if lExistingName = '' then begin
-                  wbWwiseGUIDs.Remove(lGUID);
-                  wbWwiseGUIDs.Add(lGUID, lObject);
-                end else if lName <> lExistingName then begin
-                  wbProgress('Warning: Multiple names for GUID %s: [%s] <> [%s]', [lGUIDString, lExistingName, LNAM]);
-                end;
-              end;
-            end;
-          end;
-        end);
-        wbProgress('Indexed %d GUIDs successfully.', [wbWwiseGUIDs.Count]);
-
-        with TStringList.Create do try
-          for var lObject in wbWwiseGUIDs.Values do begin
-            var lGuid := lObject.S['GUID'];
-            var lName := lObject.S['Name'];
-            var lObjectPath := lObject.S['ObjectPath'];
-
-            if lGuid <> '' then begin
-              if lName <> '' then
-                lGuid := lName + ' ' + lGuid;
-              if lObjectPath <> '' then begin
-                if Length(lObjectPath) > 64 then begin
-                  SetLength(lObjectPath, 61);
-                  lObjectPath := lObjectPath + '...';
-                end;
-
-                lGuid := lGuid + ' "' + lObjectPath + '"';
-              end;
-              Add(lGuid);
-            end;
-          end;
-          Sort;
-          wbWwiseGuidEditInfo := ToStringArray;
-        finally
-          Free;
-        end;
-
-      except
-        on E: Exception do begin
-//          FreeAndNil(wbWwiseGUIDs);
-//          FreeAndNil(wbWwiseSoundbankInfo);
-          wbProgress('Error: Loading Wwise Soundbank Info failed: [%s] %s', [E.ClassName, E.Message]);
-        end;
-      end;
-    end else
-      wbProgress('Warning: Could not find Wwise Soundbank Info.');
+    wbWwiseLoadSoundbankJSON('Starfield', 'sound\soundbanks\soundbanksinfo.json', False);
   end);
+  wbQueueLoadSoundBankJSON('Starfield_FX', False);
+  wbQueueLoadSoundBankJSON('Init', False);
+  wbQueueLoadSoundBankJSON('Starfield_UI', False);
+  wbQueueLoadSoundBankJSON('Starfield_PHY', False);
+  wbQueueLoadSoundBankJSON('Starfield_AMB', False);
+  wbQueueLoadSoundBankJSON('Starfield_FST', False);
+  wbQueueLoadSoundBankJSON('Starfield_OBJ', False);
+  wbQueueLoadSoundBankJSON('Starfield_MUS', False);
+  wbQueueLoadSoundBankJSON('Starfield_WPN', False);
+  wbQueueLoadSoundBankJSON('Starfield_DRS', False);
+  wbQueueLoadSoundBankJSON('Starfield_QST', False);
+  wbQueueLoadSoundBankJSON('Starfield_NPC', False);
+  wbQueueLoadSoundBankJSON('Starfield_VEH', False);
+  wbQueueLoadSoundBankJSON('Starfield_ITM', False);
+  wbQueueLoadSoundBankJSON('Starfield_VOC', False);
 
   {subrecords checked against Starfield.esm}
   wbRefRecord(ACHR, 'Placed NPC',
