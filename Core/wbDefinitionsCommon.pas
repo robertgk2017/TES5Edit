@@ -1,7 +1,7 @@
 {******************************************************************************
 
-  This Source Code Form is subject to the terms of the Mozilla Public License, 
-  v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain 
+  This Source Code Form is subject to the terms of the Mozilla Public License,
+  v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain
   one at https://mozilla.org/MPL/2.0/.
 
 *******************************************************************************}
@@ -13,6 +13,7 @@ unit wbDefinitionsCommon;
 interface
 
 uses
+  JsonDataObjects,
   wbInterface;
 
 type
@@ -737,6 +738,24 @@ function wbTimeInterpolatorsMultAdd(const aSignatureMult : TwbSignature;
                                     const aSignatureAdd  : TwbSignature;
                                     const aName          : string)
                                                          : IwbRecordMemberDef;
+
+function wbWwiseGUID(const aSignature : TwbSignature;
+                     const aName      : string = 'Wwise GUID';
+                           aPriority  : TwbConflictPriority = cpNormal;
+                           aRequired  : Boolean = False;
+                           aDontShow  : TwbDontShowCallback = nil;
+                           aGetCP     : TwbGetConflictPriority = nil)
+                                      : IwbSubRecordDef; overload;
+
+function wbWwiseGUID(const aName      : string = 'Wwise GUID';
+                           aPriority  : TwbConflictPriority = cpNormal;
+                           aRequired  : Boolean = False;
+                           aDontShow  : TwbDontShowCallback = nil;
+                           aGetCP     : TwbGetConflictPriority = nil)
+                                      : IwbGuidDef; overload;
+function wbSoundReference(const aName: string = 'Sound'): IwbValueDef; overload;
+function wbSoundReference(const aSignature: TwbSignature; const aName: string = 'Sound'): IwbRecordMemberDef; overload;
+
 
 implementation
 
@@ -9673,6 +9692,121 @@ begin
     wbArray(XLOD, 'Distant LOD Data',
       wbFloat('Unknown'),
     3);
+end;
+
+procedure wbWwiseGuidToStr(var aValue:string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+begin
+  if not Assigned(wbWwiseGUIDs) then
+    Exit;
+
+  case aType of
+    ctToStr, ctToSummary, ctToEditValue: begin
+      if aValue = '' then
+        Exit;
+
+      if aValue = '{00000000-0000-0000-0000-000000000000}' then begin
+        aValue := '';
+        Exit;
+      end;
+
+      var lGUID := StringToGUID(aValue);
+
+      var lObject: TJsonObject;
+      if not wbWwiseGUIDs.TryGetValue(lGUID, lObject) then
+        Exit;
+
+      var lName := lObject.S['Name'];
+      if lName <> '' then
+        if aType = ctToSummary then begin
+          aValue := lName;
+          Exit;
+        end else
+          aValue := lName + ' ' + aValue;
+
+      var lObjectPath := lObject.S['ObjectPath'];
+      if lObjectPath <> '' then begin
+        if (aType = ctToEditValue) and (Length(lObjectPath) > 64) then begin
+          SetLength(lObjectPath, 61);
+          lObjectPath := lObjectPath + '...';
+        end;
+        aValue := aValue + ' "' + lObjectPath + '"';
+      end;
+    end;
+
+    ctFromEditValue: begin
+      if aValue = '' then
+        Exit;
+
+      var lPos := Pos('{', aValue);
+      if lPos < 1 then Exit;
+      if lPos > 1 then
+        Delete(aValue, 1, Pred(lPos));
+
+      lPos := Pos('}', aValue);
+      if lPos < 1 then Exit;
+      if lPos > 1 then
+        Delete(aValue, Succ(lPos), High(Integer));
+    end;
+
+    ctEditType:
+      aValue := 'ComboBox';
+  end;
+end;
+
+function wbWwiseGUID(const aSignature : TwbSignature;
+                     const aName      : string = 'Wwise GUID';
+                           aPriority  : TwbConflictPriority = cpNormal;
+                           aRequired  : Boolean = False;
+                           aDontShow  : TwbDontShowCallback = nil;
+                           aGetCP     : TwbGetConflictPriority = nil)
+                                      : IwbSubRecordDef;
+begin
+  Result := wbGUID(aSignature, aName, aPriority, aRequired);
+  Result.SetDontShow(aDontShow);
+  Result.SetGetCP(aGetCP);
+  Result.SetToStr(wbWwiseGuidToStr);
+  Result.ForValue(procedure(const v: IwbValueDef)
+  begin
+    v.SetStaticEditInfo(@wbWwiseGuidEditInfo);
+  end);
+end;
+
+function wbWwiseGUID(const aName      : string = 'Wwise GUID';
+                           aPriority  : TwbConflictPriority = cpNormal;
+                           aRequired  : Boolean = False;
+                           aDontShow  : TwbDontShowCallback = nil;
+                           aGetCP     : TwbGetConflictPriority = nil)
+                                      : IwbGuidDef;
+begin
+  Result := wbGUID(aName, aPriority, aRequired);
+  Result.SetDontShow(aDontShow);
+  Result.SetGetCP(aGetCP);
+  Result.SetToStr(wbWwiseGuidToStr);
+  Result.SetStaticEditInfo(@wbWwiseGuidEditInfo);
+end;
+
+function wbSoundReference(const aName: string = 'Sound'): IwbValueDef;
+begin
+  Result :=
+    wbStruct(aName, [
+      wbStruct('Event Set', [
+        wbWwiseGuid('Start Event/Form'), // GUID 1
+        wbWwiseGuid('Stop'), // GUID 2
+        wbFormIDCk('Condition', [NULL, CNDF]).IncludeFlag(dfSummaryExcludeNULL)
+      ]).SetSummaryKey([0, 1, 2]),
+      wbStruct('Form Only', [
+        wbFormIDCk('Start Form', [NULL, WWED]).IncludeFlag(dfSummaryExcludeNULL)
+      ]).SetSummaryKey([0])
+    ]).SetSummaryKey([0, 1])
+      .IncludeFlag(dfCollapsed, wbCollapseSounds);
+end;
+
+function wbSoundReference(const aSignature: TwbSignature; const aName: string = 'Sound'): IwbRecordMemberDef;
+begin
+  Result :=
+    wbSubRecord(aSignature, aName, wbSoundReference(''))
+//      .IncludeFlag(dfSummaryMembersNoName)
+      .IncludeFlag(dfCollapsed, wbCollapseSounds);
 end;
 
 end.
