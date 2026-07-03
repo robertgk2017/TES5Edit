@@ -9712,22 +9712,14 @@ begin
       if not wbWwiseGUIDs.TryGetValue(lGUID, lObject) then
         Exit;
 
+      var lFilename := lObject.S['FN'];
       var lName := lObject.S['Name'];
       if lName <> '' then
         if aType = ctToSummary then begin
           aValue := lName;
           Exit;
         end else
-          aValue := lName + ' ' + aValue;
-
-      var lObjectPath := lObject.S['ObjectPath'];
-      if lObjectPath <> '' then begin
-        if (aType = ctToEditValue) and (Length(lObjectPath) > 64) then begin
-          SetLength(lObjectPath, 61);
-          lObjectPath := lObjectPath + '...';
-        end;
-        aValue := aValue + ' "' + lObjectPath + '"';
-      end;
+          aValue := lName + ' ' + aValue + ' [' + lFilename + ']';
     end;
 
     ctFromEditValue: begin

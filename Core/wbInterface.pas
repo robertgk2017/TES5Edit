@@ -9183,7 +9183,7 @@ procedure wbWwiseLoadSoundbankJSON(const aName: string; const aFilename: string;
 begin
   var lSoundbankInfo := wbContainerHandler.OpenResourceData('', aFilename);
   if Length(lSoundbankInfo) > 0 then begin
-    wbProgress('[%s] Loading Wwise Soundbank Info : %s ...', [aName, aFilename]);
+    wbProgress('[%s] Loading Wwise Soundbank Info...', [aName]);
     SetLength(wbWwiseSoundbankInfos, Succ(Length(wbWwiseSoundbankInfos)));
     var lIdx := Pred(Length(wbWwiseSoundbankInfos));
     wbWwiseSoundbankInfos[lIdx] := TJSONObject.Create;
@@ -9202,11 +9202,12 @@ begin
         if lGUIDString = '' then
           Exit;
 
+        lObject.S['FN'] := aName;
         var lGUID := StringToGUID(lGUIDString);
+        Inc(lCount);
 
         if not wbWwiseGUIDs.TryAdd(lGUID, lObject) then begin
-          Inc(lCount);
-
+          Dec(lCount);
           var lName := lObject.S['Name'];
           if lName <> '' then begin
             var lExistingObject: TJsonObject;
@@ -9222,28 +9223,18 @@ begin
           end;
         end;
       end);
-      wbProgress('[%s] Indexed %d GUIDs successfully.', [aName, lCount]);
+      wbProgress('[%s] Indexed %d new GUIDs successfully.', [aName, lCount]);
 
       with TStringList.Create do try
-        if Assigned(wbWwiseGuidEditInfo) then
-          AddStrings(wbWwiseGuidEditInfo);
 
         for var lObject in wbWwiseGUIDs.Values do begin
           var lGuid := lObject.S['GUID'];
           var lName := lObject.S['Name'];
-          var lObjectPath := lObject.S['ObjectPath'];
+          var lFilename := lObject.S['FN'];
 
           if lGuid <> '' then begin
             if lName <> '' then
-              lGuid := lName + ' ' + lGuid;
-            if lObjectPath <> '' then begin
-              if Length(lObjectPath) > 64 then begin
-                SetLength(lObjectPath, 61);
-                lObjectPath := lObjectPath + '...';
-              end;
-
-              lGuid := lGuid + ' "' + lObjectPath + '"';
-            end;
+              lGuid := lName + ' ' + lGuid + ' [' + lFilename + ']';
             Add(lGuid);
           end;
         end;
