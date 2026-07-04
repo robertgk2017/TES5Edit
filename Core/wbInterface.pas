@@ -23821,6 +23821,18 @@ initialization
   wbWwiseGUIDs := TwbWwiseGUIDsDictionary.Create;
   wbWwiseGuidDisplay := TDictionary<string, string>.Create;
 
+  var lNoneObj := TJSONObject.Create;
+  var lNullGuidStr := '{00000000-0000-0000-0000-000000000000}';
+  var lNullName := ' None';
+  var lNullGuid := StringToGUID(lNullGuidStr);
+
+  lNoneObj.S['GUID'] := lNullGuidStr;
+  lNoneObj.S['Name'] := lNullName;
+  lNoneObj.S['FN'] := 'Starfield.esm';
+
+  wbWwiseGUIDs.TryAdd(lNullGuid, lNoneObj);
+  wbWwiseGuidDisplay.TryAdd(lNullName, lNullGuidStr);
+
   MakeComparers;
 
   wbIdxEditorID := wbNamedIndex('EditorID', False);

@@ -9702,7 +9702,7 @@ begin
         Exit;
 
       if aValue = '{00000000-0000-0000-0000-000000000000}' then begin
-        aValue := '';
+        aValue := ' None';
         Exit;
       end;
 
@@ -9813,5 +9813,3 @@ begin
 end;
 
 end.
-
-
