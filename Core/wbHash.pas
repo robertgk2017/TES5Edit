@@ -104,6 +104,7 @@ implementation
 
 uses
   System.Classes,
+  System.AnsiStrings,
 
   WinApi.Windows,
 
@@ -595,7 +596,7 @@ var
   s : AnsiString;
 begin
   if aIgnoreCase then
-    s := AnsiString(AnsiLowerCase(aText))
+    s := System.AnsiStrings.AnsiLowerCase(aText)
   else
     s := aText;
 

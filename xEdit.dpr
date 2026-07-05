@@ -70,6 +70,7 @@ uses
   wbDefinitionsTES4Saves in 'Core\wbDefinitionsTES4Saves.pas',
   wbDefinitionsTES5 in 'Core\wbDefinitionsTES5.pas',
   wbDefinitionsTES5Saves in 'Core\wbDefinitionsTES5Saves.pas',
+  wbHash in 'Core\wbHash.pas',
   wbHalfFloat in 'Core\wbHalfFloat.pas',
   wbHardcoded in 'Core\wbHardcoded.pas' {wbHardcodedContainer: TDataModule},
   wbHelpers in 'Core\wbHelpers.pas',

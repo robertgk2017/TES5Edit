@@ -176,6 +176,7 @@
         <DCCReference Include="Core\wbDefinitionsTES4Saves.pas"/>
         <DCCReference Include="Core\wbDefinitionsTES5.pas"/>
         <DCCReference Include="Core\wbDefinitionsTES5Saves.pas"/>
+        <DCCReference Include="Core\wbHash.pas"/>
         <DCCReference Include="Core\wbHalfFloat.pas"/>
         <DCCReference Include="Core\wbHardcoded.pas">
             <Form>wbHardcodedContainer</Form>
