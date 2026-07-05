@@ -230,28 +230,29 @@ function wbVTXTPosition              (aInt: Int64; const aElement: IwbElement; a
 function wbWeatherCloudSpeedToStr    (aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 function wbPackagePSDTMonthValueToStr(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 
-{>>> To String Callback Procedures <<<} //18
+{>>> To String Callback Procedures <<<} //21
 procedure wbScriptPropertyArrayToStr(const aContainer: IwbContainerElementRef; var PropertyType: string; var PropertyValue: string);
 procedure wbScriptPropertyObjectToStr(const aContainer: IwbContainerElementRef; var PropertyName: string; var PropertyType: string; var PropertyValue: string);
 
-procedure wbABGRToStr                        (var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-procedure wbBGRAToStr                        (var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-procedure wbConditionToStr                   (var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-procedure wbConditionOwnerToStr              (var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-procedure wbCrowdPropertyToStr               (var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-procedure wbDIALQuestToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement : IwbElement; aType : TwbCallbackType);
-procedure wbFactionRelationToStr             (var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-procedure wbItemToStr                        (var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-procedure wbNPCPackageToStr                  (var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-procedure wbObjectPropertyToStr              (var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-procedure wbQUSTAliasToStr                   (var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-procedure wbQUSTEventToStr                   (var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-procedure wbRGBAToStr                        (var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-procedure wbScriptToStr                      (var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-procedure wbScriptPropertyToStr              (var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-procedure wbToStringFromLinksToSummary       (var aValue:string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-procedure wbToStringFromLinksToMainRecordName(var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-procedure wbVec3ToStr                        (var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbABGRToStr                        (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbBGRAToStr                        (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbConditionToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbConditionOwnerToStr              (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbCrowdPropertyToStr               (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbDIALQuestToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbFactionRelationToStr             (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbItemToStr                        (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbNPCPackageToStr                  (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbObjectPropertyToStr              (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbQUSTAliasToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbQUSTEventToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbRGBAToStr                        (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbScriptToStr                      (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbScriptPropertyToStr              (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbToStringFromLinksToSummary       (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbToStringFromLinksToMainRecordName(var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbVec3ToStr                        (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbWwiseGuidToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 
 {>>> RUnion Deciders <<<} //2
 function wbSceneActionTypeDecider  (const aContainer: IwbContainerElementRef): Integer;
@@ -740,20 +741,6 @@ function wbTimeInterpolatorsMultAdd(const aSignatureMult : TwbSignature;
                                     const aName          : string)
                                                          : IwbRecordMemberDef;
 
-function wbWwiseGUID(const aSignature : TwbSignature;
-                     const aName      : string = 'Wwise GUID';
-                           aPriority  : TwbConflictPriority = cpNormal;
-                           aRequired  : Boolean = False)
-                                      : IwbSubRecordDef; overload;
-
-function wbWwiseGUID(const aName      : string = 'Wwise GUID';
-                           aPriority  : TwbConflictPriority = cpNormal;
-                           aRequired  : Boolean = False)
-                                      : IwbGuidDef; overload;
-function wbSoundReference(const aName: string = 'Sound'): IwbValueDef; overload;
-function wbSoundReference(const aSignature: TwbSignature; const aName: string = 'Sound'): IwbRecordMemberDef; overload;
-
-
 implementation
 
 uses
@@ -765,6 +752,7 @@ uses
   System.Types,
   System.Variants,
 
+  wbDataFormatWwise,
   wbDefinitionsSignatures,
   wbHelpers;
 
@@ -4354,7 +4342,7 @@ begin
   end;
 end;
 
-{>>> To String Callback Procedures <<<} //18
+{>>> To String Callback Procedures <<<} //21
 
 procedure wbABGRToStr(var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 var
@@ -5033,6 +5021,257 @@ begin
   var Z := Container.Elements[2].Summary;
 
   aValue := '' + '(' + X + ', ' + Y + ', ' + Z + ')';
+end;
+
+procedure wbWwiseGuidToStr(var aValue:string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+var
+  lBool: Boolean;
+  lIndex, lPos: Integer;
+  lGUID: TGUID;
+  lNodeType: TwbWwiseNodeType;
+  lList1, lList2, lList3: TStringList;
+  lString1, lString2, lString3: string;
+  lDef: IwbNamedDef;
+  lElement: IwbElement;
+  lFile: IwbFile;
+  lParentNodePath: string;
+begin
+  if not Assigned(aElement) then
+    Exit;
+
+  if not (aType in [ctCheck, ctEditInfo, ctEditType, ctFromEditValue, ctToEditValue, ctToStr, ctToSummary]) then
+    Exit;
+
+  if Supports(aElement.Def, IwbWwiseGuidDef, lDef) then
+  begin
+    lNodeType := (lDef as IwbWwiseGuidDef).NodeType;
+    lParentNodePath := (lDef as IwbWwiseGuidDef).ParentNodePath;
+  end
+  else
+  if Supports(aElement.Def, IwbSubRecordWithWwiseGuidDef, lDef) then
+  begin
+    lNodeType := (lDef as IwbSubRecordWithWwiseGuidDef).NodeType;
+    lParentNodePath := (lDef as IwbSubRecordWithWwiseGuidDef).ParentNodePath;
+  end;
+
+  if lNodeType = wntUnknown then
+    lNodeType := wntIncludedEvent;
+
+  case aType of
+    ctCheck: begin
+      if StartsText('{', aElement.EditValue) then
+        aValue := '<Warning: Unresolved GUID Reference>';
+    end;
+
+    ctToStr, ctToSummary, ctToEditValue: begin
+      if (aValue = '') or (aValue = '{00000000-0000-0000-0000-000000000000}') then
+      begin
+        aValue := 'None';
+        Exit;
+      end;
+
+      var lName, lFilename: string;
+      if wbSoundBank.TryLookupGUID(lNodeType, StringToGUID(aValue), lName, lFilename) then
+        if lName <> '' then
+          aValue := Format('%s [%s]', [lName, lFilename]);
+    end;
+
+    ctFromEditValue: begin
+      if aValue = '' then
+        Exit;
+
+      if aValue = 'None' then
+      begin
+        aValue := '{00000000-0000-0000-0000-000000000000}';
+        Exit;
+      end;
+
+      if wbSoundBank.TryLookupDisplay(lNodeType, aValue, lGUID) then
+      begin
+        aValue := lGUID.ToString;
+        Exit;
+      end;
+
+      lPos := Pos('{', aValue);
+      if lPos > 0 then
+      begin
+        if lPos > 1 then
+          Delete(aValue, 1, Pred(lPos));
+
+        lPos := Pos('}', aValue);
+        if lPos > 0 then
+          Delete(aValue, Succ(lPos), MaxInt);
+
+        Exit;
+      end;
+
+      lPos := Pos(' [', aValue);
+      if lPos > 0 then
+        lString1 := Copy(aValue, 1, lPos - 1)
+      else
+        lString1 := aValue;
+
+      lList1 := TStringList.Create;
+      try
+        if lNodeType = wntSwitch then
+        begin
+          if Assigned(aElement.Container) then
+            lElement := aElement.Container.ElementByPath[lParentNodePath];
+
+          if Assigned(lElement) then
+          begin
+            lString2 := lElement.EditValue;
+            if lString2 = '' then
+              lString2 := lElement.Value;
+          end;
+
+          if lString2 <> '' then
+          begin
+            lPos := Pos(' [', lString2);
+            if lPos > 0 then
+              lString3 := Copy(lString2, 1, lPos - 1)
+            else
+              lString3 := lString2;
+
+            lList2 := TStringList.Create;
+            lList3 := TStringList.Create;
+            try
+              lFile := aElement._File;
+              lFile.GetMasters(lList2);
+              lList2.Add(lFile.FileName);
+
+              wbSoundBank.GetStrings(wntSwitchGroup, lList2, lList3);
+
+              lBool := False;
+              for lIndex := 0 to Pred(lList3.Count) do
+              begin
+                if StartsText(lString3 + ' [', lList3[lIndex]) then
+                begin
+                  if wbSoundBank.TryLookupDisplay(wntSwitchGroup, lList3[lIndex], lGUID) then
+                  begin
+                    lBool := True;
+                    Break;
+                  end;
+                end;
+              end;
+
+              if lBool then
+                wbSoundBank.GetChildStrings(lGUID, wntSwitch, lList1);
+
+            finally
+              lList2.Free;
+              lList3.Free;
+            end;
+          end;
+        end
+        else
+        begin
+          lList2 := TStringList.Create;
+          try
+            lFile := aElement._File;
+            lFile.GetMasters(lList2);
+            lList2.Add(lFile.FileName);
+
+            wbSoundBank.GetStrings(lNodeType, lList2, lList1);
+          finally
+            lList2.Free;
+          end;
+        end;
+
+        for lIndex := 0 to Pred(lList1.Count) do
+        begin
+          if StartsText(lString1 + ' [', lList1[lIndex]) then
+          begin
+            if wbSoundBank.TryLookupDisplay(lNodeType, lList1[lIndex], lGUID) then
+            begin
+              aValue := lGUID.ToString;
+              Exit;
+            end;
+          end;
+        end;
+
+      finally
+        lList1.Free;
+      end;
+    end;
+
+    ctEditType:
+      aValue := 'ComboBox';
+
+    ctEditInfo: begin
+      lList1 := TStringList.Create;
+      try
+        lList1.Delimiter := ',';
+        lList1.QuoteChar := '"';
+
+        if lNodeType = wntSwitch then
+        begin
+          if Assigned(aElement.Container) then
+            lElement := aElement.Container.ElementByPath[lParentNodePath];
+
+          if Assigned(lElement) and (lElement.EditValue <> '') then
+          begin
+            lString1 := lElement.EditValue;
+            lPos := Pos(' [', lString1);
+            if lPos > 0 then
+            begin
+              lString2 := Copy(lString1, 1, lPos - 1);
+
+              lList2 := TStringList.Create;
+              lList3 := TStringList.Create;
+              try
+                lFile := aElement._File;
+                lFile.GetMasters(lList2);
+                lList2.Add(lFile.FileName);
+
+                wbSoundBank.GetStrings(wntSwitchGroup, lList2, lList3);
+
+                lBool := False;
+                for lIndex := 0 to Pred(lList3.Count) do
+                begin
+                  if StartsText(lString2 + ' [', lList3[lIndex]) then
+                  begin
+                    if wbSoundBank.TryLookupDisplay(wntSwitchGroup, lList3[lIndex], lGUID) then
+                    begin
+                      lBool := True;
+                      Break;
+                    end;
+                  end;
+                end;
+
+                if lBool then
+                  wbSoundBank.GetChildStrings(lGUID, wntSwitch, lList1);
+
+              finally
+                lList2.Free;
+                lList3.Free;
+              end;
+            end;
+          end;
+
+          if lList1.Count = 0 then
+            lList1.Add('<Warning: Could not resolve Parent Node');
+        end
+        else
+        begin
+          lList2 := TStringList.Create;
+          try
+            lFile := aElement._File;
+            lFile.GetMasters(lList2);
+            lList2.Add(lFile.FileName);
+
+            wbSoundBank.GetStrings(lNodeType, lList2, lList1);
+          finally
+            lList2.Free;
+          end;
+        end;
+
+        aValue := lList1.DelimitedText;
+      finally
+        lList1.Free;
+      end;
+    end;
+  end;
 end;
 
 {>>> RUnion Deciders <<<} //2
@@ -9689,127 +9928,6 @@ begin
     wbArray(XLOD, 'Distant LOD Data',
       wbFloat('Unknown'),
     3);
-end;
-
-procedure wbWwiseGuidToStr(var aValue:string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
-begin
-  if not Assigned(wbWwiseGUIDs) then
-    Exit;
-
-  case aType of
-    ctToStr, ctToSummary, ctToEditValue: begin
-      if aValue = '' then
-        Exit;
-
-      if aValue = '{00000000-0000-0000-0000-000000000000}' then begin
-        aValue := ' None';
-        Exit;
-      end;
-
-      var lGUID := StringToGUID(aValue);
-
-      var lObject: TJsonObject;
-      if not wbWwiseGUIDs.TryGetValue(lGUID, lObject) then
-        Exit;
-
-      var lFilename := lObject.S['FN'];
-      var lName := lObject.S['Name'];
-
-      if lName <> '' then
-        aValue := lName + ' [' + lFilename + ']'
-      else
-        aValue := lGUID.ToString;
-    end;
-
-    ctFromEditValue: begin
-      if aValue = '' then
-        Exit;
-
-      if Assigned(wbWwiseGuidDisplay) then
-      begin
-        var lFoundGuid: string;
-        if wbWwiseGuidDisplay.TryGetValue(aValue, lFoundGuid) then
-        begin
-          aValue := lFoundGuid;
-          Exit;
-        end;
-      end;
-
-      var lPos := Pos('{', aValue);
-      if lPos > 0 then
-      begin
-        if lPos > 1 then
-          Delete(aValue, 1, Pred(lPos));
-
-        lPos := Pos('}', aValue);
-        if lPos > 0 then
-          Delete(aValue, Succ(lPos), MaxInt);
-        Exit;
-      end;
-
-      var lBracketPos := Pos(' [', aValue);
-      if lBracketPos > 0 then
-      begin
-        var lTargetName := Copy(aValue, 1, lBracketPos -1);
-        for var lObject in wbWwiseGUIDs.Values do
-        begin
-          if lObject.S['Name'] = lTargetName then
-          begin
-            aValue := lObject.S['GUID'];
-            Exit;
-          end;
-        end;
-      end;
-    end;
-
-    ctEditType:
-      aValue := 'ComboBox';
-  end;
-end;
-
-function wbWwiseGUID(const aSignature : TwbSignature;
-                     const aName      : string = 'Wwise GUID';
-                           aPriority  : TwbConflictPriority = cpNormal;
-                           aRequired  : Boolean = False)
-                                      : IwbSubRecordDef;
-begin
-  Result := wbGUID(aSignature, aName, aPriority, aRequired);
-  Result.SetToStr(wbWwiseGuidToStr);
-  Result.SetStaticEditInfo(@wbWwiseGuidEditInfo);
-end;
-
-function wbWwiseGUID(const aName      : string = 'Wwise GUID';
-                           aPriority  : TwbConflictPriority = cpNormal;
-                           aRequired  : Boolean = False)
-                                      : IwbGuidDef;
-begin
-  Result := wbGUID(aName, aPriority, aRequired);
-  Result.SetToStr(wbWwiseGuidToStr);
-  Result.SetStaticEditInfo(@wbWwiseGuidEditInfo);
-end;
-
-function wbSoundReference(const aName: string = 'Sound'): IwbValueDef;
-begin
-  Result :=
-    wbStruct(aName, [
-      wbStruct('Event Set', [
-        wbWwiseGuid('Start Event/Form'), // GUID 1
-        wbWwiseGuid('Stop'), // GUID 2
-        wbFormIDCk('Condition', [NULL, CNDF]).IncludeFlag(dfSummaryExcludeNULL)
-      ]).SetSummaryKey([0, 1, 2]),
-      wbStruct('Form Only', [
-        wbFormIDCk('Start Form', [NULL, WWED]).IncludeFlag(dfSummaryExcludeNULL)
-      ]).SetSummaryKey([0])
-    ]).SetSummaryKey([0, 1])
-      .IncludeFlag(dfCollapsed, wbCollapseSounds);
-end;
-
-function wbSoundReference(const aSignature: TwbSignature; const aName: string = 'Sound'): IwbRecordMemberDef;
-begin
-  Result :=
-    wbSubRecord(aSignature, aName, wbSoundReference(''))
-//      .IncludeFlag(dfSummaryMembersNoName)
-      .IncludeFlag(dfCollapsed, wbCollapseSounds);
 end;
 
 end.

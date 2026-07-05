@@ -159,6 +159,7 @@
         <DCCReference Include="Core\wbDataFormatMisc.pas"/>
         <DCCReference Include="Core\wbDataFormatNif.pas"/>
         <DCCReference Include="Core\wbDataFormatNifTypes.pas"/>
+        <DCCReference Include="Core\wbDataFormatWwise.pas"/>
         <DCCReference Include="Core\wbDefinitionsCommon.pas"/>
         <DCCReference Include="Core\wbDefinitionsFNV.pas"/>
         <DCCReference Include="Core\wbDefinitionsFNVSaves.pas"/>

@@ -1332,6 +1332,7 @@ uses
 
   wbBetterStringList,
   wbBSA,
+  wbDataFormatWwise,
   wbHardcoded,
   wbHelpers,
   wbImplementation,
@@ -21756,9 +21757,8 @@ begin
         end;
 
         if wbGameMode in [gmSF1] then
-          // skip game master 0 since that has special handling already
-          for var lLoadListIdx := 1 to Pred(ltLoadList.Count) do
-            wbQueueLoadSoundBankJSON(ltLoadList[lLoadListIdx]);
+          wbSoundBank := wbSoundBankArray(ltLoadList);
+
         wbResourcesLoaded;
 
         _LoaderProgressAction := 'loading modules';

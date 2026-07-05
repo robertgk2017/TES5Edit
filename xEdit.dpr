@@ -53,6 +53,7 @@ uses
   wbDataFormatMisc in 'Core\wbDataFormatMisc.pas',
   wbDataFormatNif in 'Core\wbDataFormatNif.pas',
   wbDataFormatNifTypes in 'Core\wbDataFormatNifTypes.pas',
+  wbDataFormatWwise in 'Core\wbDataFormatWwise.pas',
   wbDefinitionsCommon in 'Core\wbDefinitionsCommon.pas',
   wbDefinitionsFNV in 'Core\wbDefinitionsFNV.pas',
   wbDefinitionsFNVSaves in 'Core\wbDefinitionsFNVSaves.pas',

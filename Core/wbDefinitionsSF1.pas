@@ -2207,6 +2207,38 @@ const
     'BFCB'
   );
 
+function wbSoundReference(const aName: string = 'Sound'): IwbValueDef; overload;
+begin
+  Result :=
+    wbStruct(aName, [
+      wbStruct('Event Set', [
+        wbWwiseGuid('Start Event/Form').SetToStr(wbWwiseGUIDToStr),
+        wbWwiseGuid('Stop').SetToStr(wbWwiseGUIDToStr),
+        wbFormIDCk('Condition', [NULL, CNDF]).IncludeFlag(dfSummaryExcludeNULL)
+      ]).SetSummaryKey([0, 1, 2]),
+      wbStruct('Form Only', [
+        wbFormIDCk('Start Form', [NULL, WWED]).IncludeFlag(dfSummaryExcludeNULL)
+      ]).SetSummaryKey([0])
+    ]).SetSummaryKey([0, 1])
+      .IncludeFlag(dfCollapsed, wbCollapseSounds);
+end;
+
+function wbSoundReference(const aSignature: TwbSignature; const aName: string = 'Sound'): IwbRecordMemberDef; overload;
+begin
+  Result :=
+    wbStruct(aSignature, aName, [
+      wbStruct('Event Set', [
+        wbWwiseGuid('Start Event/Form').SetToStr(wbWwiseGUIDToStr),
+        wbWwiseGuid('Stop').SetToStr(wbWwiseGUIDToStr),
+        wbFormIDCk('Condition', [NULL, CNDF]).IncludeFlag(dfSummaryExcludeNULL)
+      ]).SetSummaryKey([0, 1, 2]),
+      wbStruct('Form Only', [
+        wbFormIDCk('Start Form', [NULL, WWED]).IncludeFlag(dfSummaryExcludeNULL)
+      ]).SetSummaryKey([0])
+    ]).SetSummaryKeyOnValue([0, 1])
+      .IncludeFlag(dfCollapsed, wbCollapseSounds);
+end;
+
 procedure DefineSF1;
 begin
   wbRecordFlags := wbInteger('Record Flags', itU32, wbFlags(wbFlagsList([])));
@@ -6490,7 +6522,9 @@ begin
             wbSoundReference('Horn Sound')
           ]).IncludeFlag(dfCollapsed, wbCollapseVehicleConfig),
           wbStruct(VMRT, 'Vehicle Material Table', [
-            wbWWiseGUID('Material ID'),
+            wbWWiseGUID('Material ID')
+              .SetNodeType(wntSwitchGroup)
+              .SetToStr(wbWwiseGUIDToStr),
             wbStruct('Audio', [
               wbInteger('Count', itU32),
               wbUnused(4),
@@ -6498,6 +6532,9 @@ begin
                 wbStructSK([0], 'Rules', [
                   wbLenString('Rule', 1),
                   wbWWiseGUID('Sound')
+                    .SetNodeType(wntSwitch)
+                    .SetParentNodePath('..\..\..\Material ID')
+                    .SetToStr(wbWwiseGUIDToStr)
                 ]).IncludeFlag(dfCollapsed, wbCollapseSounds)
               ).SetCountPath('Count', True)
             ]).IncludeFlag(dfCollapsed, wbCollapseSounds),
@@ -8441,26 +8478,6 @@ begin
           .SetRequired;
     end;
 
-  wbRegisterResourcesLoadedHandler(procedure
-  begin
-    wbWwiseLoadSoundbankJSON('Starfield.esm', 'sound\soundbanks\soundbanksinfo.json', False);
-  end);
-  wbQueueLoadSoundBankJSON('Init', False);
-  wbQueueLoadSoundBankJSON('Starfield_AMB', False);
-  wbQueueLoadSoundBankJSON('Starfield_DRS', False);
-  wbQueueLoadSoundBankJSON('Starfield_FST', False);
-  wbQueueLoadSoundBankJSON('Starfield_FX', False);
-  wbQueueLoadSoundBankJSON('Starfield_ITM', False);
-  wbQueueLoadSoundBankJSON('Starfield_MUS', False);
-  wbQueueLoadSoundBankJSON('Starfield_NPC', False);
-  wbQueueLoadSoundBankJSON('Starfield_OBJ', False);
-  wbQueueLoadSoundBankJSON('Starfield_PHY', False);
-  wbQueueLoadSoundBankJSON('Starfield_QST', False);
-  wbQueueLoadSoundBankJSON('Starfield_UI', False);
-  wbQueueLoadSoundBankJSON('Starfield_VEH', False);
-  wbQueueLoadSoundBankJSON('Starfield_VOC', False);
-  wbQueueLoadSoundBankJSON('Starfield_WPN', False);
-
   {subrecords checked against Starfield.esm}
   wbRefRecord(ACHR, 'Placed NPC',
     wbFlags(wbFlagsList([
@@ -9466,7 +9483,9 @@ begin
         wbSoundReference('Sound Event/Form'),
         wbArrayS('Weather Keywords', wbFormIDCk('Keyword', [KYWD]), -1).IncludeFlag(dfCollapsed, wbCollapseKeywords),
         wbArrayS('Marker Keywords', wbFormIDCk('Keyword', [KYWD]), -1).IncludeFlag(dfCollapsed, wbCollapseKeywords),
-        wbWwiseGuid('Switch Group'),
+        wbWwiseGuid('Switch Group')
+          .SetNodeType(wntSwitchGroup)
+          .SetToStr(wbWwiseGUIDToStr),
         wbStruct('Re-evaluate Interval', [
           wbInteger('Use Custom Interval', itU8, wbBoolEnum),
           wbFloat('Interval (Seonds)')
@@ -9740,12 +9759,20 @@ begin
     wbObjectTemplate,
     wbEmpty(STOP, 'Marker', cpNormal, True),
     wbStructSK(AVSG, [0,1], 'Voice Switch', [
-      wbWwiseGuid('Category'),
+      wbWwiseGuid('Category')
+        .SetNodeType(wntSwitchGroup)
+        .SetToStr(wbWwiseGUIDToStr),
       wbWwiseGuid('Variant')
+        .SetNodeType(wntSwitch)
+        .SetToStr(wbWwiseGUIDToStr)
     ]).IncludeFlag(dfCollapsed, wbCollapseSounds),
     wbStructSK(AFSG, [0,1], 'Foley Switch', [
-      wbWwiseGuid('Category'),
+      wbWwiseGuid('Category')
+        .SetNodeType(wntSwitchGroup)
+        .SetToStr(wbWwiseGUIDToStr),
       wbWwiseGuid('Variant')
+        .SetNodeType(wntSwitch)
+        .SetToStr(wbWwiseGUIDToStr)
     ]).IncludeFlag(dfCollapsed, wbCollapseSounds)
   ]).SetIgnoreList([FLLD, XFLG]);
 
@@ -16858,7 +16885,9 @@ begin
     wbEDID,
     wbVMAD,
     wbBaseFormComponents,
-    wbWwiseGUID(RABG, 'Aux Bus'),
+    wbWwiseGUID(RABG, 'Aux Bus')
+      .SetNodeType(wntIncludedAuxBuss)
+      .SetToStr(wbWwiseGUIDToStr),
     wbInteger(ANAM, 'Reverb Class', itU32, wbReverbClassEnum, cpNormal, True)
   ]);
 
@@ -17474,7 +17503,7 @@ begin
           wbEmpty(ECHO, 'Echo Start Marker'),
           wbEmpty(ECHD, 'Echo Default Start Marker')
         ]),
-        wbWwiseGuid(ECTE),
+        wbWwiseGuid(ECTE).SetToStr(wbWwiseGUIDToStr),
         wbSoundReference(ECSH),
         wbInteger(ANAM, 'Voice Count', itU32),
         wbFloat(BNAM, 'Duration'),
@@ -19009,9 +19038,9 @@ begin
     wbEDID,
     wbVMAD,
     wbBaseFormComponents,
-    wbWwiseGuid(WSED, 'Start'),
+    wbWwiseGuid(WSED, 'Start').SetToStr(wbWwiseGUIDToStr),
     wbFormIDCk(CNAM, 'Condition', [CNDF]),
-    wbWwiseGuid(WTED, 'End')
+    wbWwiseGuid(WTED, 'End').SetToStr(wbWwiseGUIDToStr)
   ]);
 
   wbRecord(WKMF, 'Wwise Keyword Mapping', [
@@ -19064,8 +19093,13 @@ begin
         wbSoundReference,
         wbArray('Switch Data List',
           wbStruct('Data', [
-            wbWwiseGuid('Switch Group'),
+            wbWwiseGuid('Switch Group')
+              .SetNodeType(wntSwitchGroup)
+              .SetToStr(wbWwiseGUIDToStr),
             wbWwiseGuid('Switch State')
+              .SetNodeType(wntSwitch)
+              .SetParentNodePath('Switch Group')
+              .SetToStr(wbWwiseGUIDToStr)
           ]),
         -1)
       ]).SetRequired

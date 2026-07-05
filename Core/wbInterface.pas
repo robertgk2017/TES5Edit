@@ -116,8 +116,6 @@ type
   TwbStringArray = TArray<string>;
   PwbStringArray = ^TwbStringArray;
 
-  TwbWwiseGUIDsDictionary = TDictionary<TGUID, TJSONObject>;
-
 threadvar
   _wbProgressCallback                : TwbProgressCallback;
   wbCurrentTick                      : UInt64;
@@ -411,12 +409,6 @@ var
   wbKoFiUrl                          : string     = 'https://www.ko-fi.com/ElminsterAU';
   wbPayPalUrl                        : string     = 'https://paypal.me/ElminsterAU';
 
-{===Wwise GUIDs and SoundReference ============================================}
-var
-  wbWwiseSoundbankInfos     : TArray<TJSONObject>;
-  wbWwiseGUIDs              : TwbWwiseGUIDsDictionary;
-  wbWwiseGuidEditInfo       : TwbStringArray;
-  wbWwiseGuidDisplay        : TDictionary<string, string>;
 {$IFDEF USE_CODESITE}
 type
   TwbLoggingArea = (
@@ -2663,7 +2655,37 @@ type
 
   IwbGuidDef = interface(IwbValueDef)
     ['{DC03A774-B1F9-45C1-8EF5-53F7DE6FE80A}']
+  end;
 
+  TwbWwiseNodeType = (
+    wntUnknown,
+    wntSoundBank,
+    wntIncludedEvent,
+    wntActionSetState,
+    wntActionPostEvent,
+    wntAuxBusSend,
+    wntStateGroup,
+    wntState,
+    wntSwitchGroup,
+    wntSwitch,
+    wntGameParameter,
+    wntIncludedAuxBuss,
+    wntExternalSource
+  );
+
+  IwbWwiseGuidDef = interface(IwbGuidDef)
+    ['{C81AB93F-7C09-4C66-8CCA-0CA2ABEB97C6}']
+    function GetParentNodePath: string;
+    function SetParentNodePath(const aPath: string): IwbWwiseGuidDef;
+
+    function GetNodeType: TwbWwiseNodeType;
+    function SetNodeType(const aNodeType: TwbWwiseNodeType): IwbWwiseGuidDef;
+
+    property NodeType: TwbWwiseNodeType
+      read GetNodeType;
+
+    property ParentNodePath: string
+      read GetParentNodePath;
   end;
 
   TwbSubRecordForValueCallback = reference to procedure(const v: IwbValueDef);
@@ -2685,6 +2707,21 @@ type
     function SetLinksToCallbackOnValue(const aCallback: TwbLinksToCallback): IwbSubRecordDef{Self};
 
     property Value: IwbValueDef read GetValue;
+  end;
+
+  IwbSubRecordWithWwiseGuidDef = interface(IwbSubRecordDef)
+    ['{FD4C4FD7-E72E-476E-AEF7-78A192CF90AF}']
+    function GetParentNodePath: string;
+    function SetParentNodePath(const aPath: string): IwbSubRecordWithWwiseGuidDef;
+
+    function GetNodeType: TwbWwiseNodeType;
+    function SetNodeType(const aNodeType: TwbWwiseNodeType): IwbSubRecordWithWwiseGuidDef;
+
+    property NodeType: TwbWwiseNodeType
+      read GetNodeType;
+
+    property ParentNodePath: string
+      read GetParentNodePath;
   end;
 
   IwbSubRecordWithStructDef = interface(IwbSubRecordDef)
@@ -4182,6 +4219,17 @@ function wbGUID(const aName      : string = 'Unknown';
                       aRequired  : Boolean = False)
                                  : IwbGuidDef; overload;
 
+function wbWwiseGUID(const aName      : string = 'Wwise GUID';
+                           aPriority  : TwbConflictPriority = cpNormal;
+                           aRequired  : Boolean = False)
+                                      : IwbWwiseGuidDef; overload;
+
+function wbWwiseGUID(const aSignature : TwbSignature;
+                     const aName      : string = 'Wwise GUID';
+                           aPriority  : TwbConflictPriority = cpNormal;
+                           aRequired  : Boolean = False)
+                                      : IwbSubRecordWithWwiseGuidDef; overload;
+
 function wbRefID: IwbRefID; overload;
 
 function wbRefID(const aName      : string;
@@ -4391,9 +4439,6 @@ function wbFormaterUnion(      aDecider : TwbIntegerDefFormaterUnionDecider;
 
 function wbIsModule(const aFileName: string): Boolean;
 function wbIsSave(const aFileName: string): Boolean;
-
-procedure wbWwiseLoadSoundbankJSON(const aName: string; const aFilename: string; aOptional: Boolean = True);
-procedure wbQueueLoadSoundbankJSON(const aFilename: string; aOptional: Boolean = True);
 
 function wbStr4ToString(aInt: Int64): string;
 
@@ -5794,7 +5839,7 @@ type
     {--- IwbMainRecordDefInternal ---}
   end;
 
-  TwbSubRecordDef = class(TwbSignatureDef, IwbRecordMemberDef, IwbSubRecordDef, IwbSubRecordWithStructDef, IwbSubRecordWithArrayDef, IwbSubRecordWithBaseStringDef, IwbSubRecordWithFloatDef, IwbSubRecordWithFormIDCheckedDef)
+  TwbSubRecordDef = class(TwbSignatureDef, IwbRecordMemberDef, IwbSubRecordDef, IwbSubRecordWithStructDef, IwbSubRecordWithArrayDef, IwbSubRecordWithBaseStringDef, IwbSubRecordWithFloatDef, IwbSubRecordWithFormIDCheckedDef, IwbSubRecordWithWwiseGuidDef)
   private
     srValue     : IwbValueDef;
     srSizeMatch : Boolean;
@@ -5892,6 +5937,13 @@ type
 
     {---IwbSubRecordWithFormIDCheckedDef---}
     function SetFormIDFilter(const aFormIDFilter: TwbFormIDFilterCallback): IwbSubRecordWithFormIDCheckedDef;
+
+    {---IwbSubRecordWithWwiseGuidDef---}
+    function GetParentNodePath: string;
+    function SetParentNodePath(const aPath: string): IwbSubRecordWithWwiseGuidDef;
+
+    function GetNodeType: TwbWwiseNodeType;
+    function SetNodeType(const aNodeType: TwbWwiseNodeType): IwbSubRecordWithWwiseGuidDef;
   end;
 
   TwbRecordMemberDef = class(TwbBaseSignatureDef, IwbRecordMemberDef)
@@ -6239,6 +6291,21 @@ type
     function GetEditType(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbEditType; override;
     function GetEditInfo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbStringArray; override;
     function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
+  end;
+
+  TwbWwiseGuidDef = class(TwbGuidDef, IwbWwiseGuidDef)
+  protected
+    wgdParentNodePath: string;
+    wgdType: TwbWwiseNodeType;
+
+    procedure AfterClone(const aSource: TwbDef); override;
+
+    {---IwbWwiseGuidDef---}
+    function GetParentNodePath: string;
+    function SetParentNodePath(const aPath: string): IwbWwiseGuidDef;
+
+    function GetNodeType: TwbWwiseNodeType;
+    function SetNodeType(const aNodeType: TwbWwiseNodeType): IwbWwiseGuidDef;
   end;
 
   TwbResolvableDef = class(TwbValueDef, IwbResolvableDef)
@@ -8762,6 +8829,14 @@ begin
   Result := wbMarker(aPriority, True, aSorted);
 end;
 
+function wbGUID(const aName      : string = 'Unknown';
+                      aPriority  : TwbConflictPriority = cpNormal;
+                      aRequired  : Boolean = False)
+                                 : IwbGuidDef;
+begin
+  Result := TwbGuidDef.Create(aPriority, aRequired, aName, False);
+end;
+
 function wbGUID(const aSignature : TwbSignature;
                 const aName      : string = 'Unknown';
                       aPriority  : TwbConflictPriority = cpNormal;
@@ -8771,12 +8846,21 @@ begin
   Result := wbSubRecord(aSignature, aName, wbGUID('', aPriority), aPriority, aRequired, False);
 end;
 
-function wbGUID(const aName      : string = 'Unknown';
-                      aPriority  : TwbConflictPriority = cpNormal;
-                      aRequired  : Boolean = False)
-                                 : IwbGuidDef;
+function wbWwiseGUID(const aName      : string = 'Wwise GUID';
+                           aPriority  : TwbConflictPriority = cpNormal;
+                           aRequired  : Boolean = False)
+                                      : IwbWwiseGuidDef;
 begin
-  Result := TwbGuidDef.Create(aPriority, aRequired, aName, False);
+  Result := TwbWwiseGuidDef.Create(aPriority, aRequired, aName, False);
+end;
+
+function wbWwiseGUID(const aSignature : TwbSignature;
+                     const aName      : string = 'Wwise GUID';
+                           aPriority  : TwbConflictPriority = cpNormal;
+                           aRequired  : Boolean = False)
+                                      : IwbSubRecordWithWwiseGuidDef;
+begin
+  Result := wbSubRecord(aSignature, aName, wbWwiseGUID('', aPriority), aPriority, aRequired, False) as IwbSubRecordWithWwiseGuidDef;
 end;
 
 function wbDumpInteger : IwbIntegerDefFormater;
@@ -9167,132 +9251,6 @@ function wbFormaterUnion(      aDecider : TwbIntegerDefFormaterUnionDecider;
                                         : IwbIntegerDefFormaterUnion;
 begin
   Result := TwbIntegerDefFormaterUnion.Create(aDecider, aMembers);
-end;
-
-procedure wbQueueLoadSoundbankJSON(const aFilename: string; aOptional: Boolean = True);
-begin
-  var lFilename := TPath.GetFileNameWithoutExtension(aFilename);
-  var lHash := TwbHash.FNV132(lFilename, True);
-  var lBankName := 'sound\soundbanks\' + UIntToStr(lHash) + '.json';
-  wbRegisterResourcesLoadedHandler(procedure
-  begin
-    wbWwiseLoadSoundbankJSON(aFilename, lBankName, aOptional);
-  end);
-end;
-
-procedure wbWwiseLoadSoundbankJSON(const aName: string; const aFilename: string; aOptional: Boolean = True);
-begin
-  var lSoundbankInfo := wbContainerHandler.OpenResourceData('', aFilename);
-  if Length(lSoundBankInfo) > 0 then
-  begin
-    wbProgress('[%s] Loading Wwise Soundbank Info...', [aName]);
-    SetLength(wbWwiseSoundbankInfos, Succ(Length(wbWwiseSoundbankInfos)));
-    var lIdx := Pred(Length(wbWwiseSoundbankInfos));
-    wbWwiseSoundbankInfos[lIdx] := TJSONObject.Create;
-    try
-      wbWwiseSoundbankInfos[lIdx].FromUtf8JSON(PByte(@lSoundbankInfo[0]), Length(lSoundbankInfo));
-      wbProgress('[%s] Building Wwise GUID Index...', [aName]);
-
-      var lCount := 0;
-
-      var lRootObj := wbWwiseSoundbankInfos[lIdx].O['SoundBanksInfo'];
-      if Assigned(lRootObj) then
-      begin
-        var lSoundBanksArray := lRootObj.A['SoundBanks'];
-        if Assigned(lSoundBanksArray) then
-        begin
-          for var I := 0 to Pred(lSoundBanksArray.Count) do
-          begin
-            var lBankObj := lSoundBanksArray.O[I];
-            if not Assigned(lBankObj) then
-              Continue;
-
-            var lEventsArray := lBankObj.A['IncludedEvents'];
-            if not Assigned(lEventsArray) then
-              Continue;
-
-            for var J := 0 to Pred(lEventsArray.Count) do
-            begin
-              var lObject := lEventsArray.O[J];
-              if not Assigned(lObject) then
-                Continue;
-
-              var lGUIDString := lObject.S['GUID'];
-              if lGUIDString = '' then
-                Continue;
-
-              lObject.S['FN'] := aName;
-              var lGUID := StringToGUID(lGUIDString);
-              Inc(lCount);
-
-              if not wbWwiseGUIDs.TryAdd(lGUID, lObject) then
-              begin
-                Dec(lCount);
-                var lName := lObject.S['Name'];
-                if lName <> '' then
-                begin
-                  var lExistingObject: TJsonObject;
-                  if wbWwiseGUIDs.TryGetValue(lGUID, lExistingObject) then
-                  begin
-                    var lExistingName := lExistingObject.S['Name'];
-                    if lExistingName = '' then
-                    begin
-                      wbWwiseGUIDs.Remove(lGUID);
-                      wbWwiseGUIDs.Add(lGUID, lObject);
-                    end
-                    else
-                    if lName <> lExistingName then
-                    begin
-                      wbProgress('Warning: Multiple names for GUID %s: [%s] <> [%s]', [lGUIDString, lExistingName, lName]);
-                    end;
-                  end;
-                end;
-              end;
-            end;
-          end;
-        end;
-      end;
-
-      wbProgress('[%s] Indexed %d new GUIDs successfully.', [aName, lCount]);
-
-      with TStringList.Create do try
-        Sorted := True;
-        Duplicates := dupIgnore;
-
-
-        for var lObject in wbWwiseGUIDs.Values do begin
-          var lGuid := lObject.S['GUID'];
-          var lName := lObject.S['Name'];
-          var lFilename := lObject.S['FN'];
-
-          if lGuid <> '' then
-          begin
-            var lDisplayStr: string;
-            if lName <> '' then
-              lDisplayStr := lName + ' [' + lFilename + ']'
-            else
-              lDisplayStr := lGuid;
-
-            Add(lDisplayStr);
-
-            wbWwiseGuidDisplay.TryAdd(lDisplayStr, lGuid);
-          end;
-        end;
-
-        wbWwiseGuidEditInfo := ToStringArray;
-      finally
-        Free;
-      end;
-
-    except
-      on E: Exception do begin
-        wbProgress('Error: Loading Wwise Soundbank Info failed: [%s} %s', [E.ClassName, E.Message]);
-      end;
-    end;
-  end
-  else
-  if not aOptional then
-    wbProgress('Warning: Could not find Wwise Soundbank Info file %s.', [aFilename]);
 end;
 
 { TwbDef }
@@ -10790,6 +10748,23 @@ begin
   Result := 'SubRecord of ' + GetValue.GetDefTypeName;
 end;
 
+function TwbSubRecordDef.GetNodeType: TwbWwiseNodeType;
+begin
+  if not Assigned(srValue) then
+    Exit;
+
+  Result := (srValue as IwbWwiseGuidDef).NodeType;
+end;
+
+function TwbSubRecordDef.GetParentNodePath: string;
+begin
+  Result := '';
+  if not Assigned(srValue) then
+    Exit;
+
+  Result := (srValue as IwbWwiseGuidDef).ParentNodePath;
+end;
+
 function TwbSubRecordDef.GetValue: IwbValueDef;
 begin
   Result := srValue;
@@ -11039,6 +11014,19 @@ begin
   Result := Self;
 end;
 
+function TwbSubRecordDef.SetNodeType(const aNodeType: TwbWwiseNodeType): IwbSubRecordWithWwiseGuidDef;
+begin
+  if defIsLocked then
+    Exit(TwbSubRecordDef(Duplicate).SetNodeType(aNodeType));
+
+  if Assigned(srValue) then
+  begin
+    srValue := (srValue as IwbWwiseGuidDef).SetNodeType(aNodeType);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
+  Result := Self;
+end;
+
 function TwbSubRecordDef.SetNormalizer(const aNormalizer: TwbFloatNormalizer): IwbSubRecordWithFloatDef;
 begin
   if defIsLocked then
@@ -11058,6 +11046,19 @@ begin
 
   if Assigned(srValue) then begin
     srValue := (srValue as IwbStructDef).SetOptionalFrom(aOptionalFrom);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
+  Result := Self;
+end;
+
+function TwbSubRecordDef.SetParentNodePath(const aPath: string): IwbSubRecordWithWwiseGuidDef;
+begin
+  if defIsLocked then
+    Exit(TwbSubRecordDef(Duplicate).SetParentNodePath(aPath));
+
+  if Assigned(srValue) then
+  begin
+    srValue := (srValue as IwbWwiseGuidDef).SetParentNodePath(aPath);
     srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
   end;
   Result := Self;
@@ -23778,6 +23779,49 @@ begin
     aLinksTo := aElement.LinksTo;
 end;
 
+{ TwbWwiseGuidDef }
+
+procedure TwbWwiseGuidDef.AfterClone(const aSource: TwbDef);
+begin
+  inherited;
+
+  with aSource as TwbWwiseGuidDef do
+  begin
+    Self.wgdParentNodePath := wgdParentNodePath;
+    Self.wgdType := wgdType;
+  end;
+end;
+
+function TwbWwiseGuidDef.GetNodeType: TwbWwiseNodeType;
+begin
+  Result := wgdType;
+end;
+
+function TwbWwiseGuidDef.GetParentNodePath: string;
+begin
+  Result := wgdParentNodePath;
+end;
+
+function TwbWwiseGuidDef.SetNodeType(const aNodeType: TwbWwiseNodeType): IwbWwiseGuidDef;
+begin
+  if defIsLocked then
+    Exit(TwbWwiseGuidDef(Duplicate).SetNodeType(aNodeType));
+
+  wgdType := aNodeType;
+  Result := Self;
+end;
+
+function TwbWwiseGuidDef.SetParentNodePath(const aPath: string): IwbWwiseGuidDef;
+begin
+  if defIsLocked then
+    Exit(TwbWwiseGuidDef(Duplicate).SetParentNodePath(aPath));
+
+  wgdParentNodePath := aPath;
+  Result := Self;
+end;
+
+{ TwbFilesHelper }
+
 procedure TwbFilesHelper.SortByLoadOrder;
 begin
   TArray.Sort<IwbFile>(Self, wbFileBySortOrderComparer);
@@ -23818,21 +23862,6 @@ begin
 end;
 
 initialization
-  wbWwiseGUIDs := TwbWwiseGUIDsDictionary.Create;
-  wbWwiseGuidDisplay := TDictionary<string, string>.Create;
-
-  var lNoneObj := TJSONObject.Create;
-  var lNullGuidStr := '{00000000-0000-0000-0000-000000000000}';
-  var lNullName := ' None';
-  var lNullGuid := StringToGUID(lNullGuidStr);
-
-  lNoneObj.S['GUID'] := lNullGuidStr;
-  lNoneObj.S['Name'] := lNullName;
-  lNoneObj.S['FN'] := 'Starfield.esm';
-
-  wbWwiseGUIDs.TryAdd(lNullGuid, lNoneObj);
-  wbWwiseGuidDisplay.TryAdd(lNullName, lNullGuidStr);
-
   MakeComparers;
 
   wbIdxEditorID := wbNamedIndex('EditorID', False);
@@ -23890,8 +23919,4 @@ finalization
   FreeAndNil(wbLEncoding[False]);
   FreeAndNil(_MBCSEncodings);
   FreeAndNil(_NamedIndices);
-  for var i := Low(wbWwiseSoundbankInfos) to High(wbWwiseSoundbankInfos) do
-    FreeAndNil(wbWwiseSoundbankInfos[i]);
-  FreeAndNil(wbWwiseGUIDs);
-  FreeAndNil(wbWwiseGuidDisplay);
 end.
