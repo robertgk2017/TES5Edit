@@ -5042,6 +5042,7 @@ begin
   if not (aType in [ctCheck, ctEditInfo, ctEditType, ctFromEditValue, ctToEditValue, ctToStr, ctToSummary]) then
     Exit;
 
+  lNodeType := wntUnknown;
   if Supports(aElement.Def, IwbWwiseGuidDef, lDef) then
   begin
     lNodeType := (lDef as IwbWwiseGuidDef).NodeType;

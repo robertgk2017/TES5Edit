@@ -8504,7 +8504,9 @@ begin
     wbString(MNAM, 'Material ID', 0, cpNormal, True),
     wbFormIDCk(SNAM, 'Sound', [SOUN]),
     wbFormIDCk(XNAM, 'Actor Effect', [SPEL]),
-    wbInteger(DATA, 'Damage', itU16, nil, cpNormal, True, True),
+    wbInteger(DATA, 'Damage', itU16)
+      .SetSizeMatch
+      .SetRequired,
     wbRUnion('Visual Data', [
       wbStruct(DNAM, 'Visual Data', [
         wbFloat('Unknown'),

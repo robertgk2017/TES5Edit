@@ -2700,7 +2700,8 @@ type
 
     function SetDefaultEditValue(const aValue: string): IwbSubRecordDef{Self};
     function SetDefaultNativeValue(const aValue: Variant): IwbSubRecordDef{Self};
-    function SetDefaultEditValues(const aValues: array of string): IwbRecordMemberDef{Self};
+    function SetDefaultEditValues(const aValues: array of string): IwbSubRecordDef{Self};
+    function SetSizeMatch(const aSizeMatch: Boolean = True): IwbSubRecordDef;
     function SetStaticEditInfo(aEditInfo: PwbStringArray): IwbSubRecordDef;
 
     function ForValue(const aCallback: TwbSubRecordForValueCallback): IwbSubRecordDef{Self};
@@ -3379,16 +3380,14 @@ function wbSubRecord(const aSignature : TwbSignature;
                      const aName      : string;
                      const aValue     : IwbValueDef;
                            aPriority  : TwbConflictPriority = cpNormal;
-                           aRequired  : Boolean = False;
-                           aSizeMatch : Boolean = False)
+                           aRequired  : Boolean = False)
                                       : IwbSubRecordDef; overload;
 
 function wbSubRecord(const aSignatures : TwbSignatures;
                      const aName       : string;
                      const aValue      : IwbValueDef;
                            aPriority   : TwbConflictPriority = cpNormal;
-                           aRequired   : Boolean = False;
-                           aSizeMatch  : Boolean = False)
+                           aRequired   : Boolean = False)
                                        : IwbSubRecordDef; overload;
 
 function wbString(const aSignature : TwbSignature;
@@ -3559,8 +3558,7 @@ function wbByteArray(const aSignature : TwbSignature;
                      const aName      : string = 'Unknown';
                            aSize      : Int64 = 0;
                            aPriority  : TwbConflictPriority = cpNormal;
-                           aRequired  : Boolean = False;
-                           aSizeMatch : Boolean = False)
+                           aRequired  : Boolean = False)
                                       : IwbSubRecordDef; overload;
 
 function wbByteArray(const aName      : string = 'Unknown';
@@ -3624,8 +3622,7 @@ function wbInteger(const aSignature : TwbSignature;
                    const aIntType   : TwbIntType;
                    const aFormater  : IwbIntegerDefFormater = nil;
                          aPriority  : TwbConflictPriority = cpNormal;
-                         aRequired  : Boolean = False;
-                         aMatchSize : Boolean = False)
+                         aRequired  : Boolean = False)
                                     : IwbSubRecordDef; overload;
 
 function wbInteger(const aName     : string;
@@ -3658,8 +3655,7 @@ function wbIntegerT(const aSignature : TwbSignature;
                     const aIntType   : TwbIntType;
                     const aFormater  : IwbIntegerDefFormater = nil;
                           aPriority  : TwbConflictPriority = cpNormal;
-                          aRequired  : Boolean = False;
-                          aMatchSize : Boolean = False)
+                          aRequired  : Boolean = False)
                                      : IwbSubRecordDef; overload;
 
 function wbIntegerT(const aName     : string;
@@ -5846,15 +5842,15 @@ type
                        aRequired  : Boolean;
                  const aSignature : TwbSignature;
                  const aName      : string;
-                 const aValue     : IwbValueDef;
-                       aSizeMatch : Boolean); overload;
+                 const aValue     : IwbValueDef); overload;
 
     constructor Create(aPriority   : TwbConflictPriority;
                        aRequired   : Boolean;
                  const aSignatures : TwbSignatures;
                  const aName       : string;
-                 const aValue      : IwbValueDef;
-                       aSizeMatch  : Boolean); overload;
+                 const aValue      : IwbValueDef); overload;
+
+    procedure AfterClone(const aSource: TwbDef); override;
 
     {---IInterface---}
     function QueryInterface(const IID: TGUID; out Obj): HResult; override; stdcall;
@@ -5896,7 +5892,8 @@ type
 
     function SetDefaultEditValue(const aValue: string): IwbSubRecordDef;
     function SetDefaultNativeValue(const aValue: Variant): IwbSubRecordDef;
-    function SetDefaultEditValues(const aValues: array of string): IwbRecordMemberDef;
+    function SetDefaultEditValues(const aValues: array of string): IwbSubRecordDef;
+    function SetSizeMatch(const aSizeMatch: Boolean = True): IwbSubRecordDef;
     function SetStaticEditInfo(aEditInfo: PwbStringArray): IwbSubRecordDef;
 
     function ForValue(const aCallback: TwbSubRecordForValueCallback): {Self}IwbSubRecordDef;
@@ -7614,22 +7611,20 @@ function wbSubRecord(const aSignature : TwbSignature;
                      const aName      : string;
                      const aValue     : IwbValueDef;
                            aPriority  : TwbConflictPriority = cpNormal;
-                           aRequired  : Boolean = False;
-                           aSizeMatch : Boolean = False)
+                           aRequired  : Boolean = False)
                                       : IwbSubRecordDef;
 begin
-  Result := TwbSubRecordDef.Create(aPriority, aRequired, aSignature, aName, aValue, aSizeMatch);
+  Result := TwbSubRecordDef.Create(aPriority, aRequired, aSignature, aName, aValue);
 end;
 
 function wbSubRecord(const aSignatures : TwbSignatures;
                      const aName       : string;
                      const aValue      : IwbValueDef;
                            aPriority   : TwbConflictPriority = cpNormal;
-                           aRequired   : Boolean = False;
-                           aSizeMatch  : Boolean = False)
+                           aRequired   : Boolean = False)
                                        : IwbSubRecordDef;
 begin
-  Result := TwbSubRecordDef.Create(aPriority, aRequired, aSignatures, aName, aValue, aSizeMatch);
+  Result := TwbSubRecordDef.Create(aPriority, aRequired, aSignatures, aName, aValue);
 end;
 
 
@@ -7640,7 +7635,7 @@ function wbString(const aSignature : TwbSignature;
                         aRequired  : Boolean = False)
                                    : IwbSubRecordWithBaseStringDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbString('', aSize, aPriority), aPriority, aRequired, False) as IwbSubRecordWithBaseStringDef;
+  Result := wbSubRecord(aSignature, aName, wbString('', aSize, aPriority), aPriority, aRequired) as IwbSubRecordWithBaseStringDef;
 end;
 
 function wbString(const aName      : string = 'Unknown';
@@ -7668,7 +7663,7 @@ function wbStringForward(const aSignature : TwbSignature;           // When the 
                                aRequired  : Boolean = False)
                                           : IwbSubRecordWithBaseStringDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbStringForward('', aSize, aPriority, aRequired), aPriority, aRequired, False) as IwbSubRecordWithBaseStringDef;
+  Result := wbSubRecord(aSignature, aName, wbStringForward('', aSize, aPriority, aRequired), aPriority, aRequired) as IwbSubRecordWithBaseStringDef;
 end;
 
 function wbStringT(const aSignature : TwbSignature;
@@ -7678,7 +7673,7 @@ function wbStringT(const aSignature : TwbSignature;
                          aRequired  : Boolean = False)
                                     : IwbSubRecordWithBaseStringDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbStringT('', aSize, aPriority, aRequired), aPriority, aRequired, False) as IwbSubRecordWithBaseStringDef;
+  Result := wbSubRecord(aSignature, aName, wbStringT('', aSize, aPriority, aRequired), aPriority, aRequired) as IwbSubRecordWithBaseStringDef;
 end;
 
 function wbStringT(const aName      : string = 'Unknown';
@@ -7697,7 +7692,7 @@ function wbStringScript(const aSignature : TwbSignature;
                               aRequired  : Boolean = False)
                                          : IwbSubRecordWithBaseStringDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbStringScript('', aSize, aPriority), aPriority, aRequired, False) as IwbSubRecordWithBaseStringDef;
+  Result := wbSubRecord(aSignature, aName, wbStringScript('', aSize, aPriority), aPriority, aRequired) as IwbSubRecordWithBaseStringDef;
 end;
 
 function wbStringScript(const aName      : string;
@@ -7716,7 +7711,7 @@ function wbStringLC(const aSignature : TwbSignature;
                           aRequired  : Boolean = False)
                                      : IwbSubRecordWithBaseStringDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbStringLC('', aSize, aPriority), aPriority, aRequired, False) as IwbSubRecordWithBaseStringDef;
+  Result := wbSubRecord(aSignature, aName, wbStringLC('', aSize, aPriority), aPriority, aRequired) as IwbSubRecordWithBaseStringDef;
 end;
 
 function wbStringLC(const aName      : string;
@@ -7735,7 +7730,7 @@ function wbStringKC(const aSignature : TwbSignature;
                           aRequired  : Boolean = False)
                                      : IwbSubRecordWithBaseStringDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbStringKC('', aSize, aPriority), aPriority, aRequired, False) as IwbSubRecordWithBaseStringDef;
+  Result := wbSubRecord(aSignature, aName, wbStringKC('', aSize, aPriority), aPriority, aRequired) as IwbSubRecordWithBaseStringDef;
 end;
 
 function wbStringKC(const aName      : string;
@@ -7754,7 +7749,7 @@ function wbLString(const aSignature : TwbSignature;
                          aRequired  : Boolean = False)
                                     : IwbSubRecordWithBaseStringDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbLString('', aSize, aPriority), aPriority, aRequired, False) as IwbSubRecordWithBaseStringDef;
+  Result := wbSubRecord(aSignature, aName, wbLString('', aSize, aPriority), aPriority, aRequired) as IwbSubRecordWithBaseStringDef;
 end;
 
 function wbLString(const aName      : string;
@@ -7773,7 +7768,7 @@ function wbLStringKC(const aSignature : TwbSignature;
                            aRequired  : Boolean = False)
                                       : IwbSubRecordWithBaseStringDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbLStringKC('', aSize, aPriority), aPriority, aRequired, False) as IwbSubRecordWithBaseStringDef;
+  Result := wbSubRecord(aSignature, aName, wbLStringKC('', aSize, aPriority), aPriority, aRequired) as IwbSubRecordWithBaseStringDef;
 end;
 
 function wbLStringKC(const aName      : string;
@@ -7792,7 +7787,7 @@ function wbStringMgefCode(const aSignature : TwbSignature;
                                 aRequired  : Boolean = False)
                                            : IwbSubRecordWithBaseStringDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbStringMgefCode('', aSize, aPriority), aPriority, aRequired, False) as IwbSubRecordWithBaseStringDef;
+  Result := wbSubRecord(aSignature, aName, wbStringMgefCode('', aSize, aPriority), aPriority, aRequired) as IwbSubRecordWithBaseStringDef;
 end;
 
 function wbStringMgefCode(const aName      : string;
@@ -7811,7 +7806,7 @@ function wbLenString(const aSignature : TwbSignature;
                            aRequired  : Boolean = False)
                                       : IwbSubRecordWithBaseStringDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbLenString('', aPrefix, aPriority), aPriority, aRequired, False) as IwbSubRecordWithBaseStringDef;
+  Result := wbSubRecord(aSignature, aName, wbLenString('', aPrefix, aPriority), aPriority, aRequired) as IwbSubRecordWithBaseStringDef;
 end;
 
 function wbLenString(const aName      : string = 'Unknown';
@@ -7830,7 +7825,7 @@ function wbLenStringT(const aSignature : TwbSignature;
                             aRequired  : Boolean = False)
                                        : IwbSubRecordWithBaseStringDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbLenStringT('', aPrefix, aPriority), aPriority, aRequired, False) as IwbSubRecordWithBaseStringDef;
+  Result := wbSubRecord(aSignature, aName, wbLenStringT('', aPrefix, aPriority), aPriority, aRequired) as IwbSubRecordWithBaseStringDef;
 end;
 
 function wbLenStringT(const aName      : string;
@@ -7850,7 +7845,7 @@ function wbUnion(const aSignature : TwbSignature;
                        aRequired  : Boolean = False)
                                   : IwbSubRecordDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbUnion('', aDecider, aMembers, aPriority), aPriority, aRequired, False) as IwbSubRecordDef;
+  Result := wbSubRecord(aSignature, aName, wbUnion('', aDecider, aMembers, aPriority), aPriority, aRequired) as IwbSubRecordDef;
 end;
 
 function wbUnion(const aName     : string;
@@ -7876,11 +7871,10 @@ function wbByteArray(const aSignature : TwbSignature;
                      const aName      : string = 'Unknown';
                            aSize      : Int64 = 0;
                            aPriority  : TwbConflictPriority = cpNormal;
-                           aRequired  : Boolean = False;
-                           aSizeMatch : Boolean = False)
+                           aRequired  : Boolean = False)
                                       : IwbSubRecordDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbByteArray('', aSize, aPriority), aPriority, aRequired, aSizeMatch);
+  Result := wbSubRecord(aSignature, aName, wbByteArray('', aSize, aPriority), aPriority, aRequired);
 end;
 
 function wbByteArray(const aName     : string = 'Unknown';
@@ -7915,7 +7909,7 @@ function wbUnknown(const aSignature : TwbSignature;
                          aRequired  : Boolean = False)
                                     : IwbSubRecordDef;
 begin
-  Result := wbByteArray(aSignature, 'Unknown', 0, aPriority, aRequired, False);
+  Result := wbByteArray(aSignature, 'Unknown', 0, aPriority, aRequired);
 end;
 
 function wbUnknown(aPriority : TwbConflictPriority = cpNormal;
@@ -7931,7 +7925,7 @@ function wbUnknown(const aSignature : TwbSignature;
                          aRequired  : Boolean = False)
                                     : IwbSubRecordDef;
 begin
-  Result := wbByteArray(aSignature, 'Unknown', aSize, aPriority, aRequired, False);
+  Result := wbByteArray(aSignature, 'Unknown', aSize, aPriority, aRequired);
 end;
 
 function wbUnknown(aSize     : Integer;
@@ -7964,7 +7958,7 @@ function wbUnused(const aSignature : TwbSignature;
                         aRequired  : Boolean = False)
                                    : IwbSubRecordDef;
 begin
-  Result := wbByteArray(aSignature, 'Unused', aSize, cpIgnore, aRequired, False);
+  Result := wbByteArray(aSignature, 'Unused', aSize, cpIgnore, aRequired);
   Result.SetDontShow(wbNeverShow);
   Result.IncludeFlag(dfNoReport);
 end;
@@ -7983,11 +7977,10 @@ function wbInteger(const aSignature : TwbSignature;
                    const aIntType   : TwbIntType;
                    const aFormater  : IwbIntegerDefFormater = nil;
                          aPriority  : TwbConflictPriority = cpNormal;
-                         aRequired  : Boolean = False;
-                         aMatchSize : Boolean = False)
+                         aRequired  : Boolean = False)
                                     : IwbSubRecordDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbInteger('', aIntType, aFormater, aPriority, False), aPriority, aRequired, aMatchSize);
+  Result := wbSubRecord(aSignature, aName, wbInteger('', aIntType, aFormater, aPriority, False), aPriority, aRequired);
 end;
 
 function wbIntegerT(const aSignature : TwbSignature;
@@ -7995,11 +7988,10 @@ function wbIntegerT(const aSignature : TwbSignature;
                     const aIntType   : TwbIntType;
                     const aFormater  : IwbIntegerDefFormater = nil;
                           aPriority  : TwbConflictPriority = cpNormal;
-                          aRequired  : Boolean = False;
-                          aMatchSize : Boolean = False)
+                          aRequired  : Boolean = False)
                                      : IwbSubRecordDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbIntegerT('', aIntType, aFormater, aPriority, False), aPriority, aRequired, aMatchSize);
+  Result := wbSubRecord(aSignature, aName, wbIntegerT('', aIntType, aFormater, aPriority, False), aPriority, aRequired);
 end;
 
 function wbInteger(const aName     : string;
@@ -8035,7 +8027,7 @@ var
 begin
   if Assigned(aToStr) then
     Callback := wbCallback(aToStr, aToInt);
-  Result := wbInteger(aSignature, aName, aIntType, Callback, aPriority, aRequired, False);
+  Result := wbInteger(aSignature, aName, aIntType, Callback, aPriority, aRequired);
 end;
 
 function wbIntegerT(const aSignature : TwbSignature;
@@ -8051,7 +8043,7 @@ var
 begin
   if Assigned(aToStr) then
     Callback := wbCallback(aToStr, aToInt);
-  Result := wbIntegerT(aSignature, aName, aIntType, Callback, aPriority, aRequired, False);
+  Result := wbIntegerT(aSignature, aName, aIntType, Callback, aPriority, aRequired);
 end;
 
 function wbInteger(const aName     : string;
@@ -8092,7 +8084,7 @@ function wbHalf(const aSignature  : TwbSignature;
                       aDigits     : Integer = -1)
                                   : IwbSubRecordWithFloatDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbHalf('', aPriority, False, aScale, aDigits), aPriority, aRequired, False) as IwbSubRecordWithFloatDef;
+  Result := wbSubRecord(aSignature, aName, wbHalf('', aPriority, False, aScale, aDigits), aPriority, aRequired) as IwbSubRecordWithFloatDef;
 end;
 
 function wbFloat(const aSignature  : TwbSignature;
@@ -8103,7 +8095,7 @@ function wbFloat(const aSignature  : TwbSignature;
                        aDigits     : Integer = -1)
                                    : IwbSubRecordWithFloatDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbFloat('', aPriority, False, aScale, aDigits), aPriority, aRequired, False) as IwbSubRecordWithFloatDef;
+  Result := wbSubRecord(aSignature, aName, wbFloat('', aPriority, False, aScale, aDigits), aPriority, aRequired) as IwbSubRecordWithFloatDef;
 end;
 
 function wbFloatAngle(const aSignature  : TwbSignature;
@@ -8112,7 +8104,7 @@ function wbFloatAngle(const aSignature  : TwbSignature;
                             aRequired   : Boolean = False)
                                         : IwbSubRecordWithFloatDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbFloat('', aPriority, False, wbRadiansToDegreesScale, wbAngleDigits), aPriority, aRequired, False) as IwbSubRecordWithFloatDef;
+  Result := wbSubRecord(aSignature, aName, wbFloat('', aPriority, False, wbRadiansToDegreesScale, wbAngleDigits), aPriority, aRequired) as IwbSubRecordWithFloatDef;
   Result.SetNormalizer(wbNormalizeRadians);
 end;
 
@@ -8124,7 +8116,7 @@ function wbDouble(const aSignature  : TwbSignature;
                         aDigits     : Integer = -1)
                                     : IwbSubRecordWithFloatDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbDouble('', aPriority, False, aScale, aDigits), aPriority, aRequired, False) as IwbSubRecordWithFloatDef;
+  Result := wbSubRecord(aSignature, aName, wbDouble('', aPriority, False, aScale, aDigits), aPriority, aRequired) as IwbSubRecordWithFloatDef;
 end;
 
 function wbHalf(const aName       : string = 'Unknown';
@@ -8191,7 +8183,7 @@ function wbFloatT(const aSignature  : TwbSignature;
                         aDigits     : Integer = -1)
                                     : IwbSubRecordWithFloatDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbFloatT('', aPriority, False, aScale, aDigits), aPriority, aRequired, False) as IwbSubRecordWithFloatDef;
+  Result := wbSubRecord(aSignature, aName, wbFloatT('', aPriority, False, aScale, aDigits), aPriority, aRequired) as IwbSubRecordWithFloatDef;
 end;
 
 function wbDoubleT(const aSignature  : TwbSignature;
@@ -8202,7 +8194,7 @@ function wbDoubleT(const aSignature  : TwbSignature;
                          aDigits     : Integer = -1)
                                      : IwbSubRecordWithFloatDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbDoubleT('', aPriority, False, aScale, aDigits), aPriority, aRequired, False) as IwbSubRecordWithFloatDef;
+  Result := wbSubRecord(aSignature, aName, wbDoubleT('', aPriority, False, aScale, aDigits), aPriority, aRequired) as IwbSubRecordWithFloatDef;
 end;
 
 function wbFloatT(const aName       : string = 'Unknown';
@@ -8250,7 +8242,7 @@ function wbArray(const aSignature : TwbSignature;
                        aRequired  : Boolean = False)
                                   : IwbSubRecordWithArrayDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbArray('', aElement, aCount, aPriority), aPriority, aRequired, False) as IwbSubRecordWithArrayDef;
+  Result := wbSubRecord(aSignature, aName, wbArray('', aElement, aCount, aPriority), aPriority, aRequired) as IwbSubRecordWithArrayDef;
 end;
 
 function wbArray(const aName      : string;
@@ -8282,7 +8274,7 @@ function wbArrayPT(const aSignature : TwbSignature;
                          aRequired  : Boolean = False)
                                     : IwbSubRecordWithArrayDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbArrayPT('', aElement, aCount, aPriority), aPriority, aRequired, False) as IwbSubRecordWithArrayDef;
+  Result := wbSubRecord(aSignature, aName, wbArrayPT('', aElement, aCount, aPriority), aPriority, aRequired) as IwbSubRecordWithArrayDef;
 end;
 
 function wbArrayPT(const aName      : string;
@@ -8334,7 +8326,7 @@ function wbArray(const aSignature : TwbSignature;
                        aRequired  : Boolean = False)
                                   : IwbSubRecordWithArrayDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbArray('', aElement, aLabels, aPriority), aPriority, aRequired, False) as IwbSubRecordWithArrayDef;
+  Result := wbSubRecord(aSignature, aName, wbArray('', aElement, aLabels, aPriority), aPriority, aRequired) as IwbSubRecordWithArrayDef;
 end;
 
 function wbArray(const aSignature     : TwbSignature;
@@ -8346,7 +8338,7 @@ function wbArray(const aSignature     : TwbSignature;
                        aRequired      : Boolean = False)
                                       : IwbSubRecordWithArrayDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbArray('', aElement, aLabels, aCountCallback, aPriority), aPriority, aRequired, False) as IwbSubRecordWithArrayDef;
+  Result := wbSubRecord(aSignature, aName, wbArray('', aElement, aLabels, aCountCallback, aPriority), aPriority, aRequired) as IwbSubRecordWithArrayDef;
 end;
 
 function wbArray(const aName     : string;
@@ -8388,7 +8380,7 @@ function wbArrayPT(const aSignature : TwbSignature;
                          aRequired  : Boolean = False)
                                     : IwbSubRecordWithArrayDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbArrayPT('', aElement, aLabels, aPriority), aPriority, aRequired, False) as IwbSubRecordWithArrayDef;
+  Result := wbSubRecord(aSignature, aName, wbArrayPT('', aElement, aLabels, aPriority), aPriority, aRequired) as IwbSubRecordWithArrayDef;
 end;
 
 function wbArrayPT(const aSignature     : TwbSignature;
@@ -8400,7 +8392,7 @@ function wbArrayPT(const aSignature     : TwbSignature;
                          aRequired      : Boolean = False)
                                         : IwbSubRecordWithArrayDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbArrayPT('', aElement, aLabels, aCountCallback, aPriority), aPriority, aRequired, False) as IwbSubRecordWithArrayDef;
+  Result := wbSubRecord(aSignature, aName, wbArrayPT('', aElement, aLabels, aCountCallback, aPriority), aPriority, aRequired) as IwbSubRecordWithArrayDef;
 end;
 
 function wbArrayPT(const aName     : string;
@@ -8454,7 +8446,7 @@ function wbArrayS(const aSignature : TwbSignature;
                         aRequired  : Boolean = False)
                                    : IwbSubRecordWithArrayDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbArrayS('', aElement, aCount, aPriority, False), aPriority, aRequired, False) as IwbSubRecordWithArrayDef;
+  Result := wbSubRecord(aSignature, aName, wbArrayS('', aElement, aCount, aPriority, False), aPriority, aRequired) as IwbSubRecordWithArrayDef;
 end;
 
 function wbArrayS(const aName      : string;
@@ -8505,7 +8497,7 @@ function wbArrayS(const aSignature : TwbSignature;
                         aRequired  : Boolean = False)
                                    : IwbSubRecordWithArrayDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbArrayS('', aElement, aLabels, aPriority, False), aPriority, aRequired, False) as IwbSubRecordWithArrayDef;
+  Result := wbSubRecord(aSignature, aName, wbArrayS('', aElement, aLabels, aPriority, False), aPriority, aRequired) as IwbSubRecordWithArrayDef;
 end;
 
 function wbArrayS(const aName      : string;
@@ -8527,7 +8519,7 @@ function wbStructSK(const aSignature           : TwbSignature;
                           aRequired            : Boolean = False)
                                                : IwbSubRecordWithStructDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbStructSK(aSortKey, '', aMembers, aPriority, False), aPriority, aRequired, False) as IwbSubRecordWithStructDef;
+  Result := wbSubRecord(aSignature, aName, wbStructSK(aSortKey, '', aMembers, aPriority, False), aPriority, aRequired) as IwbSubRecordWithStructDef;
 end;
 
 function wbMultiStructSK(const aSignatures          : TwbSignatures;
@@ -8538,7 +8530,7 @@ function wbMultiStructSK(const aSignatures          : TwbSignatures;
                                aRequired            : Boolean = False)
                                                     : IwbSubRecordWithStructDef;
 begin
-  Result := wbSubRecord(aSignatures, aName, wbStructSK(aSortKey, '', aMembers, aPriority, False), aPriority, aRequired, False) as IwbSubRecordWithStructDef;
+  Result := wbSubRecord(aSignatures, aName, wbStructSK(aSortKey, '', aMembers, aPriority, False), aPriority, aRequired) as IwbSubRecordWithStructDef;
 end;
 
 function wbStructSK(const aSortKey             : array of Integer;
@@ -8572,7 +8564,7 @@ function wbStructExSK(const aSignature           : TwbSignature;
                             aRequired            : Boolean = False)
                                                  : IwbSubRecordWithStructDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbStructExSK(aSortKey, aExSortKey, '', aMembers, aPriority, False), aPriority, aRequired, False) as IwbSubRecordWithStructDef;
+  Result := wbSubRecord(aSignature, aName, wbStructExSK(aSortKey, aExSortKey, '', aMembers, aPriority, False), aPriority, aRequired) as IwbSubRecordWithStructDef;
 end;
 
 function wbStructExSK(const aSortKey             : array of Integer;
@@ -8593,7 +8585,7 @@ function wbStruct(const aSignature           : TwbSignature;
                         aRequired            : Boolean = False)
                                              : IwbSubRecordWithStructDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbStruct('', aMembers, aPriority, False), aPriority, aRequired, False) as IwbSubRecordWithStructDef;
+  Result := wbSubRecord(aSignature, aName, wbStruct('', aMembers, aPriority, False), aPriority, aRequired) as IwbSubRecordWithStructDef;
 end;
 
 function wbStruct(const aSignature  : TwbSignature;
@@ -8604,7 +8596,7 @@ function wbStruct(const aSignature  : TwbSignature;
                         aRequired   : Boolean = False)
                                     : IwbSubRecordWithStructDef; overload;
 begin
-  Result := wbSubRecord(aSignature, aName, wbStruct('', aMembers, aElementMap, aPriority, False), aPriority, aRequired, False) as IwbSubRecordWithStructDef;
+  Result := wbSubRecord(aSignature, aName, wbStruct('', aMembers, aElementMap, aPriority, False), aPriority, aRequired) as IwbSubRecordWithStructDef;
 end;
 
 function wbStruct(const aName                : string;
@@ -8771,7 +8763,7 @@ function wbEmpty(const aSignature : TwbSignature;
                        aRequired  : Boolean = False)
                                   : IwbSubRecordDef;
 begin
-  Result := wbSubRecord(aSignature, aName, wbEmpty('', aPriority, aRequired), aPriority, aRequired, False);
+  Result := wbSubRecord(aSignature, aName, wbEmpty('', aPriority, aRequired), aPriority, aRequired);
 end;
 
 function wbEmpty(const aName      : string = 'Unknown';
@@ -8827,7 +8819,7 @@ function wbGUID(const aSignature : TwbSignature;
                       aRequired  : Boolean = False)
                                  : IwbSubRecordDef;
 begin
-  Result := wbSubRecord(aSignature, aName, wbGUID('', aPriority), aPriority, aRequired, False);
+  Result := wbSubRecord(aSignature, aName, wbGUID('', aPriority), aPriority, aRequired);
 end;
 
 function wbWwiseGUID(const aName      : string = 'Wwise GUID';
@@ -8844,7 +8836,7 @@ function wbWwiseGUID(const aSignature : TwbSignature;
                            aRequired  : Boolean = False)
                                       : IwbSubRecordWithWwiseGuidDef;
 begin
-  Result := wbSubRecord(aSignature, aName, wbWwiseGUID('', aPriority), aPriority, aRequired, False) as IwbSubRecordWithWwiseGuidDef;
+  Result := wbSubRecord(aSignature, aName, wbWwiseGUID('', aPriority), aPriority, aRequired) as IwbSubRecordWithWwiseGuidDef;
 end;
 
 function wbDumpInteger : IwbIntegerDefFormater;
@@ -8960,7 +8952,7 @@ function wbFormID(const aSignature : TwbSignature;
                         aRequired  : Boolean = False)
                                    : IwbSubRecordDef; overload;
 begin
-  Result := wbInteger(aSignature, aName, itU32, wbFormID, aPriority, aRequired, False);
+  Result := wbInteger(aSignature, aName, itU32, wbFormID, aPriority, aRequired);
 end;
 
 function wbFormID(const aName     : string;
@@ -8987,7 +8979,7 @@ function wbFormIDCk(const aSignature : TwbSignature;
                           aRequired  : Boolean = False)
                                      : IwbSubRecordDef; overload;
 begin
-  Result := wbInteger(aSignature, aName, itU32, wbFormID(aValidRefs, aPersistent), aPriority, aRequired, False);
+  Result := wbInteger(aSignature, aName, itU32, wbFormID(aValidRefs, aPersistent), aPriority, aRequired);
 end;
 
 function wbFormIDCkST(const aSignature : TwbSignature;
@@ -8998,7 +8990,7 @@ function wbFormIDCkST(const aSignature : TwbSignature;
                             aRequired  : Boolean = False)
                                        : IwbSubRecordDef; overload;
 begin
-  Result := wbInteger(aSignature, aName, itU32, wbFormIDST(aValidRefs, aPersistent), aPriority, aRequired, False);
+  Result := wbInteger(aSignature, aName, itU32, wbFormIDST(aValidRefs, aPersistent), aPriority, aRequired);
 end;
 
 
@@ -9010,7 +9002,7 @@ function wbFormIDCkNoReach(const aSignature : TwbSignature;
                                  aRequired  : Boolean = False)
                                             : IwbSubRecordDef; overload;
 begin
-  Result := wbInteger(aSignature, aName, itU32, wbFormIDNoReach(aValidRefs, aPersistent), aPriority, aRequired, False);
+  Result := wbInteger(aSignature, aName, itU32, wbFormIDNoReach(aValidRefs, aPersistent), aPriority, aRequired);
 end;
 
 function wbFormIDCk(const aName      : string;
@@ -9043,7 +9035,7 @@ function wbFormIDCk(const aSignature     : TwbSignature;
                           aRequired      : Boolean = False)
                                          : IwbSubRecordDef; overload;
 begin
-  Result := wbInteger(aSignature, aName, itU32, wbFormID(aValidRefs, aValidFlstRefs, aPersistent), aPriority, aRequired, False);
+  Result := wbInteger(aSignature, aName, itU32, wbFormID(aValidRefs, aValidFlstRefs, aPersistent), aPriority, aRequired);
 end;
 
 function wbFormIDCk(const aName          : string;
@@ -10650,6 +10642,16 @@ end;
 
 { TwbSubRecordDef }
 
+procedure TwbSubRecordDef.AfterClone(const aSource: TwbDef);
+begin
+  inherited;
+
+  with aSource as TwbSubRecordDef do
+  begin
+    Self.srSizeMatch := srSizeMatch;
+  end;
+end;
+
 function TwbSubRecordDef.CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean;
 var
   SubRecordDef : IwbSubRecordDef;
@@ -10677,17 +10679,15 @@ end;
 constructor TwbSubRecordDef.Clone(const aSource: TwbDef);
 begin
   with aSource as TwbSubRecordDef do
-    Self.Create(defPriority, defRequired, soSignatures, ndName, srValue, srSizeMatch).AfterClone(aSource);
+    Self.Create(defPriority, defRequired, soSignatures, ndName, srValue).AfterClone(aSource);
 end;
 
 constructor TwbSubRecordDef.Create(aPriority  : TwbConflictPriority;
                                    aRequired  : Boolean;
                              const aSignature : TwbSignature;
                              const aName      : string;
-                             const aValue     : IwbValueDef;
-                                   aSizeMatch : Boolean);
+                             const aValue     : IwbValueDef);
 begin
-  srSizeMatch := aSizeMatch;
   if Assigned(aValue) then
     srValue := (aValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
   inherited Create(aPriority, aRequired, aSignature, aName);
@@ -10697,10 +10697,8 @@ constructor TwbSubRecordDef.Create(aPriority   : TwbConflictPriority;
                                    aRequired   : Boolean;
                              const aSignatures : TwbSignatures;
                              const aName       : string;
-                             const aValue      : IwbValueDef;
-                                   aSizeMatch  : Boolean);
+                             const aValue      : IwbValueDef);
 begin
-  srSizeMatch := aSizeMatch;
   if Assigned(aValue) then
     srValue := (aValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
   inherited Create(aPriority, aRequired, aSignatures, aName);
@@ -10743,7 +10741,7 @@ end;
 function TwbSubRecordDef.GetNodeType: TwbWwiseNodeType;
 begin
   if not Assigned(srValue) then
-    Exit;
+    Exit(wntUnknown);
 
   Result := (srValue as IwbWwiseGuidDef).NodeType;
 end;
@@ -10911,7 +10909,7 @@ begin
   Result := Self;
 end;
 
-function TwbSubRecordDef.SetDefaultEditValues(const aValues: array of string): IwbRecordMemberDef;
+function TwbSubRecordDef.SetDefaultEditValues(const aValues: array of string): IwbSubRecordDef;
 var
   a: IwbArrayDef;
 begin
@@ -11075,6 +11073,15 @@ begin
     srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
   end;
   Result := Self;
+end;
+
+function TwbSubRecordDef.SetSizeMatch(const aSizeMatch: Boolean = True): IwbSubRecordDef;
+begin
+  if defIsLocked then
+    Exit(TwbSubRecordDef(Duplicate).SetSizeMatch(aSizeMatch));
+
+  Result := Self;
+  srSizeMatch := aSizeMatch;
 end;
 
 function TwbSubRecordDef.SetStaticEditInfo(aEditInfo: PwbStringArray): IwbSubRecordDef;

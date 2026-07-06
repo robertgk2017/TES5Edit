@@ -7366,7 +7366,9 @@ begin
     wbString(MNAM, 'Material ID').SetRequired,
     wbFormIDCk(SNAM, 'Sound', [SOUN]),
     wbFormIDCk(XNAM, 'Actor Effect', [SPEL]),
-    wbInteger(DATA, 'Damage', itU16, nil, cpNormal, True, True),
+    wbInteger(DATA, 'Damage', itU16)
+      .SetSizeMatch
+      .SetRequired,
     wbStruct(DNAM, 'Visual Data', [
       wbUnused(16),
       wbFloat('Water Properties - Sun Power').SetDefaultNativeValue(50),
