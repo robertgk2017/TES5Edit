@@ -2506,7 +2506,7 @@ type
 
     function SetAddInfo(const aAddInfo: TwbAddInfoCallback): IwbMainRecordDef;
     function SetToStr(const aToStr : TwbToStrCallback): IwbMainRecordDef{Self};
-    function SetUnordered(const aUnordered: Boolean = True): IwbMainRecordDef;
+    function SetUnordered: IwbMainRecordDef;
     function SetSummaryKey(const aSummaryKey: array of Integer): {Self}IwbMainRecordDef;
     function SetSummaryMemberPrefixSuffix(aIndex: Integer; const aPrefix, aSuffix: string): {Self}IwbMainRecordDef;
     function SetSummaryMemberMaxDepth(aIndex, aMaxDepth: Integer): {Self}IwbMainRecordDef;
@@ -2799,7 +2799,7 @@ type
     function SetSummaryMemberPrefixSuffix(aIndex: Integer; const aPrefix, aSuffix: string): {Self}IwbSubRecordStructDef;
     function SetSummaryMemberMaxDepth(aIndex, aMaxDepth: Integer): {Self}IwbSubRecordStructDef;
     function SetSummaryDelimiter(const aDelimiter: string): {Self}IwbSubRecordStructDef;
-    function SetUnordered(const aUnordered: Boolean = True): IwbSubRecordStructDef;
+    function SetUnordered: IwbSubRecordStructDef;
 
     function GetMember(aIndex: Integer): IwbRecordMemberDef;
     function GetMemberCount: Integer;
@@ -5813,7 +5813,7 @@ type
 
     function SetAddInfo(const aAddInfo: TwbAddInfoCallback): IwbMainRecordDef;
     function SetToStr(const aToStr : TwbToStrCallback): IwbMainRecordDef{Self};
-    function SetUnordered(const aUnordered: Boolean = True): IwbMainRecordDef;
+    function SetUnordered: IwbMainRecordDef;
     function SetSummaryKey(const aSummaryKey: array of Integer): {Self}IwbMainRecordDef;
     function SetSummaryMemberPrefixSuffix(aIndex: Integer; const aPrefix, aSuffix: string): {Self}IwbMainRecordDef;
     function SetSummaryMemberMaxDepth(aIndex, aMaxDepth: Integer): {Self}IwbMainRecordDef;
@@ -6099,7 +6099,7 @@ type
     function SetSummaryMemberPrefixSuffix(aIndex: Integer; const aPrefix, aSuffix: string): {Self}IwbSubRecordStructDef;
     function SetSummaryMemberMaxDepth(aIndex, aMaxDepth: Integer): {Self}IwbSubRecordStructDef;
     function SetSummaryDelimiter(const aDelimiter: string): {Self}IwbSubRecordStructDef;
-    function SetUnordered(const aUnordered: Boolean = True): IwbSubRecordStructDef;
+    function SetUnordered: IwbSubRecordStructDef;
   end;
 
   TwbSubRecordUnionDef = class(TwbRecordMemberDef, IwbSubRecordUnionDef, IwbRecordDef)
@@ -10393,10 +10393,10 @@ begin
   ndToStr := aToStr;
 end;
 
-function TwbMainRecordDef.SetUnordered(const aUnordered: Boolean = True): IwbMainRecordDef;
+function TwbMainRecordDef.SetUnordered: IwbMainRecordDef;
 begin
   if defIsLocked then
-    Exit(TwbMainRecordDef(Duplicate).SetUnordered(aUnordered));
+    Exit(TwbMainRecordDef(Duplicate).SetUnordered);
 
   Result := Self;
   Include(recDefFlags, rdfAllowUnordered);
@@ -11813,13 +11813,13 @@ begin
   wbSetPrefixSuffix(aIndex, aPrefix, aSuffix, srsSummaryPrefix, srsSummarySuffix);
 end;
 
-function TwbSubRecordStructDef.SetUnordered(const aUnordered: Boolean): IwbSubRecordStructDef;
+function TwbSubRecordStructDef.SetUnordered: IwbSubRecordStructDef;
 begin
   if defIsLocked then
-    Exit(TwbSubRecordStructDef(Duplicate).SetUnordered(aUnordered));
+    Exit(TwbSubRecordStructDef(Duplicate).SetUnordered);
 
   Result := Self;
-  srsAllowUnordered := aUnordered;
+  srsAllowUnordered := True;
 end;
 
 function TwbSubRecordStructDef.ToSummaryInternal(aDepth: Integer; const aElement: IwbElement; var aLinksTo: IwbElement): string;
