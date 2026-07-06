@@ -1077,9 +1077,10 @@ begin
       wbModelInfo(MODT),
       wbMODS,
       wbMODD
-    ], [], cpNormal, aRequired, True)
-      .SetSummaryKey([0])
+    ]).SetSummaryKey([0])
+      .SetUnordered
       .SetDontShow(aDontShow)
+      .SetRequired(aRequired)
       .IncludeFlag(dfSummaryMembersNoName)
       .IncludeFlag(dfSummaryNoSortKey)
       .IncludeFlag(dfCollapsed, wbCollapseModels);
@@ -3189,7 +3190,8 @@ begin
     {--- 3D Data ---}
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 
   wbRefRecord(ACRE, 'Placed Creature',
     wbFlags(wbFlagsList([
@@ -3270,7 +3272,8 @@ begin
     {--- 3D Data ---}
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 
   wbRecord(ACTI, 'Activator',
     wbFlags(wbFlagsList([
@@ -3306,12 +3309,12 @@ begin
   wbICON := wbRStruct('Icon', [
     wbString(ICON, 'Large Icon FileName').SetRequired,
     wbString(MICO, 'Small Icon FileName')
-  ], [], cpNormal, False, True);
+  ]).SetUnordered;
 
   wbICONReq := wbRStruct('Icon', [
     wbString(ICON, 'Large Icon FileName').SetRequired,
     wbString(MICO, 'Small Icon FileName')
-  ], [], cpNormal, True, True);
+  ]).SetUnordered;
 
   wbVatsValueFunctionEnum :=
     wbEnum([
@@ -4134,8 +4137,8 @@ begin
     wbFormIDCk(XCAS, 'Acoustic Space', [ASPC]),
     wbByteArray(XCMT, 'Unused', 1, cpIgnore),
     wbFormIDCk(XCMO, 'Music Type', [MUSC])
-  ], True)
-    .SetAddInfo(wbCellAddInfo)
+  ]).SetAddInfo(wbCellAddInfo)
+    .SetUnordered
     .SetAfterLoad(wbCELLAfterLoad);
 
   wbRecord(CLAS, 'Class', [
@@ -4218,7 +4221,7 @@ begin
     wbFormIDCk(SNAM, 'Sound - Open', [SOUN]),
     wbFormIDCk(QNAM, 'Sound - Close', [SOUN]),
     wbFormIDCk(RNAM, 'Sound - Random/Looping', [SOUN])
-  ], True);
+  ]).SetUnordered;
 
   wbCSDT := wbRStructSK([0], 'Sound Type', [
     wbInteger(CSDT, 'Type', itU32,wbEnum([
@@ -4415,7 +4418,7 @@ begin
     wbCSDTs,
     wbFormIDCk(CNAM, 'Impact Dataset', [IPDS]).SetDontShow(wbActorTemplateUseModelAnimation),
     wbFormIDCk(LNAM, 'Melee Weapon List', [FLST]).SetDontShow(wbActorTemplateUseTraits)
-  ], True);
+  ]).SetUnordered;
 
   wbRecord(CSTY, 'Combat Style', [
     wbEDIDReq,
@@ -5420,7 +5423,8 @@ begin
     {--- 3D Data ---}
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 
   wbRefRecord(PMIS, 'Placed Missile', [
     wbEDID,
@@ -5500,7 +5504,8 @@ begin
     {--- 3D Data ---}
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 
   wbRefRecord(PBEA, 'Placed Beam', [
     wbEDID,
@@ -5580,7 +5585,8 @@ begin
     {--- 3D Data ---}
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 
    wbRecord(EXPL, 'Explosion', [
     wbEDIDReq,
@@ -6943,7 +6949,8 @@ begin
     wbFloat(NAM7, 'Weight')
       .SetDontShow(wbActorTemplateUseTraits)
       .SetRequired
-  ], True).SetAfterLoad(wbNPCAfterLoad);
+  ]).SetUnordered
+    .SetAfterLoad(wbNPCAfterLoad);
 
   wbObjectTypeEnum := wbEnum([
           ' NONE',
@@ -7111,7 +7118,7 @@ begin
         ]),
         wbInteger('Radius', itS32)
       ])
-    ], [], cpNormal, False, True),
+    ]).SetUnordered,
     wbStruct(PSDT, 'Schedule', [
       wbInteger('Month', itS8,
         wbPackagePSDTMonthValueToStr,
@@ -7768,8 +7775,8 @@ begin
     {--- 3D Data ---}
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired
-  ], True)
-    .SetAddInfo(wbPlacedAddInfo)
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered
     .SetAfterLoad(wbREFRAfterLoad);
 
 
@@ -7869,7 +7876,7 @@ begin
         wbFormIDCk('Imposter', [REFR])
       ).SetDontShow(wbREGNImposterDontShow)
     ]))
-  ], True);
+  ]).SetUnordered;
 
   wbRecord(SOUN, 'Sound', [
     wbEDIDReq,
@@ -8032,7 +8039,7 @@ begin
      .IncludeFlag(dfCollapsed, wbCollapseOther)
      .IncludeFlag(dfExcludeFromBuildRef),
     wbByteArray(SCRN, 'Screenshot')
-  ], True, cpNormal, True);
+  ], cpNormal, True).SetUnordered;
 
   wbRecord(PLYR, 'Player Reference', [
     wbEDID,
@@ -8877,7 +8884,8 @@ begin
       wbUnused(2)
     ]).SetOptionalFrom(4),
     wbInteger(VNAM, 'Sound Level', itU32, wbSoundLevelEnum, cpNormal, True)
-  ], True).SetAfterLoad(wbWEAPAfterLoad);
+  ]).SetUnordered
+    .SetAfterLoad(wbWEAPAfterLoad);
 
   wbRecord(WTHR, 'Weather', [
     wbEDIDReq,

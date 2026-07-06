@@ -775,12 +775,13 @@ begin
       wbModelInfo(MODT),
       wbMODS,
       wbMODD
-    ], [], cpNormal, aRequired, True)
-    .SetSummaryKey([0])
-    .SetDontShow(aDontShow)
-    .IncludeFlag(dfSummaryMembersNoName)
-    .IncludeFlag(dfSummaryNoSortKey)
-    .IncludeFlag(dfCollapsed, wbCollapseModels);
+    ]).SetSummaryKey([0])
+      .SetUnordered
+      .SetDontShow(aDontShow)
+      .SetRequired(aRequired)
+      .IncludeFlag(dfSummaryMembersNoName)
+      .IncludeFlag(dfSummaryNoSortKey)
+      .IncludeFlag(dfCollapsed, wbCollapseModels);
 end;
 
 function wbEPFDActorValueToStr(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
@@ -3352,7 +3353,8 @@ begin
     {--- 3D Data ---}
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 
   wbRefRecord(ACRE, 'Placed Creature',
     wbFlags(wbFlagsList([
@@ -3431,7 +3433,8 @@ begin
     {--- 3D Data ---}
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 
   wbRecord(ACTI, 'Activator',
     wbFlags(wbFlagsList([
@@ -3698,8 +3701,8 @@ begin
     wbFormIDCk(XCAS, 'Acoustic Space', [ASPC]),
     wbByteArray(XCMT, 'Unused', 1, cpIgnore),
     wbFormIDCk(XCMO, 'Music Type', [MUSC])
-  ], True)
-    .SetAddInfo(wbCellAddInfo)
+  ]).SetAddInfo(wbCellAddInfo)
+    .SetUnordered
     .SetAfterLoad(wbCELLAfterLoad);
 
   wbRecord(CLAS, 'Class', [
@@ -3772,7 +3775,7 @@ begin
     ]).SetRequired,
     wbFormIDCk(SNAM, 'Sound - Open', [SOUN]),
     wbFormIDCk(QNAM, 'Sound - Close', [SOUN])
-  ], True);
+  ]).SetUnordered;
 
   wbRecord(CREA, 'Creature',
     wbFlags(wbFlagsList([
@@ -3933,7 +3936,7 @@ begin
       ])).SetDontShow(wbActorTemplateUseModelAnimation),
     wbFormIDCk(CNAM, 'Impact Dataset', [IPDS]).SetDontShow(wbActorTemplateUseModelAnimation),
     wbFormIDCk(LNAM, 'Melee Weapon List', [FLST]).SetDontShow(wbActorTemplateUseTraits)
-  ], True);
+  ]).SetUnordered;
 
   wbRecord(CSTY, 'Combat Style', [
     wbEDIDReq,
@@ -4862,7 +4865,8 @@ begin
     {--- 3D Data ---}
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 
   wbRefRecord(PMIS, 'Placed Missile', [
     wbEDID,
@@ -4940,7 +4944,8 @@ begin
     {--- 3D Data ---}
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 
   wbRefRecord(PBEA, 'Placed Beam', [
     wbEDID,
@@ -5018,7 +5023,8 @@ begin
     {--- 3D Data ---}
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 
    wbRecord(EXPL, 'Explosion', [
     wbEDIDReq,
@@ -6327,7 +6333,8 @@ begin
     wbFloat(NAM7, 'Weight')
       .SetDontShow(wbActorTemplateUseTraits)
       .SetRequired
-  ], True).SetAfterLoad(wbNPCAfterLoad);
+  ]).SetUnordered
+    .SetAfterLoad(wbNPCAfterLoad);
 
   wbRecord(PACK, 'Package',
     wbFlags(wbFlagsList([
@@ -6473,7 +6480,7 @@ begin
         ]),
         wbInteger('Radius', itS32)
       ])
-    ], [], cpNormal, False, True),
+    ]).SetUnordered,
     wbStruct(PSDT, 'Schedule', [
       wbInteger('Month', itS8,
         wbPackagePSDTMonthValueToStr,
@@ -7081,8 +7088,8 @@ begin
     {--- 3D Data ---}
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired
-  ], True)
-    .SetAddInfo(wbPlacedAddInfo)
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered
     .SetAfterLoad(wbREFRAfterLoad);
 
 
@@ -7174,7 +7181,7 @@ begin
         wbFormIDCk('Global', [GLOB, NULL])
       ])).SetDontShow(wbREGNWeatherDontShow)
     ]))
-  ], True);
+  ]).SetUnordered;
 
   wbRecord(SOUN, 'Sound', [
     wbEDIDReq,
@@ -7312,7 +7319,7 @@ begin
      .IncludeFlag(dfCollapsed, wbCollapseOther)
      .IncludeFlag(dfExcludeFromBuildRef),
     wbByteArray(SCRN, 'Screenshot')
-  ], True, cpNormal, True);
+  ], cpNormal, True).SetUnordered;
 
   wbRecord(PLYR, 'Player Reference', [
     wbEDID,

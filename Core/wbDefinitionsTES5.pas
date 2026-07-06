@@ -86,7 +86,7 @@ var
   wbConditions: IwbRecordMemberDef;
   wbXESP: IwbSubRecordDef;
   wbICON: IwbSubRecordStructDef;
-  wbICONReq: IwbSubRecordStructDef;
+  wbICONReq: IwbRecordMemberDef;
   wbICO2: IwbSubRecordStructDef;
   wbActorValue: IwbIntegerDef;
   wbETYP: IwbSubRecordDef;
@@ -877,12 +877,13 @@ begin
       wbString(MODL, 'Model FileName', 0, cpNormal, True),
       wbModelInfo(MODT),
       wbMODS
-    ], [], cpNormal, aRequired, True)
-    .SetSummaryKey([0])
-    .SetDontShow(aDontShow)
-    .IncludeFlag(dfSummaryMembersNoName)
-    .IncludeFlag(dfSummaryNoSortKey)
-    .IncludeFlag(dfCollapsed, wbCollapseModels);
+    ]).SetSummaryKey([0])
+      .SetUnordered
+      .SetDontShow(aDontShow)
+      .SetRequired(aRequired)
+      .IncludeFlag(dfSummaryMembersNoName)
+      .IncludeFlag(dfSummaryNoSortKey)
+      .IncludeFlag(dfCollapsed, wbCollapseModels);
 end;
 
 function wbEPFDActorValueToStr(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
@@ -2179,7 +2180,8 @@ begin
     wbXLOD,
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 end;
 
 procedure DefineTES5;
@@ -3194,7 +3196,8 @@ begin
     {--- 3D Data ---}
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 
   wbRecord(ACTI, 'Activator',
     wbFlags(wbFlagsList([
@@ -3255,17 +3258,18 @@ begin
   wbICON := wbRStruct('Icon', [
     wbString(ICON, 'Large Icon FileName', 0, cpNormal, True),
     wbString(MICO, 'Small Icon FileName')
-  ], [], cpNormal, False, True);
+  ]).SetUnordered;
 
   wbICONReq := wbRStruct('Icon', [
     wbString(ICON, 'Large Icon FileName', 0, cpNormal, True),
     wbString(MICO, 'Small Icon FileName')
-  ], [], cpNormal, True, True);
+  ]).SetUnordered
+    .SetRequired;
 
   wbICO2 := wbRStruct('Icon 2 (female)', [
     wbString(ICO2, 'Large Icon FileName', 0, cpNormal, True),
     wbString(MIC2, 'Small Icon FileName')
-  ], [], cpNormal, False, True);
+  ]).SetUnordered;
 
   wbVatsValueFunctionEnum :=
     wbEnum([
@@ -4281,8 +4285,8 @@ begin
     wbFormIDCk(XEZN, 'Encounter Zone', [ECZN]),
     wbFormIDCk(XCMO, 'Music Type', [MUSC]),
     wbFormIDCk(XCIM, 'Image Space', [IMGS])
-  ], True)
-    .SetAddInfo(wbCellAddInfo)
+  ]).SetAddInfo(wbCellAddInfo)
+    .SetUnordered
     .SetAfterLoad(wbCELLAfterLoad);
 
 
@@ -7143,7 +7147,7 @@ begin
     wbCITC,
     wbConditions,
     wbArray(SNAM, 'Tracks', wbFormIDCk('Track', [MUST, NULL]))
-  ], True);
+  ]).SetUnordered;
 
   wbRecord(DLVW, 'Dialog View', [
     wbEDID,
@@ -9869,8 +9873,8 @@ begin
     wbFormIDCk(XATR, 'Attach Ref', [REFR, PGRE, PHZD, PMIS, PARW, PBAR, PBEA, PCON, PFLA]),
     wbXLOD,
     wbVec3PosRot(DATA).SetRequired
-  ], True)
-    .SetAddInfo(wbPlacedAddInfo)
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered
     .SetAfterLoad(wbREFRAfterLoad);
 
   wbRecord(REGN, 'Region',
@@ -9961,7 +9965,7 @@ begin
       ])).SetDontShow(wbREGNWeatherDontShow)
 
     ]))
-  ], True);
+  ]).SetUnordered;
 
   wbRecord(SOUN, 'Sound Marker', [
     wbEDID,
@@ -10135,7 +10139,7 @@ begin
     wbByteArray(SCRN, 'Screenshot'),
     wbUnknown(INTV),
     wbInteger(INCC, 'Interior Cell Count', itU32).SetRequired
-  ], True, cpNormal, True);
+  ], cpNormal, True).SetUnordered;
 
   wbRecord(PLYR, 'Player Reference', [
     wbEDID,

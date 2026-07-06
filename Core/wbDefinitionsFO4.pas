@@ -3262,7 +3262,8 @@ begin
     wbXLOD,
     wbVec3PosRot(DATA).SetRequired,
     wbString(MNAM, 'Comments')
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 end;
 
 procedure DefineFO4;
@@ -4314,8 +4315,8 @@ begin
           wbModelInfo(DMDT),
           wbDMDC,
           wbDMDS
-        ], [], cpNormal, False, True)
-          .SetSummaryKey([0])
+        ]).SetSummaryKey([0])
+          .SetUnordered
           .IncludeFlag(dfCollapsed, wbCollapseModels),
         wbEmpty(DSTF, 'End Marker', cpNormal, True)
       ]).SetSummaryKey([0, 2])
@@ -4616,7 +4617,8 @@ begin
     wbEmpty(ONAM, 'Open by Default'),
     wbVec3PosRot(DATA).SetRequired,
     wbString(MNAM, 'Comments')
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 
   wbVatsValueFunctionEnum :=
     wbEnum([
@@ -5518,7 +5520,7 @@ begin
         wbEmpty(OBTF, 'Editor Only'),
         wbFULL,
         wbOBTSReq
-      ], [], cpNormal, False, True)
+      ]).SetUnordered
     ).SetCountPath(OBTE),
     wbEmpty(STOP, 'Marker', cpNormal, True)
   ]);
@@ -6084,7 +6086,8 @@ begin
         wbInteger('Combined Mesh', itU32, wbCombinedMeshIDToStr, wbCombinedMeshIDToInt)
       ]), wbCELLCombinedRefsCounter).SetAfterSet(wbCELLCombinedRefsAfterSet)
     ])
-  ], True).SetAddInfo(wbCellAddInfo);
+  ]).SetAddInfo(wbCellAddInfo)
+    .SetUnordered;
 
   wbRecord(CLAS, 'Class', [
     wbEDID,
@@ -11321,7 +11324,7 @@ begin
         ], cpNormal, True)
         .SetSummaryKeyOnValue([0, 1])
         .IncludeFlag(dfTerminator)
-      ], [], cpNormal, False, True)
+      ]).SetUnordered
     ),
     wbFloat(PTOP, 'Idle Chatter Time Min'),
     wbFloat(NTOP, 'Idle Chatter Time Max'),
@@ -11857,7 +11860,9 @@ begin
     wbXLOD, // not seen in FO4 vanilla files
     wbVec3PosRot(DATA).SetRequired,
     wbString(MNAM, 'Comments')
-  ], True).SetAddInfo(wbPlacedAddInfo).SetAfterLoad(wbREFRAfterLoad);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered
+    .SetAfterLoad(wbREFRAfterLoad);
 
   wbRecord(REGN, 'Region',
     wbFlags(wbFlagsList([
@@ -11947,9 +11952,8 @@ begin
 
       wbFloat(RLDM, 'LOD Display Distance Multiplier'),
       wbFloat(ANAM, 'Occlusion Accuracy Dist')
-
     ]))
-  ], True);
+  ]).SetUnordered;
 
   wbRecord(SOUN, 'Sound Marker', [
     wbEDID,
@@ -12079,7 +12083,7 @@ begin
       wbStringForward('Level 2', 260),
       wbStringForward('Level 3', 260)
     ])
-  ], True);  // unordered, NVNM can be before or after MNAM
+  ]).SetUnordered;  // unordered, NVNM can be before or after MNAM
 
   wbRecord(TES4, 'Main File Header',
     wbFlags(wbFlagsList([
@@ -12117,7 +12121,7 @@ begin
     ])).IncludeFlag(dfExcludeFromBuildRef),
     wbInteger(INTV, 'Unknown', itU32),                    // Ignored by the runtime, 4 bytes loaded in CK
     wbInteger(INCC, 'Interior Cell Count', itU32).SetRequired
-  ], True, cpNormal, True);
+  ], cpNormal, True).SetUnordered;
 
   wbRecord(PLYR, 'Player Reference', [
     wbEDID,

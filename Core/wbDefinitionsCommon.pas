@@ -8262,10 +8262,10 @@ begin
       wbRStructSK([0], 'Sound', [
         wbFormIDCk(CS2K, 'Keyword', [KYWD]),
         wbFormIDCk(CS2D, 'Sound', [SNDR]).SetRequired
-      ], [], cpNormal, False, True)
-        .SetSummaryDelimiter(' ')
+      ]).SetSummaryDelimiter(' ')
         .SetSummaryKey([1, 0])
         .SetSummaryMemberPrefixSuffix(0, '{', '}')
+        .SetUnordered
         .IncludeFlag(dfCollapsed, wbCollapseSounds)
         .IncludeFlag(dfSummaryMembersNoName)
         .IncludeFlag(dfSummaryNoSortKey)
@@ -8427,7 +8427,7 @@ begin
       wbRStruct('Icon', [
         wbString(ICON, 'Large Icon FileName').SetRequired,
         wbString(MICO, 'Small Icon FileName')
-      ], [], cpNormal, False, True)
+      ]).SetUnordered
   else if wbGameMode = gmFO3 then
     wbICON :=
       wbRStruct('Icon', [
@@ -8969,10 +8969,11 @@ begin
       IsTES4(
         wbFormIDCk(XGLB, 'Global', [GLOB]),
         nil)
-    ], aSkipSigs, cpNormal, False, True)
+    ], aSkipSigs)
       .SetSummaryKey([0, 1])
       .SetSummaryMemberPrefixSuffix(1, '[Rank: ', ']')
       .SetSummaryDelimiter(' ')
+      .SetUnordered
       .IncludeFlag(dfCollapsed, wbCollapseOwnership)
       .IncludeFlag(dfSummaryMembersNoName)
       .IncludeFlag(dfSummaryNoSortKey);
@@ -9121,8 +9122,9 @@ begin
     lMembers[Length(lMembers) - Length(aTextureSubRecords) + I] := aTextureSubRecords[I];
 
   Result :=
-    wbRStruct(aSubRecordName, lMembers, nil, cpNormal, False, True)
+    wbRStruct(aSubRecordName, lMembers)
       .SetSummaryKey([0])
+      .SetUnordered
       .IncludeFlag(dfAllowAnyMember)
       .IncludeFlag(dfCollapsed, wbCollapseModels)
       .IncludeFlag(dfStructFirstNotRequired)

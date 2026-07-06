@@ -4058,7 +4058,8 @@ begin
     wbXLOD,
     wbVec3PosRot(DATA).SetRequired,
     wbString(MNAM, 'Comments')
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 end;
 
 procedure DefineFO76;
@@ -5668,7 +5669,8 @@ begin
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired,
     wbString(MNAM, 'Comments')
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 
   wbVatsValueFunctionEnum :=
     wbEnum([
@@ -6868,7 +6870,8 @@ begin
         wbEmpty(DSTF, 'End Marker', cpNormal, True)
       ]).SetSummaryKey([0, 2])
         .IncludeFlag(dfSummaryMembersNoName))
-  ], [], cpNormal, False, True).IncludeFlag(dfAllowAnyMember);
+  ]).SetUnordered
+    .IncludeFlag(dfAllowAnyMember);
 
   wbReward := wbRStruct('Reward', [
     wbUnknown(CTRG),
@@ -6895,7 +6898,8 @@ begin
     wbConditions,
     wbFormIDCk(DNAM, 'Reward Record', [GMRW]),
     wbEmpty(ITME, 'Reward End Marker')
-  ], [], cpNormal, False, True).IncludeFlag(dfAllowAnyMember);
+  ]).SetUnordered
+    .IncludeFlag(dfAllowAnyMember);
 
   wbAttackData := wbRStructSK([1], 'Attack', [
     wbStruct(ATKD, 'Attack Data', [
@@ -7304,7 +7308,7 @@ begin
         wbEmpty(OBTF, 'Editor Only'),
         wbFULL,
         wbOBTSReq
-      ], [], cpNormal, False, True)
+      ]).SetUnordered
     ).SetCountPath(OBTE),
     wbEmpty(STOP, 'Marker', cpNormal, True)
   ]);
@@ -8060,7 +8064,8 @@ begin
     ]),
     wbFloat(CII0),
     wbFloat(CIDH)
-  ], True).SetAddInfo(wbCellAddInfo);
+  ]).SetAddInfo(wbCellAddInfo)
+    .SetUnordered;
 
   wbRecord(CLAS, 'Class', [
     wbEDID,
@@ -12454,7 +12459,8 @@ begin
     wbDIQO,
     wbByteRGBA(LIMC, 'Marker Color'),
     wbGenericModel
-  ], True).SetAfterLoad(wbLLEAfterLoad);
+  ]).SetUnordered
+    .SetAfterLoad(wbLLEAfterLoad);
 
   wbRecord(LVLP, 'Leveled Pack In', [
     wbEDID,
@@ -14353,7 +14359,7 @@ begin
         ], cpNormal, True)
         .SetSummaryKeyOnValue([0, 1])
         .IncludeFlag(dfTerminator)
-      ], [], cpNormal, False, True)
+      ]).SetUnordered
     ),
     wbFloat(PTOP, 'Idle Chatter Time Min'),
     wbFloat(NTOP, 'Idle Chatter Time Max'),
@@ -15029,8 +15035,8 @@ begin
     wbVec3PosRot(DATA).SetRequired,
     wbFormIDCk(SRGN, 'Sub-Region', [REGN]),
     wbString(MNAM, 'Comments')
-  ], True)
-    .SetAddInfo(wbPlacedAddInfo)
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered
     .SetAfterLoad(wbREFRAfterLoad);
 
   wbRecord(REGN, 'Region',
@@ -15190,7 +15196,7 @@ begin
       ])
     ])),
     wbInteger(RCBN, 'Region Can''t be Nuked', itU8, wbBoolEnum)
-  ], True);
+  ]).SetUnordered;
 
   wbRecord(SOUN, 'Sound Marker', [
     wbEDID,
@@ -15343,7 +15349,7 @@ begin
       wbStringForward('Level 2', 260),
       wbStringForward('Level 3', 260)
     ])
-  ], True); // unordered, NVNM can be before or after MNAM
+  ]).SetUnordered; // unordered, NVNM can be before or after MNAM
 
   wbRecord(TES4, 'Main File Header',
     wbFlags(wbFlagsList([
@@ -15382,7 +15388,7 @@ begin
     ])).IncludeFlag(dfExcludeFromBuildRef),          // Ignored by the runtime
     wbInteger(INTV, 'Unknown', itU32),                    // Ignored by the runtime, 4 bytes loaded in CK   Possibly a version
     wbInteger(INCC, 'Interior Cell Count', itU32).SetRequired
-  ], True, cpNormal, True);
+  ], cpNormal, True).SetUnordered;
 
   wbRecord(PLYR, 'Player Reference', [
     wbEDID,

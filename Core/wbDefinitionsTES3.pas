@@ -912,7 +912,7 @@ begin
         wbStringForward(MAST, 'Filename').SetRequired,
         wbInteger(DATA, 'Master Size', itU64, nil, cpIgnore, True)
     ])).IncludeFlag(dfInternalEditOnly, not wbAllowMasterFilesEdit)
-  ], False, cpNormal, True)
+  ], cpNormal, True)
     .SetGetFormIDCallback(function(const aMainRecord: IwbMainRecord; out aFormID: TwbFormID): Boolean begin
        Result := True;
        aFormID := TwbFormID.Null;
@@ -1585,7 +1585,7 @@ begin
       wbInteger(QSTN, 'Quest Named', itU8, wbBoolEnum).SetDefaultNativeValue(1),
       wbInteger(QSTF, 'Quest Finished', itU8, wbBoolEnum).SetDefaultNativeValue(1),
       wbInteger(QSTR, 'Quest Restarted', itU8, wbBoolEnum).SetDefaultNativeValue(1)
-    ], [], cpNormal, False, True),
+    ]).SetUnordered,
     wbString(BNAM, 'Result')
   ]).SetFormIDBase($90);
 
@@ -2151,7 +2151,7 @@ begin
       wbString(BNAM, 'Global Variable'), //[GLOB]
       wbString(CNAM, 'Faction Owner'), //[FACT]
       wbInteger(INDX, 'Faction Rank', itU32)
-    ], [], cpNormal, False, True),
+    ]).SetUnordered,
     wbFloat(XCHG, 'Enchantment Charge', cpNormal, False, 1, 0),
     wbString(XSOL, 'Soul'), //[CREA]
     wbInteger(INTV, 'Health', itU32),
@@ -2164,7 +2164,7 @@ begin
       wbInteger(FLTV, 'Lock Level', itU32).SetRequired,
       wbString(KNAM, 'Key'), //[MISC]
       wbString(TNAM, 'Trap') //[ENCH]
-    ], [], cpNormal, False, True),
+    ]).SetUnordered,
     wbDeleted,
     wbVec3PosRot(DATA, 'Reference Data')
   ]).SetGetFormIDCallback(function(const aMainRecord: IwbMainRecord; out aFormID: TwbFormID): Boolean begin

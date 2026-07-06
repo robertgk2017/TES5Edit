@@ -1561,7 +1561,7 @@ begin
         wbStringForward(MAST, 'Filename').SetRequired,
         wbUnused(DATA, 8).SetRequired
       ])).IncludeFlag(dfInternalEditOnly, not wbAllowMasterFilesEdit)
-  ], False, cpNormal, True);
+  ], cpNormal, True);
 
   wbRefRecord(ACHR, 'Placed NPC',
     wbFlags(wbFlagsList([
@@ -1582,8 +1582,9 @@ begin
     wbRagdoll,
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired
-  ], True).SetAddInfo(wbPlacedAddInfo)
-          .SetAfterLoad(wbREFRAfterLoad);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered
+    .SetAfterLoad(wbREFRAfterLoad);
 
   wbRefRecord(ACRE, 'Placed Creature',
     wbFlags(wbFlagsList([
@@ -1599,7 +1600,8 @@ begin
     wbXESP,
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 
   wbRecord(ACTI, 'Activator',
     wbFlags(wbFlagsList([
@@ -1744,7 +1746,7 @@ begin
       wbInteger('Value', itU32),
       wbFloat('Weight')
     ]).SetRequired
-  ], True);
+  ]).SetUnordered;
 
   wbRecord(BSGN, 'Birthsign', [
     wbEDID.SetRequired,
@@ -1823,8 +1825,9 @@ begin
       wbInteger('Y', itS32)
     ]).SetDontShow(wbCellInteriorDontShow)
       .SetIsRemovable(wbCellGridIsRemovable)
-  ], True).SetAddInfo(wbCellAddInfo)
-          .SetAfterLoad(wbCELLAfterLoad);
+  ]).SetAddInfo(wbCellAddInfo)
+    .SetUnordered
+    .SetAfterLoad(wbCELLAfterLoad);
 
   wbRecord(CLAS, 'Class', [
     wbEDID.SetRequired,
@@ -2045,7 +2048,7 @@ begin
         ])),
         wbSoundTypeSounds
       ]))
-  ], True);
+  ]).SetUnordered;
 
   wbRecord(CSTY, 'Combat Style', [
     wbEDID,
@@ -2626,8 +2629,9 @@ begin
     ),
     wbSCRI,
     wbFormIDCk(TNAM, 'Creature template', [CREA, NPC_])
-  ], True).SetSummaryKey([3])
-          .SetAfterLoad(wbLVLAfterLoad);
+  ]).SetSummaryKey([3])
+    .SetUnordered
+    .SetAfterLoad(wbLVLAfterLoad);
 
   wbRecord(LVLI, 'Leveled Item', [
     wbEDID,
@@ -2861,7 +2865,7 @@ begin
     wbFormIDCk(ZNAM, 'Combat Style', [CSTY]),
     wbFaceGen,
     wbByteArray(FNAM, 'Unknown', 2, cpBenign).SetRequired
-  ], True);
+  ]).SetUnordered;
 
   wbRecord(PACK, 'Package',
     wbFlags(wbFlagsList([
@@ -3140,7 +3144,7 @@ begin
     wbArrayS(ENAM, 'Eyes', wbFormIDCk('Eye', [EYES])).SetRequired,
     wbFaceGen,
     wbByteArray(SNAM, 'Unknown', 2).SetRequired
-  ], True);
+  ]).SetUnordered;
 
   wbRefRecord(REFR, 'Placed Object',
     wbFlags(wbFlagsList([
@@ -3225,8 +3229,9 @@ begin
     IsTES4R(wbGUID(XAAG), nil),
     IsTES4R(wbStringForward(XACN, 'Unknown', 128).IncludeFlag(dfHasZeroTerminator), nil),
     wbVec3PosRot(DATA).SetRequired
-  ], True).SetAddInfo(wbPlacedAddInfo)
-          .SetAfterLoad(wbREFRAfterLoad);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered
+    .SetAfterLoad(wbREFRAfterLoad);
 
   wbRecord(REGN, 'Region',
     wbFlags(wbFlagsList([
@@ -3304,8 +3309,9 @@ begin
             wbInteger('Chance', itU32)
           ]))
       ]))
-  ], True).SetSummaryKey([3, 4])
-          .IncludeFlag(dfSummaryMembersNoName);
+  ]).SetSummaryKey([3, 4])
+    .SetUnordered
+    .IncludeFlag(dfSummaryMembersNoName);
 
   wbRecord(ROAD, 'Road', [
     wbPGRP,

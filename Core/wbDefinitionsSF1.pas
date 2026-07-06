@@ -3889,8 +3889,8 @@ begin
 //          wbModelInfo(DMDT),
 //          wbDMDC,
           wbDMDS.IncludeFlagOnValue(dfSummaryExcludeNULL)
-        ], [], cpNormal, False, True)
-          .SetSummaryKey([0])
+        ]).SetSummaryKey([0])
+          .SetUnordered
           .IncludeFlag(dfCollapsed, wbCollapseModels),
         wbEmpty(DSTF, 'End Marker').SetRequired
       ]).SetSummaryKey([0, 2])
@@ -7118,7 +7118,8 @@ begin
         wbVec3PosRot(DATA).SetRequired,
         wbUnknown(XLTW),
         wbString(MNAM, 'Comments')
-      ], True).SetAddInfo(wbPlacedAddInfo);
+      ]).SetAddInfo(wbPlacedAddInfo)
+        .SetUnordered;
     end;
 
 {>>>
@@ -8531,7 +8532,8 @@ begin
     wbXSCL,
     wbVec3PosRot(DATA).SetRequired,
     wbString(MNAM, 'Comments')
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 
   {subrecords checked against Starfield.esm}
   wbRefRecord(REFR, 'Placed Object',
@@ -9043,7 +9045,8 @@ begin
     wbUnknown(XLTW),
     wbVec3PosRot(DATA).SetRequired,
     wbString(MNAM, 'Comments')
-  ], True).SetAddInfo(wbPlacedAddInfo);
+  ]).SetAddInfo(wbPlacedAddInfo)
+    .SetUnordered;
 
   {subrecords checked against Starfield.esm}
   wbRecord(TES4, 'Main File Header',
@@ -9084,7 +9087,7 @@ begin
     wbInteger(INTV, 'Unknown', itU32),                                // Ignored by the runtime, 4 bytes loaded in CK
     wbInteger(INCC, 'Interior Cell Count', itU32).SetRequired,
     wbUnknown(CHGL)
-  ], True, cpNormal, True);
+  ], cpNormal, True).SetUnordered;
 
   {subrecords checked against Starfield.esm}
   wbRecord(AACT, 'Action',
@@ -10742,7 +10745,8 @@ begin
     wbString(XEMP, 'Environment Map'),
 
     wbXTV2
-  ], True).SetAddInfo(wbCellAddInfo);
+  ]).SetAddInfo(wbCellAddInfo)
+    .SetUnordered;
 
   {subrecords checked against Starfield.esm}
   wbRecord(CHAL, 'Challenge',
@@ -16772,8 +16776,8 @@ begin
         ], cpNormal, True)
         .SetSummaryKeyOnValue([0, 1])
         .IncludeFlag(dfTerminator)
-      ], [], cpNormal, False, True)
-      .IncludeFlag(dfAllowAnyMember)
+      ]).SetUnordered
+        .IncludeFlag(dfAllowAnyMember)
     ),
     wbFloat(PTOP, 'Idle Chatter Time Min'),
     wbFloat(NTOP, 'Idle Chatter Time Max'),
@@ -16845,7 +16849,7 @@ begin
         wbFormIDCk('Global', [GLOB, NULL])
       ])).SetDontShow(wbREGNWeatherDontShow)
     ]))
-  ], True);
+  ]).SetUnordered;
 
   wbRecord(RELA, 'Relationship', [
     wbEDID,
@@ -17891,7 +17895,7 @@ begin
       .SetRequired,
     wbSoundReference(STLS, 'Ambient Sound'),
     wbNVNM
-  ], False);
+  ]);
 
   wbRecord(STBH, 'Snap Template Behavior', [
     wbEDID,
