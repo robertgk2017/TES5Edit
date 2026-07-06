@@ -5718,7 +5718,6 @@ type
     recSummaryDelimiter   : string;
     recIgnoreList         : TwbSignatures;
     recBuildIndexKeys     : TwbBuildIndexKeysCallback;
-    recAllowUnordered     : Boolean;
 
     procedure recBuildReferences;
   protected
@@ -9907,7 +9906,6 @@ begin
   with aSource as TwbMainRecordDef do
   begin
     Self.recAddInfoCallback := recAddInfoCallback;
-    Self.recAllowUnordered := recAllowUnordered;
     Self.recBuildIndexKeys := recBuildIndexKeys;
     Self.recFormIDBase := recFormIDBase;
     Self.recFormIDNameBase := recFormIDNameBase;
@@ -10000,8 +9998,6 @@ begin
 
   recRecordFlags := aRecordFlags;
   recQuickInitLimit := -1;
-  if recAllowUnordered then
-    Include(recDefFlags, rdfAllowUnordered);
 
   if Assigned(recRecordFlags) and Assigned(wbRecordFlags) and Assigned(wbMainRecordHeader) then begin
     recRecordHeaderStruct := (wbMainRecordHeader as IwbDefInternal).SetParent(Self, True) as IwbStructDef;
@@ -10009,8 +10005,6 @@ begin
   end;
 
   recSignatures := TwbFastStringListCS.CreateSorted(dupAccept);
-  if recAllowUnordered then
-    recSignatures.Duplicates := dupError;
 
   SetLength(recMembers, Length(aMembers));
   var NewLength : Integer := 0;
@@ -10405,7 +10399,8 @@ begin
     Exit(TwbMainRecordDef(Duplicate).SetUnordered(aUnordered));
 
   Result := Self;
-  recAllowUnordered := aUnordered;
+  Include(recDefFlags, rdfAllowUnordered);
+  recSignatures.Duplicates := dupError;
 end;
 
 function TwbMainRecordDef.ShouldIgnore(const aSignature: TwbSignature): Boolean;
