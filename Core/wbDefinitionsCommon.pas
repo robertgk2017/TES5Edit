@@ -625,8 +625,6 @@ function wbHEDR                       : IwbRecordMemberDef;
 function wbINOA                       : IwbRecordMemberDef;
 function wbINOM                       : IwbRecordMemberDef;
 function wbIdleAnimation              : IwbRecordMemberDef;
-function wbKWDAs                      : IwbRecordMemberDef;
-function wbKeywords                   : IwbRecordMemberDef;
 function wbLandColors                 : IwbRecordMemberDef;
 function wbLandHeights                : IwbRecordMemberDef;
 function wbLandLayers                 : IwbRecordMemberDef;
@@ -690,6 +688,11 @@ function wbHeadPart(const aHeadPartIndexEnum : IwbEnumDef = nil;
                     const aModel             : IwbRecordMemberDef = nil;
                     const aHeadPartsAfterSet : TwbAfterSetCallback = nil)
                                              : IwbRecordMemberDef;
+
+function wbKeywords(const aName    : string = 'Keywords';
+                    const aCounter : Boolean = True)
+                                   : IwbRecordMemberDef;
+
 
 function wbLeveledListEntry(const aObjectName : string;
                             const aSigs       : TwbSignatures)
@@ -8551,18 +8554,16 @@ begin
     ]);
 end;
 
-function wbKWDAs: IwbRecordMemberDef;
+function wbKeywords(const aName    : string = 'Keywords';
+                    const aCounter : Boolean = True)
+                                   : IwbRecordMemberDef;
 begin
   Result :=
-    wbArrayS(KWDA, 'Keywords',
-      wbFormIDCk('Keyword', [KYWD, NULL]));
-end;
-
-function wbKeywords :IwbRecordMemberDef;
-begin
-  Result :=
-    wbRStruct('Keywords', [
-      wbInteger(KSIZ, 'Keyword Count', itU32, nil, cpBenign).IncludeFlag(dfSkipImplicitEdit),
+    wbRStruct(aName, [
+      IfThen(aCounter,
+        wbInteger(KSIZ, 'Keyword Count', itU32, nil, cpBenign).IncludeFlag(dfSkipImplicitEdit),
+        nil
+      ),
       wbArrayS(KWDA, 'Keywords',
         wbFormIDCk('Keyword', [KYWD,NULL])
       ).SetCountPathOnValue(KSIZ, False)

@@ -5516,7 +5516,7 @@ begin
     wbVMAD,
     wbXALG,
     wbFormIDCk(NAME, 'Base', [NPC_], False, cpNormal, True),
-    wbKWDAs,
+    wbKeywords('Keywords', False),
     wbXEZN,
 
     {--- Ragdoll ---}
@@ -14484,7 +14484,7 @@ begin
     wbVMAD,
     wbXALG,
     wbFormIDCk(NAME, 'Base', sigBaseObjects, False, cpNormal, True),
-    wbKWDAs,
+    wbKeywords('Keywords', False),
     {--- Bound Contents ---}
     {--- Bound Data ---}
     wbVec3(XMBO, 'Bound Half Extents'),

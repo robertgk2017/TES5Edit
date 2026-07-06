@@ -12431,7 +12431,7 @@ begin
       wbLStringKC(RESN, 'Name'),
       wbFloat(VORN, 'Reward Value')
     ]),
-    wbKWDAs
+    wbKeywords('Keywords', False)
   ]);
 
   wbRecord(GPOG, 'Gameplay Options Group',
@@ -15784,7 +15784,7 @@ begin
     wbRArray('Nodes', wbFormIDCk(PCCB, 'Node', [PCBN, PCCN])),
     wbCITCReq,
     wbConditions,
-    wbKWDAs,
+    wbKeywords('Keywords', False),
     wbFormIDCk(PRTN, 'Parent Node', [PCBN, PCMT, NULL]),
     wbFormIDCk(PRVN, 'Previous Node', [PCBN, NULL])
   ]);
@@ -15795,7 +15795,7 @@ begin
     wbBaseFormComponents,
     wbFormIDCk(PCCC, 'Content', [WRLD, LVLP, PKIN], False, cpNormal, True),
     wbEmpty(IOVR, 'Override Content Placement Properties and Conditions'),
-    wbKWDAs,
+    wbKeywords('Keywords', False),
     wbFormIDCk(PRTN, 'Parent Node', [PCBN, NULL]),
     wbFormIDCk(PRVN, 'Previous Node', [PCCN, NULL])
   ]);
@@ -15827,7 +15827,7 @@ begin
     wbRArray('Nodes', wbFormIDCk(PCCB, 'Node', [PCBN])),
     wbCITCReq,
     wbConditions,
-    wbKWDAs
+    wbKeywords('Keywords', False)
   ]);
 
   {subrecords checked against Starfield.esm}
