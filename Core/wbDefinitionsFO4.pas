@@ -7678,11 +7678,14 @@ begin
     wbStruct(DATA, 'Data', [
       wbInteger('Trait', itU8, wbBoolEnum),
       wbInteger('Level', itU8),
-      wbInteger('Num Ranks', itU8).SetDefaultEditValue('1'),
+      wbInteger('Num Ranks', itU8)
+        .SetAfterLoad(wbPERKNumRanksAfterLoad)
+        .SetAfterSet(wbPERKNumRanksAfterSet)
+        .SetDefaultNativeValue(1),
       wbFromSize(4, wbInteger('Playable', itU8, wbBoolEnum)
         .SetDefaultEditValue('True')),
       wbFromSize(5, wbInteger('Hidden', itU8, wbBoolEnum))
-    ], cpNormal, True),
+    ]).SetRequired,
     wbFormIDCk(SNAM, 'Sound', [SNDR]),
     wbFormIDCK(NNAM, 'Next Perk', [PERK, NULL]),
     wbString(FNAM, 'SWF'),

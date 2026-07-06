@@ -44,6 +44,7 @@ procedure wbDOBJObjectsAfterLoad       (const aElement: IwbElement);
 procedure wbMESGAfterLoad              (const aElement: IwbElement);
 procedure wbPACKDateAfterLoad          (const aElement: IwbElement);
 procedure wbPACKDataBoolAfterLoad      (const aElement: IwbElement);
+procedure wbPERKNumRanksAfterLoad      (const aElement: IwbElement);
 procedure wbPNDTAfterLoad              (const aElement: IwbElement);
 procedure wbRecipeCategoryDataAfterLoad(const aElement: IwbElement);
 procedure wbRPLDAfterLoad              (const aElement: IwbElement);
@@ -62,6 +63,7 @@ procedure wbIdleMarkerQNAMAfterSet                (const aElement: IwbElement; c
 procedure wbMESGDNAMAfterSet                      (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbPACKDataInputTypeAfterSet             (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbPACKDateAfterSet                      (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
+procedure wbPERKNumRanksAfterSet                  (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbPERKPRKETypeAfterSet                  (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbPERKPRUCAfterSet                      (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 procedure wbSceneActionTypeAfterSet               (const aElement: IwbElement; const aOldValue, aNewValue: Variant);
@@ -1021,6 +1023,20 @@ begin
   end;
 end;
 
+procedure wbPERKNumRanksAfterLoad(const aElement: IwbElement);
+begin
+  if not Assigned(aElement) then
+    Exit;
+
+  if wbBeginInternalEdit then
+  try
+    if aElement.NativeValue = 0 then
+      aElement.NativeValue := 1;
+  finally
+    wbEndInternalEdit;
+  end;
+end;
+
 procedure wbPNDTAfterLoad(const aElement: IwbElement);
 begin
   if not Assigned(aElement) then
@@ -1409,6 +1425,23 @@ begin
       aElement.NativeValue := lMaxDate;
     if aElement.NativeValue < 0 then
       aElement.NativeValue := 0;
+  finally
+    wbEndInternalEdit;
+  end;
+end;
+
+procedure wbPERKNumRanksAfterSet(const aElement: IwbElement; const aOldValue, aNewValue: Variant);
+begin
+  if not Assigned(aElement) then
+    Exit;
+
+  if VarSameValue(aOldValue, aNewValue) then
+    Exit;
+
+  if wbBeginInternalEdit then
+  try
+    if aElement.NativeValue = 0 then
+      aElement.NativeValue := 1;
   finally
     wbEndInternalEdit;
   end;

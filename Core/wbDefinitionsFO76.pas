@@ -266,7 +266,6 @@ var
   wbXATP: IwbSubRecordDef;
   wbXWPK: IwbSubRecordStructDef;
   wbWaterData: IwbSubRecordStructDef;
-  wbPERKData: IwbRecordMemberDef;
   wbPerkEffect: IwbSubRecordStructDef;
   wbReward: IwbRecordMemberDef;
   wbCTRN: IwbSubRecordDef;
@@ -4109,17 +4108,6 @@ begin
     wbInteger('Actor Value', itU32, wbActorValueEnum),
     wbFormIDCkNoReach('Actor Value', [AVIF, NULL])
   ]);
-
-  wbPERKData :=
-    wbStruct(DATA, 'Data', [
-      wbFromSize(5, wbInteger('Trait', itU8, wbBoolEnum)),
-      wbFromSize(5, wbInteger('Level', itU8)),
-      wbFromSize(5, wbInteger('Num Ranks', itU8)),
-      wbInteger('Playable', itU8, wbBoolEnum),
-      wbInteger('Hidden', itU8, wbBoolEnum),
-      wbByteArray('Unknown', 1)
-    ]).SetOptionalFrom(6)
-      .SetRequired;
 
   wbCOED := wbStructExSK(COED, [2], [0, 1], 'Extra Data', [
     {00} wbFormIDCkNoReach('Owner', [NPC_, FACT, NULL]),
@@ -9830,7 +9818,18 @@ begin
     wbDESCReq,
     wbString(ICON, 'Image'),
     wbConditions,
-    wbPERKData,
+    wbStruct(DATA, 'Data', [
+      wbFromSize(5, wbInteger('Trait', itU8, wbBoolEnum)),
+      wbFromSize(5, wbInteger('Level', itU8)),
+      wbFromSize(5, wbInteger('Num Ranks', itU8)
+        .SetAfterLoad(wbPERKNumRanksAfterLoad)
+        .SetAfterSet(wbPERKNumRanksAfterSet)
+        .SetDefaultNativeValue(1)),
+      wbInteger('Playable', itU8, wbBoolEnum),
+      wbInteger('Hidden', itU8, wbBoolEnum),
+      wbUnknown(1)
+    ]).SetOptionalFrom(6)
+      .SetRequired,
     wbFormIDCk(SNAM, 'Sound', [SNDR]),
     wbFormIDCk(PRFS, 'Perk Activation Sound', [SNDR]),
     wbFormIDCK(NNAM, 'Next Perk', [PERK, NULL]),
