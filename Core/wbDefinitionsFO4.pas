@@ -5689,6 +5689,7 @@ begin
       29, 'Medicine'
     ])), [
     wbEDID,
+    wbVMAD,
     wbObjectBounds,
     wbPTRN,
     wbFULL,

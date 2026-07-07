@@ -7555,6 +7555,7 @@ begin
       {0x20000000} 29, 'Medicine'
     ])), [
     wbEDID,
+    wbVMAD,
     wbObjectBounds,
     wbOPDSs,
     wbPTRN,
