@@ -9907,6 +9907,7 @@ begin
   begin
     Self.recAddInfoCallback := recAddInfoCallback;
     Self.recBuildIndexKeys := recBuildIndexKeys;
+    Self.recDefFlags := recDefFlags;
     Self.recFormIDBase := recFormIDBase;
     Self.recFormIDNameBase := recFormIDNameBase;
     Self.recGetEditorIDCallback := recGetEditorIDCallback;
