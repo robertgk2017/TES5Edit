@@ -3997,6 +3997,7 @@ begin
       2, 'Non-Playable'
     ])), [
     wbEDID,
+    wbVMAD,
     wbObjectBounds,
     wbFULL,
     wbGenericModel,
@@ -10026,6 +10027,7 @@ begin
 
   wbRecord(SCRL, 'Scroll', [
     wbEDID,
+    wbVMAD,
     wbObjectBounds,
     wbFULL,
     wbKeywords,

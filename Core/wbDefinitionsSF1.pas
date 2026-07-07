@@ -17424,6 +17424,7 @@ begin
 
   wbRecord(SCRL, 'Scroll', [
     wbEDID,
+    wbVMAD,
     wbObjectBounds,
     wbODTYReq,
     wbBaseFormComponents,

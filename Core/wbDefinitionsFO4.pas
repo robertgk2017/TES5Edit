@@ -5739,6 +5739,7 @@ begin
       2, 'Non-Playable'
     ])), [
     wbEDID,
+    wbVMAD,
     wbObjectBounds,
     wbPTRN,
     wbFULL,

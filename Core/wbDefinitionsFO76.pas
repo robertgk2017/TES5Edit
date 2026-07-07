@@ -7616,6 +7616,7 @@ begin
       {0x00000004}  2, 'Non-Playable'
     ])), [
     wbEDID,
+    wbVMAD,
     wbObjectBounds,
     wbOPDSs,
     wbPTRN,
