@@ -3219,7 +3219,7 @@ begin
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbDEST,
@@ -3244,7 +3244,7 @@ begin
     ]), [17]), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbDEST,
@@ -3951,7 +3951,7 @@ begin
       29, 'Medicine'
     ])), [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbKeywords,
     wbDESC,
@@ -3996,7 +3996,7 @@ begin
       2, 'Non-Playable'
     ])), [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbICON,
@@ -4049,7 +4049,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbEnchantment,
     wbRStruct('Male', [
@@ -4128,7 +4128,7 @@ begin
   wbRecord(BOOK, 'Book', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbICON,
@@ -4411,7 +4411,7 @@ begin
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbCOCT,
@@ -4825,7 +4825,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbDEST,
@@ -5000,7 +5000,7 @@ begin
 
   wbRecord(ENCH, 'Enchantment', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbStruct(ENIT, 'Effect Data', [
       wbInteger('Enchantment Cost', itS32),
@@ -5128,7 +5128,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbDEST,
@@ -5247,7 +5247,7 @@ begin
 
   wbRecord(TXST, 'Texture Set', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbRStruct('Textures (RGB/A)', [
       wbString(TX00,'Diffuse'),
       wbString(TX01,'Normal/Gloss'),
@@ -5314,7 +5314,7 @@ begin
 
   wbRecord(ASPC, 'Acoustic Space', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbFormIDCk(SNAM, 'Ambient Sound', [SNDR]),
     wbFormIDCk(RDAT, 'Use Sound from Region (Interiors Only)', [REGN]),
     wbFormIDCk(BNAM, 'Environment Type (reverb)', [REVB])
@@ -5336,7 +5336,7 @@ begin
        .SetFlagHasDontShow(27, wbFlagNavmeshBoundingBoxDontShow)
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbDEST,
@@ -5355,14 +5355,14 @@ begin
     29, 'Child Can Use'
     ])), [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbIdleAnimation,
     wbGenericModel
   ]);
 
   wbRecord(PROJ, 'Projectile', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbDEST,
@@ -5423,7 +5423,7 @@ begin
 
   wbRecord(HAZD, 'Hazard', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbFormIDCk(MNAM, 'Image Space Modifier', [IMAD, NULL]),
@@ -5452,7 +5452,7 @@ begin
       17, 'Can Hold NPC Soul'
     ])), [
     wbEDID,
-    wbOBND,
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbICON,
@@ -5678,7 +5678,7 @@ begin
    wbRecord(EXPL, 'Explosion', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbEnchantment,
@@ -6079,7 +6079,7 @@ begin
 
   wbRecord(ADDN, 'Addon Node', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel,
     wbInteger(DATA, 'Index', itU32).SetRequired,
     wbFormIDCk(SNAM, 'Sound', [SNDR,NULL]),
@@ -7446,7 +7446,7 @@ begin
 
   wbRecord(ARTO, 'Art Object', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel,
     wbInteger(DNAM, 'Art Type', itU32, wbEnum([
       'Magic Casting',
@@ -7543,7 +7543,7 @@ begin
 
   wbRecord(DUAL, 'Dual Cast Data', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbStruct(DATA, 'Data', [
       wbFormIDCk('Projectile', [PROJ, NULL]),
       wbFormIDCk('Explosion', [EXPL, NULL]),
@@ -7667,7 +7667,7 @@ begin
 
   wbRecord(GRAS, 'Grass', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel,
     wbStruct(DATA, '', [
       wbInteger('Density', itU8),
@@ -7836,7 +7836,7 @@ begin
   wbRecord(INGR, 'Ingredient', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbKeywords,
     wbGenericModel,
@@ -7872,7 +7872,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULLReq,
     wbGenericModel,
     wbICON,
@@ -7918,7 +7918,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel,
     wbDEST,
     wbFULL.SetDontShow(wbLIGHCarryDontShow),
@@ -8017,7 +8017,7 @@ begin
 
   wbRecord(LVLN, 'Leveled NPC', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbLVLD,
     wbInteger(LVLF, 'Flags', itU8, wbFlags([
       {0x01} 'Calculate from all levels <= player''s level',
@@ -8037,7 +8037,7 @@ begin
 
   wbRecord(LVLI, 'Leveled Item', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbLVLD,
     wbInteger(LVLF, 'Flags', itU8, wbFlags([
       {0x01} 'Calculate from all levels <= player''s level',
@@ -8058,7 +8058,7 @@ begin
 
    wbRecord(LVSP, 'Leveled Spell', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbLVLD,
     wbInteger(LVLF, 'Flags', itU8, wbFlags([
       {0x01} 'Calculate from all levels <= player''s level',
@@ -8235,7 +8235,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbICON,
@@ -8252,7 +8252,7 @@ begin
   wbRecord(APPA, 'Alchemical Apparatus', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbICON,
@@ -8297,7 +8297,7 @@ begin
     ]), [18]), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbStruct(ACBS, 'Configuration', [
       wbInteger('Flags', itU32, wbFlags([
         {0x00000001} 'Female',
@@ -9972,7 +9972,7 @@ begin
 
   wbRecord(SOUN, 'Sound Marker', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbUnknown(FNAM, cpIgnore), // leftover, unused
     wbUnknown(SNDD, cpIgnore), // leftover, unused
     wbFormIDCk(SDSC, 'Sound Descriptor', [SNDR]).SetRequired
@@ -9980,7 +9980,7 @@ begin
 
   wbRecord(SPEL, 'Spell', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbKeywords,
     wbMDOB,
@@ -10025,7 +10025,7 @@ begin
 
   wbRecord(SCRL, 'Scroll', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbKeywords,
     wbMDOB,
@@ -10092,7 +10092,7 @@ begin
        .SetFlagHasDontShow(27, wbFlagNavmeshBoundingBoxDontShow)
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel,
     wbStruct(DNAM, 'Direction Material', [
       wbFloat('Max Angle (30-120)').SetDefaultNativeValue(90),
@@ -10156,7 +10156,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel,
     wbFormIDCK(PFIG, 'Ingredient', [INGR, ALCH, MISC, LVLI, NULL]),
     wbFormIDCK(SNAM, 'Harvest Sound', [SNDR,NULL]),
@@ -10186,7 +10186,7 @@ begin
   wbRecord(FLOR, 'Flora', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULLReq,
     wbGenericModel,
     wbDEST,
@@ -10434,7 +10434,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbICON,
@@ -10736,7 +10736,7 @@ begin
 
   wbRecord(SCOL, 'Static Collection', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel(True),
     wbRArray('Parts', wbStaticPart)
   ]);

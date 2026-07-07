@@ -5630,7 +5630,7 @@ begin
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbSTCP,
     wbFULL,
@@ -5673,7 +5673,7 @@ begin
     ]), [17]), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbDEST,
@@ -5689,7 +5689,7 @@ begin
       29, 'Medicine'
     ])), [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbFULL,
     wbKeywords,
@@ -5738,7 +5738,7 @@ begin
       2, 'Non-Playable'
     ])), [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbFULL,
     wbGenericModel,
@@ -5786,7 +5786,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbFULL,
     wbEnchantment,
@@ -5885,7 +5885,7 @@ begin
   wbRecord(BOOK, 'Book', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbFULL,
     wbGenericModel,
@@ -6176,7 +6176,7 @@ begin
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbFULL,
     wbGenericModel,
@@ -6473,7 +6473,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbFULL,
     wbGenericModel,
@@ -6715,7 +6715,7 @@ begin
 
   wbRecord(ENCH, 'Enchantment', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbStruct(ENIT, 'Effect Data', [
       wbInteger('Enchantment Cost', itS32),
@@ -6850,7 +6850,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbFULL,
     wbGenericModel,
@@ -6973,7 +6973,7 @@ begin
 
   wbRecord(TXST, 'Texture Set', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbRStruct('Textures (RGB/A)', [
       wbString(TX00, 'Diffuse'),
       wbString(TX01, 'Normal/Gloss'),
@@ -7046,7 +7046,7 @@ begin
 
   wbRecord(ASPC, 'Acoustic Space', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbFormIDCk(SNAM, 'Looping Sound', [SNDR]),
     wbFormIDCk(RDAT, 'Use Sound from Region (Interiors Only)', [REGN]),
     wbFormIDCk(BNAM, 'Environment Type', [REVB]),
@@ -7072,7 +7072,7 @@ begin
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbFULL,
     wbGenericModel,
@@ -7090,7 +7090,7 @@ begin
     29, 'Child Can Use'
     ])), [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbKeywords,
     wbIdleAnimation.SetRequired,
     wbGenericModel,
@@ -7104,7 +7104,7 @@ begin
 
   wbRecord(PROJ, 'Projectile', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbDEST,
@@ -7169,7 +7169,7 @@ begin
 
   wbRecord(HAZD, 'Hazard', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel  ,
     wbFormIDCk(MNAM, 'Image Space Modifier', [IMAD, NULL]),
@@ -7323,7 +7323,7 @@ begin
 
   wbRecord(EXPL, 'Explosion', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbEnchantment,
@@ -7797,7 +7797,7 @@ begin
 
   wbRecord(ADDN, 'Addon Node', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel,
     wbInteger(DATA, 'Index', itU32)
       .SetDefaultEditValue('284')
@@ -9363,7 +9363,7 @@ begin
 
   wbRecord(ARTO, 'Art Object', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbKeywords,
     wbGenericModel,
@@ -9453,7 +9453,7 @@ begin
 
   wbRecord(DUAL, 'Dual Cast Data', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbStruct(DATA, 'Data', [
       wbFormIDCk('Projectile', [PROJ, NULL]),
       wbFormIDCk('Explosion', [EXPL, NULL]),
@@ -9613,7 +9613,7 @@ begin
 
   wbRecord(GRAS, 'Grass', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel,
     wbStruct(DATA, '', [
       wbInteger('Density', itU8).SetDefaultEditValue('30'),
@@ -9790,7 +9790,7 @@ begin
   wbRecord(INGR, 'Ingredient', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbFULL,
     wbKeywords,
@@ -9829,7 +9829,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbFULLReq,
     wbGenericModel,
@@ -9879,7 +9879,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbGenericModel,
     wbKeywords,
@@ -9987,7 +9987,7 @@ begin
 
   wbRecord(LVLN, 'Leveled NPC', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbLVLD,
     wbInteger(LVLM, 'Max Count', itU8), { Always 00 } {Unavailable}
     wbInteger(LVLF, 'Flags', itU8, wbFlags([
@@ -10010,7 +10010,7 @@ begin
 
   wbRecord(LVLI, 'Leveled Item', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbLVLD,
     wbInteger(LVLM, 'Max Count', itU8), { Always 00 }
     wbInteger(LVLF, 'Flags', itU8, wbFlags([
@@ -10034,7 +10034,7 @@ begin
 
   wbRecord(LVSP, 'Leveled Spell', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbLVLD,
     wbInteger(LVLM, 'Max Count', itU8), { Always 00 }
     wbInteger(LVLF, 'Flags', itU8, wbFlags([
@@ -10218,7 +10218,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbFULL,
     wbGenericModel,
@@ -10294,7 +10294,7 @@ begin
     ]), [18]), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbSTCP,
     wbStruct(ACBS, 'Configuration', [
@@ -11960,7 +11960,7 @@ begin
 
   wbRecord(SOUN, 'Sound Marker', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbFormIDCk(SDSC, 'Sound Descriptor', [SNDR]).SetRequired,
     wbStruct(REPT, 'Repeat', [
       wbFloat('Min Time'),
@@ -12029,7 +12029,7 @@ begin
 
   wbRecord(SPEL, 'Spell', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbKeywords,
     wbETYP,
@@ -12066,7 +12066,7 @@ begin
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbFTYP,
     wbGenericModel,
@@ -12137,7 +12137,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel,
     wbFormIDCK(PFIG, 'Ingredient', sigBaseObjects),
     wbFormIDCK(SNAM, 'Harvest Sound', [SNDR, NULL]),
@@ -12167,7 +12167,7 @@ begin
   wbRecord(FLOR, 'Flora', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbFULLReq,
     wbGenericModel,
@@ -12279,7 +12279,7 @@ begin
 
   wbRecord(BNDS, 'Bendable Spline', [
     wbEDID,
-    wbOBND,
+    wbObjectBounds,
     wbStruct(DNAM, 'Data', [
       wbFloat('Default Number of Tiles').SetDefaultNativeValue(1),
       wbInteger('Default Number of Slices', itU16).SetDefaultNativeValue(4),
@@ -12293,7 +12293,7 @@ begin
 
   wbRecord(CMPO, 'Component', [
     wbEDID,
-    wbOBND,
+    wbObjectBounds,
     wbFULL,
     wbCUSD,
     wbInteger(DATA, 'Auto Calc Value', itU32),
@@ -12470,7 +12470,7 @@ begin
   wbRecord(NOTE, 'Note', [
     wbEDID,
     wbVMAD,
-    wbOBND,
+    wbObjectBounds,
     wbPTRN,
     wbFULL,
     wbGenericModel,
@@ -12573,7 +12573,7 @@ begin
       {0x00000200}  9, 'Prefab'
     ])), [
     wbEDID,
-    wbOBND,
+    wbObjectBounds,
     wbFLTR,
     wbFormIDCk(CNAM, 'Cell', [CELL]),
     wbInteger(VNAM, 'Version', itU32)
@@ -12639,7 +12639,7 @@ begin
        .SetFlagHasDontShow(27, wbFlagNavmeshBoundingBoxDontShow)
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbGenericModel,
     wbFULL,
@@ -12677,7 +12677,7 @@ begin
     ])), [
     wbEDID,
     wbVMADFragmentedPERK, // same fragments format as in PERK
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbLStringKC(NAM0, 'Header Text'),
     wbLStringKC(WNAM, 'Welcome Text'),
@@ -12881,7 +12881,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbPTRN,
     wbSTCP,
     wbFULL,

@@ -980,19 +980,6 @@ begin
   end;
 end;
 
-function wbOBND(aRequired: Boolean = False): IwbRecordMemberDef;
-begin
-  Result :=
-    wbStruct(OBND, 'Object Bounds', [
-      wbVec3('Min', ''),
-      wbVec3('Max', '')
-    ], cpNormal, aRequired)
-    .SetSummaryKeyOnValue([0, 1])
-    .SetSummaryDelimiterOnValue(', ')
-    .IncludeFlagOnValue(dfSummaryMembersNoName)
-    .IncludeFlag(dfCollapsed, wbCollapseObjectBounds);
-end;
-
 procedure wbBIOMScaleToStr(var aValue:string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 var
   tValue: Float32;
@@ -9233,7 +9220,7 @@ begin
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -9284,7 +9271,7 @@ begin
   wbRecord(ADDN, 'Addon Node', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbBaseFormComponents,
     wbGenericModel(True),
@@ -9342,7 +9329,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -9436,7 +9423,7 @@ begin
       .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbSNTP,
     wbSNBH,
@@ -9556,7 +9543,7 @@ begin
     .SetFlagHasDontShow(29, wbFlagNavmeshIgnoreErosionDontShow)
     .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbODTYReq,
     wbOPDS,
@@ -9720,7 +9707,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbPTT2,
     wbBaseFormComponents,
@@ -9783,7 +9770,7 @@ begin
   wbRecord(ARTO, 'Art Object', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbXALG,
@@ -9812,7 +9799,7 @@ begin
   wbRecord(ASPC, 'Acoustic Space', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbBaseFormComponents,
@@ -10268,7 +10255,7 @@ begin
     .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -10382,7 +10369,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND,
+    wbObjectBounds,
     wbODTYReq,
     wbBaseFormComponents,
     wbStruct(DNAM, 'Data', [
@@ -10400,7 +10387,7 @@ begin
   wbRecord(BOOK, 'Book', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbPTT2,
     wbDEFL,
@@ -11001,7 +10988,7 @@ begin
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbXALG,
@@ -11586,7 +11573,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -11629,7 +11616,7 @@ begin
   wbRecord(DUAL, 'Dual Cast Data', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -11743,7 +11730,7 @@ begin
   wbRecord(ENCH, 'Enchantment', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbBaseFormComponents,
     wbFULL,
@@ -11785,7 +11772,7 @@ begin
   {subrecords checked against Starfield.esm}
   wbRecord(EXPL, 'Explosion', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbDEFL,
@@ -11989,7 +11976,7 @@ begin
   wbRecord(FLOR, 'Flora', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -12157,7 +12144,7 @@ begin
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -12255,7 +12242,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbBaseFormComponents,
@@ -12480,7 +12467,7 @@ begin
       {0x00008000} 15, 'Unknown 15'
     ])), [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbXALG,
@@ -12552,7 +12539,7 @@ begin
       .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -12696,7 +12683,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbBaseFormComponents,
     wbKeywords,
@@ -12725,7 +12712,7 @@ begin
   wbRecord(INGR, 'Ingredient', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -13250,7 +13237,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -13661,7 +13648,7 @@ begin
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND,
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -13811,7 +13798,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -13976,7 +13963,7 @@ begin
     .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -14035,7 +14022,7 @@ begin
     .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -14085,7 +14072,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbXALG,
@@ -14127,7 +14114,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -14229,7 +14216,7 @@ begin
     .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -14579,7 +14566,7 @@ begin
     .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -14676,7 +14663,7 @@ begin
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -14960,7 +14947,7 @@ begin
     .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND,
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -15005,7 +14992,7 @@ begin
     ]), [18]), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -15853,7 +15840,7 @@ begin
     .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -15993,7 +15980,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND,
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -16236,7 +16223,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -17425,7 +17412,7 @@ begin
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbSNTP,
     wbBaseFormComponents,
@@ -17437,7 +17424,7 @@ begin
 
   wbRecord(SCRL, 'Scroll', [
     wbEDID,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbBaseFormComponents,
     wbFULL,
@@ -17490,7 +17477,7 @@ begin
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND,
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -17736,7 +17723,7 @@ begin
   wbRecord(SOUN, 'Sound Marker', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbXALG,
     wbBaseFormComponents,
@@ -17769,7 +17756,7 @@ begin
   wbRecord(SPEL, 'Spell', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbBaseFormComponents,
     wbFULL,
@@ -17873,7 +17860,7 @@ begin
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -18029,7 +18016,7 @@ begin
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND,
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -18093,7 +18080,7 @@ begin
              .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -18186,7 +18173,7 @@ begin
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMADFragmentedPERK, // same fragments format as in PERK
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,
@@ -18434,7 +18421,7 @@ begin
   wbRecord(TXST, 'Texture Set', [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbBaseFormComponents,
@@ -18602,7 +18589,7 @@ begin
     ])), [
     wbEDID,
     wbVMAD,
-    wbOBND(True),
+    wbObjectBounds,
     wbODTYReq,
     wbOPDS,
     wbPTT2,

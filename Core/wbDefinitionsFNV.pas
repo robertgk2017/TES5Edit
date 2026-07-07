@@ -3293,7 +3293,7 @@ begin
        .SetFlagHasDontShow(27, wbFlagNavmeshBoundingBoxDontShow)
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbSCRI,
@@ -3832,7 +3832,7 @@ begin
       29, 'Unknown 29'
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULLReq,
     wbGenericModel,
     wbICON,
@@ -3859,7 +3859,7 @@ begin
 
   wbRecord(AMMO, 'Ammunition', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULLReq,
     wbGenericModel,
     wbICON,
@@ -3939,7 +3939,7 @@ begin
       19, 'Has Platform Specific Textures'
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbSCRI,
     wbEnchantment,
@@ -4001,7 +4001,7 @@ begin
 
   wbRecord(ARMA, 'Armor Addon', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbBMDT,
     wbRStruct('Male', [
@@ -4040,7 +4040,7 @@ begin
       10, 'Quest Item'
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbICON,
@@ -4208,7 +4208,7 @@ begin
        .SetFlagHasDontShow(27, wbFlagNavmeshBoundingBoxDontShow)
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbSCRI,
@@ -4278,7 +4278,7 @@ begin
       29, 'Unknown 29'
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULLActor,
     wbGenericModel(False, wbActorTemplateUseModelAnimation),
     wbSPLOs,
@@ -4571,7 +4571,7 @@ begin
       16, 'Random Anim Start'
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel(True),
     wbSCRI,
@@ -4759,7 +4759,7 @@ begin
       29, 'Child Can Use'
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel(True),
     wbSCRI,
@@ -4815,7 +4815,7 @@ begin
 
   wbRecord(TXST, 'Texture Set', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbRStruct('Textures (RGB/A)', [
       wbString(TX00,'Base Image / Transparency'),
       wbString(TX01,'Normal Map / Specular'),
@@ -4847,7 +4847,7 @@ begin
 
   wbRecord(ASPC, 'Acoustic Space', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
 
     wbFormIDCk(SNAM, 'Dawn / Default Loop', [NULL, SOUN], False, cpNormal, True),
     wbFormIDCk(SNAM, 'Afternoon', [NULL, SOUN], False, cpNormal, True),
@@ -4904,7 +4904,7 @@ begin
      30, 'Cont. Broadcast' //Requires Radio Station
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel(True),
     wbSCRI,
@@ -4932,7 +4932,7 @@ begin
       16, 'Random Anim Start'
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbSCRI,
@@ -5005,7 +5005,7 @@ begin
        .SetFlagHasDontShow(27, wbFlagNavmeshBoundingBoxDontShow)
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel(True),
     wbRArray('Parts', wbStaticPart)
   ]);
@@ -5018,7 +5018,7 @@ begin
       25, 'Obstacle'
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel(True),
     wbDEST,
@@ -5028,7 +5028,7 @@ begin
 
   wbRecord(PWAT, 'Placeable Water', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel(True),
     wbStruct(DNAM, '', [
       wbInteger('Flags', itU32, wbFlags([
@@ -5075,13 +5075,13 @@ begin
     29, 'Child Can Use'
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbIdleAnimation
   ]);
 
   wbRecord(NOTE, 'Note', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbICON,
@@ -5112,7 +5112,7 @@ begin
       27, 'Unknown 27'
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel(True),
     wbDEST,
@@ -5590,7 +5590,7 @@ begin
 
    wbRecord(EXPL, 'Explosion', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbEnchantment,
@@ -6010,7 +6010,7 @@ begin
 
   wbRecord(ADDN, 'Addon Node', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel(True),
     wbInteger(DATA, 'Node Index', itS32, nil, cpNormal, True),
     wbFormIDCk(SNAM, 'Sound', [SOUN]),
@@ -6312,7 +6312,7 @@ begin
 
   wbRecord(GRAS, 'Grass', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel(True),
     wbStruct(DATA, '', [
       wbInteger('Density', itU8),
@@ -6487,7 +6487,7 @@ begin
 
   wbRecord(INGR, 'Ingredient', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbICON,
@@ -6507,7 +6507,7 @@ begin
       10, 'Quest Item'
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULLReq,
     wbGenericModel,
     wbICONReq,
@@ -6552,7 +6552,7 @@ begin
       25, 'Obstacle'
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel,
     wbSCRI,
     wbDEST,
@@ -6647,7 +6647,7 @@ begin
 
   wbRecord(LVLC, 'Leveled Creature', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbInteger(LVLD, 'Chance none', itU8, nil, cpNormal, True),
     wbInteger(LVLF, 'Flags', itU8, wbFlags([
       {0x01} 'Calculate from all levels <= player''s level',
@@ -6665,7 +6665,7 @@ begin
 
   wbRecord(LVLN, 'Leveled NPC', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbInteger(LVLD, 'Chance none', itU8, nil, cpNormal, True),
     wbInteger(LVLF, 'Flags', itU8, wbFlags([
       {0x01} 'Calculate from all levels <= player''s level',
@@ -6683,7 +6683,7 @@ begin
 
    wbRecord(LVLI, 'Leveled Item', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbInteger(LVLD, 'Chance none', itU8, nil, cpNormal, True),
     wbInteger(LVLF, 'Flags', itU8, wbFlags([
       {0x01} 'Calculate from all levels <= player''s level',
@@ -6766,7 +6766,7 @@ begin
       10, 'Quest Item'
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbICON,
@@ -6783,7 +6783,7 @@ begin
 
   wbRecord(COBJ, 'Constructible Object', [
     wbEDID,
-    wbOBND,
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbICON,
@@ -6803,7 +6803,7 @@ begin
       19, 'Unknown 19'
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULLActor,
     wbGenericModel(False, wbActorTemplateUseModelAnimation),
     wbStruct(ACBS, 'Configuration', [
@@ -7883,7 +7883,7 @@ begin
 
   wbRecord(SOUN, 'Sound', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbString(FNAM, 'Sound FileName'),
     wbInteger(RNAM, 'Random Chance %', itU8),
     wbRUnion('Sound Data', [
@@ -8002,7 +8002,7 @@ begin
        .SetFlagHasDontShow(27, wbFlagNavmeshBoundingBoxDontShow)
        .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel,
     wbInteger(BRUS, 'Passthrough Sound', itS8, wbEnum([
       'BushA',
@@ -8054,7 +8054,7 @@ begin
       6, 'Has Tree LOD'
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbGenericModel(True),
     wbICONReq,
     wbDEST,
@@ -8077,7 +8077,7 @@ begin
 
   wbRecord(IMOD, 'Item Mod', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbICON,
@@ -8196,7 +8196,7 @@ begin
 
   wbRecord(CCRD, 'Caravan Card', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbICON,
@@ -8287,7 +8287,7 @@ begin
 
   wbRecord(CHIP, 'Casino Chip', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbICON,
@@ -8298,7 +8298,7 @@ begin
 
   wbRecord(CMNY, 'Caravan Money', [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbICON,
@@ -8630,7 +8630,7 @@ begin
       29, 'Unknown 29'
     ])), [
     wbEDIDReq,
-    wbOBND(True),
+    wbObjectBounds,
     wbFULL,
     wbGenericModel,
     wbICON,

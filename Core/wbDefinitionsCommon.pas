@@ -362,7 +362,11 @@ function wbBelowVersion(aVersion: Integer; const aValue: IwbValueDef): IwbValueD
 function wbFromVersion (aVersion: Integer; const aSignature: TwbSignature; const aValue: IwbValueDef): IwbRecordMemberDef; overload;
 function wbFromVersion (aVersion: Integer; const aValue: IwbValueDef): IwbValueDef; overload;
 
-{>>> Vec3 Defs <<<} //11
+{>>> Vec3 Defs <<<} //12
+function wbVec3Int(const aName   : string = 'Unknown';
+                   const aPrefix : string = '')
+                                 : IwbValueDef;
+
 function wbVec3(const aName   : string = 'Unknown';
                 const aPrefix : string = '')
                               : IwbValueDef; overload;
@@ -633,6 +637,7 @@ function wbLoadScreenLocations        : IwbRecordMemberDef;
 function wbMagicEffectSounds          : IwbRecordMemberDef;
 function wbMDOB                       : IwbRecordMemberDef;
 function wbMHDTCELL                   : IwbRecordMemberDef;
+function wbObjectBounds               : IwbRecordMemberDef;
 function wbQSTI                       : IwbRecordMemberDef;
 function wbQSTR                       : IwbRecordMemberDef;
 function wbRagdoll                    : IwbRecordMemberDef;
@@ -725,9 +730,6 @@ function wbModelInfos(const aSignature : TwbSignature;
                             aName      : string = '';
                       const aDontShow  : TwbDontShowCallback = nil)
                                        : IwbRecordMemberDef;
-
-function wbOBND(const aRequired : Boolean = False)
-                                : IwbRecordMemberDef;
 
 function wbOwnership(const aSkipSigs : TwbSignatures = nil)
                                      : IwbRecordMemberDef;
@@ -6342,7 +6344,24 @@ begin
     ]).IncludeFlag(dfUnionStaticResolve);
 end;
 
-{>>> Vec3 Defs <<<} //11
+{>>> Vec3 Defs <<<} //12
+
+function wbVec3Int(const aName   : string = 'Unknown';
+                   const aPrefix : string = '')
+                                 : IwbValueDef;
+begin
+  Result :=
+    wbStruct(aName, [
+      wbInteger('X', itS16),
+      wbInteger('Y', itS16),
+      wbInteger('Z', itS16)
+    ]).SetSummaryKey([0, 1, 2])
+      .SetSummaryMemberPrefixSuffix(0, aPrefix + '(', '')
+      .SetSummaryMemberPrefixSuffix(2, '', ')')
+      .SetSummaryDelimiter(', ')
+      .IncludeFlag(dfSummaryMembersNoName)
+      .IncludeFlag(dfCollapsed, wbCollapseVec3);
+end;
 
 function wbVec3(const aName   : string = 'Unknown';
                 const aPrefix : string = '')
@@ -8967,24 +8986,22 @@ begin
     .IncludeFlag(dfCollapsed, wbCollapseModelInfo);
 end;
 
-function wbOBND(const aRequired: Boolean = False): IwbRecordMemberDef;
+function wbObjectBounds: IwbRecordMemberDef;
 begin
   Result :=
     wbStruct(OBND, 'Object Bounds', [
-      wbInteger('X1', itS16),
-      wbInteger('Y1', itS16),
-      wbInteger('Z1', itS16),
-      wbInteger('X2', itS16),
-      wbInteger('Y2', itS16),
-      wbInteger('Z2', itS16)
-    ]).SetSummaryKeyOnValue([0, 1, 2, 3, 4, 5])
-      .SetSummaryPrefixSuffixOnValue(0, '(', '')
-      .SetSummaryPrefixSuffixOnValue(2, '', ')')
-      .SetSummaryPrefixSuffixOnValue(3, '(', '')
-      .SetSummaryPrefixSuffixOnValue(5, '', ')')
+      IfThen(wbIsStarfield,
+        wbVec3('Min'),
+        wbVec3Int('Min')
+      ),
+      IfThen(wbIsStarfield,
+        wbVec3('Max'),
+        wbVec3Int('Max')
+      )
+    ]).SetSummaryKeyOnValue([0, 1])
       .SetSummaryDelimiterOnValue(', ')
       .IncludeFlagOnValue(dfSummaryMembersNoName)
-      .SetRequired(aRequired)
+      .SetRequired
       .IncludeFlag(dfCollapsed, wbCollapseObjectBounds);
 end;
 
