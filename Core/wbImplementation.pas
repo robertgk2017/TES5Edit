@@ -5298,7 +5298,6 @@ begin
     if not Assigned(HEDR) then
       raise Exception.Create('File ' + GetFileName + ' has a file header with missing HEDR subrecord');
 
-
     if flModule.miExtension = meESM then
       SetIsESM(True);
 
@@ -5406,11 +5405,13 @@ begin
                     var FileID := FormID.FileID.FullSlot;
                     if FileID > i then
                       Break;
+
                     Assert(FileID = i);
                     Inc(j);
 
                     Signature := Current.Signature;
-                    if (Signature = 'NAVM') or
+                    if (Signature = 'CELL') or
+                       (Signature = 'NAVM') or
                        (Signature = 'LAND') or
                        (Signature = 'REFR') or
                        (Signature = 'PGRE') or
@@ -5436,24 +5437,27 @@ begin
                         if Current.IsPersistent then
                           Continue;
 
-                        if not Assigned(ONAMs) then begin
-                          if not Supports(FileHeader.Add('ONAM', True), IwbContainerElementRef, ONAMs) then
-                            Assert(False);
-                          ONAMs.BeginUpdate;
-                          Assert(ONAMs.ElementCount = 1);
-                          NewONAM := ONAMs.Elements[0];
-                        end else repeat
-                          NewONAM := ONAMs.Assign(wbAssignAdd, nil, True);
-                        until NewONAM.NativeValue = 0;
+                        if Current.Signature <> 'CELL' then
+                        begin
+                          if not Assigned(ONAMs) then begin
+                            if not Supports(FileHeader.Add('ONAM', True), IwbContainerElementRef, ONAMs) then
+                              Assert(False);
+                            ONAMs.BeginUpdate;
+                            Assert(ONAMs.ElementCount = 1);
+                            NewONAM := ONAMs.Elements[0];
+                          end else repeat
+                            NewONAM := ONAMs.Assign(wbAssignAdd, nil, True);
+                          until NewONAM.NativeValue = 0;
 
-                        NewONAM.NativeValue := FormID.ToCardinal;
+                          NewONAM.NativeValue := FormID.ToCardinal;
+                        end;
 
                         if wbMasterUpdateFixPersistence and not Current.IsPersistent and not Current.IsMaster then begin
                           Master := Current.Master;
                           if Assigned(Master) then begin
                             if Master.IsPersistent then begin
                               flProgress('Setting Persistent: ' + Current.Name);
-                              Current.IsPersistent := True;
+                              Current.ElementNativeValues['Record Header\Record Flags\Persistent'] := 1;
                             end else
                               for k := 0 to Pred(Master.OverrideCount) do
                                 if Current.Equals(Master.Overrides[k]) then
@@ -5461,7 +5465,7 @@ begin
                                 else
                                   if Master.Overrides[k].IsPersistent then begin
                                     flProgress('Setting Persistent: ' + Current.Name);
-                                    Current.IsPersistent := True;
+                                    Current.ElementNativeValues['Record Header\Record Flags\Persistent'] := 1;
                                     Break;
                                   end;
                           end;
@@ -5480,6 +5484,7 @@ begin
       finally
         EndUpdate;
       end;
+
       if not (fsIsDeltaPatch in flStates) then begin
         Exclude(TwbMainRecord(FileHeader).mrStates, mrsNoUpdateRefs);
         FileHeader.UpdateRefs;
@@ -5498,9 +5503,7 @@ begin
     end;
 
     if wbComplexFileFileID then begin
-
       if not wbRedPill then begin
-
         for var lMasterIdx := 0 to Pred(GetMasterCount(True)) do begin
           var lMaster := GetMaster(lMasterIdx, True);
           if lMaster.GetIsUpdateDirect or (PwbModuleInfo(lMaster.ModuleInfo).miFlags * [mfHasUpdateFlag] <> []) then
@@ -5518,11 +5521,8 @@ begin
 
         if FileHeader.IsUpdate then
           raise Exception.Create('Update flagged files can''t be saved in ' + wbAppName + wbToolName);
-
       end;
-
     end else begin
-
       var lFileFileID := GetFileFileID(true);
 
       if FileHeader.IsLight then begin
@@ -5562,9 +5562,7 @@ begin
             Break;
         end;
       end;
-
     end;
-
   end else
     inherited;
 end;
