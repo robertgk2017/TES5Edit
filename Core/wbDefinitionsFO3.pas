@@ -5268,7 +5268,7 @@ begin
       wbRStructSK([0, 1], 'Effect', [
         wbStructSK(PRKE, [1, 2, 0], 'Header', [
           wbPerkEffectType(wbPERKPRKETypeAfterSet),
-          wbInteger('Rank', itU8),
+          wbInteger('Rank', itU8, wbPERKRankIntToStr, wbPERKRankStrToInt).SetToStr(wbPERKRankToStr),
           wbInteger('Priority', itU8)
         ]),
         wbUnion(DATA, 'Effect Data', wbPerkDATADecider, [

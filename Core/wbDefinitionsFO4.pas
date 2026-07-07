@@ -7571,102 +7571,6 @@ begin
     ).SetIsSorted(wbFLSTLNAMIsSorted)
   ]);
 
-  var wbPerkConditions :=
-    wbRStructSK([0], 'Perk Condition', [
-      wbInteger(PRKC, 'Run On (Tab Index)', itS8{, wbPRKCToStr, wbPRKCToInt}),
-      wbConditions.SetRequired
-    ], [], cpNormal, False{, nil, nil, wbPERKPRKCDontShow});
-
-  var wbPerkEffect :=
-    wbRStructSK([0, 1], 'Effect', [
-    wbStructSK(PRKE, [1, 2, 0], 'Header', [
-      wbPerkEffectType(wbPERKPRKETypeAfterSet),
-      wbInteger('Rank', itU8),
-      wbInteger('Priority', itU8)
-    ]),
-    wbUnion(DATA, 'Effect Data', wbPerkDATADecider, [
-      wbStructSK([0, 1], 'Quest + Stage', [
-        wbFormIDCk('Quest', [QUST]),
-        wbInteger('Quest Stage', itU16, wbPerkDATAQuestStageToStr, wbQuestStageToInt)
-      ]),
-      wbFormIDCk('Ability', [SPEL]),
-      wbStructSK([0, 1], 'Entry Point', [
-        wbInteger('Entry Point', itU8, wbEntryPointsEnum),
-        wbInteger('Function', itU8, wbEnum([
-          {0} 'Unknown 0',
-          {1} 'Set Value', // EPFT=1
-          {2} 'Add Value', // EPFT=1
-          {3} 'Multiply Value', // EPFT=1
-          {4} 'Add Range To Value', // EPFT=2
-          {5} 'Add Actor Value Mult', // EPFT=2
-          {6} 'Absolute Value', // no params
-          {7} 'Negative Absolute Value', // no params
-          {8} 'Add Leveled List', // EPFT=3
-          {9} 'Add Activate Choice', // EPFT=4
-         {10} 'Select Spell', // EPFT=5
-         {11} 'Select Text', // EPFT=6
-         {12} 'Set to Actor Value Mult', // EPFT=2
-         {13} 'Multiply Actor Value Mult', // EPFT=2
-         {14} 'Multiply 1 + Actor Value Mult', // EPFT=2
-         {15} 'Set Text' // EPFT=7
-        ])),
-        wbInteger('Perk Condition Tab Count', itU8, nil, cpIgnore)
-      ])
-    ]).SetRequired,
-
-    wbRArrayS('Perk Conditions', wbPerkConditions),
-
-    wbRStruct('Function Parameters', [
-      wbInteger(EPFT, 'Type', itU8, wbEnum([
-        {0} 'None',
-        {1} 'Float',
-        {2} 'Float/AV,Float',
-        {3} 'LVLI',
-        {4} 'SPEL,lstring,flags',
-        {5} 'SPEL',
-        {6} 'string',
-        {7} 'lstring',
-        {8} 'AVIF'
-      ])),
-      // case(EPFT) of
-      // 1: EPFD=float
-      // 2: EPFD=float,float
-      // 3: EPFD=LVLI
-      // 4: EPFD=SPEL, EPF2=lstring, EPF3=int32 flags
-      // 5: EPFD=SPEL
-      // 6: EPFD=string
-      // 7: EPFD=lstring
-
-      wbInteger(EPFB, 'Perk Entry ID (unique)', itU16),
-      wbLString(EPF2, 'Button Label', 0, cpTranslate),
-      // keeping as struct to be similar to tes5 format
-      wbStruct(EPF3, 'Script Flags', [
-        wbInteger('Script Flags', itU16, wbFlags([
-          'Run Immediately',
-          'Replace Default'
-        ])).IncludeFlag(dfCollapsed, wbCollapseFlags)
-      ]),
-      wbUnion(EPFD, 'Data', wbEPFDDecider, [
-        {0} wbByteArray('Unknown'),
-        {1} wbFloat('Float'),
-        {2} wbStruct('Float, Float', [
-              wbFloat('Float 1'),
-              wbFloat('Float 2')
-            ]),
-        {3} wbFormIDCk('Leveled Item', [LVLI]),
-        {4} wbFormIDCk('Spell', [SPEL]),
-        {5} wbFormIDCk('Spell', [SPEL]),
-        {6} wbString('Text', 0, cpTranslate),
-        {7} wbLString('Text', 0, cpTranslate),
-        {8} wbStruct('Actor Value, Float', [
-              wbActorValue, // wbInteger('Actor Value', itU32, wbEPFDActorValueToStr, wbEPFDActorValueToInt),
-              wbFloat('Float')
-            ])
-      ], cpNormal, False{, wbEPFDDontShow})
-    ], [], cpNormal, False{, wbPERKPRKCDontShow}),
-    wbEmpty(PRKF, 'End Marker', cpIgnore, True)
-  ]);
-
   wbRecord(PERK, 'Perk',
     wbFlags(wbFlagsList([
       {0x00000004}  2, 'Non-Playable'
@@ -7691,7 +7595,91 @@ begin
     wbFormIDCk(SNAM, 'Sound', [SNDR]),
     wbFormIDCK(NNAM, 'Next Perk', [PERK, NULL]),
     wbString(FNAM, 'SWF'),
-    wbRArrayS('Effects', wbPerkEffect)
+    wbRArrayS('Effects',
+      wbRStructSK([0, 1], 'Effect', [
+        wbStructSK(PRKE, [1, 2, 0], 'Header', [
+          wbPerkEffectType(wbPERKPRKETypeAfterSet),
+          wbInteger('Rank', itU8, wbPERKRankIntToStr, wbPERKRankStrToInt).SetToStr(wbPERKRankToStr),
+          wbInteger('Priority', itU8)
+        ]),
+        wbUnion(DATA, 'Effect Data', wbPerkDATADecider, [
+          wbStructSK([0, 1], 'Quest + Stage', [
+            wbFormIDCk('Quest', [QUST]),
+            wbInteger('Quest Stage', itU16, wbPerkDATAQuestStageToStr, wbQuestStageToInt)
+          ]),
+          wbFormIDCk('Ability', [SPEL]),
+          wbStructSK([0, 1], 'Entry Point', [
+            wbInteger('Entry Point', itU8, wbEntryPointsEnum),
+            wbInteger('Function', itU8,
+              wbEnum([
+              {0}  'Unknown 0',
+              {1}  'Set Value', // EPFT=1
+              {2}  'Add Value', // EPFT=1
+              {3}  'Multiply Value', // EPFT=1
+              {4}  'Add Range To Value', // EPFT=2
+              {5}  'Add Actor Value Mult', // EPFT=2
+              {6}  'Absolute Value', // no params
+              {7}  'Negative Absolute Value', // no params
+              {8}  'Add Leveled List', // EPFT=3
+              {9}  'Add Activate Choice', // EPFT=4
+              {10} 'Select Spell', // EPFT=5
+              {11} 'Select Text', // EPFT=6
+              {12} 'Set to Actor Value Mult', // EPFT=2
+              {13} 'Multiply Actor Value Mult', // EPFT=2
+              {14} 'Multiply 1 + Actor Value Mult', // EPFT=2
+              {15} 'Set Text' // EPFT=7
+              ])),
+            wbInteger('Perk Condition Tab Count', itU8, nil, cpIgnore)
+          ])
+        ]).SetRequired,
+        wbRArrayS('Perk Conditions',
+          wbRStructSK([0], 'Perk Condition', [
+            wbInteger(PRKC, 'Run On (Tab Index)', itS8),
+            wbConditions.SetRequired
+          ])),
+        wbRStruct('Function Parameters', [
+          wbInteger(EPFT, 'Type', itU8,
+            wbEnum([
+            {0} 'None',
+            {1} 'Float',              // 1: EPFD=float
+            {2} 'Float/AV,Float',     // 2: EPFD=float,float
+            {3} 'LVLI',               // 3: EPFD=LVLI
+            {4} 'SPEL,lstring,flags', // 4: EPFD=SPEL, EPF2=lstring, EPF3=int32 flags
+            {5} 'SPEL',               // 5: EPFD=SPEL
+            {6} 'string',             // 6: EPFD=string
+            {7} 'lstring',            // 7: EPFD=lstring
+            {8} 'AVIF'
+            ])),
+          wbInteger(EPFB, 'Perk Entry ID (unique)', itU16),
+          wbLString(EPF2, 'Button Label', 0, cpTranslate),
+          // keeping as struct to be similar to tes5 format
+          wbStruct(EPF3, 'Script Flags', [
+            wbInteger('Script Flags', itU16,
+              wbFlags([
+              {0} 'Run Immediately',
+              {1} 'Replace Default'
+              ])).IncludeFlag(dfCollapsed, wbCollapseFlags)
+          ]),
+          wbUnion(EPFD, 'Data', wbEPFDDecider, [
+          {0} wbByteArray('Unknown'),
+          {1} wbFloat('Float'),
+          {2} wbStruct('Float, Float', [
+                wbFloat('Float 1'),
+                wbFloat('Float 2')
+              ]),
+          {3} wbFormIDCk('Leveled Item', [LVLI]),
+          {4} wbFormIDCk('Spell', [SPEL]),
+          {5} wbFormIDCk('Spell', [SPEL]),
+          {6} wbString('Text', 0, cpTranslate),
+          {7} wbLString('Text', 0, cpTranslate),
+          {8} wbStruct('Actor Value, Float', [
+                wbActorValue,
+                wbFloat('Float')
+              ])
+          ])
+        ]),
+        wbEmpty(PRKF, 'End Marker', cpIgnore).SetRequired
+      ]))
   ]);
 
   wbRecord(BPTD, 'Body Part Data', [

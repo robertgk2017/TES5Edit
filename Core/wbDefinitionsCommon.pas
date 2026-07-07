@@ -188,6 +188,7 @@ function wbEdgeToInt1                (const aString: string; const aElement: Iwb
 function wbEdgeToInt2                (const aString: string; const aElement: IwbElement): Int64;
 function wbIntPrefixedStrToInt       (const aString: string; const aElement: IwbElement): Int64;
 function wbNVTREdgeToInt             (const aString: string; const aElement: IwbElement): Int64;
+function wbPERKRankStrToInt          (const aString: string; const aElement: IwbElement): Int64;
 function wbScaledInt4ToInt           (const aString: string; const aElement: IwbElement): Int64;
 function wbStrToInt                  (const aString: string; const aElement: IwbElement): Int64;
 function wbStrToLGDIFilter           (const aString: string; const aElement: IwbElement): Int64;
@@ -219,6 +220,7 @@ function wbNPCFaceDialToStr          (aInt: Int64; const aElement: IwbElement; a
 function wbNPCFaceMorphToStr         (aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 function wbNVTREdgeToStr             (aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 function wbPackageLocationAliasToStr (aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
+function wbPERKRankIntToStr          (aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 function wbQuestAliasToStr           (aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 function wbQuestExternalAliasToStr   (aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 function wbREFRNavmeshTriangleToStr  (aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
@@ -245,6 +247,7 @@ procedure wbDIALQuestToStr                   (var aValue: string; aBasePtr, aEnd
 procedure wbFactionRelationToStr             (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbItemToStr                        (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbNPCPackageToStr                  (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbPERKRankToStr                    (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbObjectPropertyToStr              (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbQUSTAliasToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbQUSTEventToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
@@ -3096,6 +3099,33 @@ begin
   Result := StrToInt64(aString);
 end;
 
+function wbPERKRankStrToInt(const aString: string; const aElement: IwbElement): Int64;
+begin
+  Result := 0;
+
+  if not Assigned(aElement) then
+    Exit;
+
+  var lMainRecord := aElement.ContainingMainRecord;
+  if not Assigned(lMainRecord) then
+    Exit;
+
+  var lNumRanks := lMainRecord.ElementByPath['DATA\Num Ranks'];
+  if not Assigned(lNumRanks) then
+    Exit;
+
+  var lNumRanksInt := lNumRanks.NativeValue;
+
+  var lInt := StrToInt(aString);
+  if lInt < 1 then
+    lInt := 1;
+
+  if lInt > lNumRanksInt then
+    lInt := lNumRanksInt;
+
+  Result := Pred(lInt);
+end;
+
 function wbScaledInt4ToInt(const aString: string; const aElement: IwbElement): Int64;
 var
   f: Extended;
@@ -4096,6 +4126,17 @@ begin
   end;
 end;
 
+function wbPERKRankIntToStr(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
+begin
+  if not Assigned(aElement) then
+    Exit;
+
+  if not (aType in [ctToEditValue, ctToStr, ctToSummary]) then
+    Exit;
+
+  Result := IntToStr(Succ(aInt));
+end;
+
 function wbQuestAliasToStr(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 begin
   Result := '';
@@ -4690,6 +4731,32 @@ begin
   case aType of
     ctCheck: aValue := '<Error: Package [' + lPACKRecord.EditorID + '] is owned by Quest [' + lQUSTRecord.EditorID + '] and cannot be assigned to an NPC record>';
     ctToStr: aValue := aElement.EditValue + ' <Error: Package is owned by Quest [' + lQUSTRecord.EditorID + '] and cannot be assigned to an NPC record>';
+  end;
+end;
+
+procedure wbPERKRankToStr(var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+begin
+  if not Assigned(aElement) then
+    Exit;
+
+  if not (aType in [ctCheck, ctToStr, ctToSummary]) then
+    Exit;
+
+  var lMainRecord := aElement.ContainingMainRecord;
+  if not Assigned(lMainRecord) then
+    Exit;
+
+  var lNumRanks := lMainRecord.ElementByPath['DATA\Num Ranks'];
+  if not Assigned(lNumRanks) then
+    Exit;
+
+  var lNumRanksInt : Integer := lNumRanks.NativeValue;
+  if StrToInt(aElement.EditValue) <= lNumRanksInt then
+    Exit;
+
+  case aType of
+    ctCheck: aValue := '<Warning: Rank is greater then Num Ranks [' + IntToStr(lNumRanksInt) + ']>';
+    ctToStr, ctToSummary: aValue := aValue + ' <Warning: Rank is greater then Num Ranks [' + IntToStr(lNumRanksInt) + ']>';
   end;
 end;
 
