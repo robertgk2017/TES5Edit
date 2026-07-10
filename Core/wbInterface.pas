@@ -2810,9 +2810,12 @@ type
 
   IwbSubRecordUnionDef = interface(IwbRecordMemberDef)
     ['{BC66ABFF-3108-4C64-B416-674A2A8F297D}']
+    function GetHasDecider: Boolean;
     function GetMember(aIndex: Integer): IwbRecordMemberDef;
     function GetMemberCount: Integer;
+    function GetMemberIndex(const aContainer: IwbContainerElementRef): Integer;
 
+    property HasDecider: Boolean read GetHasDecider;
     property Members[aIndex: Integer]: IwbRecordMemberDef read GetMember;
     property MemberCount: Integer read GetMemberCount;
   end;
@@ -6150,6 +6153,7 @@ type
                           const aSignature     : TwbSignature;
                           const aDataContainer : IwbDataContainer)
                                                : IwbRecordMemberDef;
+
     function GetMemberIndexFor(const aContainer     : IwbContainerElementRef;
                                const aSignature     : TwbSignature;
                                const aDataContainer : IwbDataContainer)
@@ -6167,6 +6171,10 @@ type
     function GetMemberCount: Integer;
     function GetSkipSignature(const aSignature: TwbSignature): Boolean; virtual;
     function GetRecordHeaderStruct: IwbStructDef;
+
+    {---IwbSubRecordUnionDef---}
+    function GetHasDecider: Boolean;
+    function GetMemberIndex(const aContainer: IwbContainerElementRef): Integer;
   end;
 
   TwbSubRecordStructSKDef = class(TwbSubRecordStructDef, IwbHasSortKeyDef)
@@ -12001,6 +12009,11 @@ begin
   Result := 'SubRecordUnion';
 end;
 
+function TwbSubRecordUnionDef.GetHasDecider: Boolean;
+begin
+  Result := Assigned(sruDecider);
+end;
+
 function TwbSubRecordUnionDef.GetMember(aIndex: Integer): IwbRecordMemberDef;
 begin
   Result := sruMembers[aIndex];
@@ -12028,6 +12041,18 @@ begin
       if sruMembers[lMemberIndx].CanHandle(aContainer, aSignature, aDataContainer) then
         Exit(sruMembers[lMemberIndx]);
   Result := nil;
+end;
+
+function TwbSubRecordUnionDef.GetMemberIndex(const aContainer: IwbContainerElementRef): Integer;
+begin
+  if Assigned(sruDecider) then
+  begin
+    var lDecidedMemberIdx := sruDecider(aContainer);
+    if (lDecidedMemberIdx >= Low(sruMembers)) and (lDecidedMemberIdx <= High(sruMembers)) then
+      Exit(lDecidedMemberIdx);
+  end;
+
+  Result := 0;
 end;
 
 function TwbSubRecordUnionDef.GetMemberIndexByName(const aContainer     : IwbContainerElementRef;

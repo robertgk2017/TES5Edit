@@ -7036,32 +7036,35 @@ begin
 end;
 
 function TwbContainer.CanChangeElementMember(const aElement: IwbElement): Boolean;
-var
-  SubRecordArrayDef : IwbSubRecordArrayDef;
-  SubRecordStructDef : IwbSubRecordStructDef;
-  Def               : IwbDef;
-  ValueDef          : IwbValueDef;
 begin
   Result := False;
   if not wbIsInternalEdit then begin
-    Def := GetDef;
-    if Assigned(Def) and (dfInternalEditOnly in Def.DefFlags) then
+    var lDef := GetDef;
+    if Assigned(lDef) and (dfInternalEditOnly in lDef.DefFlags) then
       Exit;
-    ValueDef := GetValueDef;
-    if Assigned(ValueDef) and (dfInternalEditOnly in ValueDef.DefFlags) then
+
+    var lValueDef := GetValueDef;
+    if Assigned(lValueDef) and (dfInternalEditOnly in lValueDef.DefFlags) then
       Exit;
   end;
+
   if not IsElementEditable(Self) then
     Exit;
 
-  if Supports(GetDef, IwbSubRecordArrayDef, SubRecordArrayDef) then begin
-    Result := Supports(SubRecordArrayDef.Element, IwbSubRecordUnionDef);
-  end else if Supports(GetDef, IwbSubRecordStructDef, SubRecordStructDef) then begin
+  var lSRADef: IwbSubRecordArrayDef;
+  var lSRSDef: IwbSubRecordStructDef;
+  var lSRUDef: IwbSubRecordUnionDef;
+
+  if Supports(GetDef, IwbSubRecordArrayDef, lSRADef) then begin
+    if Supports(lSRADef.Element, IwbSubRecordUnionDef, lSRUDef) then
+      Result := not lSRUDef.HasDecider;
+  end else if Supports(GetDef, IwbSubRecordStructDef, lSRSDef) then begin
     var lSortOrder := aElement.SortOrder;
     if (lSortOrder >= 0) and
-       (lSortOrder < SubRecordStructDef.MemberCount)
+       (lSortOrder < lSRSDef.MemberCount)
     then
-      Result := Supports(SubRecordStructDef.Members[lSortOrder], IwbSubRecordUnionDef);
+      if Supports(lSRSDef.Members[lSortOrder], IwbSubRecordUnionDef , lSRUDef) then
+        Result := not lSRUDef.HasDecider;
   end;
 end;
 
@@ -21382,7 +21385,13 @@ begin
             end else begin
               repeat
                 var lUnion := lMember as IwbSubRecordUnionDef;
-                lMember :=lUnion.Members[0];
+
+                var lDecidedIdx := 0;
+                var lContainerRef: IwbContainerElementRef;
+                if Supports(Self, IwbContainerElementRef, lContainerRef) then
+                  lDecidedIdx := lUnion.GetMemberIndex(lContainerRef);
+
+                lMember := lUnion.Members[lDecidedIdx];
                 lDefType := lMember.DefType;
               until lDefType <> dtSubRecordUnion;
             end;
