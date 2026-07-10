@@ -21193,36 +21193,33 @@ begin
   if not IsElementEditable(nil) then
     raise Exception.Create('"' + GetName + '" is not editable');
 
-  case CompareValue(Length(aName), 4) of
-    -1: Exit;
-     0: begin
-       var lSignature := StrToSignature(aName);
+  var lSignature := StrToSignature(aName);
+  Result := GetElementBySignature(lSignature);
+  if Assigned(Result) then
+    Exit;
 
-       Result := GetElementBySignature(lSignature);
-       if Assigned(Result) then
-         Exit;
+  Result := GetElementByName(aName);
+  if Assigned(Result) then
+    Exit;
 
-       var lIndex := srcDef.GetMemberIndexFor(Self, lSignature, nil);
-       if lIndex < 0 then
-         Exit;
+  var lIndex := srcDef.GetMemberIndexFor(Self, lSignature, nil);
+  if lIndex >= 0 then
+  begin
+    Assign(lIndex, nil, False);
+    Result := GetElementBySignature(lSignature);
 
-       Assign(lIndex, nil, False);
-       Result := GetElementBySignature(lSignature);
-     end;
-     1: begin
-       Result := GetElementByName(aName);
-       if Assigned(Result) then
-         Exit;
+    if Assigned(Result) then
+      Exit;
+  end;
 
-       var lIndex := srcDef.GetMemberIndexByName(Self, aName, nil);
-       if lIndex < 0 then
-         Exit;
+  lIndex := srcDef.GetMemberIndexByName(Self, aName, nil);
+  if lIndex >= 0 then
+  begin
+    Assign(lIndex, nil, False);
+    Result := GetElementByName(aName);
 
-       Assign(lIndex, nil, False);
-       Result := GetElementByName(aName);
-       if Assigned(Result) then
-         Exit;
-     end;
+    if Assigned(Result) then
+      Exit;
   end;
 end;
 
