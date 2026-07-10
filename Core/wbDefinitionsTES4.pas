@@ -23,6 +23,7 @@ uses
 
   wbDefinitionsCommon,
   wbDefinitionsSignatures,
+  wbHelpers,
   wbInterface;
 
 var

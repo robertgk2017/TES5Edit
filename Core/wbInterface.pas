@@ -4695,11 +4695,6 @@ threadvar
 var
   wbActorValueEnum: IwbEnumDef;
 
-function GetContainerFromUnion(const aElement: IwbElement): IwbContainer;
-function GetContainerRefFromUnionOrValue(const aElement: IwbElement): IwbContainerElementRef;
-function GetElementFromUnion(const aElement: IwbElement): IwbElement;
-
-var
   wbHeaderSignature   : TwbSignature = 'TES4';
   wbNullSignature     : TwbSignature = #0#0#0#0;
   wbFileMagic         : TwbFileMagic;
@@ -21413,37 +21408,6 @@ begin
 
   if aTransformType = ttCheck then
     Result := '';
-end;
-
-function GetContainerFromUnion(const aElement: IwbElement): IwbContainer;
-begin  // Should change the name to GetContainerFromUnionOrValue :)
-  if (aElement.ElementType = etUnion) or (aElement.ElementType = etValue) then begin
-    Result := aElement.Container;
-    while Result.ElementType = etUnion do
-      Result := Result.Container
-  end else
-    Result := aElement as IwbContainer;
-end;
-
-function GetContainerRefFromUnionOrValue(const aElement: IwbElement): IwbContainerElementRef;
-begin
-  Result := nil;
-  if (aElement.ElementType = etUnion) or (aElement.ElementType = etValue) then begin
-    Supports(aElement.Container, IwbContainerElementRef, Result);
-    while Assigned(Result) and (Result.ElementType = etUnion) do
-      Supports(Result.Container, IwbContainerElementRef, Result);
-  end else
-    Supports(aElement, IwbContainerElementRef, Result);
-end;
-
-function GetElementFromUnion(const aElement: IwbElement): IwbElement;
-begin
-  if (aElement.ElementType = etUnion) then begin
-    Result := aElement.Container;
-    while Assigned(Result) and (Result.ElementType = etUnion) do
-      Result := Result.Container;
-  end else
-    Result := aElement;
 end;
 
 { TwbStringKCDef }

@@ -33,7 +33,8 @@ uses
   System.Variants,
 
   wbDefinitionsCommon,
-  wbDefinitionsSignatures;
+  wbDefinitionsSignatures,
+  wbHelpers;
 
 function wbREFLStringToStr(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 begin

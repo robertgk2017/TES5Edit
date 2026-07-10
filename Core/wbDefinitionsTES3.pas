@@ -21,6 +21,7 @@ uses
 
   wbDefinitionsCommon,
   wbDefinitionsSignatures,
+  wbHelpers,
   wbInterface;
 
 const

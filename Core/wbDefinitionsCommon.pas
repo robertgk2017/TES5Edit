@@ -163,14 +163,6 @@ function wbScriptObjectAliasLinksTo(const aElement: IwbElement): IwbElement;
 function wbTriangleLinksTo         (const aElement: IwbElement): IwbElement;
 function wbVertexLinksTo           (const aElement: IwbElement): IwbElement;
 
-{>>> Try Functions <<<} //6
-function wbTryGetContainerFromUnion          (const aElement: IwbElement; out aContainer: IwbContainer): Boolean;
-function wbTryGetContainerRefFromUnionOrValue(const aElement: IwbElement; out aContainer: IwbContainerElementRef): Boolean;
-function wbTryGetContainerWithValidMainRecord(const aElement: IwbElement; out aContainer: IwbContainerElementRef; out aMainRecord: IwbMainRecord): Boolean;
-function wbTryGetContainingMainRecord        (const aElement: IwbElement; out aMainRecord: IwbMainRecord): Boolean;
-function wbTryGetMainRecord                  (const aElement: IwbElement; out aMainRecord: IwbMainRecord; const aSignature: string = ''): Boolean;
-function wbTrySetContainer                   (const aElement: IwbElement; aType: TwbCallbackType; out aContainer: IwbContainerElementRef): Boolean;
-
 {>>> Should Include Callbacks <<<} //1
 function wbLGDIRankSlotArrayShouldInclude(aBasePtr: Pointer; aEndPtr: Pointer; const aArray: IwbElement): Boolean;
 
@@ -2832,89 +2824,6 @@ begin
   Vertex := Vertices.Elements[aInt] as IwbContainerElementRef;
 
   Result := Vertex;
-end;
-
-{>>> Try Functions <<<} //6
-
-function wbTryGetContainerFromUnion(const aElement: IwbElement; out aContainer: IwbContainer): Boolean;
-begin
-  Result := False;
-
-  if not Assigned(aElement) then
-    Exit;
-
-  aContainer := GetContainerFromUnion(aElement);
-  if not Assigned(aContainer) then
-    Exit;
-
-  Result := True;
-end;
-
-function wbTryGetContainerRefFromUnionOrValue(const aElement: IwbElement; out aContainer: IwbContainerElementRef): Boolean;
-begin
-  Result := False;
-
-  if not Assigned(aElement) then
-    Exit;
-
-  aContainer := GetContainerRefFromUnionOrValue(aElement);
-  if not Assigned(aContainer) then
-    Exit;
-
-  Result := True;
-end;
-
-function wbTryGetContainerWithValidMainRecord(const aElement: IwbElement; out aContainer: IwbContainerElementRef; out aMainRecord: IwbMainRecord): Boolean;
-begin
-  Result := False;
-
-  if not Supports(aElement, IwbContainerElementRef, aContainer) then
-    Exit;
-  if aContainer.ElementCount < 1 then
-    Exit;
-  if not Supports(aElement, IwbMainRecord, aMainRecord) then
-    Exit;
-  if aMainRecord.IsDeleted then
-    Exit;
-
-  Result := True;
-end;
-
-function wbTryGetContainingMainRecord(const aElement: IwbElement; out aMainRecord: IwbMainRecord): Boolean;
-begin
-  Result := False;
-
-  if not Assigned(aElement) then
-    Exit;
-
-  aMainRecord := aElement.ContainingMainRecord;
-
-  if not Assigned(aMainRecord) then
-    Exit;
-
-  Result := True;
-end;
-
-function wbTryGetMainRecord(const aElement: IwbElement; out aMainRecord: IwbMainRecord; const aSignature: string = ''): Boolean;
-begin
-  Result := False;
-
-  if not Assigned(aElement) then
-    Exit;
-
-  if not Supports(aElement.LinksTo, IwbMainRecord, aMainRecord) then
-    Exit;
-
-  if not SameText(aSignature, '') then
-    if aMainRecord.Signature <> aSignature then
-      Exit;
-
-  Result := True;
-end;
-
-function wbTrySetContainer(const aElement: IwbElement; aType: TwbCallbackType; out aContainer: IwbContainerElementRef): Boolean;
-begin
-  Result := (aType = ctToSummary) and Supports(aElement, IwbContainerElementRef, aContainer);
 end;
 
 {>>> Should Include Callbacks <<<} //1
