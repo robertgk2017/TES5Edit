@@ -7266,7 +7266,7 @@ begin
         wbFormIDCk('Curve Table', [CURV, NULL])
       ])
     ])
-  ).SetCountPath('Property Count', False);
+  ).SetCountPath('Property Count', True);
 
   wbOBTSReq := wbStruct(OBTS, 'Object Mod Template Item', [
     wbInteger('Include Count', itU32, nil, cpBenign).IncludeFlag(dfSkipImplicitEdit),  // fixed name for wbOMOD* handlers
