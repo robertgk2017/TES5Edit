@@ -426,7 +426,7 @@ begin
     end;
 
     Inc(aCount, lArray.Count);
-    wbProgress('Processed [%d] IncludedAuxBusses', [lArray.Count]);
+    //wbProgress('Processed [%d] IncludedAuxBusses', [lArray.Count]);
   end;
 
   lArray := aSoundBank.A['ExternalSources'];
@@ -503,7 +503,7 @@ begin
 
       BuildSoundBanks(lJSON, aModuleName, lCount);
 
-      wbProgress('[%s] Indexed %d GUIDs from', [aModuleName, lCount]);
+      wbProgress('[%s] Indexed %d GUIDs', [aModuleName, lCount]);
     finally
       lJSON.Free;
     end;
