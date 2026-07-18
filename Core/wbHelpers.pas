@@ -190,7 +190,7 @@ begin
   if not Assigned(aContainer) then
     Exit;
 
-  while aContainer.Name <> aName do
+  while Assigned(aContainer) and (aContainer.Name <> aName) do
     aContainer := aContainer.Container as IwbContainerElementRef;
 
   if not Assigned(aContainer) then
