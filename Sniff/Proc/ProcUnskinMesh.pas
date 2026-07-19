@@ -86,6 +86,9 @@ begin
   try
     nif.LoadFromData(aFile.GetData);
 
+    if Length(nif.BlocksByType('BSTriShape', True)) > 0 then
+      Exit;
+
     for var b in nif.BlocksByType('NiNode') do
       if b.IsBone then begin
         nif.Delete(b.Index);
