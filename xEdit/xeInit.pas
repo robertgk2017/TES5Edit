@@ -1463,7 +1463,7 @@ begin
       xeQuickEdit := True;
   end;
 
-  if wbFindCmdLineParam('generateseq', xePluginToUse) then begin
+  if (not xeQuickEdit) and wbFindCmdLineParam('generateseq', xePluginToUse) then begin
     xeAutoLoad := True;
     xeQuickSEQ := True;
   end;
