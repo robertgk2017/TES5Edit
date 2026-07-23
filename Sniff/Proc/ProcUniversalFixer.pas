@@ -881,37 +881,73 @@ begin
     end;
 
     // update layers in bhkListShape
-    var shape := TwbNifBlock(rigid.Elements['Shape'].LinksTo);
-    if Assigned(shape) and (shape.BlockType = 'bhkListShape') then begin
-      var subshapes := shape.Elements['Sub Shapes'];
-      var filters := shape.Elements['Filters'];
-      filters.Count := subshapes.Count;
+    var lShape := TwbNifBlock(rigid.Elements['Shape'].LinksTo);
+    if not Assigned(lShape) then
+      Continue;
 
-      var bUpdated := False;
-      for var i := Pred(subshapes.Count) downto 0 do begin
-        var subshape := TwbNifBlock(subshapes[i].LinksTo);
+    var lBlockType := lShape.BlockType;
+    var lUpdated := False;
+
+    if lBlockType = 'bhkListShape' then begin
+      var lSubShapes := lShape.Elements['Sub Shapes'];
+      var lFilters := lShape.Elements['Filters'];
+      lFilters.Count := lSubShapes.Count;
+
+      for var I := Pred(lSubShapes.Count) downto 0 do begin
+        var subshape := TwbNifBlock(lSubshapes[I].LinksTo);
 
         if not Assigned(subshape) then begin
-          subshapes.Delete(i);
-          filters.Delete(i);
-          bUpdated := True;
+          lSubShapes.Delete(I);
+          lFilters.Delete(I);
+          lUpdated := True;
           Continue;
         end;
 
-        if filters[i].NativeValues['Layer'] = 0 then begin
-          filters[i].NativeValues['Layer'] := layer;
-          bUpdated := True;
+        if lFilters[I].NativeValues['Layer'] = 0 then begin
+          lFilters[I].NativeValues['Layer'] := layer;
+          lUpdated := True;
         end;
       end;
 
-      if bUpdated then begin
-        Log.Add(#9 + shape.Name + ': Updated Filters to match the rigid body layer');
+      if lUpdated then begin
+        Log.Add(#9 + lShape.Name + ': Updated Filters to match the rigid body layer');
         Result := True;
       end;
+    end
+    else
+    if lBlockType = 'bhkMoppBvTreeShape' then
+    begin
+      var lSubShape := TwbNifBlock(lShape.Elements['Shape'].LinksTo);
+      if not Assigned(lSubShape) then
+        Continue;
 
+      var lData := TwbNifBlock(lSubShape.Elements['Data'].LinksTo);
+      if not Assigned(lData) then
+        Continue;
+
+      var lChunkMaterials := lData.Elements['Chunk Materials'];
+      if not Assigned(lChunkMaterials) then
+        Continue;
+
+      var lChunkMaterialsCount := lChunkMaterials.Count;
+
+      if lChunkMaterialsCount = 0 then
+        Continue;
+
+      for var lIdx := 0 to Pred(lChunkMaterialsCount) do
+        with lChunkMaterials[lIdx] do
+          if NativeValues['Havok Filter\Layer'] <> Layer then
+          begin
+            NativeValues['Havok Filter\Layer'] := Layer;
+            lUpdated := True;
+          end;
+
+      if lUpdated then begin
+        Log.Add(#9 + lData.Name + ': Updated Filters to match the rigid body layer');
+        Result := True;
+      end;
     end;
   end;
-
 end;
 
 //===========================================================================
