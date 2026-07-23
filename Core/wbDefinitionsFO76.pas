@@ -14942,7 +14942,8 @@ begin
         wbRArray('Fast Travel Menu Items',
           wbRStruct('Menu Item', [
             wbFormIDCk(ANAM, 'Interior Marker Reference', [REFR,NULL]),
-            wbLStringKC(VNAM, 'Item Text', 0, cpTranslate)
+            wbLStringKC(VNAM, 'Item Text', 0, cpTranslate),
+            wbUnknown(MCND)
           ]))
     ]),
 
@@ -16309,7 +16310,8 @@ begin
     wbEDID,
     wbFormIDCk(NAM1, 'Actor Value', [AVIF]),
     wbFormIDCk(NAM2, 'Produce', [LVLI, NULL]),
-    wbFormIDCK(NAM4, 'Interval', [GLOB])
+    wbFormIDCK(NAM4, 'Interval', [GLOB]),
+    wbUnknown(NAM5)
   ]);
 
   wbRecord(CURV, 'Curve Table', [

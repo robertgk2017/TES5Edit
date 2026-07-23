@@ -823,6 +823,7 @@ const
   MBNR : TwbSignature = 'MBNR'; { New To Fallout 76 }
   MCDT : TwbSignature = 'MCDT';
   MCHT : TwbSignature = 'MCHT'; { New to Skyrim }
+  MCND : TwbSignature = 'MCND';
   MCQP : TwbSignature = 'MCQP'; { New To Fallout 76 }
   MDOB : TwbSignature = 'MDOB';
   MDSP : TwbSignature = 'MDSP'; { New to Fallout 76 }
