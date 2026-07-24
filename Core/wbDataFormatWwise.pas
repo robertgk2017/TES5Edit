@@ -31,9 +31,9 @@ type
   end;
 
 var
-  wbSoundBank: IwbSoundBankArray;
+  wbSoundBankCache: IwbSoundBankArray;
 
-function wbSoundBankArray(const aLoadOrder: TStringList): IwbSoundBankArray;
+procedure wbBuildSoundBankCache(const aLoadOrder: TStringList);
 
 implementation
 
@@ -148,9 +148,9 @@ type
     procedure RegisterNode(const aNodeType: TwbWwiseNodeType; const aObject: TwbWwiseObject; const aBankFileName: string);
   end;
 
-function wbSoundBankArray(const aLoadOrder: TStringList): IwbSoundBankArray;
+procedure wbBuildSoundBankCache(const aLoadOrder: TStringList);
 begin
-  Result := TwbSoundBankArray.Create(aLoadOrder);
+  wbSoundBankCache := TwbSoundBankArray.Create(aLoadOrder);
 end;
 
 { TwbSwitchGroup }
@@ -565,13 +565,13 @@ constructor TwbSoundBankArray.Create(const aLoadOrder: TStringList);
 begin
   inherited Create;
 
-  FComboBoxMap := TDictionary<string, TDictionary<TwbWwiseNodeType, TStringList>>.Create;
+  FComboBoxMap := TDictionary<string, TDictionary<TwbWwiseNodeType, TStringList>>.Create(TIStringComparer.Ordinal);
   FDisplayMap := TDictionary<TwbWwiseNodeType, TDictionary<string, TGUID>>.Create;
   FGuidMap := TDictionary<TwbWwiseNodeType, TDictionary<TGUID, TwbWwiseObject>>.Create;
 
   for var lNodeType := Low(TwbWwiseNodeType) to High(TwbWwiseNodeType) do
   begin
-    FDisplayMap.Add(lNodeType, TDictionary<string, TGUID>.Create);
+    FDisplayMap.Add(lNodeType, TDictionary<string, TGUID>.Create(TIStringComparer.Ordinal));
     FGUIDMap.Add(lNodeType, TDictionary<TGUID, TwbWwiseObject>.Create);
   end;
 

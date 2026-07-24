@@ -21757,7 +21757,7 @@ begin
         end;
 
         if wbGameMode in [gmSF1] then
-          wbSoundBank := wbSoundBankArray(ltLoadList);
+          wbBuildSoundBankCache(ltLoadList);
 
         wbResourcesLoaded;
 

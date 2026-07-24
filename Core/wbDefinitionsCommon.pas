@@ -5086,7 +5086,7 @@ begin
       end;
 
       var lName, lFilename: string;
-      if wbSoundBank.TryLookupGUID(lNodeType, StringToGUID(aValue), lName, lFilename) then
+      if wbSoundBankCache.TryLookupGUID(lNodeType, StringToGUID(aValue), lName, lFilename) then
         if lName <> '' then
           aValue := Format('%s [%s]', [lName, lFilename]);
     end;
@@ -5101,7 +5101,7 @@ begin
         Exit;
       end;
 
-      if wbSoundBank.TryLookupDisplay(lNodeType, aValue, lGUID) then
+      if wbSoundBankCache.TryLookupDisplay(lNodeType, aValue, lGUID) then
       begin
         aValue := lGUID.ToString;
         Exit;
@@ -5155,14 +5155,14 @@ begin
               lFile.GetMasters(lList2);
               lList2.Add(lFile.FileName);
 
-              wbSoundBank.GetStrings(wntSwitchGroup, lList2, lList3);
+              wbSoundBankCache.GetStrings(wntSwitchGroup, lList2, lList3);
 
               lBool := False;
               for lIndex := 0 to Pred(lList3.Count) do
               begin
                 if StartsText(lString3 + ' [', lList3[lIndex]) then
                 begin
-                  if wbSoundBank.TryLookupDisplay(wntSwitchGroup, lList3[lIndex], lGUID) then
+                  if wbSoundBankCache.TryLookupDisplay(wntSwitchGroup, lList3[lIndex], lGUID) then
                   begin
                     lBool := True;
                     Break;
@@ -5171,7 +5171,7 @@ begin
               end;
 
               if lBool then
-                wbSoundBank.GetChildStrings(lGUID, wntSwitch, lList1);
+                wbSoundBankCache.GetChildStrings(lGUID, wntSwitch, lList1);
 
             finally
               lList2.Free;
@@ -5187,7 +5187,7 @@ begin
             lFile.GetMasters(lList2);
             lList2.Add(lFile.FileName);
 
-            wbSoundBank.GetStrings(lNodeType, lList2, lList1);
+            wbSoundBankCache.GetStrings(lNodeType, lList2, lList1);
           finally
             lList2.Free;
           end;
@@ -5197,7 +5197,7 @@ begin
         begin
           if StartsText(lString1 + ' [', lList1[lIndex]) then
           begin
-            if wbSoundBank.TryLookupDisplay(lNodeType, lList1[lIndex], lGUID) then
+            if wbSoundBankCache.TryLookupDisplay(lNodeType, lList1[lIndex], lGUID) then
             begin
               aValue := lGUID.ToString;
               Exit;
@@ -5239,14 +5239,14 @@ begin
                 lFile.GetMasters(lList2);
                 lList2.Add(lFile.FileName);
 
-                wbSoundBank.GetStrings(wntSwitchGroup, lList2, lList3);
+                wbSoundBankCache.GetStrings(wntSwitchGroup, lList2, lList3);
 
                 lBool := False;
                 for lIndex := 0 to Pred(lList3.Count) do
                 begin
                   if StartsText(lString2 + ' [', lList3[lIndex]) then
                   begin
-                    if wbSoundBank.TryLookupDisplay(wntSwitchGroup, lList3[lIndex], lGUID) then
+                    if wbSoundBankCache.TryLookupDisplay(wntSwitchGroup, lList3[lIndex], lGUID) then
                     begin
                       lBool := True;
                       Break;
@@ -5255,7 +5255,7 @@ begin
                 end;
 
                 if lBool then
-                  wbSoundBank.GetChildStrings(lGUID, wntSwitch, lList1);
+                  wbSoundBankCache.GetChildStrings(lGUID, wntSwitch, lList1);
 
               finally
                 lList2.Free;
@@ -5275,7 +5275,7 @@ begin
             lFile.GetMasters(lList2);
             lList2.Add(lFile.FileName);
 
-            wbSoundBank.GetStrings(lNodeType, lList2, lList1);
+            wbSoundBankCache.GetStrings(lNodeType, lList2, lList1);
           finally
             lList2.Free;
           end;
