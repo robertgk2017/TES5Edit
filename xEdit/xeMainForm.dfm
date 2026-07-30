@@ -3013,6 +3013,25 @@ object frmMain: TfrmMain
       Caption = 'Unhide all...'
       OnClick = mniViewHeaderUnhideAllClick
     end
+    object N34: TMenuItem
+      Caption = '-'
+    end
+    object mniViewHeaderClipboard: TMenuItem
+      Caption = 'Clipboard'
+      OnClick = mniViewHeaderClipboardClick
+      object mniViewHeaderCopyModuleName: TMenuItem
+        Caption = 'Copy module name'
+        OnClick = mniViewHeaderCopyModuleNameClick
+      end
+      object mniViewHeaderCopyLoadOrderFormID: TMenuItem
+        Caption = 'Copy LoadOrder FormID'
+        OnClick = mniViewHeaderCopyLoadOrderFormIDClick
+      end
+      object mniViewHeaderCopyName: TMenuItem
+        Caption = 'Copy name'
+        OnClick = mniViewHeaderCopyNameClick
+      end
+    end
   end
   object tmrCheckUnsaved: TTimer
     Enabled = False

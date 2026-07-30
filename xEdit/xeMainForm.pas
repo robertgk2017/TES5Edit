@@ -463,6 +463,11 @@ type
     edReferencedByFilterFileName: TEdit;
     tmrReferencedByFilterApply: TTimer;
     tmrViewFilterApply: TTimer;
+    N34: TMenuItem;
+    mniViewHeaderCopyModuleName: TMenuItem;
+    mniViewHeaderCopyLoadOrderFormID: TMenuItem;
+    mniViewHeaderClipboard: TMenuItem;
+    mniViewHeaderCopyName: TMenuItem;
 
     {--- Form ---}
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -756,6 +761,10 @@ type
     procedure lvReferencedByOnDataStateChange(Sender: TObject; StartIndex,
       EndIndex: Integer; OldState, NewState: TItemStates);
     procedure tmrViewFilterApplyTimer(Sender: TObject);
+    procedure mniViewHeaderCopyModuleNameClick(Sender: TObject);
+    procedure mniViewHeaderCopyLoadOrderFormIDClick(Sender: TObject);
+    procedure mniViewHeaderClipboardClick(Sender: TObject);
+    procedure mniViewHeaderCopyNameClick(Sender: TObject);
   protected
     OverrideViewFocusedNode: PVirtualNode;
     function GetViewFocusedNode: PVirtualNode;
@@ -10446,6 +10455,53 @@ begin
   end;
 end;
 
+procedure TfrmMain.mniViewHeaderCopyLoadOrderFormIDClick(Sender: TObject);
+var
+  Column                      : TColumnIndex;
+  Element                     : IwbElement;
+  MainRecord                  : IwbMainRecord;
+begin
+  Column := vstView.Header.Columns.PopupIndex;
+  if Column < 1 then
+    Exit;
+  Dec(Column);
+  if Column > High(ActiveRecords) then
+    Exit;
+  Element := ActiveRecords[Column].Element;
+  if not Supports(Element, IwbMainRecord, MainRecord) then
+    Exit;
+  Clipboard.AsText := IntToHex64(Cardinal(MainRecord.LoadOrderFormID), 8);
+end;
+
+procedure TfrmMain.mniViewHeaderClipboardClick(Sender: TObject);
+  procedure SetupCopyMni(aMni: TMenuItem; const aName, aValue: string);
+  begin
+    if not Assigned(aMni) then
+      Exit;
+    aMni.Visible := aValue <> '';
+    if aMni.Visible then
+      aMni.Caption := aName + ' <' + ShortenText(aValue) + '>';
+  end;
+
+var
+  Column     : TColumnIndex;
+  MainRecord : IwbMainRecord;
+begin
+  Column := vstView.Header.Columns.PopupIndex;
+  if Column < 1 then
+    Exit;
+  Dec(Column);
+  if Column > High(ActiveRecords) then
+    Exit;
+  if not Supports(ActiveRecords[Column].Element, IwbMainRecord, MainRecord) then
+    Exit;
+
+  SetupCopyMni(mniViewHeaderCopyModuleName, 'Copy &module name', MainRecord._File.FileName);
+  SetupCopyMni(mniViewHeaderCopyLoadOrderFormID, 'Copy LoadOrder Form&ID', IntToHex64(Cardinal(MainRecord.LoadOrderFormID), 8));
+  SetupCopyMni(mniViewHeaderCopyName, 'Copy &name', MainRecord.Name);
+
+end;
+
 procedure TfrmMain.mniViewHeaderCopyIntoClick(Sender: TObject);
 var
   Column                      : TColumnIndex;
@@ -10490,6 +10546,42 @@ begin
   Master.ResetConflict;
   PostResetActiveTree;
   InvalidateElementsTreeView(NoNodes);
+end;
+
+procedure TfrmMain.mniViewHeaderCopyModuleNameClick(Sender: TObject);
+var
+  Column                      : TColumnIndex;
+  Element                     : IwbElement;
+  MainRecord                  : IwbMainRecord;
+begin
+  Column := vstView.Header.Columns.PopupIndex;
+  if Column < 1 then
+    Exit;
+  Dec(Column);
+  if Column > High(ActiveRecords) then
+    Exit;
+  Element := ActiveRecords[Column].Element;
+  if not Supports(Element, IwbMainRecord, MainRecord) then
+    Exit;
+  Clipboard.AsText := MainRecord._File.FileName;
+end;
+
+procedure TfrmMain.mniViewHeaderCopyNameClick(Sender: TObject);
+var
+  Column                      : TColumnIndex;
+  Element                     : IwbElement;
+  MainRecord                  : IwbMainRecord;
+begin
+  Column := vstView.Header.Columns.PopupIndex;
+  if Column < 1 then
+    Exit;
+  Dec(Column);
+  if Column > High(ActiveRecords) then
+    Exit;
+  Element := ActiveRecords[Column].Element;
+  if not Supports(Element, IwbMainRecord, MainRecord) then
+    Exit;
+  Clipboard.AsText := MainRecord.Name;
 end;
 
 procedure TfrmMain.mniViewHeaderHiddenClick(Sender: TObject);
