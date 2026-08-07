@@ -21,7 +21,7 @@ uses
   wbStreams;
 
 const
-  cBSArchVersion = '1.0';
+  cBSArchVersion = '1.1';
   cBSArchExtension = '.bsarch';
 
 type
