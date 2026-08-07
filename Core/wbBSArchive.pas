@@ -1723,7 +1723,7 @@ begin
     // fixes to avoid game crashes with wrong flags
     // embedded names in textures only archives, might crash on other files
     if not bTexturesOnly then
-      fHeader.FileFlags := fHeader.FileFlags and not ARCHIVE_EMBEDNAME
+      fHeader.Flags := fHeader.Flags and not ARCHIVE_EMBEDNAME
     // SSE crashing bug - textures with embedded names must be compressed
     else if not Assigned(fPacker) and (fType = baSSE) and (fHeader.Flags and ARCHIVE_EMBEDNAME <> 0) then
       for var f in Self do f.Compress := True;
