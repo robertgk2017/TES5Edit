@@ -1284,7 +1284,7 @@ begin
       if not ( (aChunk is TwbBSFileChunkTex) and (TwbBSFileChunkTex(aChunk).StartMip <> 0) ) then
         Inc(fArchiveSharedFiles);
       if aChunk.PackedSize <> 0 then
-        Inc(fArchiveSharedSize, aChunk.PackedSize)
+        Inc(fArchiveSharedSize, aChunk.PackedSize and not FILE_SIZE_COMPRESS)
       else
         Inc(fArchiveSharedSize, aChunk.Size);
 
