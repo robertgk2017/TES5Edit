@@ -3377,7 +3377,15 @@ begin
       Result := wbAliasToStr(aInt, lMainRecord.ElementBySignature['QNAM'], aType)
     else if lSig = INFO then begin
       // get DIAL for INFO
-      var lTopic := (lMainRecord.ElementByName['Topic'].LinksTo as IwbMainRecord).HighestOverrideVisibleForFile[aElement._File];
+      var lTopicElement := lMainRecord.ElementByName['Topic'];
+      if not Assigned(lTopicElement) then
+        Exit;
+      var lTopicRecord: IwbMainRecord;
+      if not Supports(lTopicElement.LinksTo, IwbMainRecord, lTopicRecord) then
+        Exit;
+      var lTopic := lTopicRecord.HighestOverrideVisibleForFile[aElement._File];
+      if not Assigned(lTopic) then
+        Exit;
       Result := wbAliasToStr(aInt, lTopic.ElementBySignature['QNAM'], aType);
     end;
   end else begin
@@ -3677,7 +3685,10 @@ begin
     if not Assigned(lMainRecord) then
       Exit;
 
-    var lTopic := lMainRecord.ElementByName['Topic'].LinksTo as IwbMainRecord;
+    var lTopicElement := lMainRecord.ElementByName['Topic'];
+    if not Assigned(lTopicElement) then
+      Exit;
+    var lTopic := lTopicElement.LinksTo as IwbMainRecord;
     if not Assigned(lTopic) then
       Exit;
 
