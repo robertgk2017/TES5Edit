@@ -463,6 +463,11 @@ type
     edReferencedByFilterFileName: TEdit;
     tmrReferencedByFilterApply: TTimer;
     tmrViewFilterApply: TTimer;
+    N34: TMenuItem;
+    mniViewHeaderCopyModuleName: TMenuItem;
+    mniViewHeaderCopyLoadOrderFormID: TMenuItem;
+    mniViewHeaderClipboard: TMenuItem;
+    mniViewHeaderCopyName: TMenuItem;
 
     {--- Form ---}
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -756,6 +761,10 @@ type
     procedure lvReferencedByOnDataStateChange(Sender: TObject; StartIndex,
       EndIndex: Integer; OldState, NewState: TItemStates);
     procedure tmrViewFilterApplyTimer(Sender: TObject);
+    procedure mniViewHeaderCopyModuleNameClick(Sender: TObject);
+    procedure mniViewHeaderCopyLoadOrderFormIDClick(Sender: TObject);
+    procedure mniViewHeaderClipboardClick(Sender: TObject);
+    procedure mniViewHeaderCopyNameClick(Sender: TObject);
   protected
     OverrideViewFocusedNode: PVirtualNode;
     function GetViewFocusedNode: PVirtualNode;
@@ -906,7 +915,7 @@ type
     function ScriptCanProcessElement(const aElement: IwbElement): Boolean;
     procedure ApplyScriptToSelection(const aSelection: TNodeArray; aCount: Cardinal; const abShowMessages: boolean); overload;
     procedure ApplyScriptToSelection(const aSelection: TDynElements; aCount: Cardinal; const abShowMessages: boolean); overload;
-    procedure ApplyScript(const aScriptName: string; const aScript: string; aRefByMode: Boolean = False);
+    procedure ApplyScript(const aScriptFile: string; const aScript: string; aRefByMode: Boolean = False);
     procedure CreateActionsForScripts;
     function LOOTDirtyInfo(const aInfo: TLOOTPluginInfo; aFileChanged: Boolean): string;
     function BOSSDirtyInfo(const aInfo: TLOOTPluginInfo): string;
@@ -1032,6 +1041,7 @@ type
 
     Script: IxeScript;
   public
+    ScriptPath: string;
     ScriptProcessElements: TwbElementTypes;
     ScriptProcessSignatures: string;
     MonospaceFontName: string;
@@ -1332,6 +1342,7 @@ uses
 
   wbBetterStringList,
   wbBSA,
+  wbDataFormatWwise,
   wbHardcoded,
   wbHelpers,
   wbImplementation,
@@ -1795,7 +1806,6 @@ begin
     Free;
   end;
 
-  t := ChangeFileExt(ExtractFileName(t), '');
   ApplyScript(t, s);
 end;
 
@@ -5072,11 +5082,10 @@ begin
     end;
 
   if FileExists(xeScriptToRun) then begin
-    wbScriptsPath := ExtractFilePath(xeScriptToRun);
     with TStringList.Create do try
       LoadFromFile(xeScriptToRun);
       SelectRootNodes(vstNav);
-      ApplyScript(ChangeFileExt(ExtractFileName(xeScriptToRun),''), Text);
+      ApplyScript(xeScriptToRun, Text);
     finally
       Free;
     end;
@@ -5293,37 +5302,6 @@ begin
   end;
 
   if wbToolMode in [tmEdit, tmView, tmTranslate] then begin
-
-    {$IFDEF WIN64}
-    if not wbIsStarfield then
-      if Settings.ReadBool('Init', 'First64Start', True) then begin
-        if MessageDlg('You have started the 64bit version.' + CRLF + CRLF +
-          'The only reason to use the 64bit version is if you are getting an out of memory ' +
-          'error while using the 32bit version.' + CRLF + CRLF +
-          'The 32bit version is generally faster and uses less memory than the 64bit version.' + CRLF + CRLF +
-          'Are you sure you want to continue?', mtConfirmation, mbYesNo, 0, mbNo) <> mrYes then begin
-          tmrShutdown.Enabled := True;
-          Exit;
-          end;
-        Settings.WriteBool('Init', 'First64Start', False);
-        Settings.UpdateFile;
-      end;
-    {$ELSE}
-    if wbIsStarfield then
-      if Settings.ReadBool('Init', 'First32StarfieldStart', True) then begin
-        if MessageDlg('You have started the 32bit version for Starfield.' + CRLF + CRLF +
-          'Given the size of Starfield.esm, it is very likely that you will run out ' +
-          'of memory quickly while using the 32bit version.' + CRLF + CRLF +
-          'While the 32bit version is generally faster and uses less memory than the 64bit version, in case of Starfield, the use of the 64bit version is preferred.' + CRLF + CRLF +
-          'Are you sure you want to continue?', mtConfirmation, mbYesNo, 0, mbNo) <> mrYes then begin
-          tmrShutdown.Enabled := True;
-          Exit;
-          end;
-        Settings.WriteBool('Init', 'First32StarfieldStart', False);
-        Settings.UpdateFile;
-      end;
-    {$ENDIF WIN64}
-
     i := Settings.ReadInteger('WhatsNew', 'Version', 0);
     with TfrmRichEdit.Create(Self) do begin
       Caption := 'What''s New?';
@@ -8752,7 +8730,7 @@ begin
   end;
 end;
 
-procedure TfrmMain.ApplyScript(const aScriptName: string; const aScript: string; aRefByMode: Boolean);
+procedure TfrmMain.ApplyScript(const aScriptFile: string; const aScript: string; aRefByMode: Boolean);
 const
   sJustWait                   = 'Applying script. Please wait...';
 var
@@ -8781,7 +8759,11 @@ begin
   ScriptProcessElements := [etMainRecord];
   ScriptProcessSignatures := '';
 
-  Script := TxeScriptHost.CreateScript(aScriptName, aScript);
+  ScriptPath := ExtractFilePath(aScriptFile);
+  if ScriptPath = '' then
+    ScriptPath := wbScriptsPath;
+
+  Script := TxeScriptHost.CreateScript(aScriptFile, aScript);
   try
     ScriptRunning := True;
     UserWasActive := True;
@@ -8799,8 +8781,9 @@ begin
     if not bShowMessages then
       wbProgressLock;
     try
-      if aScriptName <> '' then
-        s := 'Applying script "'+aScriptName+'"'
+      s := ChangeFileExt(ExtractFileName(aScriptFile), '');
+      if s <> '' then
+        s := 'Applying script "'+s+'"'
       else
         s := 'Applying script';
       PerformLongAction(s, '', procedure
@@ -8872,6 +8855,7 @@ begin
       CheckViewForChange;
   finally
     Script := nil;
+    ScriptPath := '';
     ScriptRunning := False;
   end;
 end;
@@ -9179,7 +9163,7 @@ end;
 
 procedure TfrmMain.mniNavApplyScriptClick(Sender: TObject);
 var
-  ScriptName: string;
+  ScrFile: string;
   Scr: string;
 begin
   with TfrmScript.Create(Self) do try
@@ -9189,7 +9173,7 @@ begin
     if ShowModal <> mrOK then
       Exit;
     Scr := Script;
-    ScriptName := LastUsedScript;
+    ScrFile := ScriptFile;
     Settings.WriteString('View', 'LastUsedScript', LastUsedScript);
     Settings.WriteBool('View', 'IncludeScriptsFromSubDir', chkScriptsSubDir.Checked);
     Settings.UpdateFile;
@@ -9197,7 +9181,7 @@ begin
   finally
     Free;
   end;
-  ApplyScript(ScriptName, Scr, Sender = mniRefByApplyScript);
+  ApplyScript(ScrFile, Scr, Sender = mniRefByApplyScript);
 end;
 
 procedure TfrmMain.CreateActionsForScripts;
@@ -9205,7 +9189,6 @@ const
   HotkeyToken = 'Hotkey: ';
 var
   scr, s               : string;
-  F                    : TSearchRec;
   slScript             : TStringList;
   i                    : integer;
   ShortCut             : TShortCut;
@@ -9219,10 +9202,12 @@ begin
     if ActionList1.Actions[i].Tag > 0 then
       ActionList1.Actions[i].Free;
 
-  if FindFirst(wbScriptsPath + '*.pas', faAnyFile, F) = 0 then try
-    slScript := TStringList.Create;
-    repeat
-      scr := wbScriptsPath + F.Name;
+  if not TDirectory.Exists(wbScriptsPath) then
+    Exit;
+
+  slScript := TStringList.Create;
+  try
+    for scr in TDirectory.GetFiles(wbScriptsPath, '*.pas', TSearchOption.soAllDirectories) do begin
       slScript.LoadFromFile(scr);
       for i := 0 to Pred(slScript.Count) do begin
         s := Trim(slScript[i]);
@@ -9240,9 +9225,8 @@ begin
           Break;
         end;
       end;
-    until FindNext(F) <> 0;
+    end;
   finally
-    System.SysUtils.FindClose(F);
     FreeAndNil(slScript);
   end;
 end;
@@ -10476,6 +10460,53 @@ begin
   end;
 end;
 
+procedure TfrmMain.mniViewHeaderCopyLoadOrderFormIDClick(Sender: TObject);
+var
+  Column                      : TColumnIndex;
+  Element                     : IwbElement;
+  MainRecord                  : IwbMainRecord;
+begin
+  Column := vstView.Header.Columns.PopupIndex;
+  if Column < 1 then
+    Exit;
+  Dec(Column);
+  if Column > High(ActiveRecords) then
+    Exit;
+  Element := ActiveRecords[Column].Element;
+  if not Supports(Element, IwbMainRecord, MainRecord) then
+    Exit;
+  Clipboard.AsText := IntToHex64(Cardinal(MainRecord.LoadOrderFormID), 8);
+end;
+
+procedure TfrmMain.mniViewHeaderClipboardClick(Sender: TObject);
+  procedure SetupCopyMni(aMni: TMenuItem; const aName, aValue: string);
+  begin
+    if not Assigned(aMni) then
+      Exit;
+    aMni.Visible := aValue <> '';
+    if aMni.Visible then
+      aMni.Caption := aName + ' <' + ShortenText(aValue) + '>';
+  end;
+
+var
+  Column     : TColumnIndex;
+  MainRecord : IwbMainRecord;
+begin
+  Column := vstView.Header.Columns.PopupIndex;
+  if Column < 1 then
+    Exit;
+  Dec(Column);
+  if Column > High(ActiveRecords) then
+    Exit;
+  if not Supports(ActiveRecords[Column].Element, IwbMainRecord, MainRecord) then
+    Exit;
+
+  SetupCopyMni(mniViewHeaderCopyModuleName, 'Copy &module name', MainRecord._File.FileName);
+  SetupCopyMni(mniViewHeaderCopyLoadOrderFormID, 'Copy LoadOrder Form&ID', IntToHex64(Cardinal(MainRecord.LoadOrderFormID), 8));
+  SetupCopyMni(mniViewHeaderCopyName, 'Copy &name', MainRecord.Name);
+
+end;
+
 procedure TfrmMain.mniViewHeaderCopyIntoClick(Sender: TObject);
 var
   Column                      : TColumnIndex;
@@ -10520,6 +10551,42 @@ begin
   Master.ResetConflict;
   PostResetActiveTree;
   InvalidateElementsTreeView(NoNodes);
+end;
+
+procedure TfrmMain.mniViewHeaderCopyModuleNameClick(Sender: TObject);
+var
+  Column                      : TColumnIndex;
+  Element                     : IwbElement;
+  MainRecord                  : IwbMainRecord;
+begin
+  Column := vstView.Header.Columns.PopupIndex;
+  if Column < 1 then
+    Exit;
+  Dec(Column);
+  if Column > High(ActiveRecords) then
+    Exit;
+  Element := ActiveRecords[Column].Element;
+  if not Supports(Element, IwbMainRecord, MainRecord) then
+    Exit;
+  Clipboard.AsText := MainRecord._File.FileName;
+end;
+
+procedure TfrmMain.mniViewHeaderCopyNameClick(Sender: TObject);
+var
+  Column                      : TColumnIndex;
+  Element                     : IwbElement;
+  MainRecord                  : IwbMainRecord;
+begin
+  Column := vstView.Header.Columns.PopupIndex;
+  if Column < 1 then
+    Exit;
+  Dec(Column);
+  if Column > High(ActiveRecords) then
+    Exit;
+  Element := ActiveRecords[Column].Element;
+  if not Supports(Element, IwbMainRecord, MainRecord) then
+    Exit;
+  Clipboard.AsText := MainRecord.Name;
 end;
 
 procedure TfrmMain.mniViewHeaderHiddenClick(Sender: TObject);
@@ -18617,13 +18684,6 @@ begin
 end;
 
 procedure TfrmMain.vstViewDblClick(Sender: TObject);
-var
-  NodeDatas                   : PViewNodeDatas;
-  i                           : Integer;
-  ModalEdit                   : Boolean;
-  ViewFocusedElement              : IwbElement;
-  Element                     : IwbElement;
-  Def                         : IwbNamedDef;
 begin
   UserWasActive := True;
 
@@ -18640,48 +18700,48 @@ begin
     Exit;
   end;
 
-  NodeDatas := vstView.GetNodeData(vstViewFocusedNode);
+  var NodeDatas : PViewNodeDatas := vstView.GetNodeData(vstViewFocusedNode);
   if Assigned(NodeDatas) then begin
 
+    var ViewFocusedElement: IwbElement;
     if vstView.FocusedColumn > 0 then
       ViewFocusedElement := NodeDatas[Pred(vstView.FocusedColumn)].Element
     else
       ViewFocusedElement := nil;
+
     EditFocusedViewElement := False;
-    Element := ViewFocusedElement;
+    var Element := ViewFocusedElement;
     if not Assigned(Element) then
-      for i := Low(ActiveRecords) to High(ActiveRecords) do begin
+      for var I := Low(ActiveRecords) to High(ActiveRecords) do begin
         Element := NodeDatas[i].Element;
         if Assigned(Element) then
           Break;
       end;
 
     if Assigned(Element) then begin
-      Def := Element.ResolvedValueDef;
+      var Def := Element.ResolvedValueDef;
 
       if Assigned(ViewFocusedElement) and Assigned(Def) and ViewFocusedElement.IsEditable then
-        if Def.DefType in [dtInteger, dtFlag, dtFloat] then begin
+        if Def.DefType in [dtInteger, dtFlag, dtFloat, dtGuid] then begin
           vstView.EditNode(vstViewFocusedNode, vstView.FocusedColumn);
           Exit;
         end;
     end;
 
-    with TfrmViewElements.Create(nil) do begin
+    with TfrmViewElements.Create(Self) do begin
       Caption := vstView.Path(vstViewFocusedNode, 0,{ ttNormal,} '\');
       Settings := Self.Settings;
+
       if Assigned(ActiveMaster) then
         Caption := ActiveMaster.Name + '\' + Caption;
 
-      ModalEdit := wbIKnowWhatImDoing or (GetKeyState(VK_SHIFT) < 0);
-
-      for i := Low(ActiveRecords) to High(ActiveRecords) do
-        AddElement(NodeDatas[i].Element, vstView.FocusedColumn = Succ(i),
-          ModalEdit and Assigned(NodeDatas[i].Element) and NodeDatas[i].Element.IsEditable);
-      if not ModalEdit then
-        Show
-      else begin
-        ShowModal;
+      for var I := Low(ActiveRecords) to High(ActiveRecords) do begin
+        var lNodeElement := NodeDatas[i].Element;
+        if Assigned(lNodeElement) then
+          AddElement(lNodeElement, vstView.FocusedColumn = Succ(i), lNodeElement.IsEditable);
       end;
+
+      ShowModal;
     end;
   end;
 end;
@@ -21792,6 +21852,9 @@ begin
           wbContainerHandler.EnsureCache;
           LoaderProgress('...resources cache finished building');
         end;
+
+        if wbGameMode in [gmSF1] then
+          wbBuildSoundBankCache(ltLoadList);
 
         wbResourcesLoaded;
 

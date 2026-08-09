@@ -1835,7 +1835,7 @@ var
 //  wbInitialDataType          : IwbUnionDef;
 //  wbChangeFlags010Flags      : IwbFlagsDef;
   wbCoSaveChunk              : IwbStructDef;
-  wbCoSaveChunks             : IwbArrayDef;
+  wbCoSaveChunks             : IwbValueDef;
   wbCoSavePlugin             : IwbStructDef;
   wbCoSavePlugins            : IwbArrayDef;
 
@@ -6773,8 +6773,8 @@ begin
      wbArray('Global Data 1', wbGlobalData, [], GlobalData1Counter)
     ,wbArray('Changed Forms', wbChangedForm, [], ChangedFormsCounter)
     ,wbArray('Global Data 2', wbGlobalData, [], GlobalData2Counter)
-    ,wbArray('FormIDs', wbFormID('FormID', cpFormID), -1, RefIDTableAfterLoad)
-    ,wbArray('Visited Worldspace', wbFormID('FormID', cpFormID), -1, WorldspaceTableAfterLoad)
+    ,wbArray('FormIDs', wbFormID('FormID', cpFormID), -1).SetAfterLoad(RefIDTableAfterLoad)
+    ,wbArray('Visited Worldspace', wbFormID('FormID', cpFormID), -1).SetAfterLoad(WorldspaceTableAfterLoad)
     ,wbArray('Unknown Table', wbInteger('Unknown', itU8), -1)
 //    ,wbByteArray('Unused', SkipCounter) // Lets you skip an arbitrary number of byte, Setable from CommandLine -bts:n
 //    ,wbArray('Remaining',  WbByteArray('Unknown', wbBytesToGroup), DumpCounter) // Lets you dump an arbitrary number of quartet, Setable from CommandLine -btd:n
@@ -6836,7 +6836,7 @@ begin
   ]);
 //  wbCoSaveChunk.TreeLeaf := True;
 
-  wbCoSaveChunks := wbArray('Chunks', wbCoSaveChunk, wbCoSaveChunkCounter, cpNormal, false, wbDontShowBranch);
+  wbCoSaveChunks := wbArray('Chunks', wbCoSaveChunk, wbCoSaveChunkCounter).SetDontShow(wbDontShowBranch);
   wbCoSavePlugin := wbStructC('Plugin', nil, wbCoSaveArrayType, wbCoSaveArrayTypeName, nil, [
     wbInteger('Opcode Base', itU32),
     wbInteger('Chunks count', itU32),

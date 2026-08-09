@@ -159,6 +159,7 @@
         <DCCReference Include="Core\wbDataFormatMisc.pas"/>
         <DCCReference Include="Core\wbDataFormatNif.pas"/>
         <DCCReference Include="Core\wbDataFormatNifTypes.pas"/>
+        <DCCReference Include="Core\wbDataFormatWwise.pas"/>
         <DCCReference Include="Core\wbDefinitionsCommon.pas"/>
         <DCCReference Include="Core\wbDefinitionsFNV.pas"/>
         <DCCReference Include="Core\wbDefinitionsFNVSaves.pas"/>
@@ -175,6 +176,7 @@
         <DCCReference Include="Core\wbDefinitionsTES4Saves.pas"/>
         <DCCReference Include="Core\wbDefinitionsTES5.pas"/>
         <DCCReference Include="Core\wbDefinitionsTES5Saves.pas"/>
+        <DCCReference Include="Core\wbHash.pas"/>
         <DCCReference Include="Core\wbHalfFloat.pas"/>
         <DCCReference Include="Core\wbHardcoded.pas">
             <Form>wbHardcodedContainer</Form>

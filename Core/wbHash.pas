@@ -43,6 +43,10 @@ type
     class function _TES4(const aText: string; aHasExtension: Boolean = False; aSigned: Boolean = False): UInt64;
     class function TES4(const aText: string; aHasExtension: Boolean = False): UInt64;
     class function TES5(const aText: string; aHasExtension: Boolean = False): UInt64;
+    class function FNV132(const aText: string; aIgnoreCase: Boolean = False): UInt32; overload;
+    class function FNV132(const aText: AnsiString; aIgnoreCase: Boolean = False): UInt32; overload;
+    class function FNV132(aData: PByte; aSize: UInt64): UInt32; overload;
+    class function FNV132(const aBytes: TBytes): UInt32; overload;
     class function FO4(const aText: string): Cardinal;
     class function BSCRC32(const aText: string): Cardinal;
     class function XXH32(aData: Pointer; aLen: NativeInt; aSeed: TwbXXH32 = 0): TwbXXH32;
@@ -100,6 +104,7 @@ implementation
 
 uses
   System.Classes,
+  System.AnsiStrings,
 
   WinApi.Windows,
 
@@ -559,6 +564,49 @@ begin
 end;
 {$ENDIF}
 
+{https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function}
+
+class function TwbHash.FNV132(aData: PByte; aSize: UInt64): UInt32;
+const
+  // FNV-1a 32-bit constants
+  FNV_Offset_Basis = 2166136261;
+  FNV_Prime        = 16777619;
+var
+  i: NativeUInt;
+begin
+  Result := FNV_Offset_Basis;
+  for i := 0 to aSize - 1 do
+  begin
+    Result := Result * FNV_Prime;
+    Result := Result xor aData^;
+    Inc(aData);
+  end;
+end;
+
+class function TwbHash.FNV132(const aBytes: TBytes): UInt32;
+begin
+  if Length(aBytes) > 0 then
+    Result := FNV132(@aBytes[0], Length(aBytes))
+  else
+    Result := FNV132(nil, 0);
+end;
+
+class function TwbHash.FNV132(const aText: AnsiString; aIgnoreCase: Boolean = False): UInt32;
+var
+  s : AnsiString;
+begin
+  if aIgnoreCase then
+    s := System.AnsiStrings.AnsiLowerCase(aText)
+  else
+    s := aText;
+
+  Result := FNV132(PByte(PAnsiChar(s)), Length(s));
+end;
+
+class function TwbHash.FNV132(const aText: string; aIgnoreCase: Boolean = False): UInt32;
+begin
+  Result := FNV132(AnsiString(aText), aIgnoreCase);
+end;
 
 initialization
   CRCInit;

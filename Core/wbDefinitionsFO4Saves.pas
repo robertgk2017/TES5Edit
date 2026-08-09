@@ -2728,7 +2728,7 @@ var
 
   wbChangeDefaultFlags    : IwbIntegerDef;
   wbCoSaveChunk           : IwbStructDef;
-  wbCoSaveChunks          : IwbArrayDef;
+  wbCoSaveChunks          : IwbValueDef;
   wbCoSavePlugin          : IwbStructDef;
   wbCoSavePlugins         : IwbArrayDef;
   wbChangeFlags000        : IwbIntegerDef;
@@ -3870,20 +3870,20 @@ begin
       wbStruct('Papyrus Struct', [
         wbInteger('VM_version', itU16),  // FFFF marks an invalid save, 4 seems current max     UESP: header
         wbStruct('Tables', [
-          wbArray('String Table for Internal VM save data', wbLenString('String', 2), -2, VMTypeAfterLoad),  // UESP strings
+          wbArray('String Table for Internal VM save data', wbLenString('String', 2), -2).SetAfterLoad(VMTypeAfterLoad),  // UESP strings
           wbStruct('Type tables for internal VM save data', [
            wbInteger('Type Table 2 Count', itU32),
            wbInteger('Type Table 1 Count', itU32),
            wbArray('Type table 2', wbTypeData2, TypeTable2Counter),  // Type table for internal VM save data  USEP:script
            wbArray('Type table 1', wbTypeData1, TypeTable1Counter)  // Type table for internal VM save data  USEP:script
           ]),
-          wbArray('Object Table', wbObjectTableEntry, -1, ObjectTableAfterLoad),  // UESP: scriptInstance
-          wbArray('Supplement Object Table', wbObjectDetachedTableEntry, -1, SupplementObjectTableAfterLoad),  // UESP: scriptInstance
-          wbArray('Detached Object Table', wbObjectDetachedTableEntry, -1, ObjectDetachedTableAfterLoad), // UESP: reference
-          wbArrayS('Array Table', wbArrayTableEntry, -1, ArrayTableAfterLoad), // UESP: arrayInfo
+          wbArray('Object Table', wbObjectTableEntry, -1).SetAfterLoad(ObjectTableAfterLoad),  // UESP: scriptInstance
+          wbArray('Supplement Object Table', wbObjectDetachedTableEntry, -1).SetAfterLoad(SupplementObjectTableAfterLoad),  // UESP: scriptInstance
+          wbArray('Detached Object Table', wbObjectDetachedTableEntry, -1).SetAfterLoad(ObjectDetachedTableAfterLoad), // UESP: reference
+          wbArrayS('Array Table', wbArrayTableEntry, -1).SetAfterLoad(ArrayTableAfterLoad), // UESP: arrayInfo
           wbStruct('Stacks', [
             wbInteger('Next Active Script ID', itU32),                // Part of Stack table
-            wbArrayS('Stack Table', wbStackTableEntry, -1, StackTableAfterLoad) // UESP: activeScript
+            wbArrayS('Stack Table', wbStackTableEntry, -1).SetAfterLoad(StackTableAfterLoad) // UESP: activeScript
           ]),
           wbArray('Object Table Data', wbObjectDataTableEntry, ObjectTableDataCounter),     // UESP: scriptData and referenceData
           wbArray('Detached Object Table Data', wbDetachedObjectDataTableEntry, DetachedObjectTableDataCounter),     // UESP: scriptData and referenceData
@@ -7313,8 +7313,8 @@ begin
     ,wbArray('Global Data 2', wbGlobalData, [], GlobalData2Counter)
     ,wbArray('Changed Forms', wbChangedForm, [], ChangedFormsCounter)
     ,wbArray('Global Data 3', wbGlobalData, [], GlobalData3Counter)
-    ,wbArray('FormIDs', wbFormID('FormID', cpFormID), -1, RefIDTableAfterLoad)
-    ,wbArray('Visited Worldspace', wbFormID('FormID', cpFormID), -1, WorldspaceTableAfterLoad)
+    ,wbArray('FormIDs', wbFormID('FormID', cpFormID), -1).SetAfterLoad(RefIDTableAfterLoad)
+    ,wbArray('Visited Worldspace', wbFormID('FormID', cpFormID), -1).SetAfterLoad(WorldspaceTableAfterLoad)
     ,wbInteger('Unknown Table Size', itU32)
     ,wbArray('Unknown Table', wbLenString('Unknown', 2), -1)
 //    ,wbByteArray('Unused', SkipCounter) // Lets you skip an arbitrary number of byte, Setable from CommandLine -bts:n
@@ -7366,7 +7366,7 @@ begin
   ]);
 //  wbCoSaveChunk.TreeLeaf := True;
 
-  wbCoSaveChunks := wbArray('Chunks', wbCoSaveChunk, wbCoSaveChunkCounter, cpNormal, false, wbDontShowBranch);
+  wbCoSaveChunks := wbArray('Chunks', wbCoSaveChunk, wbCoSaveChunkCounter).SetDontShow(wbDontShowBranch);
   wbCoSavePlugin := wbStructC('Plugin', nil, wbCoSaveArrayType, wbCoSaveArrayTypeName, nil, [
     wbInteger('UID', itU32),
     wbInteger('Chunks count', itU32),

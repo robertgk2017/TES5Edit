@@ -1945,6 +1945,9 @@ begin
   end;
 
   bsa.ArchiveTarget := ArchiveTarget;
+  // single texture chunk for xbox archives, tests showed chunking causes issues there for unknown reason
+  if bsa.ArchiveTarget = btXBox then
+    bsa.MaxChunkCount := 1;
   bsa.ConvertDDS2XBOX := bsa.IsDDSArchive(ArchiveType) and (bsa.ArchiveTarget = btXBox) and
    FileExists(ExtractFilePath(ParamStr(0)) + 'xtexconv.exe');
 

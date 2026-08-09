@@ -1824,7 +1824,7 @@ end;
 
 function wbCoordXYZ(const aName: string): IwbArrayDef;
 begin
-  Result := wbArrayT(aName, wbFloat('Coord'), 3, ['X', 'Y', 'Z'], nil);
+  Result := wbArrayT(aName, wbFloat('Coord'), 3, ['X', 'Y', 'Z']);
 end;
 
 procedure DefineFNVSavesS;  // This is all based on the Runtime
@@ -1846,7 +1846,7 @@ var
   wbInitialDataType          : IwbUnionDef;
   wbChangeFlags010Flags      : IwbFlagsDef;
   wbCoSaveChunk              : IwbStructDef;
-  wbCoSaveChunks             : IwbArrayDef;
+  wbCoSaveChunks             : IwbValueDef;
   wbCoSavePlugin             : IwbStructDef;
   wbCoSavePlugins            : IwbArrayDef;
 
@@ -6826,12 +6826,12 @@ begin
   ]);
 
   wbSaveChapters := wbStruct('Save File Chapters', [
-     wbArray('Global Data 1', wbGlobalData, [], GlobalData1Counter)
-    ,wbArray('Changed Forms', wbChangedForm, [], ChangedFormsCounter)
-    ,wbArray('Global Data 2', wbGlobalData, [], GlobalData2Counter)
-    ,wbArray('FormIDs', wbFormID('FormID', cpFormID), -1, RefIDTableAfterLoad)
-    ,wbArray('Visited Worldspace', wbFormID('FormID', cpFormID), -1, WorldspaceTableAfterLoad)
-    ,wbArray('Unknown Table', wbInteger('Unknown', itU8), -1)
+     wbArray('Global Data 1', wbGlobalData, [], GlobalData1Counter),
+     wbArray('Changed Forms', wbChangedForm, [], ChangedFormsCounter),
+     wbArray('Global Data 2', wbGlobalData, [], GlobalData2Counter),
+     wbArray('FormIDs', wbFormID('FormID', cpFormID), -1).SetAfterLoad(RefIDTableAfterLoad),
+     wbArray('Visited Worldspace', wbFormID('FormID', cpFormID), -1).SetAfterLoad(WorldspaceTableAfterLoad),
+     wbArray('Unknown Table', wbInteger('Unknown', itU8), -1)
 //    ,wbByteArray('Unused', SkipCounter) // Lets you skip an arbitrary number of byte, Setable from CommandLine -bts:n
 //    ,wbArray('Remaining',  WbByteArray('Unknown', wbBytesToGroup), DumpCounter) // Lets you dump an arbitrary number of quartet, Setable from CommandLine -btd:n
   ]);
@@ -6888,7 +6888,7 @@ begin
   ]);
 //  wbCoSaveChunk.TreeLeaf := True;
 
-  wbCoSaveChunks := wbArray('Chunks', wbCoSaveChunk, wbCoSaveChunkCounter, cpNormal, false, wbDontShowBranch);
+  wbCoSaveChunks := wbArray('Chunks', wbCoSaveChunk, wbCoSaveChunkCounter).SetDontShow(wbDontShowBranch);
   wbCoSavePlugin := wbStructC('Plugin', nil, wbCoSaveArrayType, wbCoSaveArrayTypeName, nil, [
     wbInteger('Opcode Base', itU32),
     wbInteger('Chunks count', itU32),

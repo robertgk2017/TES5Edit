@@ -107,7 +107,7 @@ begin
         Exit;
       Grid := GetGridCell(Cell);
       AddMessage('XPRM: ' + Name(e));
-      slLargeReferences.AddObject(IntToStr(Cell.x) + ' ' + IntToStr(Cell.y), e);
+      slLargeReferences.AddObject(IntToStr(Grid.x) + ' ' + IntToStr(Grid.y), e);
     end;
     Exit;
   end;
@@ -130,9 +130,9 @@ begin
     fScale := 1.0;
 
   // get base object size
-  Dimensions.x := GetElementNativeValues(stat, 'OBND\X2') - GetElementNativeValues(stat, 'OBND\X1');
-  Dimensions.y := GetElementNativeValues(stat, 'OBND\Y2') - GetElementNativeValues(stat, 'OBND\Y1');
-  Dimensions.z := GetElementNativeValues(stat, 'OBND\Z2') - GetElementNativeValues(stat, 'OBND\Z1');
+  Dimensions.x := GetElementNativeValues(stat, 'OBND\Max\X') - GetElementNativeValues(stat, 'OBND\Min\X');
+  Dimensions.y := GetElementNativeValues(stat, 'OBND\Max\Y') - GetElementNativeValues(stat, 'OBND\Min\Y');
+  Dimensions.z := GetElementNativeValues(stat, 'OBND\Max\Z') - GetElementNativeValues(stat, 'OBND\Min\Z');
 
   // skipping wierd stuff or data
   if (Dimensions.z = 0) or (Dimensions.y = 0) or (Dimensions.x = 0) then

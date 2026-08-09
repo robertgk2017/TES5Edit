@@ -5298,7 +5298,6 @@ begin
     if not Assigned(HEDR) then
       raise Exception.Create('File ' + GetFileName + ' has a file header with missing HEDR subrecord');
 
-
     if flModule.miExtension = meESM then
       SetIsESM(True);
 
@@ -5406,11 +5405,13 @@ begin
                     var FileID := FormID.FileID.FullSlot;
                     if FileID > i then
                       Break;
+
                     Assert(FileID = i);
                     Inc(j);
 
                     Signature := Current.Signature;
-                    if (Signature = 'NAVM') or
+                    if (Signature = 'CELL') or
+                       (Signature = 'NAVM') or
                        (Signature = 'LAND') or
                        (Signature = 'REFR') or
                        (Signature = 'PGRE') or
@@ -5436,24 +5437,27 @@ begin
                         if Current.IsPersistent then
                           Continue;
 
-                        if not Assigned(ONAMs) then begin
-                          if not Supports(FileHeader.Add('ONAM', True), IwbContainerElementRef, ONAMs) then
-                            Assert(False);
-                          ONAMs.BeginUpdate;
-                          Assert(ONAMs.ElementCount = 1);
-                          NewONAM := ONAMs.Elements[0];
-                        end else repeat
-                          NewONAM := ONAMs.Assign(wbAssignAdd, nil, True);
-                        until NewONAM.NativeValue = 0;
+                        if Current.Signature <> 'CELL' then
+                        begin
+                          if not Assigned(ONAMs) then begin
+                            if not Supports(FileHeader.Add('ONAM', True), IwbContainerElementRef, ONAMs) then
+                              Assert(False);
+                            ONAMs.BeginUpdate;
+                            Assert(ONAMs.ElementCount = 1);
+                            NewONAM := ONAMs.Elements[0];
+                          end else repeat
+                            NewONAM := ONAMs.Assign(wbAssignAdd, nil, True);
+                          until NewONAM.NativeValue = 0;
 
-                        NewONAM.NativeValue := FormID.ToCardinal;
+                          NewONAM.NativeValue := FormID.ToCardinal;
+                        end;
 
                         if wbMasterUpdateFixPersistence and not Current.IsPersistent and not Current.IsMaster then begin
                           Master := Current.Master;
                           if Assigned(Master) then begin
                             if Master.IsPersistent then begin
                               flProgress('Setting Persistent: ' + Current.Name);
-                              Current.IsPersistent := True;
+                              Current.ElementNativeValues['Record Header\Record Flags\Persistent'] := 1;
                             end else
                               for k := 0 to Pred(Master.OverrideCount) do
                                 if Current.Equals(Master.Overrides[k]) then
@@ -5461,7 +5465,7 @@ begin
                                 else
                                   if Master.Overrides[k].IsPersistent then begin
                                     flProgress('Setting Persistent: ' + Current.Name);
-                                    Current.IsPersistent := True;
+                                    Current.ElementNativeValues['Record Header\Record Flags\Persistent'] := 1;
                                     Break;
                                   end;
                           end;
@@ -5480,6 +5484,7 @@ begin
       finally
         EndUpdate;
       end;
+
       if not (fsIsDeltaPatch in flStates) then begin
         Exclude(TwbMainRecord(FileHeader).mrStates, mrsNoUpdateRefs);
         FileHeader.UpdateRefs;
@@ -5498,9 +5503,7 @@ begin
     end;
 
     if wbComplexFileFileID then begin
-
       if not wbRedPill then begin
-
         for var lMasterIdx := 0 to Pred(GetMasterCount(True)) do begin
           var lMaster := GetMaster(lMasterIdx, True);
           if lMaster.GetIsUpdateDirect or (PwbModuleInfo(lMaster.ModuleInfo).miFlags * [mfHasUpdateFlag] <> []) then
@@ -5518,11 +5521,8 @@ begin
 
         if FileHeader.IsUpdate then
           raise Exception.Create('Update flagged files can''t be saved in ' + wbAppName + wbToolName);
-
       end;
-
     end else begin
-
       var lFileFileID := GetFileFileID(true);
 
       if FileHeader.IsLight then begin
@@ -5562,9 +5562,7 @@ begin
             Break;
         end;
       end;
-
     end;
-
   end else
     inherited;
 end;
@@ -7038,32 +7036,35 @@ begin
 end;
 
 function TwbContainer.CanChangeElementMember(const aElement: IwbElement): Boolean;
-var
-  SubRecordArrayDef : IwbSubRecordArrayDef;
-  SubRecordStructDef : IwbSubRecordStructDef;
-  Def               : IwbDef;
-  ValueDef          : IwbValueDef;
 begin
   Result := False;
   if not wbIsInternalEdit then begin
-    Def := GetDef;
-    if Assigned(Def) and (dfInternalEditOnly in Def.DefFlags) then
+    var lDef := GetDef;
+    if Assigned(lDef) and (dfInternalEditOnly in lDef.DefFlags) then
       Exit;
-    ValueDef := GetValueDef;
-    if Assigned(ValueDef) and (dfInternalEditOnly in ValueDef.DefFlags) then
+
+    var lValueDef := GetValueDef;
+    if Assigned(lValueDef) and (dfInternalEditOnly in lValueDef.DefFlags) then
       Exit;
   end;
+
   if not IsElementEditable(Self) then
     Exit;
 
-  if Supports(GetDef, IwbSubRecordArrayDef, SubRecordArrayDef) then begin
-    Result := Supports(SubRecordArrayDef.Element, IwbSubRecordUnionDef);
-  end else if Supports(GetDef, IwbSubRecordStructDef, SubRecordStructDef) then begin
+  var lSRADef: IwbSubRecordArrayDef;
+  var lSRSDef: IwbSubRecordStructDef;
+  var lSRUDef: IwbSubRecordUnionDef;
+
+  if Supports(GetDef, IwbSubRecordArrayDef, lSRADef) then begin
+    if Supports(lSRADef.Element, IwbSubRecordUnionDef, lSRUDef) then
+      Result := not lSRUDef.HasDecider;
+  end else if Supports(GetDef, IwbSubRecordStructDef, lSRSDef) then begin
     var lSortOrder := aElement.SortOrder;
     if (lSortOrder >= 0) and
-       (lSortOrder < SubRecordStructDef.MemberCount)
+       (lSortOrder < lSRSDef.MemberCount)
     then
-      Result := Supports(SubRecordStructDef.Members[lSortOrder], IwbSubRecordUnionDef);
+      if Supports(lSRSDef.Members[lSortOrder], IwbSubRecordUnionDef , lSRUDef) then
+        Result := not lSRUDef.HasDecider;
   end;
 end;
 
@@ -10127,7 +10128,7 @@ var
     if wbGameMode >= gmFO3 then begin
       case wbGameMode of
         gmSF1                        : BasePtr.mrsVersion^ := 582;
-        gmFO76                       : BasePtr.mrsVersion^ := 208;
+        gmFO76                       : BasePtr.mrsVersion^ := 209;
         gmFO4, gmFO4VR               : BasePtr.mrsVersion^ := 131;
         gmSSE, gmTES5VR, gmEnderalSE : BasePtr.mrsVersion^ := 44;
         gmTES5, gmEnderal            : BasePtr.mrsVersion^ := 43;
@@ -13117,10 +13118,10 @@ var
           lAllowHardcodedRangeUse := lFile.AllowHardcodedRangeUse;
 
         HeaderUpdated := False;
-        OldFormID := GetFormID;
+        OldFormID := GetFixedFormID;
         if not OldFormID.IsNull then begin
           NewFormID := FixupFormID(OldFormID, aOld, aNew, aOldCount, aNewCount, lAllowHardcodedRangeUse);
-          if OldFormID <> NewFormID then begin
+          if GetFormID <> NewFormID then begin
             MakeHeaderWriteable;
             mrStruct.mrsFormID^ := NewFormID;
             mrFixedFormID := TwbFormID.Null;
@@ -21189,36 +21190,40 @@ end;
 { TwbSubRecordStruct }
 
 function TwbSubRecordStruct.Add(const aName: string; aSilent: Boolean): IwbElement;
-var
-  Signature : TwbSignature;
-  Index     : Integer;
-  SelfRef   : IwbContainerElementRef;
 begin
   Result := nil;
 
   if not IsElementEditable(nil) then
     raise Exception.Create('"' + GetName + '" is not editable');
 
-  Result := nil;
-
-  if Length(aName) < 4 then
-    Exit;
-
-  Signature := StrToSignature(aName);
-
-  SelfRef := Self;
-
-  Result := GetElementBySignature(Signature);
+  var lSignature := StrToSignature(aName);
+  Result := GetElementBySignature(lSignature);
   if Assigned(Result) then
     Exit;
 
-  Index := srcDef.GetMemberIndexFor(Self, Signature, nil);
-  if Index < 0 then
+  Result := GetElementByName(aName);
+  if Assigned(Result) then
     Exit;
 
-  Assign(Index, nil, False);
-  Result := GetElementBySignature(Signature);
-  Assert(Assigned(Result));
+  var lIndex := srcDef.GetMemberIndexFor(Self, lSignature, nil);
+  if lIndex >= 0 then
+  begin
+    Assign(lIndex, nil, False);
+    Result := GetElementBySignature(lSignature);
+
+    if Assigned(Result) then
+      Exit;
+  end;
+
+  lIndex := srcDef.GetMemberIndexByName(Self, aName, nil);
+  if lIndex >= 0 then
+  begin
+    Assign(lIndex, nil, False);
+    Result := GetElementByName(aName);
+
+    if Assigned(Result) then
+      Exit;
+  end;
 end;
 
 function TwbSubRecordStruct.AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy: Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement;
@@ -21380,7 +21385,13 @@ begin
             end else begin
               repeat
                 var lUnion := lMember as IwbSubRecordUnionDef;
-                lMember :=lUnion.Members[0];
+
+                var lDecidedIdx := 0;
+                var lContainerRef: IwbContainerElementRef;
+                if Supports(Self, IwbContainerElementRef, lContainerRef) then
+                  lDecidedIdx := lUnion.GetMemberIndex(lContainerRef);
+
+                lMember := lUnion.Members[lDecidedIdx];
                 lDefType := lMember.DefType;
               until lDefType <> dtSubRecordUnion;
             end;
@@ -22585,7 +22596,7 @@ begin
         aEndPtr := aBasePtr;
         ValueDef := Resolve(ValueDef, aBasePtr, aEndPtr, aContainer);
         if Supports(ValueDef, IwbIntegerDef, IntegerDef) and Supports(IntegerDef.Formater[aContainer], IwbFlagsDef) then
-          ValueDef := wbEmpty(ValueDef.Name, ValueDef.ConflictPriority[nil], False, nil, True)
+          ValueDef := wbEmpty(ValueDef.Name, ValueDef.ConflictPriority[nil], False, True)
         else
           ValueDef := wbEmpty(ValueDef.Name, ValueDef.ConflictPriority[nil]);
       end;

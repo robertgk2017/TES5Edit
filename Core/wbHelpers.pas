@@ -24,6 +24,19 @@ uses
   wbHash,
   wbInterface;
 
+function GetContainerFromUnion           (const aElement: IwbElement): IwbContainer;
+function GetContainerRefFromUnionOrValue (const aElement: IwbElement): IwbContainerElementRef;
+function GetElementFromUnion             (const aElement: IwbElement): IwbElement;
+
+function wbTryGetContainerByName             (const aElement: IwbElement; out aContainer: IwbContainerElementRef; const aName: string): Boolean;
+function wbTryGetContainerFromUnion          (const aElement: IwbElement; out aContainer: IwbContainer): Boolean;
+function wbTryGetContainerRefFromUnionOrValue(const aElement: IwbElement; out aContainer: IwbContainerElementRef): Boolean;
+function wbTryGetContainerWithValidMainRecord(const aElement: IwbElement; out aContainer: IwbContainerElementRef; out aMainRecord: IwbMainRecord): Boolean;
+function wbTryGetContainingMainRecord        (const aElement: IwbElement; out aMainRecord: IwbMainRecord): Boolean;
+function wbTryGetMainRecord                  (const aElement: IwbElement; out aMainRecord: IwbMainRecord; const aSignature: string = ''): Boolean;
+function wbTrySetContainer                   (const aElement: IwbElement; aType: TwbCallbackType; out aContainer: IwbContainerElementRef): Boolean;
+
+
 function wbDistance(const a, b: TwbVector): Single; overload
 function wbDistance(const a, b: IwbMainRecord): Single; overload;
 function wbStringToSignatures(const aSignatures: string): TwbSignatures;
@@ -128,6 +141,145 @@ uses
   ImagingTypes,
 
   wbSort;
+
+function GetContainerFromUnion(const aElement: IwbElement): IwbContainer;
+begin  // Should change the name to GetContainerFromUnionOrValue :)
+  if (aElement.ElementType = etUnion) or (aElement.ElementType = etValue) then begin
+    Result := aElement.Container;
+    while Result.ElementType = etUnion do
+      Result := Result.Container
+  end else
+    Result := aElement as IwbContainer;
+end;
+
+function GetContainerRefFromUnionOrValue(const aElement: IwbElement): IwbContainerElementRef;
+begin
+  Result := nil;
+  if (aElement.ElementType = etUnion) or (aElement.ElementType = etValue) then begin
+    Supports(aElement.Container, IwbContainerElementRef, Result);
+    while Assigned(Result) and (Result.ElementType = etUnion) do
+      Supports(Result.Container, IwbContainerElementRef, Result);
+  end else
+    Supports(aElement, IwbContainerElementRef, Result);
+end;
+
+function GetElementFromUnion(const aElement: IwbElement): IwbElement;
+begin
+  if (aElement.ElementType = etUnion) then begin
+    Result := aElement.Container;
+    while Assigned(Result) and (Result.ElementType = etUnion) do
+      Result := Result.Container;
+  end else
+    Result := aElement;
+end;
+
+function wbTryGetContainerByName(const aElement   : IwbElement;
+                                   out aContainer : IwbContainerElementRef;
+                                 const aName      : string): Boolean;
+begin
+  Result := False;
+
+  if not Assigned(aElement) then
+    Exit;
+
+  if aElement.Name = aName then
+    aContainer := aElement as IwbContainerElementRef
+  else
+    aContainer := aElement.Container as IwbContainerElementRef;
+
+  if not Assigned(aContainer) then
+    Exit;
+
+  while Assigned(aContainer) and (aContainer.Name <> aName) do
+    aContainer := aContainer.Container as IwbContainerElementRef;
+
+  if not Assigned(aContainer) then
+    Exit;
+
+  Result := True;
+end;
+
+function wbTryGetContainerFromUnion(const aElement: IwbElement; out aContainer: IwbContainer): Boolean;
+begin
+  Result := False;
+
+  if not Assigned(aElement) then
+    Exit;
+
+  aContainer := GetContainerFromUnion(aElement);
+
+  if not Assigned(aContainer) then
+    Exit;
+
+  Result := True;
+end;
+
+function wbTryGetContainerRefFromUnionOrValue(const aElement: IwbElement; out aContainer: IwbContainerElementRef): Boolean;
+begin
+  Result := False;
+
+  if not Assigned(aElement) then
+    Exit;
+
+  aContainer := GetContainerRefFromUnionOrValue(aElement);
+  if not Assigned(aContainer) then
+    Exit;
+
+  Result := True;
+end;
+
+function wbTryGetContainerWithValidMainRecord(const aElement: IwbElement; out aContainer: IwbContainerElementRef; out aMainRecord: IwbMainRecord): Boolean;
+begin
+  Result := False;
+
+  if not Supports(aElement, IwbContainerElementRef, aContainer) then
+    Exit;
+  if aContainer.ElementCount < 1 then
+    Exit;
+  if not Supports(aElement, IwbMainRecord, aMainRecord) then
+    Exit;
+  if aMainRecord.IsDeleted then
+    Exit;
+
+  Result := True;
+end;
+
+function wbTryGetContainingMainRecord(const aElement: IwbElement; out aMainRecord: IwbMainRecord): Boolean;
+begin
+  Result := False;
+
+  if not Assigned(aElement) then
+    Exit;
+
+  aMainRecord := aElement.ContainingMainRecord;
+
+  if not Assigned(aMainRecord) then
+    Exit;
+
+  Result := True;
+end;
+
+function wbTryGetMainRecord(const aElement: IwbElement; out aMainRecord: IwbMainRecord; const aSignature: string = ''): Boolean;
+begin
+  Result := False;
+
+  if not Assigned(aElement) then
+    Exit;
+
+  if not Supports(aElement.LinksTo, IwbMainRecord, aMainRecord) then
+    Exit;
+
+  if not SameText(aSignature, '') then
+    if aMainRecord.Signature <> aSignature then
+      Exit;
+
+  Result := True;
+end;
+
+function wbTrySetContainer(const aElement: IwbElement; aType: TwbCallbackType; out aContainer: IwbContainerElementRef): Boolean;
+begin
+  Result := (aType = ctToSummary) and Supports(aElement, IwbContainerElementRef, aContainer);
+end;
 
 function TStringArrayHelper.AddPrefix(const aPrefix: string): TArray<string>;
 begin

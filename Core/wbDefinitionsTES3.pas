@@ -21,6 +21,7 @@ uses
 
   wbDefinitionsCommon,
   wbDefinitionsSignatures,
+  wbHelpers,
   wbInterface;
 
 const
@@ -828,7 +829,7 @@ begin
           wbStruct(AI_F, 'Follow', [
             wbVec3('Position'),
             wbInteger('Duration In Hours', itU16),
-            wbString(True, 'Target', 32).SetAfterLoad(wbForwardForReal), //[CREA, NPC_]
+            wbStringForward('Target', 32).SetAfterLoad(wbForwardForReal), //[CREA, NPC_]
             wbInteger('Reset', itU16, wbBoolEnum).SetDefaultNativeValue(1)
           ]).SetRequired,
           wbString(CNDT, 'Follow To Cell') //[CELL]
@@ -837,13 +838,13 @@ begin
           wbStruct(AI_E, 'Escort', [
             wbVec3('Position'),
             wbInteger('Duration In Hours', itU16),
-            wbString(True, 'Target', 32).SetAfterLoad(wbForwardForReal), //[CREA, NPC_]
+            wbStringForward('Target', 32).SetAfterLoad(wbForwardForReal), //[CREA, NPC_]
             wbInteger('Reset', itU16, wbBoolEnum).SetDefaultNativeValue(1)
           ]).SetRequired,
           wbString(CNDT, 'Escort To Cell') //[CELL]
         ]),
         wbStruct(AI_A, 'Activate', [
-          wbString(True, 'Target', 32).SetAfterLoad(wbForwardForReal), //[ACTI, ALCH, APPA, ARMO, BODY, BOOK, CLOT, CONT, CREA, DOOR, ENCH, INGR, LIGH, LEVC, LEVI, LOCK, MISC, NPC_, PROB, REPA, SPEL, STAT, WEAP]
+          wbStringForward('Target', 32).SetAfterLoad(wbForwardForReal), //[ACTI, ALCH, APPA, ARMO, BODY, BOOK, CLOT, CONT, CREA, DOOR, ENCH, INGR, LIGH, LEVC, LEVI, LOCK, MISC, NPC_, PROB, REPA, SPEL, STAT, WEAP]
           wbInteger('Reset', itU8, wbBoolEnum).SetDefaultNativeValue(1)
         ])
       ]));
@@ -912,7 +913,7 @@ begin
         wbStringForward(MAST, 'Filename').SetRequired,
         wbInteger(DATA, 'Master Size', itU64, nil, cpIgnore, True)
     ])).IncludeFlag(dfInternalEditOnly, not wbAllowMasterFilesEdit)
-  ], False, nil, cpNormal, True)
+  ], cpNormal, True)
     .SetGetFormIDCallback(function(const aMainRecord: IwbMainRecord; out aFormID: TwbFormID): Boolean begin
        Result := True;
        aFormID := TwbFormID.Null;
@@ -1585,7 +1586,7 @@ begin
       wbInteger(QSTN, 'Quest Named', itU8, wbBoolEnum).SetDefaultNativeValue(1),
       wbInteger(QSTF, 'Quest Finished', itU8, wbBoolEnum).SetDefaultNativeValue(1),
       wbInteger(QSTR, 'Quest Restarted', itU8, wbBoolEnum).SetDefaultNativeValue(1)
-    ], [], cpNormal, False, nil, True),
+    ]).SetUnordered,
     wbString(BNAM, 'Result')
   ]).SetFormIDBase($90);
 
@@ -1639,9 +1640,9 @@ begin
       wbArray(VNML, 'Vertex Normals',
         wbArray('Row',
           wbStruct('Column', [
-            wbInteger('X', itS8, nil, cpBenign, False, nil, nil, 0, wbLandNormalsGetCP),
-            wbInteger('Y', itS8, nil, cpBenign, False, nil, nil, 0, wbLandNormalsGetCP),
-            wbInteger('Z', itS8, nil, cpBenign, False, nil, nil, 0, wbLandNormalsGetCP)
+            wbInteger('X', itS8, nil, cpBenign).SetGetCP(wbLandNormalsGetCP),
+            wbInteger('Y', itS8, nil, cpBenign).SetGetCP(wbLandNormalsGetCP),
+            wbInteger('Z', itS8, nil, cpBenign).SetGetCP(wbLandNormalsGetCP)
           ]).SetSummaryKey([0,1,2])
             .SetSummaryMemberPrefixSuffix(0, '(', '')
             .SetSummaryMemberPrefixSuffix(2, '', ')')
@@ -2151,7 +2152,7 @@ begin
       wbString(BNAM, 'Global Variable'), //[GLOB]
       wbString(CNAM, 'Faction Owner'), //[FACT]
       wbInteger(INDX, 'Faction Rank', itU32)
-    ], [], cpNormal, False, nil, True),
+    ]).SetUnordered,
     wbFloat(XCHG, 'Enchantment Charge', cpNormal, False, 1, 0),
     wbString(XSOL, 'Soul'), //[CREA]
     wbInteger(INTV, 'Health', itU32),
@@ -2164,7 +2165,7 @@ begin
       wbInteger(FLTV, 'Lock Level', itU32).SetRequired,
       wbString(KNAM, 'Key'), //[MISC]
       wbString(TNAM, 'Trap') //[ENCH]
-    ], [], cpNormal, False, nil, True),
+    ]).SetUnordered,
     wbDeleted,
     wbVec3PosRot(DATA, 'Reference Data')
   ]).SetGetFormIDCallback(function(const aMainRecord: IwbMainRecord; out aFormID: TwbFormID): Boolean begin
@@ -2193,12 +2194,13 @@ begin
       wbInteger('Blight', itU8),
       wbInteger('Snow', itU8),
       wbInteger('Blizzard', itU8)
-    ], cpNormal, True, nil, 8),
+    ]).SetOptionalFrom(8)
+      .SetRequired,
     wbString(BNAM, 'Sleep Creature'), //[LEVC]
     wbByteColors(CNAM, 'Region Map Color').SetRequired,
     wbRArray('Region Sounds',
       wbStruct(SNAM, 'Region Sound', [
-        wbString(True, 'Sound', 32).SetAfterLoad(wbForwardForReal), //[SOUN]
+        wbStringForward('Sound', 32).SetAfterLoad(wbForwardForReal), //[SOUN]
         wbInteger('Chance', itU8).SetDefaultNativeValue(50)
       ]).SetSummaryKeyOnValue([0,1])
         .SetSummaryPrefixSuffixOnValue(0, 'Sound: ', ',')

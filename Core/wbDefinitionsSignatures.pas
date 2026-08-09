@@ -277,6 +277,7 @@ const
   CLSZ : TwbSignature = 'CLSZ'; { New to Fallout 4 }
   CMIC : TwbSignature = 'CMIC'; { New To Fallout 76 }
   CMNY : TwbSignature = 'CMNY';
+  CMPI : TwbSignature = 'CMPI'; { New to Fallout 76 }
   CMPO : TwbSignature = 'CMPO'; { New to Fallout 4 }
   CMPT : TwbSignature = 'CMPT'; { New To Fallout 76 }
   CNAM : TwbSignature = 'CNAM';
@@ -822,6 +823,7 @@ const
   MBNR : TwbSignature = 'MBNR'; { New To Fallout 76 }
   MCDT : TwbSignature = 'MCDT';
   MCHT : TwbSignature = 'MCHT'; { New to Skyrim }
+  MCND : TwbSignature = 'MCND';
   MCQP : TwbSignature = 'MCQP'; { New To Fallout 76 }
   MDOB : TwbSignature = 'MDOB';
   MDSP : TwbSignature = 'MDSP'; { New to Fallout 76 }
@@ -990,7 +992,6 @@ const
   NVVX : TwbSignature = 'NVVX';
   O0TX : TwbSignature = 'O0TX';
   OAAT : TwbSignature = 'OAAT';
-  OBME : TwbSignature = 'OBME';
   OBND : TwbSignature = 'OBND';
   OBJT : TwbSignature = 'OBJT';
   OBST : TwbSignature = 'OBST'; { New to Fallout 76 }

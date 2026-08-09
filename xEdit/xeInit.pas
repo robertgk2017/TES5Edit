@@ -1070,7 +1070,6 @@ begin
       wbCanSortINFO         := True;
       wbAllowESPMasters     := True;
       wbAllowESPMastersOnSave := True;
-      wbOBME                := FileExists(wbDataPath + 'OBSE\Plugins\OBME.dll');
     end;
     gmTES4R: begin
       wbLoadBSAs            := False;
@@ -1098,7 +1097,8 @@ begin
       wbHideIgnored         := False; // to show Form Version
       wbAlwaysSaveOnam      := True;
       wbAlwaysSaveOnamForce := True;
-      wbVRESL               := (wbGameMode in [gmFO4VR]) and FileExists(wbDataPath + 'F4SE\Plugins\falloutvresl.dll');
+      wbVRESL               := (wbGameMode in [gmFO4VR]) and (FileExists(wbDataPath + 'F4SE\Plugins\falloutvresl.dll') or
+                                                              FileExists(wbDataPath + 'F4SE\Plugins\Daytripper4.dll'));
       wbHasAddedLightSupport := wbVRESL;
       wbHasAddedUpdateSupport := wbVRESL;
       wbAllowESPMasters     := True;
@@ -1464,7 +1464,7 @@ begin
       xeQuickEdit := True;
   end;
 
-  if wbFindCmdLineParam('generateseq', xePluginToUse) then begin
+  if (not xeQuickEdit) and wbFindCmdLineParam('generateseq', xePluginToUse) then begin
     xeAutoLoad := True;
     xeQuickSEQ := True;
   end;
