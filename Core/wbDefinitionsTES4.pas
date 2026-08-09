@@ -3160,7 +3160,9 @@ begin
     wbEDID,
     wbFormIDCk(NAME, 'Base', [ACTI, ALCH, AMMO, APPA, ARMO, BOOK, CLOT, CONT, DOOR, FLOR, FURN, GRAS, INGR, KEYM, LIGH, LVLC, MISC, SBSP, SGST, SLGM, SOUN, STAT, TREE, WEAP], False, cpNormal, True),
     wbStruct(XTEL, 'Teleport Destination', [
-      wbFormIDCk('Door', [REFR], True),
+      wbFormIDCk('Door', [REFR], True)
+        .SetFormIDFilter(wbREFRTeleportFilter)
+        .SetToStr(wbREFRTeleportToStr),
       wbVec3PosRot
     ]),
     wbStruct(XLOC, 'Lock information', [

@@ -122,8 +122,10 @@ function wbWorldXWEMDontShow     (const aElement: IwbElement): Boolean;
 {>>> Float Normalizers <<<} //1
 function wbNormalizeToRange(aMin, aMax: Extended): TwbFloatNormalizer;
 
-{>>> FormID Filter Callbacks <<<} //1
+{>>> FormID Filter Callbacks <<<} //2
 function wbCELLRegionFilter  (const aElement: IwbElement; const aMainRecord: IwbMainRecord): Boolean;
+function wbREFRTeleportFilter(const aElement: IwbElement; const aMainRecord: IwbMainRecord): Boolean;
+
 {>>> Get Functions <<<} //4
 function wbGetItemStr                (const aContainer: IwbContainerElementRef): string;
 function wbGetPropertyValueArrayItems(const aContainer: IwbContainerElementRef): string;
@@ -228,7 +230,7 @@ function wbVTXTPosition              (aInt: Int64; const aElement: IwbElement; a
 function wbWeatherCloudSpeedToStr    (aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 function wbPackagePSDTMonthValueToStr(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 
-{>>> To String Callback Procedures <<<} //23
+{>>> To String Callback Procedures <<<} //24
 procedure wbScriptPropertyArrayToStr(const aContainer: IwbContainerElementRef; var PropertyType: string; var PropertyValue: string);
 procedure wbScriptPropertyObjectToStr(const aContainer: IwbContainerElementRef; var PropertyName: string; var PropertyType: string; var PropertyValue: string);
 
@@ -246,6 +248,7 @@ procedure wbPERKRankToStr                    (var aValue: string; aBasePtr, aEnd
 procedure wbObjectPropertyToStr              (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbQUSTAliasToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbQUSTEventToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbREFRTeleportToStr                (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbRGBAToStr                        (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbScriptToStr                      (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbScriptPropertyToStr              (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
@@ -2277,7 +2280,7 @@ begin
     aConflictPriority := cpIgnore;
 end;
 
-{>>> FormID Filter Callbacks <<<} //1
+{>>> FormID Filter Callbacks <<<} //2
 
 function wbCELLRegionFilter(const aElement: IwbElement; const aMainRecord: IwbMainRecord): Boolean;
 begin
@@ -2299,6 +2302,17 @@ begin
     Exit;
 
   if lWorld.MasterOrSelf = lWNAM.MasterOrSelf then
+    Result := True;
+end;
+
+function wbREFRTeleportFilter(const aElement: IwbElement; const aMainRecord: IwbMainRecord): Boolean;
+begin
+  Result := False;
+
+  if not (Assigned(aElement) and Assigned(aMainRecord)) then
+    Exit;
+
+  if (aMainRecord.BaseRecordSignature = 'DOOR') and (aMainRecord.IsPersistent) then
     Result := True;
 end;
 
@@ -4358,7 +4372,7 @@ begin
   end;
 end;
 
-{>>> To String Callback Procedures <<<} //23
+{>>> To String Callback Procedures <<<} //24
 
 procedure wbABGRToStr(var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 var
@@ -4857,6 +4871,22 @@ begin
     ctCheck: aValue := '<Warning: ' + lMainRecord.ShortName + ' has not been added to the story manager>';
     ctToStr: aValue := aElement.EditValue + '<Warning: ' + lMainRecord.ShortName + ' has not been added to the story manager>';
   end;
+end;
+
+procedure wbREFRTeleportToStr(var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+begin
+  if not (Assigned(aElement) and (aType in [ctCheck, ctToStr])) then
+    Exit;
+
+  var lLinksTo := aElement.LinksTo as IwbMainRecord;
+  if not Assigned(lLinksTo) then
+    Exit;
+
+  if lLinksTo.BaseRecordSignature <> 'DOOR' then
+    case aType of
+      ctCheck: aValue := '<Warning: ' + aElement.EditValue + ' is not a Door Reference>';
+      ctToStr: aValue := aElement.EditValue + '<Warning: is not a Door Reference>';
+    end;
 end;
 
 procedure wbRGBAToStr(var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);

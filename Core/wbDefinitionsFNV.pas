@@ -7574,11 +7574,11 @@ begin
 
     {--- Teleport ---}
     wbStruct(XTEL, 'Teleport Destination', [
-      wbFormIDCk('Door', [REFR], True),
+      wbFormIDCk('Door', [REFR], True)
+        .SetFormIDFilter(wbREFRTeleportFilter)
+        .SetToStr(wbREFRTeleportToStr),
       wbVec3PosRot,
-      wbInteger('Flags', itU32, wbFlags([
-        'No Alarm'
-      ])).IncludeFlag(dfCollapsed, wbCollapseFlags)
+      wbInteger('No Alarm', itU32, wbBoolEnum).IncludeFlag(dfCollapsed, wbCollapseFlags)
     ]),
 
     {--- Map Data ---}
