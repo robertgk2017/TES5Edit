@@ -1097,7 +1097,8 @@ begin
       wbHideIgnored         := False; // to show Form Version
       wbAlwaysSaveOnam      := True;
       wbAlwaysSaveOnamForce := True;
-      wbVRESL               := (wbGameMode in [gmFO4VR]) and FileExists(wbDataPath + 'F4SE\Plugins\falloutvresl.dll');
+      wbVRESL               := (wbGameMode in [gmFO4VR]) and (FileExists(wbDataPath + 'F4SE\Plugins\falloutvresl.dll') or
+                                                              FileExists(wbDataPath + 'F4SE\Plugins\Daytripper4.dll'));
       wbHasAddedLightSupport := wbVRESL;
       wbHasAddedUpdateSupport := wbVRESL;
       wbAllowESPMasters     := True;
