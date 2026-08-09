@@ -4901,13 +4901,17 @@ begin
     {3} 'Inherited and Removed'
   ]));
 
+  var wbScriptObjectSignatures : TwbSignatures := [
+    AACT,ACHR,ACTI,ALCH,AMMO,ARMO,AVIF,BOOK,CELL,CHAL,CMPO,CNCY,COBJ,CONT,CSTY,CURV,DIAL,EFSH,ENCH,EXPL,FACT,FLOR,FLST,FURN,GLOB,HAZD,IDLE,IDLM,IMAD,IPDS,KEYM,KYWD,LCRT,LCTN,LIGH,LVLI,LVLN,MATT,MESG,MGEF,MISC,MSTT,MUSC,NOTE,NPC_,OMOD,OTFT,PACK,PCRD,PERK,PHZD,PPAK,PROJ,QMDL,QUST,RACE,REFR,REGN,RFCT,SCEN,SCSN,SNCT,SNDR,SOPM,SPEL,STAT,TACT,TERM,TXST,UTIL,VTYP,WEAP,WTHR,NULL
+  ];
+
   wbScriptPropertyObject := wbUnion('Object Union', wbScriptObjFormatDecider, [
     wbStructSK([1], 'Object v2', [
       wbUnused(2),
       wbInteger('Alias', itS16, wbScriptObjectAliasToStr, wbAliasToInt)
         .SetDefaultEditValue('None')
         .SetLinksToCallback(wbScriptObjectAliasLinksTo),
-      wbFormID('FormID').IncludeFlag(dfNoReport)
+      wbFormIDCk('FormID', wbScriptObjectSignatures).SetFormIDFilter(wbVMADObjectFilter)
     ], [2, 1, 0])
       .SetSummaryKey([2, 1])
       .SetSummaryMemberPrefixSuffix(2, '', '')
@@ -4916,7 +4920,7 @@ begin
       .IncludeFlag(dfSummaryMembersNoName)
       .IncludeFlag(dfSummaryNoSortKey),
     wbStructSK([1], 'Object v1', [
-      wbFormID('FormID'),
+      wbFormIDCk('FormID', wbScriptObjectSignatures).SetFormIDFilter(wbVMADObjectFilter),
       wbInteger('Alias', itS16, wbScriptObjectAliasToStr, wbAliasToInt)
         .SetDefaultEditValue('None')
         .SetLinksToCallback(wbScriptObjectAliasLinksTo),

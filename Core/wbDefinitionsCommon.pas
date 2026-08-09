@@ -122,9 +122,10 @@ function wbWorldXWEMDontShow     (const aElement: IwbElement): Boolean;
 {>>> Float Normalizers <<<} //1
 function wbNormalizeToRange(aMin, aMax: Extended): TwbFloatNormalizer;
 
-{>>> FormID Filter Callbacks <<<} //2
+{>>> FormID Filter Callbacks <<<} //3
 function wbCELLRegionFilter  (const aElement: IwbElement; const aMainRecord: IwbMainRecord): Boolean;
 function wbREFRTeleportFilter(const aElement: IwbElement; const aMainRecord: IwbMainRecord): Boolean;
+function wbVMADObjectFilter  (const aElement: IwbElement; const aMainRecord: IwbMainRecord): Boolean;
 
 {>>> Get Functions <<<} //4
 function wbGetItemStr                (const aContainer: IwbContainerElementRef): string;
@@ -2280,7 +2281,7 @@ begin
     aConflictPriority := cpIgnore;
 end;
 
-{>>> FormID Filter Callbacks <<<} //2
+{>>> FormID Filter Callbacks <<<} //3
 
 function wbCELLRegionFilter(const aElement: IwbElement; const aMainRecord: IwbMainRecord): Boolean;
 begin
@@ -2313,6 +2314,17 @@ begin
     Exit;
 
   if (aMainRecord.BaseRecordSignature = 'DOOR') and (aMainRecord.IsPersistent) then
+    Result := True;
+end;
+
+function wbVMADObjectFilter(const aElement: IwbElement; const aMainRecord: IwbMainRecord): Boolean;
+begin
+  Result := False;
+
+  if not (Assigned(aElement) and Assigned(aMainRecord)) then
+    Exit;
+
+  if Assigned(aMainRecord.ElementBySignature['EDID']) then
     Result := True;
 end;
 

@@ -2636,13 +2636,17 @@ begin
   wbDESCReq := wbLStringKC(DESC, 'Description', 0, cpTranslate, True);
   wbXSCL := wbFloat(XSCL, 'Scale').SetNormalizer(wbNormalizeToRange(0.0, 10.0));
 
+  var wbScriptObjectSignatures : TwbSignatures := [
+    AACT,ACHR,ACTI,ALCH,AMMO,APPA,ARMO,ASTP,AVIF,BOOK,CELL,CLAS,CONT,DIAL,DOOR,ECZN,EFSH,ENCH,EXPL,FACT,FLOR,FLST,FURN,GLOB,HAZD,IDLE,IMAD,INGR,IPDS,KEYM,KYWD,LCRT,LCTN,LIGH,LVLI,LVLN,MESG,MGEF,MISC,MUSC,NPC_,OTFT,PACK,PERK,PHZD,PLYR,PROJ,QUST,RACE,REFR,RFCT,SCEN,SCRL,SHOU,SLGM,SNDR,SOUN,SPEL,SPGD,STAT,TREE,TXST,VTYP,WEAP,WOOP,WRLD,WTHR,NULL
+  ];
+
   wbScriptPropertyObject := wbUnion('Object Union', wbScriptObjFormatDecider, [
     wbStructSK([2, 1], 'Object v2', [
       wbUnused(2),
       wbInteger('Alias', itS16, wbScriptObjectAliasToStr, wbAliasToInt)
         .SetDefaultEditValue('None')
         .SetLinksToCallback(wbScriptObjectAliasLinksTo),
-      wbFormID('FormID')
+      wbFormIDCk('FormID', wbScriptObjectSignatures, True).SetFormIDFilter(wbVMADObjectFilter)
     ], [2, 1, 0])
       .SetSummaryKey([1, 2])
       .SetSummaryMemberPrefixSuffix(2, '', '')
@@ -2651,7 +2655,7 @@ begin
       .IncludeFlag(dfSummaryMembersNoName)
       .IncludeFlag(dfSummaryNoSortKey),
     wbStructSK([0, 1], 'Object v1', [
-      wbFormID('FormID'),
+      wbFormIDCk('FormID', wbScriptObjectSignatures, True).SetFormIDFilter(wbVMADObjectFilter),
       wbInteger('Alias', itS16, wbScriptObjectAliasToStr, wbAliasToInt)
         .SetDefaultEditValue('None')
         .SetLinksToCallback(wbScriptObjectAliasLinksTo),
