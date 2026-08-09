@@ -122,6 +122,8 @@ function wbWorldXWEMDontShow     (const aElement: IwbElement): Boolean;
 {>>> Float Normalizers <<<} //1
 function wbNormalizeToRange(aMin, aMax: Extended): TwbFloatNormalizer;
 
+{>>> FormID Filter Callbacks <<<} //1
+function wbCELLRegionFilter  (const aElement: IwbElement; const aMainRecord: IwbMainRecord): Boolean;
 {>>> Get Functions <<<} //4
 function wbGetItemStr                (const aContainer: IwbContainerElementRef): string;
 function wbGetPropertyValueArrayItems(const aContainer: IwbContainerElementRef): string;
@@ -226,12 +228,13 @@ function wbVTXTPosition              (aInt: Int64; const aElement: IwbElement; a
 function wbWeatherCloudSpeedToStr    (aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 function wbPackagePSDTMonthValueToStr(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 
-{>>> To String Callback Procedures <<<} //21
+{>>> To String Callback Procedures <<<} //23
 procedure wbScriptPropertyArrayToStr(const aContainer: IwbContainerElementRef; var PropertyType: string; var PropertyValue: string);
 procedure wbScriptPropertyObjectToStr(const aContainer: IwbContainerElementRef; var PropertyName: string; var PropertyType: string; var PropertyValue: string);
 
 procedure wbABGRToStr                        (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbBGRAToStr                        (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbCELLRegionToStr                  (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbConditionToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbConditionOwnerToStr              (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbCrowdPropertyToStr               (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
@@ -2272,6 +2275,31 @@ begin
     aConflictPriority := cpNormal
   else
     aConflictPriority := cpIgnore;
+end;
+
+{>>> FormID Filter Callbacks <<<} //1
+
+function wbCELLRegionFilter(const aElement: IwbElement; const aMainRecord: IwbMainRecord): Boolean;
+begin
+  Result := False;
+
+  if not (Assigned(aElement) and Assigned(aMainRecord)) then
+    Exit;
+
+  var lCell := aElement.ContainingMainRecord;
+  if not Assigned(lCell) then
+    Exit;
+
+  var lWorld := lCell.ElementLinksTo['Worldspace'] as IwbMainRecord;
+  if not Assigned(lWorld) then
+    Exit;
+
+  var lWNAM := aMainRecord.ElementLinksTo['WNAM'] as IwbMainRecord;
+  if not Assigned(lWNAM) then
+    Exit;
+
+  if lWorld.MasterOrSelf = lWNAM.MasterOrSelf then
+    Result := True;
 end;
 
 {>>> Get Functions <<<} //4
@@ -4330,7 +4358,7 @@ begin
   end;
 end;
 
-{>>> To String Callback Procedures <<<} //21
+{>>> To String Callback Procedures <<<} //23
 
 procedure wbABGRToStr(var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 var
@@ -4385,6 +4413,34 @@ begin
     aValue := 'RGBA(' + R + ', ' + G + ', ' + B + ', ' + A.Summary + ')'
   else
     aValue := 'RGB(' + R + ', ' + G + ', ' + B + ')';
+end;
+
+procedure wbCELLRegionToStr(var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+begin
+  if not (Assigned(aElement) and (aType in [ctCheck, ctToStr])) then
+    Exit;
+
+  var lCell := aElement.ContainingMainRecord;
+  if not Assigned(lCell) then
+    Exit;
+
+  var lWorld := lCell.ElementLinksTo['Worldspace'] as IwbMainRecord;
+  if not Assigned(lWorld) then
+    Exit;
+
+  var lRegion := aElement.LinksTo as IwbMainRecord;
+  if not Assigned(lRegion) then
+    Exit;
+
+  var lWNAM := lRegion.ElementLinksTo['WNAM'] as IwbMainRecord;
+  if not Assigned(lWNAM) then
+    Exit;
+
+  if lWorld.MasterOrSelf <> lWNAM.MasterOrSelf then
+    case aType of
+      ctCheck: aValue := '<Warning: ' + aElement.EditValue + ' is invalid for this Worldspace>';
+      ctToStr: aValue := aElement.EditValue + ' <Warning: Region is invalid for this Worldspace>';
+    end;
 end;
 
 procedure wbConditionToStr(var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);

@@ -1793,6 +1793,8 @@ begin
       .SetIsRemovable(wbCellLightingIsRemovable),
     wbArrayS(XCLR, 'Regions',
       wbFormIDCk('Region', [REGN])
+        .SetFormIDFilter(wbCELLRegionFilter)
+        .SetToStr(wbCELLRegionToStr)
     ).SetDontShow(wbCellInteriorDontShow),
     wbInteger(XCMT, 'Music', itU8, wbMusicEnum),
     wbFloat(XCLW, 'Water Height', cpBenign),

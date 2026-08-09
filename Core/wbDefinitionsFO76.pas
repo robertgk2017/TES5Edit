@@ -8003,7 +8003,11 @@ begin
     wbFormIDCk(RDES, 'Unknown Reference', [REFR, NULL]),
     wbUnknown(NAVH),
     wbFormIDCk(XCWT, 'Water Type', [WATR]),
-    wbArrayS(XCLR, 'Regions', wbFormIDCk('Region', [REGN])),
+    wbArrayS(XCLR, 'Regions',
+      wbFormIDCk('Region', [REGN])
+        .SetFormIDFilter(wbCELLRegionFilter)
+        .SetToStr(wbCELLRegionToStr)
+    ).SetDontShow(wbCellInteriorDontShow),
     wbXLCN,
     wbWaterData,
 

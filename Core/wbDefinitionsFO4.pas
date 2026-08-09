@@ -6039,7 +6039,11 @@ begin
 
     {>>> XCLW sometimes has $FF7FFFFF and causes invalid floation point <<<}
     wbFloat(XCLW, 'Water Height').SetGetCP(wbCELLXCLWGetConflictPriority),
-    wbArrayS(XCLR, 'Regions', wbFormIDCk('Region', [REGN])),
+    wbArrayS(XCLR, 'Regions',
+      wbFormIDCk('Region', [REGN])
+        .SetFormIDFilter(wbCELLRegionFilter)
+        .SetToStr(wbCELLRegionToStr)
+    ).SetDontShow(wbCellInteriorDontShow),
     wbFormIDCk(XLCN, 'Location', [LCTN]),
     wbRStruct('Water Current Velocities', [
       wbInteger(XWCN, 'Velocity Count', itU32, nil, cpBenign),

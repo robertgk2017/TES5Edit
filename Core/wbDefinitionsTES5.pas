@@ -4261,7 +4261,11 @@ begin
     wbFloat(XCLW, 'Water Height').SetGetCP(wbCELLXCLWGetConflictPriority),
     //wbByteArray(XCLW, 'Water Height', 4),
     wbString(XNAM, 'Water Noise Texture'),
-    wbArrayS(XCLR, 'Regions', wbFormIDCk('Region', [REGN])),
+    wbArrayS(XCLR, 'Regions',
+      wbFormIDCk('Region', [REGN])
+        .SetFormIDFilter(wbCELLRegionFilter)
+        .SetToStr(wbCELLRegionToStr)
+    ).SetDontShow(wbCellInteriorDontShow),
     wbFormIDCk(XLCN, 'Location', [LCTN]),
     wbRStruct('Water Current Velocities', [
       wbRUnion('', [
