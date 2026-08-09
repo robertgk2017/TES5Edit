@@ -4286,7 +4286,7 @@ function wbFormIDCk(const aSignature : TwbSignature;
                           aPersistent: Boolean = False;
                           aPriority  : TwbConflictPriority = cpNormal;
                           aRequired  : Boolean = False)
-                                     : IwbSubRecordDef; overload;
+                                     : IwbSubRecordWithFormIDCheckedDef; overload;
 
 function wbFormIDCkST(const aSignature : TwbSignature;
                       const aName      : string;
@@ -4294,7 +4294,7 @@ function wbFormIDCkST(const aSignature : TwbSignature;
                             aPersistent: Boolean = False;
                             aPriority  : TwbConflictPriority = cpNormal;
                             aRequired  : Boolean = False)
-                                       : IwbSubRecordDef; overload;
+                                       : IwbSubRecordWithFormIDCheckedDef; overload;
 
 
 function wbFormIDCkNoReach(const aSignature : TwbSignature;
@@ -4303,7 +4303,7 @@ function wbFormIDCkNoReach(const aSignature : TwbSignature;
                                  aPersistent: Boolean = False;
                                  aPriority  : TwbConflictPriority = cpNormal;
                                  aRequired  : Boolean = False)
-                                            : IwbSubRecordDef; overload;
+                                            : IwbSubRecordWithFormIDCheckedDef; overload;
 
 function wbFormIDCk(const aName      : string;
                     const aValidRefs : TwbSignatures;
@@ -4326,7 +4326,7 @@ function wbFormIDCk(const aSignature     : TwbSignature;
                           aPersistent    : Boolean = False;
                           aPriority      : TwbConflictPriority = cpNormal;
                           aRequired      : Boolean = False)
-                                         : IwbSubRecordDef; overload;
+                                         : IwbSubRecordWithFormIDCheckedDef; overload;
 
 function wbFormIDCk(const aName          : string;
                     const aValidRefs     : TwbSignatures;
@@ -8980,9 +8980,9 @@ function wbFormIDCk(const aSignature : TwbSignature;
                           aPersistent: Boolean = False;
                           aPriority  : TwbConflictPriority = cpNormal;
                           aRequired  : Boolean = False)
-                                     : IwbSubRecordDef; overload;
+                                     : IwbSubRecordWithFormIDCheckedDef; overload;
 begin
-  Result := wbInteger(aSignature, aName, itU32, wbFormID(aValidRefs, aPersistent), aPriority, aRequired);
+  Result := wbInteger(aSignature, aName, itU32, wbFormID(aValidRefs, aPersistent), aPriority, aRequired) as IwbSubRecordWithFormIDCheckedDef;
 end;
 
 function wbFormIDCkST(const aSignature : TwbSignature;
@@ -8991,9 +8991,9 @@ function wbFormIDCkST(const aSignature : TwbSignature;
                             aPersistent: Boolean = False;
                             aPriority  : TwbConflictPriority = cpNormal;
                             aRequired  : Boolean = False)
-                                       : IwbSubRecordDef; overload;
+                                       : IwbSubRecordWithFormIDCheckedDef; overload;
 begin
-  Result := wbInteger(aSignature, aName, itU32, wbFormIDST(aValidRefs, aPersistent), aPriority, aRequired);
+  Result := wbInteger(aSignature, aName, itU32, wbFormIDST(aValidRefs, aPersistent), aPriority, aRequired) as IwbSubRecordWithFormIDCheckedDef;
 end;
 
 
@@ -9003,9 +9003,9 @@ function wbFormIDCkNoReach(const aSignature : TwbSignature;
                                  aPersistent: Boolean = False;
                                  aPriority  : TwbConflictPriority = cpNormal;
                                  aRequired  : Boolean = False)
-                                            : IwbSubRecordDef; overload;
+                                            : IwbSubRecordWithFormIDCheckedDef; overload;
 begin
-  Result := wbInteger(aSignature, aName, itU32, wbFormIDNoReach(aValidRefs, aPersistent), aPriority, aRequired);
+  Result := wbInteger(aSignature, aName, itU32, wbFormIDNoReach(aValidRefs, aPersistent), aPriority, aRequired) as IwbSubRecordWithFormIDCheckedDef;
 end;
 
 function wbFormIDCk(const aName      : string;
@@ -9036,9 +9036,9 @@ function wbFormIDCk(const aSignature     : TwbSignature;
                           aPersistent    : Boolean = False;
                           aPriority      : TwbConflictPriority = cpNormal;
                           aRequired      : Boolean = False)
-                                         : IwbSubRecordDef; overload;
+                                         : IwbSubRecordWithFormIDCheckedDef; overload;
 begin
-  Result := wbInteger(aSignature, aName, itU32, wbFormID(aValidRefs, aValidFlstRefs, aPersistent), aPriority, aRequired);
+  Result := wbInteger(aSignature, aName, itU32, wbFormID(aValidRefs, aValidFlstRefs, aPersistent), aPriority, aRequired) as IwbSubRecordWithFormIDCheckedDef;
 end;
 
 function wbFormIDCk(const aName          : string;
