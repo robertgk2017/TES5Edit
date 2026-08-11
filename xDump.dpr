@@ -41,6 +41,7 @@ uses
   wbHelpers in 'Core\wbHelpers.pas',
   wbLoadOrder in 'Core\wbLoadOrder.pas',
   wbHardcoded in 'Core\wbHardcoded.pas',
+  wbDataFormatWwise in 'Core\wbDataFormatWwise.pas',
   wbDefinitionsCommon in 'Core\wbDefinitionsCommon.pas',
   wbDefinitionsFNV in 'Core\wbDefinitionsFNV.pas',
   wbDefinitionsFNVSaves in 'Core\wbDefinitionsFNVSaves.pas',
@@ -1315,7 +1316,8 @@ begin
         DumpForms.Free;
       end;
 
-      wbLoadAllBSAs := FindCmdLineSwitch('allbsa');
+      //wbLoadAllBSAs := FindCmdLineSwitch('allbsa');
+      wbLoadAllBSAs := True;
 
       if FindCmdLineSwitch('more') then
         wbMoreInfoForUnknown:= True
@@ -1704,6 +1706,10 @@ begin
               end;
             end;
           end;
+
+          if wbGameMode in [gmSF1] then
+            wbBuildSoundBankCache(Masters);
+
         finally
           FreeAndNil(Masters);
         end;
