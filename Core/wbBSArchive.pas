@@ -1081,9 +1081,10 @@ begin
         aFileFlags := aFileFlags or FILE_MISC;
     end;
 
-    // MP3 files always require voices flag (mp3 radio songs can have any path in sound folder)
-    if aFilesList[i].EndsWith('.mp3', True) then
-      aFileFlags := aFileFlags or FILE_VOICES;
+    // FO3/FNV always set sounds+voices together like in vanilla archives
+    // radio songs require voices but can have any path in sound folder and extension
+    if (aType = baFO3) and (AssetType in [atSound, atVoice]) then
+      aFileFlags := aFileFlags or FILE_SOUNDS or FILE_VOICES;
 
     // TES4 only
     if (aType = baTES4) and aFilesList[i].EndsWith('.xml', True) then
