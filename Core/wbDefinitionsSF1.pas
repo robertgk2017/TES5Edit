@@ -8491,7 +8491,7 @@ begin
     wbRagdoll,
     wbFormIDCk(XRFG, 'Reference Group', [RFGP]),
     wbXPCS,
-    wbFormIDCk(XLCN, 'Persist Location', [LCTN]),
+    wbFormIDCk(XLCN, 'Persist Location', [LCTN]).SetToStr(wbREFRPersistLocToStr),
     wbFormIDCk(XLRL, 'Location Reference', [LCTN], False, cpBenignIfAdded),
     wbEmpty(XIS2, 'Ignored by Sandbox'),
     wbXPLKs,
@@ -8781,7 +8781,7 @@ begin
       ]), -1)
     ]), -1),
     wbXPCS,
-    wbFormIDCk(XLCN, 'Persist Location', [LCTN]),
+    wbFormIDCk(XLCN, 'Persist Location', [LCTN]).SetToStr(wbREFRPersistLocToStr),
     wbFormIDCk(XLRL, 'Location Reference', [LCTN], False, cpBenignIfAdded),
     wbRStruct('Projected Decal', [
       wbStruct(XPDD, 'Projected Decal Data', [

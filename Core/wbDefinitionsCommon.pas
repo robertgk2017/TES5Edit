@@ -249,6 +249,7 @@ procedure wbPERKRankToStr                    (var aValue: string; aBasePtr, aEnd
 procedure wbObjectPropertyToStr              (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbQUSTAliasToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbQUSTEventToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbREFRPersistLocToStr              (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbREFRTeleportToStr                (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbRGBAToStr                        (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbScriptToStr                      (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
@@ -4893,6 +4894,126 @@ begin
   case aType of
     ctCheck: aValue := '<Warning: ' + lMainRecord.ShortName + ' has not been added to the story manager>';
     ctToStr: aValue := aElement.EditValue + '<Warning: ' + lMainRecord.ShortName + ' has not been added to the story manager>';
+  end;
+end;
+
+procedure wbREFRPersistLocToStr(var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+begin
+  if not (Assigned(aElement) and (aType in [ctCheck])) then
+    Exit;
+
+  var lLocation := aElement.LinksTo as IwbMainRecord;
+  if not Assigned(lLocation) then
+    Exit;
+
+  var lLocEDID := lLocation.EditorID;
+  if (lLocEDID = 'DebugLocation') or
+     (lLocEDID = 'PersistAll') or
+     (lLocEDID = 'PersistAllLocation') or
+     (lLocEDID = 'VirtualLocation')
+  then
+    Exit;
+
+  var lMainRecord := aElement.ContainingMainRecord;
+  if not Assigned(lMainRecord) then
+    Exit;
+
+  var lCell := lMainRecord.ElementByName['Cell'];
+  if not Assigned(lCell) then
+    Exit;
+
+  var lCellRecord := lCell.LinksTo as IwbMainRecord;
+  if not Assigned(lCellRecord) then
+    Exit;
+
+  var lWorld := lCellRecord.ElementByName['Worldspace'];
+
+  var lWorldRecord: IwbMainRecord;
+  if Assigned(lWorld) then
+    lWorldRecord := lWorld.LinksTo as IwbMainRecord;
+
+  if lMainRecord.IsPersistent and Assigned(lWorldRecord) then
+  begin
+    var lPosition: TwbVector;
+    lMainRecord.GetPosition(lPosition);
+
+    var lGridCell := wbPositionToGridCell(lPosition);
+
+    lCellRecord := lWorldRecord.ChildByGridCell[lGridCell];
+  end;
+
+  var lPersistLocation: IwbMainRecord;
+
+  var lXEZN := lCellRecord.ElementBySignature[XEZN];
+  var lZone: IwbMainRecord;
+  var lDATA: IwbContainerElementRef;
+  var lDATALoc: IwbElement;
+
+  if Assigned(lXEZN) then
+  begin
+    lZone := lXEZN.LinksTo as IwbMainRecord;
+    if Assigned(lZone) then
+    begin
+      lDATA := lZone.ElementBySignature[DATA] as IwbContainerElementRef;
+      if Assigned(lDATA) then
+      begin
+        lDATALoc := lDATA.ElementByName['Location'];
+        if Assigned(lDATALoc) and (lDATALoc.NativeValue <> 0) then
+          lPersistLocation := lDATALoc.LinksTo as IwbMainRecord;
+      end;
+    end;
+  end;
+
+  var lXLCN: IwbElement;
+  if not Assigned(lPersistLocation) then
+  begin
+    lXLCN := lCellRecord.ElementBySignature[XLCN];
+    if Assigned(lXLCN) then
+      lPersistLocation := lXLCN.LinksTo as IwbMainRecord;
+  end;
+
+  if Assigned(lWorldRecord) then
+  begin
+    if not Assigned(lPersistLocation) then
+    begin
+      lXEZN := lWorldRecord.ElementBySignature[XEZN];
+      if Assigned(lXEZN) then
+      begin
+        lZone := lXEZN.LinksTo as IwbMainRecord;
+        if Assigned(lZone) then
+        begin
+          lDATA := lZone.ElementBySignature[DATA] as IwbContainerElementRef;
+          if Assigned(lDATA) then
+          begin
+            lDATALoc := lDATA.ElementByName['Location'];
+            if Assigned(lDATALoc) and (lDATALoc.NativeValue <> 0) then
+              lPersistLocation := lDATALoc.LinksTo as IwbMainRecord;
+          end;
+        end;
+      end;
+    end;
+
+    if not Assigned(lPersistLocation) then
+    begin
+      lXLCN := lWorldRecord.ElementBySignature[XLCN];
+      if Assigned(lXLCN) then
+        lPersistLocation := lXLCN.LinksTo as IwbMainRecord;
+    end;
+  end;
+
+  while Assigned(lPersistLocation) do
+  begin
+    if lLocation.MasterOrSelf = lPersistLocation.MasterOrSelf then
+      Exit;
+
+    var lParentLoc := lPersistLocation.ElementBySignature[PNAM];
+    if Assigned(lParentLoc) then
+      lPersistLocation := lParentLoc.LinksTo as IwbMainRecord
+    else
+    begin
+      aValue := '<Warning: Reference ' + lMainRecord.ShortName + ' is not in its Persist Location ' + aElement.EditValue +'>';
+      Exit;
+    end;
   end;
 end;
 
