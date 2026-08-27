@@ -5540,7 +5540,7 @@ begin
 
     {--- Extra ---}
     wbInteger(XCNT, 'Count', itS32),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2),
     wbInteger(XHLT, 'Health %', itU32),
 
     wbXLKR,
@@ -14565,7 +14565,7 @@ begin
     {--- Ragdoll ---}
     wbRagdoll,
 
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2).SetToStr(wbREFRRadiusToStr),
     wbXSCL,
 
     {--- Emittance ---}

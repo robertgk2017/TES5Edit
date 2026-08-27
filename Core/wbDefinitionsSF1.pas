@@ -8487,7 +8487,7 @@ begin
     wbFormIDCk(NAME, 'Base', [NPC_], False, cpNormal, True),
     wbXLCM,
     wbFormIDCk(XEMI, 'Emittance', [LIGH, REGN]),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2),
     wbRagdoll,
     wbFormIDCk(XRFG, 'Reference Group', [RFGP]),
     wbXPCS,
@@ -8724,7 +8724,7 @@ begin
       wbUnknown(4),
       wbUnknown(4)
     ]).SetOptionalFrom(4),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2).SetToStr(wbREFRRadiusToStr),
     wbRArray('Water Current Data',
       wbRStruct('Current', [
         wbRUnion('', [

@@ -231,7 +231,7 @@ function wbVTXTPosition              (aInt: Int64; const aElement: IwbElement; a
 function wbWeatherCloudSpeedToStr    (aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 function wbPackagePSDTMonthValueToStr(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 
-{>>> To String Callback Procedures <<<} //24
+{>>> To String Callback Procedures <<<} //26
 procedure wbScriptPropertyArrayToStr(const aContainer: IwbContainerElementRef; var PropertyType: string; var PropertyValue: string);
 procedure wbScriptPropertyObjectToStr(const aContainer: IwbContainerElementRef; var PropertyName: string; var PropertyType: string; var PropertyValue: string);
 
@@ -250,6 +250,7 @@ procedure wbObjectPropertyToStr              (var aValue: string; aBasePtr, aEnd
 procedure wbQUSTAliasToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbQUSTEventToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbREFRPersistLocToStr              (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbREFRRadiusToStr                  (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbREFRTeleportToStr                (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbRGBAToStr                        (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbScriptToStr                      (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
@@ -4396,7 +4397,7 @@ begin
   end;
 end;
 
-{>>> To String Callback Procedures <<<} //24
+{>>> To String Callback Procedures <<<} //26
 
 procedure wbABGRToStr(var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 var
@@ -5013,6 +5014,58 @@ begin
     begin
       aValue := '<Warning: Reference ' + lMainRecord.ShortName + ' is not in its Persist Location ' + aElement.EditValue +'>';
       Exit;
+    end;
+  end;
+end;
+
+procedure wbREFRRadiusToStr(var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+begin
+  if not (Assigned(aElement) and (aType in [ctCheck, ctFromEditValue, ctFromNativeValue, ctToStr, ctToEditValue, ctToNativeValue])) then
+    Exit;
+
+  var lMainRecord := aElement.ContainingMainRecord;
+  if not Assigned(lMainRecord) then
+    Exit;
+
+  var lNAME := lMainRecord.ElementBySignature[NAME];
+  if not Assigned(lNAME) then
+    Exit;
+
+  var lBaseRecord := lNAME.LinksTo as IwbMainRecord;
+  if not Assigned(lBaseRecord) then
+    Exit;
+
+  if lBaseRecord.Signature <> LIGH then
+    Exit;
+
+  var lRadius := lBaseRecord.ElementByPath[IsSF1('DAT2\Radius', 'DATA\Radius')];
+  if not Assigned(lRadius) then
+    Exit;
+
+  case aType of
+    ctCheck: begin
+      var lValue := StrToFloat(aElement.EditValue);
+
+      if lValue < 20.0 then
+        aValue := ' <Hint: Light Radius [' + FloatToStr(lValue) + '] is less then minimum of 20>';
+    end;
+    ctFromEditValue: begin
+      aValue := FloatToStr(StrToFloat(aValue) - StrToFloat(lRadius.EditValue));
+    end;
+    ctFromNativeValue: begin
+      aValue := FloatToStr(StrToFloat(aValue) - StrToFloat(lRadius.EditValue));
+    end;
+    ctToStr: begin
+      aValue := FloatToStr(StrToFloat(aValue) + StrToFloat(lRadius.EditValue));
+
+      if StrToFloat(aValue) < 20.0 then
+        aValue := aValue + ' <Hint: Light Radius is less then minimum of 20>';
+    end;
+    ctToEditValue: begin
+      aValue := FloatToStr(StrToFloat(aValue) + StrToFloat(lRadius.EditValue));
+    end;
+    ctToNativeValue: begin
+      aValue := FloatToStr(StrToFloat(aValue) + StrToFloat(lRadius.EditValue));
     end;
   end;
 end;
