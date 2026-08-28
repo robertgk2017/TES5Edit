@@ -4128,8 +4128,10 @@ begin
     wbArrayS(XCLR, 'Regions',
       wbFormIDCk('Region', [REGN])
         .SetFormIDFilter(wbCELLRegionFilter)
+        .SetGetCP(wbCELLRegionsGetCP)
         .SetToStr(wbCELLRegionToStr)
-    ).SetDontShow(wbCellInteriorDontSHow),
+    ).SetDontShow(wbCellInteriorDontSHow)
+     .SetGetCP(wbCELLRegionsGetCP),
     wbFormIDCk(XCIM, 'Image Space', [IMGS]),
     wbUnused(XCET, 1),
     wbFormIDCk(XEZN, 'Encounter Zone', [ECZN]),

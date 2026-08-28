@@ -133,7 +133,8 @@ function wbGetPropertyValueArrayItems(const aContainer: IwbContainerElementRef):
 function wbGetREGNType               (const aElement: IwbElement): Integer;
 function wbGetScriptObjFormat        (const aElement: IwbElement): Integer;
 
-{>>> Get Conflict Priority Callbacks <<<} //3
+{>>> Get Conflict Priority Callbacks <<<} //4
+procedure wbCELLRegionsGetCP  (const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
 procedure wbLandNormalsGetCP  (const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
 procedure wbModelInfoGetCP    (const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
 procedure wbNAVMEdgeLinksGetCP(const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
@@ -2240,7 +2241,17 @@ begin
   end;
 end;
 
-{>>> Get Conflict Priority Callbacks <<<} //3
+{>>> Get Conflict Priority Callbacks <<<} //4
+
+procedure wbCELLRegionsGetCP(const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
+begin
+  aConflictPriority := cpNormal;
+  if not Assigned(aElement) then
+    Exit;
+
+  if FileExists(wbDataPath + 'NVSE\Plugins\Hnvse.dll') then
+    aConflictPriority := cpBenign;
+end;
 
 procedure wbLandNormalsGetCP(const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
 begin
