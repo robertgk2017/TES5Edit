@@ -978,6 +978,18 @@ object frmOptions: TfrmOptions
           's)'
         TabOrder = 7
       end
+      object cbWriteOffsetData: TCheckBox
+        Left = 16
+        Top = 218
+        Width = 438
+        Height = 24
+        Hint = 
+          'Rebuild each worldspace'#39's exterior cell offset table (OFST) when ' +
+          'saving. A worldspace that can not be described exactly is written ' +
+          'without a table rather than with an approximate one.'
+        Caption = 'Write worldspace cell offsets (OFST) on save'
+        TabOrder = 8
+      end
     end
   end
   object btnOK: TButton
