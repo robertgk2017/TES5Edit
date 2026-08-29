@@ -1115,6 +1115,8 @@ type
     function mrStruct: PwbMainRecordStruct;
 
     function IsSameData(aBase, aEnd: Pointer): Boolean;
+
+    procedure PrepareOffsetData;
   end;
 
   IwbMainRecordEntry = interface(IwbMainRecordInternal)
@@ -1172,6 +1174,7 @@ type
     mrsFullNameFromCache,
     mrsResettingConflict,
     mrsOFSTRemoved,
+    mrsOFSTReserved,
     mrsIndexKeysActive
   );
 
@@ -1202,6 +1205,7 @@ type
     mrDataStorage       : TBytes;
     mrGroup             : IwbGroupRecord;
     mrGroupSearchGen    : Integer;
+    mrOFSTCells         : Integer;  // cells the reserved OFST table must end up holding
 
     mrReferencedBy      : TDynMainRecords;
     mrReferencedByCount : Integer;
@@ -1304,6 +1308,8 @@ type
     procedure MarkModifiedRecursive(const aElementTypes: TwbElementTypes); override;
 
     procedure UpdateStorageFromElements; override;
+
+    procedure PrepareOffsetData;
 
     function BuildIndexKeys(out aKeys: TwbIndexKeys): Boolean;
 
@@ -5265,6 +5271,7 @@ var
   RecordCount : Cardinal;
 
   FileHeader: IwbMainRecord;
+  MainRecordInternal : IwbMainRecordInternal;
   HEDR: IwbRecord;
   MasterFiles : IwbContainerElementRef;
   MasterFile : IwbContainerElementRef;
@@ -5357,8 +5364,17 @@ begin
       //make sure all WRLD records have been initialized, so that OFST have been removed and child groups sorted
       if GroupRecord.GroupLabelSignature = 'WRLD' then begin
         for j := 0 to Pred(GroupRecord.ElementCount) do
-          if Supports(GroupRecord.Elements[j], IwbMainRecord, Current) then
+          if Supports(GroupRecord.Elements[j], IwbMainRecord, Current) then begin
             Current.ElementCount;
+            {
+              And decide here, not in the record's own PrepareSave, whether a fresh OFST
+              can be built for it: initializing the record is what removed the old one, and
+              the recursion that visits records has already run by the time we get here.
+            }
+            if wbWriteOffsetData then
+              if Supports(Current, IwbMainRecordInternal, MainRecordInternal) then
+                MainRecordInternal.PrepareOffsetData;
+          end;
       end;
     end;
 
@@ -13279,6 +13295,409 @@ begin
   inherited;
 end;
 
+{
+  Writing a worldspace's OFST table.
+
+  OFST is a dense grid, one UInt32 per exterior cell slot of a worldspace, holding the
+  byte offset of that slot's CELL record from the start of the WRLD record - or 0 where
+  the slot holds no cell. Columns and rows follow from the worldspace bounds, a cell's
+  index is (y - MinY) * Columns + (x - MinX) with rows counted from the bottom, and
+  measuring the offsets from the WRLD record rather than from the file is what makes the
+  table position independent: moving a worldspace within the file changes not one entry.
+
+  That is what lets a single pass produce it. The size of the table follows from the
+  bounds alone and so is known before anything has been written: the WRLD reserves a
+  zero filled subrecord of exactly that size, and each entry is patched in as its CELL
+  reaches the stream.
+
+  Without a table the runtime finds a temporary cell by walking the block and sub-block
+  groups, which is slower but correct. With a table that does not describe the file, it
+  crashes. So whether a worldspace can be described at all is decided in PrepareSave,
+  before a byte has been written - once the reserved subrecord is on the stream there is
+  no way back - and a worldspace that fails any of the checks goes out with no OFST
+  rather than an approximate one.
+}
+
+const
+  {
+    The largest OFST in any shipped master is Fallout76's APPALACHIA, at 632,604 bytes
+    or 158,151 entries. A grid past this limit comes of bounds that are broken rather
+    than large - wbWorldAfterLoad already warns beyond 256 cells from the origin - and
+    reserving one would cost more than the lookup it buys.
+  }
+  wbOffsetDataEntryLimit = 4 * 1024 * 1024;
+
+type
+  TwbOffsetDataContext = record
+    odcActive       : Boolean;  // a WRLD that reserved a table is being written
+    odcStream       : TStream;  // the stream it is being written to, and the only one to patch
+    odcWrldStart    : Int64;    // where the WRLD record starts: the anchor every entry is relative to
+    odcPayloadLocal : Int64;    // where the OFST payload sits within the record, -1 until it is known
+    odcPayload      : Int64;    // where the OFST payload sits in the stream, -1 until the record is out
+    odcMinX         : Integer;
+    odcMinY         : Integer;
+    odcColumns      : Integer;
+    odcRows         : Integer;
+    odcLabel        : Cardinal; // the worldspace's FormID, so the tally below can name it
+    odcExpected     : Integer;  // cells the reservation validated: what MUST end up in the table
+    odcSeen         : Integer;  // block resident cells offered to the table
+    odcPlaced       : Integer;  // entries actually written into it
+  end;
+
+threadvar
+  _OffsetData: TwbOffsetDataContext;
+
+function wbWorldOffsetDataGrid(const aWorldspace: IwbMainRecord; out aMinX, aMinY, aColumns, aRows: Integer): Boolean;
+
+  function BoundInCells(const aName: string; out aValue: Integer): Boolean;
+  var
+    Element : IwbElement;
+    Native  : Variant;
+    Bound   : Single;
+  begin
+    Result := False;
+
+    Element := aWorldspace.ElementByPath['Worldspace Bounds\' + aName];
+    if not Assigned(Element) then
+      Exit;
+
+    Native := Element.NativeValue;
+    if VarIsClear(Native) or VarIsNull(Native) then
+      Exit;
+
+    {
+      The bounds are scaled to cell units by their own definition, except for a
+      "no bounds set" sentinel, which arrives unscaled. wbWorldColumnsCounter clamps
+      that to zero and five FO76 worldspaces rely on it, so the grid is derived the
+      same way here.
+    }
+    Bound := Native;
+    if (Bound = Single.MaxValue) or (Bound = Single.MinValue) then
+      Bound := 0;
+
+    aValue := Round(Bound);
+    Result := True;
+  end;
+
+var
+  MaxX : Integer;
+  MaxY : Integer;
+begin
+  Result := False;
+
+  aMinX := 0;
+  aMinY := 0;
+  aColumns := 0;
+  aRows := 0;
+
+  if not BoundInCells('NAM0\X', aMinX) then
+    Exit;
+  if not BoundInCells('NAM0\Y', aMinY) then
+    Exit;
+  if not BoundInCells('NAM9\X', MaxX) then
+    Exit;
+  if not BoundInCells('NAM9\Y', MaxY) then
+    Exit;
+
+  aColumns := MaxX - aMinX + 1;
+  aRows := MaxY - aMinY + 1;
+
+  Result := (aColumns > 0) and (aRows > 0) and (Int64(aColumns) * aRows <= wbOffsetDataEntryLimit);
+end;
+
+{
+  The grid position an exterior cell occupies in its worldspace's offset table.
+
+  A block resident cell may omit XCLC altogether, and an absent XCLC simply is grid
+  (0, 0) - the format leaving out the default rather than declining to give one. The
+  shipped masters index such cells exactly there.
+
+  Where that reading does not hold the duplicate check in wbReserveWorldOffsetData
+  refuses the worldspace, so the default only ever stands where nothing contradicts
+  it: a second cell arriving at the same slot costs the table rather than filling one
+  of the two entries wrongly.
+
+  Both the reservation and the writer take the position from here. Deriving it two
+  ways would let the reservation count a cell the writer then declines to place, and
+  the worldspace would go out with a table that is short.
+}
+function wbOffsetDataGridCell(const aCell: IwbMainRecord): TwbGridCell;
+begin
+  if not aCell.GetGridCell(Result) then begin
+    Result.x := 0;
+    Result.y := 0;
+  end;
+end;
+
+function wbReserveWorldOffsetData(const aWorldspace: IwbMainRecord; out aReason: string;
+  out aCells: Integer): Boolean;
+var
+  MinX       : Integer;
+  MinY       : Integer;
+  Columns    : Integer;
+  Rows       : Integer;
+  Size       : Integer;
+  Taken      : TArray<Boolean>;
+  Children   : IwbGroupRecord;
+  OffsetData : IwbElement;
+  Cells      : Integer;
+
+  function CanPlaceCells(const aGroup: IwbGroupRecord; aInSubBlock: Boolean): Boolean;
+  var
+    Container  : IwbContainerElementRef;
+    Group      : IwbGroupRecord;
+    MainRecord : IwbMainRecord;
+    GridCell   : TwbGridCell;
+    i          : Integer;
+    x          : Integer;
+    y          : Integer;
+  begin
+    Result := False;
+
+    if not Supports(aGroup, IwbContainerElementRef, Container) then begin
+      aReason := 'its ' + aGroup.Name + ' can not be enumerated';
+      Exit;
+    end;
+
+    for i := 0 to Pred(Container.ElementCount) do
+      if Supports(Container.Elements[i], IwbGroupRecord, Group) then begin
+        { Only the exterior block and sub-block groups hold cells. A cell's own children
+          group is a sibling of the cell and holds its references. }
+        if (Group.GroupType = 4) or (Group.GroupType = 5) then
+          if not CanPlaceCells(Group, Group.GroupType = 5) then
+            Exit;
+      end else if aInSubBlock and Supports(Container.Elements[i], IwbMainRecord, MainRecord) then begin
+        {
+          Read the record properly before asking it anything. GetGridCell will otherwise
+          run a quick init and reset over a record nobody has read yet, and a record that
+          has been through that comes out EMPTY when it is later re-emitted - which would
+          have this pass destroy the very cells it is indexing.
+        }
+        MainRecord.ElementCount;
+
+        GridCell := wbOffsetDataGridCell(MainRecord);
+
+        x := GridCell.x - MinX;
+        y := GridCell.y - MinY;
+
+        {
+          A cell outside the declared bounds has no slot to go in. The table holds
+          exactly Columns * Rows entries, so such a cell has no entry it could be
+          wrong in: skipping it keeps every entry the table does have correct, while
+          omitting the table would cost the worldspace its direct load path instead.
+        }
+        if (x < 0) or (x >= Columns) or (y < 0) or (y >= Rows) then
+          Continue;
+
+        if Taken[y * Columns + x] then begin
+          aReason := Format('two cells claim grid position %d, %d', [GridCell.x, GridCell.y]);
+          Exit;
+        end;
+        Taken[y * Columns + x] := True;
+        Inc(Cells);
+      end;
+
+    Result := True;
+  end;
+
+begin
+  Result := False;
+  aReason := '';
+  aCells := 0;
+  Cells := 0;
+
+  if not wbWorldOffsetDataGrid(aWorldspace, MinX, MinY, Columns, Rows) then begin
+    aReason := 'its bounds do not give a usable grid';
+    Exit;
+  end;
+
+  SetLength(Taken, Columns * Rows);
+
+  Children := aWorldspace.ChildGroup;
+  if Assigned(Children) then
+    if not CanPlaceCells(Children, False) then
+      Exit;
+
+  if not wbBeginInternalEdit(True) then begin
+    aReason := 'editing is blocked';
+    Exit;
+  end;
+  try
+    OffsetData := aWorldspace.RecordBySignature['OFST'];
+    if not Assigned(OffsetData) then
+      OffsetData := aWorldspace.Add('OFST', True);
+    if not Assigned(OffsetData) then begin
+      aReason := 'an OFST subrecord could not be created';
+      Exit;
+    end;
+
+    {
+      Sized down and back up rather than straight to the final size: a table kept from
+      the file would otherwise leave that file's offsets standing in every slot this
+      save does not fill, and those describe a layout that is about to change.
+    }
+    Size := Columns * Rows * SizeOf(Cardinal);
+    OffsetData.DataSize := 0;
+    OffsetData.DataSize := Size;
+    if OffsetData.DataSize <> Size then begin
+      aReason := Format('OFST could not be sized to %d bytes, it is %d', [Size, OffsetData.DataSize]);
+      Exit;
+    end;
+
+    {
+      The entries are patched back into the record after it has been written, which a
+      compressed record does not allow - by then its bytes are a zlib blob.
+    }
+    aWorldspace.IsCompressed := False;
+  finally
+    wbEndInternalEdit;
+  end;
+
+  aCells := Cells;
+  Result := True;
+end;
+
+procedure TwbMainRecord.PrepareOffsetData;
+var
+  GroupRecord : IwbGroupRecord;
+  Reason      : string;
+begin
+  Exclude(mrStates, mrsOFSTReserved);
+
+  if not wbWriteOffsetData then
+    Exit;
+  if GetSignature <> 'WRLD' then
+    Exit;
+
+  GroupRecord := GetChildGroup;
+
+  {
+    A worldspace whose record and children are both written out unchanged keeps the
+    table it came with, and that table is still right: its entries are relative to the
+    WRLD record, and every byte between them is being copied verbatim.
+  }
+  if not ((esModified in eStates) or wbTestWrite or (Assigned(GroupRecord) and GroupRecord.Modified)) then
+    Exit;
+
+  if wbReserveWorldOffsetData(Self, Reason, mrOFSTCells) then begin
+    Include(mrStates, mrsOFSTReserved);
+    Exit;
+  end;
+
+  {
+    Say why. A worldspace silently going out without a table looks exactly like one
+    that never wanted one, and the reader has no other way to tell them apart.
+  }
+  if wbHasProgressCallback then
+    wbProgressCallback('<Note: no OFST written for ' + GetName + ': ' + Reason + '>');
+
+  {
+    It must also not go out with the table it came with - that one describes a layout
+    this save is about to change. Losing the table puts the worldspace back on the block
+    and sub-block walk, which is why the children are marked modified here for the same
+    reason mrsOFSTRemoved does it in PrepareSave: so xEdit rebuilds those groups from
+    its own structures.
+  }
+  if Assigned(GetRecordBySignature('OFST')) then begin
+    if wbBeginInternalEdit(True) then try
+      RemoveElement('OFST');
+    finally
+      wbEndInternalEdit;
+    end;
+    if Assigned(GroupRecord) then
+      GroupRecord.MarkModifiedRecursive([etFile, etMainRecord, etGroupRecord]);
+  end;
+end;
+
+{
+  Place one cell in the reserved table. aPosition is where its record begins in the
+  stream, which is all an entry is: that position measured from the WRLD record.
+}
+procedure wbPlaceOffsetDataEntry(const aCell: IwbMainRecord; aStream: TStream; aPosition: Int64);
+var
+  GridCell : TwbGridCell;
+  x        : Integer;
+  y        : Integer;
+  Offset   : Cardinal;
+  Resume   : Int64;
+begin
+  Inc(_OffsetData.odcSeen);
+
+  if _OffsetData.odcPayload < 0 then
+    Exit;
+
+  if aPosition <= _OffsetData.odcWrldStart then
+    raise Exception.Create('Can not write OFST for ' + aCell.Name +
+      ': it no longer matches what its worldspace reserved a table for');
+
+  GridCell := wbOffsetDataGridCell(aCell);
+
+  x := GridCell.x - _OffsetData.odcMinX;
+  y := GridCell.y - _OffsetData.odcMinY;
+  if (x < 0) or (x >= _OffsetData.odcColumns) or (y < 0) or (y >= _OffsetData.odcRows) then
+    Exit;
+
+  Offset := aPosition - _OffsetData.odcWrldStart;
+
+  Resume := aStream.Position;
+  try
+    aStream.Position := _OffsetData.odcPayload + (Int64(y) * _OffsetData.odcColumns + x) * SizeOf(Cardinal);
+    aStream.WriteBuffer(Offset, SizeOf(Offset));
+  finally
+    aStream.Position := Resume;
+  end;
+
+  Inc(_OffsetData.odcPlaced);
+end;
+
+procedure wbWriteWorldOffsetDataEntry(const aCell: IwbMainRecord; aStream: TStream; aPosition: Int64);
+var
+  Group : IwbGroupRecord;
+begin
+  {
+    Only the cells filed in an exterior sub-block are indexed. A worldspace's persistent
+    cell sits loose in the children group and is deliberately not in the table.
+  }
+  if not Supports(aCell.Container, IwbGroupRecord, Group) then
+    Exit;
+  if Group.GroupType <> 5 then
+    Exit;
+
+  wbPlaceOffsetDataEntry(aCell, aStream, aPosition);
+end;
+
+{
+  The same job for a group that is written as one blob rather than record by record.
+
+  An unmodified group does not write its children individually at all: TwbDataContainer's
+  write blits its whole stored extent in one go, so nothing downstream of it reaches
+  TwbMainRecord.WriteToStreamInternal and no cell can report where it landed. The bytes
+  are copied verbatim, though, which is what makes them predictable - a record sits at
+  the same distance into the stream as it sits into the storage being copied. aBase and
+  aStart are the two ends of that correspondence: the address the blit reads from, and
+  the position it writes to.
+}
+procedure wbPlaceBlittedOffsetDataCells(const aGroup: IwbGroupRecord; aBase: Pointer; aStart: Int64; aStream: TStream);
+var
+  Container  : IwbContainerElementRef;
+  Group      : IwbGroupRecord;
+  MainRecord : IwbMainRecord;
+  Internal   : IwbMainRecordInternal;
+  i          : Integer;
+begin
+  if not Supports(aGroup, IwbContainerElementRef, Container) then
+    Exit;
+
+  for i := 0 to Pred(Container.ElementCount) do
+    if Supports(Container.Elements[i], IwbGroupRecord, Group) then begin
+      if (Group.GroupType = 4) or (Group.GroupType = 5) then
+        wbPlaceBlittedOffsetDataCells(Group, aBase, aStart, aStream);
+    end else if (aGroup.GroupType = 5) and Supports(Container.Elements[i], IwbMainRecord, MainRecord) then
+      if Supports(MainRecord, IwbMainRecordInternal, Internal) then
+        wbPlaceOffsetDataEntry(MainRecord, aStream,
+          aStart + (NativeUInt(Internal.mrStruct) - NativeUInt(aBase)));
+end;
+
 procedure TwbMainRecord.PrepareSave;
 var
   KAR: IwbKeepAliveRoot;
@@ -14798,10 +15217,60 @@ var
     Stream            : TStream;
     MemoryStream      : TMemoryStream;
     mrs               : TwbMainRecordStruct;
+    RecordPosition    : Int64;
+    Signature         : TwbSignature;
 
     SelfRef : IwbContainerElementRef;
   begin
     KAR := wbCreateKeepAliveRoot;
+
+    RecordPosition := aStream.Position;
+    Signature := GetSignature;
+
+    if Signature = 'CELL' then begin
+      if _OffsetData.odcActive and (_OffsetData.odcStream = aStream) then
+        wbWriteWorldOffsetDataEntry(Self, aStream, RecordPosition);
+    end else if Signature = 'WRLD' then begin
+      { A worldspace closes the previous one's table whether or not it opens its own. }
+      _OffsetData := Default(TwbOffsetDataContext);
+      {
+        RecordPosition > 0 keeps this to the file being saved. CollapseStorage writes a
+        record into a private stream of its own, starting at 0, and a table patched into
+        that would land in somebody else's buffer.
+      }
+      if (mrsOFSTReserved in mrStates) and (RecordPosition > 0) then begin
+        Exclude(mrStates, mrsOFSTReserved);
+        if not GetIsCompressed then
+          if wbWorldOffsetDataGrid(Self, _OffsetData.odcMinX, _OffsetData.odcMinY,
+                                         _OffsetData.odcColumns, _OffsetData.odcRows) then begin
+            _OffsetData.odcActive := True;
+            _OffsetData.odcStream := aStream;
+            _OffsetData.odcWrldStart := RecordPosition;
+            _OffsetData.odcPayload := -1;
+            _OffsetData.odcLabel := GetFormID.ToCardinal;
+            _OffsetData.odcExpected := mrOFSTCells;
+
+            {
+              Two ways the reserved payload's place inside the record becomes known, one
+              per write path. A record that is re-serialized reports it as its OFST
+              subrecord goes out, because only then are the emitted sizes known. A record
+              that is blitted from its own storage - which is what a collapsed record is,
+              and collapsing resets the modified flag that would have selected the other
+              path - never writes a subrecord at all, so the place is read off the
+              storage the blit is about to copy.
+            }
+            _OffsetData.odcPayloadLocal := -1;
+            if not ((esModified in eStates) or wbTestWrite) then begin
+              var lOffsetData: IwbDataContainer;
+              if Supports(GetRecordBySignature('OFST'), IwbDataContainer, lOffsetData) then
+                if (NativeUInt(lOffsetData.DataBasePtr) >= NativeUInt(dcBasePtr)) and
+                   (NativeUInt(lOffsetData.DataBasePtr) <  NativeUInt(dcEndPtr))
+                then
+                  _OffsetData.odcPayloadLocal := NativeUInt(lOffsetData.DataBasePtr) - NativeUInt(dcBasePtr);
+            end;
+          end;
+      end;
+    end;
 
     if (esModified in eStates) or wbTestWrite then begin
       SelfRef := Self as IwbContainerElementRef;
@@ -14866,6 +15335,26 @@ var
       if CurrentPosition + wbSizeOfMainRecordStruct + mrStruct.mrsDataSize <> aStream.Position then
         Assert(CurrentPosition + wbSizeOfMainRecordStruct + mrStruct.mrsDataSize <> aStream.Position);
 
+    end;
+
+    {
+      The record is on the stream now, so wherever its reserved payload sat inside it is
+      where it sits in the stream.
+    }
+    if _OffsetData.odcActive and (_OffsetData.odcStream = aStream) and
+       (_OffsetData.odcWrldStart = RecordPosition)
+    then begin
+      if _OffsetData.odcPayloadLocal < 0 then
+        {
+          A zero filled table has already gone out and there is no way to take it back,
+          so this can not be allowed to pass as "no table": every slot would claim the
+          worldspace has no cell there. Stop the save instead - TwbFile.WriteToStream
+          assembles into memory and only copies out at the end, so nothing reaches the
+          destination.
+        }
+        raise Exception.Create('Reserved an OFST for ' + GetName +
+          ' and then could not find it in the written record');
+      _OffsetData.odcPayload := RecordPosition + _OffsetData.odcPayloadLocal;
     end;
   end;
 
@@ -16648,6 +17137,18 @@ var
   BigDataSize       : Cardinal;
   SubHeader         : TwbSubRecordHeaderStruct;
   SelfRef           : IwbContainerElementRef;
+
+  procedure NoteOffsetDataPayload;
+  begin
+    {
+      Where the worldspace's reserved OFST payload landed within its record. A modified
+      record is buffered before it is blitted, so TwbMainRecord.WriteToStreamInternal
+      turns this into a stream position once the record is out.
+    }
+    if _OffsetData.odcActive and (_OffsetData.odcPayloadLocal < 0) and (srStruct.srsSignature = 'OFST') then
+      _OffsetData.odcPayloadLocal := CurrentPosition;
+  end;
+
 begin
   if not (dcfDontSave in dcFlags) then begin
     if (esModified in eStates) or (dcfBasePtrInvalid in dcFlags) or wbTestWrite or (srStruct.srsDataSize = 0) then begin
@@ -16672,6 +17173,7 @@ begin
 
       aStream.WriteBuffer(SubHeader, TwbSubRecordHeaderStruct.SizeOf );
       CurrentPosition := aStream.Position;
+      NoteOffsetDataPayload;
       inherited;
       NewPosition := aStream.Position;
       if BigDataSize <> NewPosition - CurrentPosition then
@@ -16684,6 +17186,7 @@ begin
     end else begin
       aStream.WriteBuffer(dcBasePtr^, TwbSubRecordHeaderStruct.SizeOf );
       CurrentPosition := aStream.Position;
+      NoteOffsetDataPayload;
       inherited;
       if CurrentPosition + srStruct.srsDataSize <> aStream.Position then
         Assert(CurrentPosition + srStruct.srsDataSize = aStream.Position, 'CurrentPosition + srStruct.srsDataSize <> aStream.Position');
@@ -18829,7 +19332,48 @@ begin
   aStream.WriteBuffer(grs, wbSizeOfMainRecordStruct );
   if wbForceNewHeader then
     aStream.WriteBuffer(wbNewHeaderAddon, SizeOf(wbNewHeaderAddon) );
+
+  {
+    A group that is not being re-emitted is about to be copied out whole, and the copy
+    will not write a single one of its records individually. Take the cell positions off
+    the storage it is about to copy, before it copies it.
+  }
+  if _OffsetData.odcActive and (_OffsetData.odcStream = aStream) and
+     ((grs.grsGroupType = 1) or (grs.grsGroupType = 4) or (grs.grsGroupType = 5)) and
+     not ((esModified in eStates) or wbTestWrite)
+  then
+    wbPlaceBlittedOffsetDataCells(Self, GetDataBasePtr, aStream.Position, aStream);
+
   inherited;
+
+  {
+    A worldspace's table can only be filled while its own children are being written, and
+    that group is the whole of it. Report the tally on the way out: a table holding fewer
+    entries than the worldspace has cells is the one outcome worth noticing, and nothing
+    else in the output would show it.
+  }
+  if _OffsetData.odcActive and ((grs.grsGroupType = 0) or (grs.grsGroupType = 1)) then begin
+    {
+      A table holding fewer cells than the reservation validated is a PARTIAL table, and a
+      partial table is the crash case - every slot it failed to fill claims the worldspace has
+      no cell there. It cannot be unwritten by this point, so the save is stopped instead:
+      TwbFile.WriteToStream assembles into memory and copies out only at the end, so nothing
+      reaches the destination. This is the one check standing between a silently missed cell
+      and a file that crashes the game, and it fires on a count the WRITER never supplied -
+      the reservation did, before any of this was written.
+    }
+    if _OffsetData.odcPlaced <> _OffsetData.odcExpected then
+      raise Exception.CreateFmt(
+        'OFST for worldspace [%s] is incomplete: %d of %d cells were placed. Refusing to save a partial table.',
+        [TwbFormID.FromCardinal(_OffsetData.odcLabel).ToString(False),
+         _OffsetData.odcPlaced, _OffsetData.odcExpected]);
+
+    if wbHasProgressCallback then
+      wbProgressCallback(Format('<Note: OFST written for [%s]: %d cells>',
+        [TwbFormID.FromCardinal(_OffsetData.odcLabel).ToString(False), _OffsetData.odcPlaced]));
+    _OffsetData.odcActive := False;
+  end;
+
   if (esModified in eStates) or wbTestWrite then begin
 
     NewPosition := aStream.Position;

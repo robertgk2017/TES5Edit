@@ -155,6 +155,7 @@ var
   wbFillINOM                         : Boolean    = True;
   wbFillINOA                         : Boolean    = True;
   wbRemoveOffsetData                 : Boolean    = True;
+  wbWriteOffsetData                  : Boolean    = False;         // build a valid WRLD OFST grid while saving instead of leaving the record without one
   wbEditAllowed                      : Boolean    = False;
   wbFlagsAsArray                     : Boolean    = False;
   wbDelayLoadRecords                 : Boolean    = True;
@@ -4794,7 +4795,7 @@ procedure wbVCI1ToStrAfterFO4(var aValue:string; aBasePtr: Pointer; aEndPtr: Poi
 procedure wbTimeStampToString(var aValue:string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 
 /// <summary>Collapse and truncate the given text to fit in the given width.</summary>
-function ShortenText(const aText: string; const aWidth: Integer = 64; const aPlaceholder: string = '…'): string;
+function ShortenText(const aText: string; const aWidth: Integer = 64; const aPlaceholder: string = 'ï¿½'): string;
 
 procedure wbInitRecords;
 
