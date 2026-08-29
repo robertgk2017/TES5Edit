@@ -14702,6 +14702,7 @@ begin
     cbSortFLST.Checked := wbSortFLST;
     cbSortINFO.Checked := wbSortINFO;
     cbFillPNAM.Checked := wbFillPNAM;
+    cbWriteOffsetData.Checked := wbWriteOffsetData;
     cbFocusAddedElement.Checked := wbFocusAddedElement;
     cbRequireCtrlForDblClick.Checked := wbRequireCtrlForDblClick;
     cbShowFlagEnumValue.Checked := wbShowFlagEnumValue;
@@ -14800,6 +14801,7 @@ begin
     wbSortFLST := cbSortFLST.Checked;
     wbSortINFO := cbSortINFO.Checked;
     wbFillPNAM := cbFillPNAM.Checked;
+    wbWriteOffsetData := cbWriteOffsetData.Checked;
     wbFocusAddedElement := cbFocusAddedElement.Checked;
     wbRequireCtrlForDblClick := cbRequireCtrlForDblClick.Checked;
     wbShowFlagEnumValue := cbShowFlagEnumValue.Checked;
@@ -14895,6 +14897,7 @@ begin
     Settings.WriteBool('Options', 'SortFLST2', wbSortFLST);
     Settings.WriteBool('Options', 'SortINFO', wbSortINFO);
     Settings.WriteBool('Options', 'FillPNAM', wbFillPNAM);
+    Settings.WriteBool('Options', 'WriteOffsetData', wbWriteOffsetData);
     Settings.WriteBool('Options', 'FocusAddedElement', wbFocusAddedElement);
     Settings.WriteBool('Options', 'RequireCtrlForDblClick', wbRequireCtrlForDblClick);
     Settings.WriteBool('Options', 'ShowFlagEnumValue', wbShowFlagEnumValue);

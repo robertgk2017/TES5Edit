@@ -181,6 +181,7 @@ begin
       wbAllowDirectSave := Settings.ReadBool('Options', 'AllowDirectSave', wbAllowDirectSave);
       wbSortINFO := Settings.ReadBool('Options', 'SortINFO', wbSortINFO);
       wbFillPNAM := Settings.ReadBool('Options', 'FillPNAM', wbFillPNAM);
+      wbWriteOffsetData := Settings.ReadBool('Options', 'WriteOffsetData', wbWriteOffsetData);
       wbCollapseRecordHeader := Settings.ReadBool('Options', 'CollapseRecordHeader', wbCollapseRecordHeader);
       wbCollapseObjectBounds := Settings.ReadBool('Options', 'CollapseObjectBounds', wbCollapseObjectBounds);
       wbCollapseModels := Settings.ReadBool('Options', 'CollapseModels', wbCollapseModels);

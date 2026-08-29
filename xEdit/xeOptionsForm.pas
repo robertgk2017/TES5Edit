@@ -117,6 +117,7 @@ type
     cbCollapseVec3: TCheckBox;
     cbDecodeTexture: TCheckBox;
     cbConvertIntFormID: TCheckBox;
+    cbWriteOffsetData: TCheckBox;
     cbCollapsePosRot: TCheckBox;
     cbCollapseNavmesh: TCheckBox;
     cbCollapseKeywords: TCheckBox;
