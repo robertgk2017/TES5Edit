@@ -836,6 +836,8 @@ type
     procedure ConflictLevelForContainer(const aContainer: IwbDataContainer; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
     function ConflictLevelForChildNodeDatas(const aNodeDatas: TDynViewNodeDatas; aSiblingCompare, aInjected: Boolean): TConflictAll;
     function ConflictLevelForNodeDatas(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer; aSiblingCompare, aInjected: Boolean): TConflictAll;
+
+    procedure DoTestConflictsDump;
   protected
 
     function GetUniqueLinksTo(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer): TDynMainRecords;
@@ -4744,6 +4746,12 @@ var
 begin
   if not wbBuildRefs then
     Exit;
+  { Test Conflicts leaves without asking. The question below is modal and there is nobody in front
+    of the screen to answer it, and a testing mode has no business deleting a cache that belongs to
+    another build. The cost of leaving it is that this run rebuilds its own references, which it
+    would do anyway: the cache it would find is keyed on a different application checksum. }
+  if xeTestConflicts then
+    Exit;
   if wbDontCache then
     Exit;
   if wbDontCacheSave then
@@ -5338,7 +5346,14 @@ begin
     end;
 
     wbPatron := Settings.ReadBool('Options', 'Patron', wbPatron);
-    if not wbPatron or not xeAutoLoad then
+    { Test Conflicts is excluded because it has nobody to show a message to: it runs to produce a
+      file and closes itself, with no user in front of it.
+
+      Without this the message is modal and appears before loading starts, so the run never reaches
+      the dump and never reaches the shutdown either -- it simply waits. That is not specific to
+      this mode. Any unattended run on an installation where Patron is not set stops here, which
+      means -autoload with -autoexit is only self-completing for a patron. Found by running it. }
+    if (not wbPatron or not xeAutoLoad) and not xeTestConflicts then
       ShowDeveloperMessage;
   end;
 
@@ -21190,6 +21205,157 @@ begin
   AddFile(IwbFile(Pointer(Message.WParam)));
 end;
 
+function xeCompareTestConflictRows(List: TStringList; Index1, Index2: Integer): Integer;
+begin
+  { Ordinal rather than locale aware. Two runs of this dump are meant to be compared byte for
+    byte, including across machines, so the order must not depend on the collation the operator
+    happens to be running under. }
+  Result := CompareStr(List[Index1], List[Index2]);
+end;
+
+procedure TfrmMain.DoTestConflictsDump;
+{ Walks every loaded record, computes its conflict status through the same routine the tree uses,
+  and writes one row per record to a text file that can be diffed against a later run.
+
+  What a row carries is the record level answer: ConflictAll, which is the aggregate over the whole
+  override chain, and this record's own ConflictThis. That is deliberately narrower than what the
+  detail view shows. The child walk keeps only maxima, so a field can change status while both of
+  these stay the same, and the dump would not move. A clean comparison is therefore evidence that
+  nothing changed, not proof of it, and the header below says so where the reader will meet it. }
+const
+  cTab = #9;
+var
+  lHeader, lData : TStringList;
+  lFile          : IwbFile;
+  lCompareTo     : IwbFile;
+  lRec           : IwbMainRecord;
+  lCA            : TConflictAll;
+  lCT            : TConflictThis;
+  i, j           : Integer;
+  lTmpFile       : string;
+  lEditorID      : string;
+begin
+  try
+    lHeader := TStringList.Create;
+    try
+      lData := TStringList.Create;
+      try
+        lHeader.Add('# xEdit conflict status dump');
+        lHeader.Add('# ' + wbApplicationTitle);
+        lHeader.Add('#');
+        lHeader.Add('# Columns, tab separated:');
+        lHeader.Add('#   load order / file / signature / load order FormID / local FormID /');
+        lHeader.Add('#   EditorID / ConflictAll / ConflictThis');
+        lHeader.Add('#');
+        lHeader.Add('# ConflictAll is the aggregate over the whole override chain and ConflictThis');
+        lHeader.Add('# belongs to this record alone. Neither reaches individual fields: the child');
+        lHeader.Add('# walk keeps maxima, so a field can move while both of these stand still.');
+        lHeader.Add('# An unchanged dump is evidence that nothing moved, not proof of it.');
+        lHeader.Add('#');
+        lHeader.Add('# Inputs that change what gets computed. A comparison is only meaningful');
+        lHeader.Add('# between runs whose values here agree.');
+        lHeader.Add('#   ModGroupsEnabled     = ' + BoolToStr(ModGroupsEnabled, True));
+        lHeader.Add('#   OnlyShowMasterAndLeafs = ' + BoolToStr(OnlyShowMasterAndLeafs, True));
+        lHeader.Add('#   wbAlignArrayElements = ' + BoolToStr(wbAlignArrayElements, True));
+        lHeader.Add('#   wbBuildRefs          = ' + BoolToStr(wbBuildRefs, True));
+        lHeader.Add('#   wbTranslationMode    = ' + BoolToStr(wbTranslationMode, True));
+        lHeader.Add('#   wbLoadBSAs           = ' + BoolToStr(wbLoadBSAs, True));
+        lHeader.Add('#   xeQuickShowConflicts = ' + BoolToStr(xeQuickShowConflicts, True));
+        lHeader.Add('#');
+        lHeader.Add('# Loaded modules, and for each one whether it carries a compare to file.');
+        lHeader.Add('#');
+        lHeader.Add('# sameMasters is the flag that decides whether the compare to identity branch');
+        lHeader.Add('# can be taken at all, so it is the value worth reading here.');
+        lHeader.Add('#');
+        lHeader.Add('# The two master counts are read AFTER loading finished, and they are NOT the');
+        lHeader.Add('# numbers the flag was computed from. The flag is decided while the file is');
+        lHeader.Add('# being built, and a master added after that point still shows up here. So the');
+        lHeader.Add('# counts below can disagree with the flag beside them without either being');
+        lHeader.Add('# wrong, and they must not be read as its explanation. Observed on Oblivion:');
+        lHeader.Add('# the hardcoded overlay reports one master here and sameMasters is still True,');
+        lHeader.Add('# because it had none at the moment the comparison ran.');
+
+        for i := Low(Files) to High(Files) do begin
+          lFile := Files[i];
+          lTmpFile := Format('#   %.3d %s mastersAfterLoad=%d', [lFile.LoadOrder, lFile.FileName,
+                                                                 lFile.MasterCount[True]]);
+          if fsIsHardcoded in lFile.FileStates then
+            lTmpFile := lTmpFile + ' hardcoded';
+          if fsIsGameMaster in lFile.FileStates then
+            lTmpFile := lTmpFile + ' gamemaster';
+          lCompareTo := lFile.CompareToFile;
+          if Assigned(lCompareTo) then
+            lTmpFile := lTmpFile + Format(' compareTo=%s compareToMastersAfterLoad=%d sameMasters=%s',
+                                          [lCompareTo.FileName, lCompareTo.MasterCount[True],
+                                           BoolToStr(fsCompareToHasSameMasters in lFile.FileStates, True)]);
+          lHeader.Add(lTmpFile);
+        end;
+        lHeader.Add('#');
+
+        for i := Low(Files) to High(Files) do begin
+          lFile := Files[i];
+          wbProgress('[Test Conflicts] ' + lFile.FileName + ' (' + IntToStr(lFile.RecordCount) + ' records)');
+          for j := 0 to Pred(lFile.RecordCount) do begin
+            lRec := lFile.Records[j];
+            if not Assigned(lRec) then
+              Continue;
+
+            { The same entry point the tree uses. It remembers its answer, so calling it for every
+              member of a chain computes once and then reads back each member's own value. }
+            ConflictLevelForMainRecord(lRec, lCA, lCT);
+
+            if lRec.CanHaveEditorID then
+              lEditorID := lRec.EditorID
+            else
+              lEditorID := '';
+
+            lData.Add(Format('%.3d', [lFile.LoadOrder]) + cTab +
+                      lFile.FileName + cTab +
+                      string(lRec.Signature) + cTab +
+                      IntToHex(lRec.LoadOrderFormID.ToCardinal, 8) + cTab +
+                      IntToHex(lRec.FormID.ToCardinal, 8) + cTab +
+                      lEditorID + cTab +
+                      wbNameConflictAll[lCA] + cTab +
+                      wbNameConflictThis[lCT]);
+          end;
+        end;
+
+        { The leading columns are a total key on their own, so ordering whole rows orders by
+          identity. Sorting rather than trusting traversal order keeps the file stable if the
+          loader ever hands the records over differently. }
+        lData.CustomSort(xeCompareTestConflictRows);
+        lHeader.Add('# rows: ' + IntToStr(lData.Count));
+        lHeader.AddStrings(lData);
+
+        { Written beside the target and renamed over it, so an interrupted run leaves the previous
+          dump intact rather than a half written file that still looks like one. }
+        lTmpFile := xeTestConflictsFile + '.partial';
+        lHeader.SaveToFile(lTmpFile, TEncoding.UTF8);
+        if FileExists(xeTestConflictsFile) then
+          if not System.SysUtils.DeleteFile(xeTestConflictsFile) then
+            raise Exception.Create('could not replace ' + xeTestConflictsFile);
+        if not RenameFile(lTmpFile, xeTestConflictsFile) then
+          raise Exception.Create('could not rename ' + lTmpFile + ' to ' + xeTestConflictsFile);
+
+        { Only now, and deliberately not in a finally. A finally also runs when the write above
+          raised, which would announce a finished dump over a file that was never written. }
+        wbProgress('Test Conflicts mode finished. ' + IntToStr(lData.Count) + ' rows written to ' +
+                   xeTestConflictsFile);
+      finally
+        lData.Free;
+      end;
+    finally
+      lHeader.Free;
+    end;
+  except
+    on E: Exception do
+      { Named so a script can look for it, and swallowed so the caller can still close the
+        application. A run that ends with neither this line nor the finished line above did not
+        reach either, which is itself the third thing worth being able to tell apart. }
+      wbProgress('Test Conflicts mode FAILED: ' + E.ClassName + ': ' + E.Message);
+  end;
+end;
+
 procedure TfrmMain.WMUserLoaderDone(var Message: TMessage);
 
   procedure SetupTreeView(aTreeView: TVirtualEditTree);
@@ -21292,7 +21458,15 @@ begin
 
         ModGroups := nil;
 
-        if not (xeQuickClean or (wbToolMode in wbAutoModes)) then
+        { Test Conflicts keeps ModGroups nil on purpose, so ModGroupsEnabled stays False.
+
+          It sets xeAutoLoad, which would otherwise take the branch below and activate every valid
+          mod group without asking. That is right for an interactive session and wrong here: an
+          active mod group removes override records from the node array, which changes how many
+          entries a record has to compare and therefore which branch computes its status. The dump
+          would then describe the operator's installed .modgroups files as much as the code, and a
+          comparison could not tell a real change from a difference between two machines. }
+        if not (xeQuickClean or (wbToolMode in wbAutoModes) or xeTestConflicts) then
           if xeQuickShowConflicts or xeAutoLoad then begin
             ModGroups := wbModGroupsByName;
             wbModGroupsByName(False).ShowValidationMessages;
@@ -21408,6 +21582,15 @@ begin
                 tmrShutdown.Enabled := True;
               break;
             end;
+        end;
+
+        if xeTestConflicts then begin
+          DoTestConflictsDump;
+          { Armed whatever the dump did. DoTestConflictsDump reports its own outcome and does not
+            let an exception escape, so a failed dump exits with a message instead of leaving the
+            application sitting open with nobody to close it. }
+          if xeAutoExit then
+            tmrShutdown.Enabled := True;
         end;
       finally
         Dec(wbShowStartTime);
