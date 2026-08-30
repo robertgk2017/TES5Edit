@@ -133,8 +133,7 @@ function wbGetPropertyValueArrayItems(const aContainer: IwbContainerElementRef):
 function wbGetREGNType               (const aElement: IwbElement): Integer;
 function wbGetScriptObjFormat        (const aElement: IwbElement): Integer;
 
-{>>> Get Conflict Priority Callbacks <<<} //4
-procedure wbCELLRegionsGetCP  (const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
+{>>> Get Conflict Priority Callbacks <<<} //3
 procedure wbLandNormalsGetCP  (const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
 procedure wbModelInfoGetCP    (const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
 procedure wbNAVMEdgeLinksGetCP(const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
@@ -312,10 +311,11 @@ function wbIsFlag(const aFlag: Integer; const aValue: IwbValueDef; const aIsUnus
 function wbIsNotFlag(const aFlag: Integer; const aSignature: TwbSignature; const aValue: IwbValueDef; const aIsUnused: Boolean = True): IwbRecordMemberDef; overload;
 function wbIsNotFlag(const aFlag: Integer; const aValue: IwbValueDef; const aIsUnused: Boolean = True): IwbValueDef; overload;
 
-{>>> DLL Mode IfThen Defs <<<} //3
-function IsCS   (const aDef1, aDef2: string): string;
-function IsVR   (const aDef1, aDef2: string): string;
-function IsVRESL(const aDef1, aDef2: string): string;
+{>>> DLL Mode IfThen Defs <<<} //4
+function IsCS    (const aDef1, aDef2: string): string;
+function IsVR    (const aDef1, aDef2: string): string;
+function IsVRESL (const aDef1, aDef2: string): string;
+function IsHNVSE (const aDef1, aDef2: TwbConflictPriority): TwbConflictPriority;
 
 {>>> Game Mode IfThen Defs <<<} //36
 function IsTES3   (const aDef1, aDef2: string): string; overload;
@@ -2241,17 +2241,7 @@ begin
   end;
 end;
 
-{>>> Get Conflict Priority Callbacks <<<} //4
-
-procedure wbCELLRegionsGetCP(const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
-begin
-  aConflictPriority := cpNormal;
-  if not Assigned(aElement) then
-    Exit;
-
-  if FileExists(wbDataPath + 'NVSE\Plugins\Hnvse.dll') then
-    aConflictPriority := cpBenign;
-end;
+{>>> Get Conflict Priority Callbacks <<<} //3
 
 procedure wbLandNormalsGetCP(const aElement: IwbElement; var aConflictPriority: TwbConflictPriority);
 begin
@@ -6232,7 +6222,7 @@ begin
       ]).IncludeFlag(dfMustBeUnion);
 end;
 
-{>>> DLL Mod IfThen Defs <<<} //3
+{>>> DLL Mod IfThen Defs <<<} //4
 
 function IsCS(const aDef1, aDef2: string): string;
 begin
@@ -6252,6 +6242,13 @@ function IsVRESL(const aDef1, aDef2: string): string;
 begin
   Result := aDef2;
   if wbVRESL then
+    Result := aDef1;
+end;
+
+function IsHNVSE(const aDef1, aDef2: TwbConflictPriority): TwbConflictPriority;
+begin
+  Result := aDef2;
+  if wbHNVSE then
     Result := aDef1;
 end;
 

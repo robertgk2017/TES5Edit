@@ -4126,12 +4126,10 @@ begin
     wbFloat(XCLW, 'Water Height'),
     wbString(XNAM, 'Water Noise Texture'),
     wbArrayS(XCLR, 'Regions',
-      wbFormIDCk('Region', [REGN])
+      wbFormIDCk('Region', [REGN], False, IsHNVSE(cpBenign, cpNormal))
         .SetFormIDFilter(wbCELLRegionFilter)
-        .SetGetCP(wbCELLRegionsGetCP)
         .SetToStr(wbCELLRegionToStr)
-    ).SetDontShow(wbCellInteriorDontSHow)
-     .SetGetCP(wbCELLRegionsGetCP),
+    ).SetDontShow(wbCellInteriorDontSHow),
     wbFormIDCk(XCIM, 'Image Space', [IMGS]),
     wbUnused(XCET, 1),
     wbFormIDCk(XEZN, 'Encounter Zone', [ECZN]),

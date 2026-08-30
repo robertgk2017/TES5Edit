@@ -1038,11 +1038,12 @@ begin
   // specific Game settings
   case wbGameMode of
     gmFNV: begin
-      wbVWDInTemporary      := True;
-      wbLoadBSAs            := False;
-      wbCanSortINFO         := True;
-      wbAllowESPMasters     := True;
+      wbVWDInTemporary        := True;
+      wbLoadBSAs              := False;
+      wbCanSortINFO           := True;
+      wbAllowESPMasters       := True;
       wbAllowESPMastersOnSave := True;
+      wbHNVSE                 := FileExists(wbDataPath + 'NVSE\Plugins\Hnvse.dll');
     end;
     gmFO3: begin
       wbVWDInTemporary      := True;

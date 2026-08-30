@@ -292,6 +292,7 @@ var
 
   wbCS                               : Boolean    = False;
   wbVRESL                            : Boolean    = False;
+  wbHNVSE                            : Boolean    = False;
 
   wbAllowMakePartial                 : Boolean    = False;
 
