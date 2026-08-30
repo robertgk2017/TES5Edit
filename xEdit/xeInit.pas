@@ -37,8 +37,8 @@ var
   xeAutoLoad               : Boolean;
   xeAutoExit               : Boolean;
   xeAutoGameLink           : Boolean;
-  xeTestConflicts          : Boolean;         // Compute conflict status for every record and dump it
-  xeTestConflictsFile      : string;          // Where that dump is written
+  xeTestConflicts          : Boolean;
+  xeTestConflictsFile      : string;
 
   xeParamIndex             : Integer = 1;     // First unused parameter
   xeModulesToUse           : TStringList;
@@ -1235,20 +1235,7 @@ begin
     if FindCmdLineSwitch('autoexit') then
       xeAutoExit := True;
 
-    { Load every selected module, compute the conflict status of every record through the same
-      routine the tree uses, write it to a text file, and exit. Intended to be diffed across a
-      change to the conflict pipeline.
-
-      It carries a value, so it cannot join the boolean switches above: those are FindCmdLineSwitch
-      and ExeName tests, neither of which can return a file name. The working analogue is
-      generateseq, further down.
-
-      It must not set xeQuickShowConflicts. That mode substitutes an assignment for the comparison
-      whenever a record has exactly two entries to compare, which is the common case, so a dump
-      taken under it would record an answer the comparison never produced. }
     if wbFindCmdLineParam('testconflicts', xeTestConflictsFile) then begin
-      { The valueless form matches as well, and yields an empty string. Refuse it here rather than
-        failing later on an empty path. }
       if xeTestConflictsFile = '' then begin
         ShowMessage('testconflicts requires an output file, as -testconflicts:<filename>');
         Exit(False);
@@ -1296,10 +1283,6 @@ begin
     Inc(i);
   if xeAutoGameLink then
     Inc(i);
-  { Without this, -testconflicts together with -qsc would run: the other switch sets
-    xeQuickShowConflicts, the two-entry shortcut takes over, and the dump silently records
-    assigned values instead of computed ones. Refusing the combination is the only way the
-    guarantee holds against a command line this mode did not write itself. }
   if xeTestConflicts then
     Inc(i);
 

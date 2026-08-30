@@ -155,7 +155,7 @@ var
   wbFillINOM                         : Boolean    = True;
   wbFillINOA                         : Boolean    = True;
   wbRemoveOffsetData                 : Boolean    = True;
-  wbWriteOffsetData                  : Boolean    = False;         // build a valid WRLD OFST grid while saving instead of leaving the record without one
+  wbWriteOffsetData                  : Boolean    = False;
   wbEditAllowed                      : Boolean    = False;
   wbFlagsAsArray                     : Boolean    = False;
   wbDelayLoadRecords                 : Boolean    = True;
