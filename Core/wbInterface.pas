@@ -289,6 +289,7 @@ var
   wbDisableFormIDCheck               : Boolean    = False;
   wbComplexFileFileID                : Boolean    = False;
   wbEnforceAllMasters                : Boolean    = False;  // adds all masters of masters when adding a master and prevents cleaning them
+  wbAllowUnsafeScripts               : Boolean    = False;
 
   wbCS                               : Boolean    = False;
   wbVRESL                            : Boolean    = False;
