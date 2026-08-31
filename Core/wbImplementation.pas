@@ -15084,6 +15084,8 @@ procedure TwbMainRecord.UpdateStorageFromElements;
 begin
   if not (dcfStorageInvalid in dcFlags) then
     Exit;
+  if csInitializing in cntStates then
+    Exit;
   // this is not optimal, as it invalidates all currently referenced child elements,
   // but it's better than calling inherited which corrupts data
   // under normal circumstances, this method should never be called
