@@ -10667,7 +10667,7 @@ begin
   if wbSortSubRecords and (mrDef.AllowUnordered or (esModified in eStates)) and (Length(cntElements) > 1) then
     wbMergeSortPtr(@cntElements[0], Length(cntElements), CompareSubRecords);
 
-  if wbRemoveOffsetData and (GetSignature = 'WRLD') then begin
+  if (not wbWriteOffsetData) and (GetSignature = 'WRLD') then begin
     if Supports(GetRecordBySignature('OFST'), IwbSubRecord, CurrentRec) then begin
       if wbBeginInternalEdit(True) then try
         RemoveElement('OFST');

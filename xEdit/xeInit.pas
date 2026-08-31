@@ -1270,11 +1270,15 @@ begin
     end;
   end;
 
-  if FindCmdLineSwitch('dontremoveoffsetdata') then
+  if FindCmdLineSwitch('dontremoveoffsetdata') then begin
     wbRemoveOffsetData := False;
+    wbWriteOffsetData := True;
+  end;
 
-  if xeQuickClean then
+  if xeQuickClean then begin
     wbRemoveOffsetData := True;
+    wbWriteOffsetData := False;
+  end;
 
   i := 0;
   if xeQuickShowConflicts then
