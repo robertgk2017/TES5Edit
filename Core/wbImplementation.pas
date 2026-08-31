@@ -13308,6 +13308,11 @@ type
     odcExpected     : Integer;
     odcSeen         : Integer;
     odcPlaced       : Integer;
+    odcSizeLocal    : Int64;
+    odcSizePayload  : Int64;
+    odcSizePlaced   : Integer;
+    odcCellSlot     : Int64;
+    odcCellStart    : Int64;
   end;
 
 threadvar
@@ -13384,6 +13389,7 @@ var
   Taken      : TArray<Boolean>;
   Children   : IwbGroupRecord;
   OffsetData : IwbElement;
+  CellSizeData : IwbElement;
   Cells      : Integer;
 
   function CanPlaceCells(const aGroup: IwbGroupRecord; aInSubBlock: Boolean): Boolean;
@@ -13469,6 +13475,18 @@ begin
       Exit;
     end;
 
+    CellSizeData := aWorldspace.RecordBySignature['CLSZ'];
+    if not Assigned(CellSizeData) then
+      CellSizeData := aWorldspace.Add('CLSZ', True);
+    if Assigned(CellSizeData) then begin
+      CellSizeData.DataSize := 0;
+      CellSizeData.DataSize := Size;
+      if CellSizeData.DataSize <> Size then begin
+        aReason := Format('CLSZ could not be sized to %d bytes, it is %d', [Size, CellSizeData.DataSize]);
+        Exit;
+      end;
+    end;
+
     aWorldspace.IsCompressed := False;
   finally
     wbEndInternalEdit;
@@ -13503,9 +13521,12 @@ begin
   if wbHasProgressCallback then
     wbProgressCallback('<Note: no OFST written for ' + GetName + ': ' + Reason + '>');
 
-  if Assigned(GetRecordBySignature('OFST')) then begin
+  if Assigned(GetRecordBySignature('OFST')) or Assigned(GetRecordBySignature('CLSZ')) then begin
     if wbBeginInternalEdit(True) then try
-      RemoveElement('OFST');
+      if Assigned(GetRecordBySignature('OFST')) then
+        RemoveElement('OFST');
+      if Assigned(GetRecordBySignature('CLSZ')) then
+        RemoveElement('CLSZ');
     finally
       wbEndInternalEdit;
     end;
@@ -13514,7 +13535,8 @@ begin
   end;
 end;
 
-procedure wbPlaceOffsetDataEntry(const aCell: IwbMainRecord; aStream: TStream; aPosition: Int64);
+procedure wbPlaceOffsetDataEntry(const aCell: IwbMainRecord; aStream: TStream; aPosition: Int64;
+  aTrackForSize: Boolean = False);
 var
   GridCell : TwbGridCell;
   x        : Integer;
@@ -13548,7 +13570,47 @@ begin
     aStream.Position := Resume;
   end;
 
+  if aTrackForSize then begin
+    _OffsetData.odcCellSlot := Int64(y) * _OffsetData.odcColumns + x;
+    _OffsetData.odcCellStart := aPosition;
+  end;
+
   Inc(_OffsetData.odcPlaced);
+end;
+
+procedure wbWriteCellSizeEntry(aSlot, aValue: Int64; aStream: TStream);
+var
+  Stored : Cardinal;
+  Resume : Int64;
+begin
+  if (_OffsetData.odcSizePayload < 0) or (aSlot < 0) then
+    Exit;
+
+  Stored := aValue;
+  Resume := aStream.Position;
+  try
+    aStream.Position := _OffsetData.odcSizePayload + aSlot * SizeOf(Cardinal);
+    aStream.WriteBuffer(Stored, SizeOf(Stored));
+  finally
+    aStream.Position := Resume;
+  end;
+
+  Inc(_OffsetData.odcSizePlaced);
+end;
+
+procedure wbCloseCellSizeEntry(aStream: TStream; aEnd: Int64; aHasChildren: Boolean);
+var
+  Value : Int64;
+begin
+  if _OffsetData.odcCellSlot < 0 then
+    Exit;
+
+  Value := aEnd - _OffsetData.odcCellStart;
+  if aHasChildren then
+    Inc(Value, wbSizeOfMainRecordStruct);
+
+  wbWriteCellSizeEntry(_OffsetData.odcCellSlot, Value, aStream);
+  _OffsetData.odcCellSlot := -1;
 end;
 
 procedure wbWriteWorldOffsetDataEntry(const aCell: IwbMainRecord; aStream: TStream; aPosition: Int64);
@@ -13560,7 +13622,8 @@ begin
   if Group.GroupType <> 5 then
     Exit;
 
-  wbPlaceOffsetDataEntry(aCell, aStream, aPosition);
+  wbCloseCellSizeEntry(aStream, aPosition, False);
+  wbPlaceOffsetDataEntry(aCell, aStream, aPosition, True);
 end;
 
 procedure wbPlaceBlittedOffsetDataCells(const aGroup: IwbGroupRecord; aBase: Pointer; aStart: Int64; aStream: TStream);
@@ -13569,6 +13632,8 @@ var
   Group      : IwbGroupRecord;
   MainRecord : IwbMainRecord;
   Internal   : IwbMainRecordInternal;
+  ChildGroup : IwbGroupRecord;
+  CellSize   : Int64;
   i          : Integer;
 begin
   if not Supports(aGroup, IwbContainerElementRef, Container) then
@@ -13579,9 +13644,19 @@ begin
       if (Group.GroupType = 4) or (Group.GroupType = 5) then
         wbPlaceBlittedOffsetDataCells(Group, aBase, aStart, aStream);
     end else if (aGroup.GroupType = 5) and Supports(Container.Elements[i], IwbMainRecord, MainRecord) then
-      if Supports(MainRecord, IwbMainRecordInternal, Internal) then
+      if Supports(MainRecord, IwbMainRecordInternal, Internal) then begin
         wbPlaceOffsetDataEntry(MainRecord, aStream,
-          aStart + (NativeUInt(Internal.mrStruct) - NativeUInt(aBase)));
+          aStart + (NativeUInt(Internal.mrStruct) - NativeUInt(aBase)), True);
+
+        if _OffsetData.odcCellSlot >= 0 then begin
+          CellSize := wbSizeOfMainRecordStruct + Int64(Internal.mrStruct.mrsDataSize);
+          ChildGroup := MainRecord.ChildGroup;
+          if Assigned(ChildGroup) then
+            Inc(CellSize, wbSizeOfMainRecordStruct + Int64(ChildGroup.DataSize) + wbSizeOfMainRecordStruct);
+          wbWriteCellSizeEntry(_OffsetData.odcCellSlot, CellSize, aStream);
+          _OffsetData.odcCellSlot := -1;
+        end;
+      end;
 end;
 
 procedure TwbMainRecord.PrepareSave;
@@ -15134,6 +15209,9 @@ var
             _OffsetData.odcExpected := mrOFSTCells;
 
             _OffsetData.odcPayloadLocal := -1;
+            _OffsetData.odcSizeLocal := -1;
+            _OffsetData.odcSizePayload := -1;
+            _OffsetData.odcCellSlot := -1;
             if not ((esModified in eStates) or wbTestWrite) then begin
               var lOffsetData: IwbDataContainer;
               if Supports(GetRecordBySignature('OFST'), IwbDataContainer, lOffsetData) then
@@ -15141,6 +15219,11 @@ var
                    (NativeUInt(lOffsetData.DataBasePtr) <  NativeUInt(dcEndPtr))
                 then
                   _OffsetData.odcPayloadLocal := NativeUInt(lOffsetData.DataBasePtr) - NativeUInt(dcBasePtr);
+              if Supports(GetRecordBySignature('CLSZ'), IwbDataContainer, lOffsetData) then
+                if (NativeUInt(lOffsetData.DataBasePtr) >= NativeUInt(dcBasePtr)) and
+                   (NativeUInt(lOffsetData.DataBasePtr) <  NativeUInt(dcEndPtr))
+                then
+                  _OffsetData.odcSizeLocal := NativeUInt(lOffsetData.DataBasePtr) - NativeUInt(dcBasePtr);
             end;
           end;
       end;
@@ -15218,6 +15301,8 @@ var
         raise Exception.Create('Reserved an OFST for ' + GetName +
           ' and then could not find it in the written record');
       _OffsetData.odcPayload := RecordPosition + _OffsetData.odcPayloadLocal;
+      if _OffsetData.odcSizeLocal >= 0 then
+        _OffsetData.odcSizePayload := RecordPosition + _OffsetData.odcSizeLocal;
     end;
   end;
 
@@ -17003,8 +17088,12 @@ var
 
   procedure NoteOffsetDataPayload;
   begin
-    if _OffsetData.odcActive and (_OffsetData.odcPayloadLocal < 0) and (srStruct.srsSignature = 'OFST') then
+    if not _OffsetData.odcActive then
+      Exit;
+    if (_OffsetData.odcPayloadLocal < 0) and (srStruct.srsSignature = 'OFST') then
       _OffsetData.odcPayloadLocal := CurrentPosition;
+    if (_OffsetData.odcSizeLocal < 0) and (srStruct.srsSignature = 'CLSZ') then
+      _OffsetData.odcSizeLocal := CurrentPosition;
   end;
 
 begin
@@ -19199,12 +19288,26 @@ begin
 
   inherited;
 
+  if _OffsetData.odcActive and (_OffsetData.odcStream = aStream) then
+    if grs.grsGroupType = 6 then
+      wbCloseCellSizeEntry(aStream, aStream.Position, True)
+    else if (grs.grsGroupType = 4) or (grs.grsGroupType = 5) then
+      wbCloseCellSizeEntry(aStream, aStream.Position, False);
+
   if _OffsetData.odcActive and ((grs.grsGroupType = 0) or (grs.grsGroupType = 1)) then begin
+    wbCloseCellSizeEntry(aStream, aStream.Position, False);
+
     if _OffsetData.odcPlaced <> _OffsetData.odcExpected then
       raise Exception.CreateFmt(
         'OFST for worldspace [%s] is incomplete: %d of %d cells were placed. Refusing to save a partial table.',
         [TwbFormID.FromCardinal(_OffsetData.odcLabel).ToString(False),
          _OffsetData.odcPlaced, _OffsetData.odcExpected]);
+
+    if (_OffsetData.odcSizePayload >= 0) and (_OffsetData.odcSizePlaced <> _OffsetData.odcExpected) then
+      raise Exception.CreateFmt(
+        'CLSZ for worldspace [%s] is incomplete: %d of %d cells were placed. Refusing to save a partial table.',
+        [TwbFormID.FromCardinal(_OffsetData.odcLabel).ToString(False),
+         _OffsetData.odcSizePlaced, _OffsetData.odcExpected]);
 
     _OffsetData.odcActive := False;
   end;
