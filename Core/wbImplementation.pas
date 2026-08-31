@@ -14099,6 +14099,7 @@ end;
 procedure TwbMainRecord.Reset;
 begin
   ReleaseElements;
+  Exclude(dcFlags, dcfStorageInvalid);
   mrDataStorage := nil;
   InitDataPtr;
   inherited Reset;
