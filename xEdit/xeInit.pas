@@ -181,7 +181,7 @@ begin
       wbAllowDirectSave := Settings.ReadBool('Options', 'AllowDirectSave', wbAllowDirectSave);
       wbSortINFO := Settings.ReadBool('Options', 'SortINFO', wbSortINFO);
       wbFillPNAM := Settings.ReadBool('Options', 'FillPNAM', wbFillPNAM);
-      wbWriteOffsetData := Settings.ReadBool('Options', 'WriteOffsetData', wbWriteOffsetData);
+      wbWriteOffsetData := Settings.ReadBool('Options', 'WriteOffsetData2', wbWriteOffsetData); {changed name to enforce new default value}
       wbCollapseRecordHeader := Settings.ReadBool('Options', 'CollapseRecordHeader', wbCollapseRecordHeader);
       wbCollapseObjectBounds := Settings.ReadBool('Options', 'CollapseObjectBounds', wbCollapseObjectBounds);
       wbCollapseModels := Settings.ReadBool('Options', 'CollapseModels', wbCollapseModels);
@@ -1277,7 +1277,7 @@ begin
 
   if xeQuickClean then begin
     wbRemoveOffsetData := True;
-    wbWriteOffsetData := False;
+    wbWriteOffsetData := True;
   end;
 
   i := 0;

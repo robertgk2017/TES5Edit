@@ -14886,7 +14886,7 @@ begin
     Settings.WriteBool('Options', 'SortFLST2', wbSortFLST);
     Settings.WriteBool('Options', 'SortINFO', wbSortINFO);
     Settings.WriteBool('Options', 'FillPNAM', wbFillPNAM);
-    Settings.WriteBool('Options', 'WriteOffsetData', wbWriteOffsetData);
+    Settings.WriteBool('Options', 'WriteOffsetData2', wbWriteOffsetData);
     Settings.WriteBool('Options', 'FocusAddedElement', wbFocusAddedElement);
     Settings.WriteBool('Options', 'RequireCtrlForDblClick', wbRequireCtrlForDblClick);
     Settings.WriteBool('Options', 'ShowFlagEnumValue', wbShowFlagEnumValue);

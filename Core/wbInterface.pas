@@ -155,7 +155,7 @@ var
   wbFillINOM                         : Boolean    = True;
   wbFillINOA                         : Boolean    = True;
   wbRemoveOffsetData                 : Boolean    = True;
-  wbWriteOffsetData                  : Boolean    = False;
+  wbWriteOffsetData                  : Boolean    = True;
   wbEditAllowed                      : Boolean    = False;
   wbFlagsAsArray                     : Boolean    = False;
   wbDelayLoadRecords                 : Boolean    = True;
