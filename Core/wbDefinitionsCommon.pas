@@ -10057,7 +10057,7 @@ begin
         .SetSummaryMemberPrefixSuffix(1, '', ']')
         .SetSummaryDelimiter(', ')
         .IncludeFlag(dfCollapsed, wbCollapseObjectBounds),
-      IfThen(wbRemoveOffsetData,
+      IfThen(wbHideLargeSubrecords,
         wbByteArray('Cell Heights', 0, cpBenign),
         wbArray('Cell Heights',
           wbArray('Row',

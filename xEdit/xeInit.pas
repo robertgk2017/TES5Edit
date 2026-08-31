@@ -1271,15 +1271,11 @@ begin
     end;
   end;
 
-  if FindCmdLineSwitch('dontremoveoffsetdata') then begin
-    wbRemoveOffsetData := False;
-    wbWriteOffsetData := True;
-  end;
+  if FindCmdLineSwitch('showlargesubrecords') then
+    wbHideLargeSubrecords := False;
 
-  if xeQuickClean then begin
-    wbRemoveOffsetData := True;
+  if xeQuickClean then
     wbWriteOffsetData := True;
-  end;
 
   i := 0;
   if xeQuickShowConflicts then

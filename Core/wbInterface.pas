@@ -142,6 +142,7 @@ var
   wbHideUnused                       : Boolean    = True;
   wbHideIgnored                      : Boolean    = True;
   wbHideNeverShow                    : Boolean    = True;
+  wbHideLargeSubrecords              : Boolean    = True;
   wbShowFormVersion                  : Boolean    = False;
   wbShowFlagEnumValue                : Boolean    = False;
   wbShowGroupRecordCount             : Boolean    = False;
@@ -154,7 +155,6 @@ var
   wbFillPNAM                         : Boolean    = False;
   wbFillINOM                         : Boolean    = True;
   wbFillINOA                         : Boolean    = True;
-  wbRemoveOffsetData                 : Boolean    = True;
   wbWriteOffsetData                  : Boolean    = True;
   wbEditAllowed                      : Boolean    = False;
   wbFlagsAsArray                     : Boolean    = False;
