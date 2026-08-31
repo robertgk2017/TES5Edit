@@ -1210,11 +1210,11 @@ begin
     if not Supports(aElement, IwbMainRecord, lMainRecord) then
       Exit;
 
-    if wbRemoveOffsetData then begin
+    if wbHideLargeSubrecords then
+    begin
       if (wbIsSkyrim or wbIsFallout4 or wbIsFallout76) and (lMainRecord._File.LoadOrder = 0) then
-	        lMainRecord.RemoveElement('Large References');
-      if wbIsFallout4 or wbIsFallout76 or wbIsStarfield then
-        lMainRecord.RemoveElement(CLSZ);
+	      lMainRecord.RemoveElement('Large References');
+
       if wbIsFallout76 then
         lMainRecord.RemoveElement(VISI);
     end;

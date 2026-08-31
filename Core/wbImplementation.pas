@@ -10677,6 +10677,15 @@ begin
         RemoveElement(CurrentRec, True);
       Include(mrStates, mrsOFSTRemoved);
     end;
+
+    if Supports(GetRecordBySignature('CLSZ'), IwbSubRecord, CurrentRec) then begin
+      if wbBeginInternalEdit(True) then try
+        RemoveElement('CLSZ');
+      finally
+        wbEndInternalEdit;
+      end else
+        RemoveElement(CurrentRec, True);
+    end;
   end;
 
   mrDef.AfterLoad(Self);
