@@ -13673,7 +13673,7 @@ begin
   wbPlaceOffsetDataEntry(aCell, aStream, aPosition, True);
 end;
 
-procedure wbPlaceBlittedOffsetDataCells(const aGroup: IwbGroupRecord; aBase: Pointer; aStart: Int64; aStream: TStream);
+procedure wbPlaceBlittedOffsetDataCells(const aGroup: IwbGroupRecord; aBase: Pointer; aStart: UInt64; aStream: TStream);
 var
   Container  : IwbContainerElementRef;
   Group      : IwbGroupRecord;
