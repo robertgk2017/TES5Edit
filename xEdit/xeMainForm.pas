@@ -4746,10 +4746,6 @@ var
 begin
   if not wbBuildRefs then
     Exit;
-  { Test Conflicts leaves without asking. The question below is modal and there is nobody in front
-    of the screen to answer it, and a testing mode has no business deleting a cache that belongs to
-    another build. The cost of leaving it is that this run rebuilds its own references, which it
-    would do anyway: the cache it would find is keyed on a different application checksum. }
   if xeTestConflicts then
     Exit;
   if wbDontCache then
@@ -5346,13 +5342,6 @@ begin
     end;
 
     wbPatron := Settings.ReadBool('Options', 'Patron', wbPatron);
-    { Test Conflicts is excluded because it has nobody to show a message to: it runs to produce a
-      file and closes itself, with no user in front of it.
-
-      Without this the message is modal and appears before loading starts, so the run never reaches
-      the dump and never reaches the shutdown either -- it simply waits. That is not specific to
-      this mode. Any unattended run on an installation where Patron is not set stops here, which
-      means -autoload with -autoexit is only self-completing for a patron. Found by running it. }
     if (not wbPatron or not xeAutoLoad) and not xeTestConflicts then
       ShowDeveloperMessage;
   end;
@@ -14911,7 +14900,7 @@ begin
     Settings.WriteBool('Options', 'SortFLST2', wbSortFLST);
     Settings.WriteBool('Options', 'SortINFO', wbSortINFO);
     Settings.WriteBool('Options', 'FillPNAM', wbFillPNAM);
-    Settings.WriteBool('Options', 'WriteOffsetData', wbWriteOffsetData);
+    Settings.WriteBool('Options', 'WriteOffsetData2', wbWriteOffsetData);
     Settings.WriteBool('Options', 'FocusAddedElement', wbFocusAddedElement);
     Settings.WriteBool('Options', 'RequireCtrlForDblClick', wbRequireCtrlForDblClick);
     Settings.WriteBool('Options', 'ShowFlagEnumValue', wbShowFlagEnumValue);
@@ -21224,21 +21213,10 @@ end;
 
 function xeCompareTestConflictRows(List: TStringList; Index1, Index2: Integer): Integer;
 begin
-  { Ordinal rather than locale aware. Two runs of this dump are meant to be compared byte for
-    byte, including across machines, so the order must not depend on the collation the operator
-    happens to be running under. }
   Result := CompareStr(List[Index1], List[Index2]);
 end;
 
 procedure TfrmMain.DoTestConflictsDump;
-{ Walks every loaded record, computes its conflict status through the same routine the tree uses,
-  and writes one row per record to a text file that can be diffed against a later run.
-
-  What a row carries is the record level answer: ConflictAll, which is the aggregate over the whole
-  override chain, and this record's own ConflictThis. That is deliberately narrower than what the
-  detail view shows. The child walk keeps only maxima, so a field can change status while both of
-  these stay the same, and the dump would not move. A clean comparison is therefore evidence that
-  nothing changed, not proof of it, and the header below says so where the reader will meet it. }
 const
   cTab = #9;
 var
@@ -21317,8 +21295,6 @@ begin
             if not Assigned(lRec) then
               Continue;
 
-            { The same entry point the tree uses. It remembers its answer, so calling it for every
-              member of a chain computes once and then reads back each member's own value. }
             ConflictLevelForMainRecord(lRec, lCA, lCT);
 
             if lRec.CanHaveEditorID then
@@ -21337,15 +21313,10 @@ begin
           end;
         end;
 
-        { The leading columns are a total key on their own, so ordering whole rows orders by
-          identity. Sorting rather than trusting traversal order keeps the file stable if the
-          loader ever hands the records over differently. }
         lData.CustomSort(xeCompareTestConflictRows);
         lHeader.Add('# rows: ' + IntToStr(lData.Count));
         lHeader.AddStrings(lData);
 
-        { Written beside the target and renamed over it, so an interrupted run leaves the previous
-          dump intact rather than a half written file that still looks like one. }
         lTmpFile := xeTestConflictsFile + '.partial';
         lHeader.SaveToFile(lTmpFile, TEncoding.UTF8);
         if FileExists(xeTestConflictsFile) then
@@ -21354,8 +21325,6 @@ begin
         if not RenameFile(lTmpFile, xeTestConflictsFile) then
           raise Exception.Create('could not rename ' + lTmpFile + ' to ' + xeTestConflictsFile);
 
-        { Only now, and deliberately not in a finally. A finally also runs when the write above
-          raised, which would announce a finished dump over a file that was never written. }
         wbProgress('Test Conflicts mode finished. ' + IntToStr(lData.Count) + ' rows written to ' +
                    xeTestConflictsFile);
       finally
@@ -21366,9 +21335,6 @@ begin
     end;
   except
     on E: Exception do
-      { Named so a script can look for it, and swallowed so the caller can still close the
-        application. A run that ends with neither this line nor the finished line above did not
-        reach either, which is itself the third thing worth being able to tell apart. }
       wbProgress('Test Conflicts mode FAILED: ' + E.ClassName + ': ' + E.Message);
   end;
 end;
@@ -21475,14 +21441,6 @@ begin
 
         ModGroups := nil;
 
-        { Test Conflicts keeps ModGroups nil on purpose, so ModGroupsEnabled stays False.
-
-          It sets xeAutoLoad, which would otherwise take the branch below and activate every valid
-          mod group without asking. That is right for an interactive session and wrong here: an
-          active mod group removes override records from the node array, which changes how many
-          entries a record has to compare and therefore which branch computes its status. The dump
-          would then describe the operator's installed .modgroups files as much as the code, and a
-          comparison could not tell a real change from a difference between two machines. }
         if not (xeQuickClean or (wbToolMode in wbAutoModes) or xeTestConflicts) then
           if xeQuickShowConflicts or xeAutoLoad then begin
             ModGroups := wbModGroupsByName;
@@ -21603,9 +21561,6 @@ begin
 
         if xeTestConflicts then begin
           DoTestConflictsDump;
-          { Armed whatever the dump did. DoTestConflictsDump reports its own outcome and does not
-            let an exception escape, so a failed dump exits with a message instead of leaving the
-            application sitting open with nobody to close it. }
           if xeAutoExit then
             tmrShutdown.Enabled := True;
         end;

@@ -139,7 +139,8 @@ type
 
   public
     {---TwbSoundBankArray---}
-    constructor Create(const aLoadOrder: TStringList);
+    constructor Create; overload;
+    constructor Create(const aLoadOrder: TStringList); overload;
 
     destructor Destroy; override;
 
@@ -561,7 +562,7 @@ begin
   end;
 end;
 
-constructor TwbSoundBankArray.Create(const aLoadOrder: TStringList);
+constructor TwbSoundBankArray.Create;
 begin
   inherited Create;
 
@@ -574,6 +575,11 @@ begin
     FDisplayMap.Add(lNodeType, TDictionary<string, TGUID>.Create(TIStringComparer.Ordinal));
     FGUIDMap.Add(lNodeType, TDictionary<TGUID, TwbWwiseObject>.Create);
   end;
+end;
+
+constructor TwbSoundBankArray.Create(const aLoadOrder: TStringList);
+begin
+  Create;
 
   BuildIndex(aLoadOrder);
 end;
@@ -729,5 +735,8 @@ begin
     aFileName := TwbSoundBank(lParent).FFilename;
   end;
 end;
+
+initialization
+  wbSoundBankCache := TwbSoundBankArray.Create;
 
 end.
