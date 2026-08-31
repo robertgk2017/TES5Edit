@@ -13613,6 +13613,44 @@ begin
   _OffsetData.odcCellSlot := -1;
 end;
 
+procedure wbSyncOffsetDataToMemory(const aWorldspace: IwbMainRecord; aStream: TStream);
+var
+  TableSize : Integer;
+  Resume    : Int64;
+
+  procedure SyncOne(const aSignature: TwbSignature; aPayload: Int64);
+  var
+    Data : IwbDataContainer;
+  begin
+    if aPayload < 0 then
+      Exit;
+    if not Supports(aWorldspace.RecordBySignature[aSignature], IwbDataContainer, Data) then
+      Exit;
+    if not Assigned(Data.DataBasePtr) or not Assigned(Data.DataEndPtr) then
+      Exit;
+    if Integer(NativeUInt(Data.DataEndPtr) - NativeUInt(Data.DataBasePtr)) <> TableSize then
+      Exit;
+    aStream.Position := aPayload;
+    aStream.ReadBuffer(Data.DataBasePtr^, TableSize);
+  end;
+
+begin
+  if not Assigned(aWorldspace) then
+    Exit;
+
+  TableSize := _OffsetData.odcColumns * _OffsetData.odcRows * SizeOf(Cardinal);
+  if TableSize <= 0 then
+    Exit;
+
+  Resume := aStream.Position;
+  try
+    SyncOne('OFST', _OffsetData.odcPayload);
+    SyncOne('CLSZ', _OffsetData.odcSizePayload);
+  finally
+    aStream.Position := Resume;
+  end;
+end;
+
 procedure wbWriteWorldOffsetDataEntry(const aCell: IwbMainRecord; aStream: TStream; aPosition: Int64);
 var
   Group : IwbGroupRecord;
@@ -19308,6 +19346,9 @@ begin
         'CLSZ for worldspace [%s] is incomplete: %d of %d cells were placed. Refusing to save a partial table.',
         [TwbFormID.FromCardinal(_OffsetData.odcLabel).ToString(False),
          _OffsetData.odcSizePlaced, _OffsetData.odcExpected]);
+
+    if grs.grsGroupType = 1 then
+      wbSyncOffsetDataToMemory(GetChildrenOf, aStream);
 
     _OffsetData.odcActive := False;
   end;
