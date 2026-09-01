@@ -3768,7 +3768,7 @@ begin
 
   wbConditions :=
     wbRArray('Conditions',
-      wbStructSK(CTDA, [3,5,6], 'Condition', [
+      wbStructSK(CTDA, [3,5,6,7], 'Condition', [
       {0} wbInteger('Type', itU8, wbConditionTypeToStr, wbConditionTypeToInt).SetAfterSet(wbConditionTypeAfterSet),
       {1} wbUnused(3),
       {2} wbUnion('Comparison Value', wbConditionCompValueDecider, [
