@@ -4934,7 +4934,7 @@ begin
   if Assigned(lWorld) then
     lWorldRecord := lWorld.LinksTo as IwbMainRecord;
 
-  if lMainRecord.IsPersistent and Assigned(lWorldRecord) then
+  if Assigned(lWorldRecord) and lMainRecord.IsPersistent then
   begin
     var lPosition: TwbVector;
     lMainRecord.GetPosition(lPosition);
@@ -4942,7 +4942,28 @@ begin
     var lGridCell := wbPositionToGridCell(lPosition);
 
     lCellRecord := lWorldRecord.ChildByGridCell[lGridCell];
+
+    if not Assigned(lCellRecord) then
+    begin
+      var lFile := aElement._File;
+      var lFormID := lMainRecord.FormID;
+      for var lMasterIdx := Pred(lFile.MasterCount[True]) downto 0 do
+      begin
+        var lMaster := lFile.Masters[lMasterIdx, True];
+
+        var lWorldRecordOverride := lMaster.ContainedRecordByLoadOrderFormID[lFormID, True];
+        if not Assigned(lWorldRecordOverride) then
+          Continue;
+
+        lCellRecord := lWorldRecordOverride.ChildByGridCell[lGridCell];
+        if Assigned(lCellRecord) then
+          Break;
+      end;
+    end;
   end;
+
+  if not Assigned(lCellRecord) then
+    Exit;
 
   var lPersistLocation: IwbMainRecord;
 
