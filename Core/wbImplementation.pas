@@ -21422,6 +21422,9 @@ begin
     eContainer := nil;
   end;
   inherited Create(aOwner);
+
+  arcDef.AfterLoad(Self);
+
   if aPos = Low(Integer) then begin
     SetModified(True);
     InvalidateStorage;
