@@ -37,10 +37,12 @@ function wbPlacedAddInfo(const aMainRecord: IwbMainRecord): string;
 function wbROADAddInfo  (const aMainRecord: IwbMainRecord): string;
 function wbSCENAddInfo  (const aMainRecord: IwbMainRecord): string;
 
-{>>> After Load Callbacks <<<} //13
+{>>> After Load Callbacks <<<} //16
 procedure wbACBSLevelMultAfterLoad     (const aElement: IwbElement);
 procedure wbAVIFSkillAfterLoad         (const aElement: IwbElement);
 procedure wbDOBJObjectsAfterLoad       (const aElement: IwbElement);
+procedure wbLargeRefsAfterLoad         (const aElement: IwbElement);
+procedure wbLargeRefsRNAMAfterLoad     (const aElement: IwbElement);
 procedure wbMESGAfterLoad              (const aElement: IwbElement);
 procedure wbPACKDateAfterLoad          (const aElement: IwbElement);
 procedure wbPACKDataBoolAfterLoad      (const aElement: IwbElement);
@@ -916,7 +918,7 @@ begin
   end;
 end;
 
-{>>> After Load Callbacks <<<} //13
+{>>> After Load Callbacks <<<} //16
 
 procedure wbACBSLevelMultAfterLoad(const aElement: IwbElement);
 begin
@@ -966,6 +968,63 @@ begin
     finally
       lArray.EndUpdate;
     end;
+  finally
+    wbEndInternalEdit;
+  end;
+end;
+
+procedure wbLargeRefsAfterLoad(const aElement: IwbElement);
+begin
+  if not Assigned(aElement) then
+    Exit;
+
+  if wbBeginInternalEdit then
+  try
+    var lContainer := aElement as IwbContainerElementRef;
+
+    for var lIndex := Pred(lContainer.ElementCount) downto 0 do
+    begin
+      var lRNAM := lContainer.Elements[lIndex] as IwbContainerElementRef;
+      if not Assigned(lRNAM) then
+        Continue;
+
+      var lReferences := lRNAM.ElementByName['References'] as IwbContainerElementRef;
+
+      if lReferences.ElementCount = 0 then
+        lRNAM.Remove;
+    end;
+
+  finally
+    wbEndInternalEdit;
+  end;
+end;
+
+procedure wbLargeRefsRNAMAfterLoad(const aElement: IwbElement);
+begin
+  if not Assigned(aElement) then
+    Exit;
+
+  if wbBeginInternalEdit then
+  try
+    var lContainer := aElement as IwbContainerElementRef;
+
+    var lX := lContainer.ElementNativeValues['X'];
+    var lY := lContainer.ElementNativeValues['Y'];
+
+    var lRefs := lContainer.ElementByName['References'] as IwbContainerElementRef;
+
+    for var lIndex := Pred(lRefs.ElementCount) downto 0 do
+    begin
+      var lRef := lRefs.Elements[lIndex] as IwbContainerElementRef;
+      if not Assigned(lRef) then
+        Continue;
+
+      if (lRef.ElementNativeValues['X'] <> lX) or
+         (lRef.ElementNativeValues['Y'] <> lY)
+      then
+        lRef.Remove;
+    end;
+
   finally
     wbEndInternalEdit;
   end;
@@ -1209,15 +1268,6 @@ begin
     var lMainRecord : IwbMainRecord;
     if not Supports(aElement, IwbMainRecord, lMainRecord) then
       Exit;
-
-    if wbHideLargeSubrecords then
-    begin
-      if (wbIsSkyrim or wbIsFallout4 or wbIsFallout76) and (lMainRecord._File.LoadOrder = 0) then
-	      lMainRecord.RemoveElement('Large References');
-
-      if wbIsFallout76 then
-        lMainRecord.RemoveElement(VISI);
-    end;
 
     // large values in worldspace bounds cause stutter and performance issues in game (reported by Arthmoor)
     // CK can occasionally set them wrong, so make a warning
@@ -9885,7 +9935,7 @@ end;
 function wbWorldCellSizeData: IwbRecordMemberDef;
 begin
   Result :=
-    IfThen(wbSimpleRecords,
+    IfThen(wbHideLargeSubrecords,
       wbByteArray(CLSZ, 'Cell Sizes', 0, cpIgnore).SetDontShow(wbNeverShow),
       wbArray(CLSZ, 'Cell Sizes',
         wbArray('Row',
@@ -9957,8 +10007,10 @@ begin
         .SetSummaryPrefixSuffixOnValue(0, 'Y: ', '')
         .SetSummaryPrefixSuffixOnValue(1, 'X: ', '')
         .SetSummaryDelimiterOnValue(', ')
+        .SetAfterLoad(wbLargeRefsRNAMAfterLoad)
         .IncludeFlag(dfCollapsed, wbCollapsePlacement)
-    ).SetDontShow(wbNeverShow)
+    ).SetAfterLoad(wbLargeRefsAfterLoad)
+     .SetDontShow(wbNeverShow)
      .IncludeFlag(dfCollapsed, wbCollapseOther)
      .IncludeFlag(dfFastAssign)
      .IncludeFlag(dfNoCopyAsOverride)
@@ -10149,7 +10201,7 @@ end;
 function wbWorldOffsetData: IwbRecordMemberDef;
 begin
   Result :=
-    IfThen(wbSimpleRecords,
+    IfThen(wbHideLargeSubrecords,
       wbByteArray(OFST, 'Offsets', 0, cpIgnore)
         .SetDontShow(wbNeverShow)
         .IncludeFlag(dfNoCopyAsOverride),
@@ -10216,7 +10268,7 @@ end;
 function wbWorldVisibleCellsData: IwbRecordMemberDef;
 begin
   Result :=
-    IfThen(wbSimpleRecords,
+    IfThen(wbHideLargeSubrecords,
       wbByteArray(VISI, 'Visible Cells', 0, cpIgnore).SetDontShow(wbNeverShow),
       wbStruct(VISI, 'Visible Cells', [
         wbArray('Row',
