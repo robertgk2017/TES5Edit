@@ -142,6 +142,7 @@ var
   wbHideUnused                       : Boolean    = True;
   wbHideIgnored                      : Boolean    = True;
   wbHideNeverShow                    : Boolean    = True;
+  wbHideLargeSubrecords              : Boolean    = True;
   wbShowFormVersion                  : Boolean    = False;
   wbShowFlagEnumValue                : Boolean    = False;
   wbShowGroupRecordCount             : Boolean    = False;
@@ -154,7 +155,6 @@ var
   wbFillPNAM                         : Boolean    = False;
   wbFillINOM                         : Boolean    = True;
   wbFillINOA                         : Boolean    = True;
-  wbRemoveOffsetData                 : Boolean    = True;
   wbWriteOffsetData                  : Boolean    = True;
   wbEditAllowed                      : Boolean    = False;
   wbFlagsAsArray                     : Boolean    = False;
@@ -289,9 +289,11 @@ var
   wbDisableFormIDCheck               : Boolean    = False;
   wbComplexFileFileID                : Boolean    = False;
   wbEnforceAllMasters                : Boolean    = False;  // adds all masters of masters when adding a master and prevents cleaning them
+  wbAllowUnsafeScripts               : Boolean    = False;
 
   wbCS                               : Boolean    = False;
   wbVRESL                            : Boolean    = False;
+  wbHNVSE                            : Boolean    = False;
 
   wbAllowMakePartial                 : Boolean    = False;
 
@@ -4845,7 +4847,7 @@ begin
   var lFileID := aFormID.FileID;
   for var i:= Low(Files) to High(Files) do
     if Files[i].LoadOrderFileID = lFileID then begin
-      Result := Files[i].RecordByFormID[aFormID, True, False];
+      Result := Files[i].ContainedRecordByLoadOrderFormID[aFormID, True];
       if Assigned(Result) and Assigned(aSeenFromFile) then begin
         var lVisibleResult := Result.HighestOverrideVisibleForFile[aSeenFromFile];
         if Assigned(lVisibleResult) then

@@ -1081,6 +1081,11 @@ begin
         aFileFlags := aFileFlags or FILE_MISC;
     end;
 
+    // FO3/FNV always set sounds+voices together like in vanilla archives
+    // radio songs require voices but can have any path in sound folder and extension
+    if (aType = baFO3) and (AssetType in [atSound, atVoice]) then
+      aFileFlags := aFileFlags or FILE_SOUNDS or FILE_VOICES;
+
     // TES4 only
     if (aType = baTES4) and aFilesList[i].EndsWith('.xml', True) then
       aFileFlags := aFileFlags or FILE_MENUS;

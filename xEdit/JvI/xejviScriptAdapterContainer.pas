@@ -220,19 +220,45 @@ begin
 end;
 
 procedure IwbContainer_SetElementEditValues(var Value: Variant; Args: TJvInterpreterArgs);
-var
-  Container: IwbContainerElementRef;
 begin
-  if Supports(IInterface(Args.Values[0]), IwbContainerElementRef, Container) then
-    Container.ElementEditValues[Args.Values[1]] := Args.Values[2];
+  case Args.Count of
+    0, 1, 2: JvInterpreterError(ieNotEnoughParams, -1);
+    3: begin
+      var lContainer: IwbContainerElementRef;
+      if Supports(IInterface(Args.Values[0]), IwbContainerElementRef, lContainer) then
+      begin
+        var lElement: IwbElement;
+        if Supports(lContainer.ElementByPath[Args.Values[1]], IwbElement, lElement) then
+          if not (wbAllowUnsafeScripts or lElement.IsEditable) then
+            raise Exception.Create(lElement.Path + ': Does not support editing')
+          else
+            lElement.EditValue := String(Args.Values[2]);
+      end;
+    end;
+  else
+    JvInterpreterError(ieTooManyParams, -1);
+  end;
 end;
 
 procedure IwbContainer_SetElementNativeValues(var Value: Variant; Args: TJvInterpreterArgs);
-var
-  Container: IwbContainerElementRef;
 begin
-  if Supports(IInterface(Args.Values[0]), IwbContainerElementRef, Container) then
-    Container.ElementNativeValues[Args.Values[1]] := Args.Values[2];
+  case Args.Count of
+    0, 1, 2: JvInterpreterError(ieNotEnoughParams, -1);
+    3: begin
+      var lContainer: IwbContainerElementRef;
+      if Supports(IInterface(Args.Values[0]), IwbContainerElementRef, lContainer) then
+      begin
+        var lElement: IwbElement;
+        if Supports(lContainer.ElementByPath[Args.Values[1]], IwbElement, lElement) then
+          if not (wbAllowUnsafeScripts or lElement.IsEditable) then
+            raise Exception.Create(lElement.Path + ': Does not support editing')
+          else
+            lElement.NativeValue := Args.Values[2];
+      end;
+    end;
+  else
+    JvInterpreterError(ieTooManyParams, -1);
+  end;
 end;
 
 

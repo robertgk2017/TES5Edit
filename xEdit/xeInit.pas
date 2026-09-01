@@ -1038,11 +1038,12 @@ begin
   // specific Game settings
   case wbGameMode of
     gmFNV: begin
-      wbVWDInTemporary      := True;
-      wbLoadBSAs            := False;
-      wbCanSortINFO         := True;
-      wbAllowESPMasters     := True;
+      wbVWDInTemporary        := True;
+      wbLoadBSAs              := False;
+      wbCanSortINFO           := True;
+      wbAllowESPMasters       := True;
       wbAllowESPMastersOnSave := True;
+      wbHNVSE                 := FileExists(wbDataPath + 'NVSE\Plugins\Hnvse.dll');
     end;
     gmFO3: begin
       wbVWDInTemporary      := True;
@@ -1270,15 +1271,11 @@ begin
     end;
   end;
 
-  if FindCmdLineSwitch('dontremoveoffsetdata') then begin
-    wbRemoveOffsetData := False;
-    wbWriteOffsetData := True;
-  end;
+  if FindCmdLineSwitch('showlargesubrecords') then
+    wbHideLargeSubrecords := False;
 
-  if xeQuickClean then begin
-    wbRemoveOffsetData := True;
+  if xeQuickClean then
     wbWriteOffsetData := True;
-  end;
 
   i := 0;
   if xeQuickShowConflicts then

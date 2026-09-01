@@ -2637,7 +2637,7 @@ begin
   wbXSCL := wbFloat(XSCL, 'Scale').SetNormalizer(wbNormalizeToRange(0.0, 10.0));
 
   var wbScriptObjectSignatures : TwbSignatures := [
-    AACT,ACHR,ACTI,ALCH,AMMO,APPA,ARMO,ASTP,AVIF,BOOK,CELL,CLAS,CONT,DIAL,DOOR,ECZN,EFSH,ENCH,EXPL,FACT,FLOR,FLST,FURN,GLOB,HAZD,IDLE,IMAD,INGR,IPDS,KEYM,KYWD,LCRT,LCTN,LIGH,LVLI,LVLN,MESG,MGEF,MISC,MUSC,NPC_,OTFT,PACK,PERK,PHZD,PLYR,PROJ,QUST,RACE,REFR,RFCT,SCEN,SCRL,SHOU,SLGM,SNDR,SOUN,SPEL,SPGD,STAT,TREE,TXST,VTYP,WEAP,WOOP,WRLD,WTHR,NULL
+    AACT,ACHR,ACTI,ALCH,AMMO,APPA,ARMO,ASTP,AVIF,BOOK,CELL,CLAS,CONT,DIAL,DOOR,ECZN,EFSH,ENCH,EXPL,FACT,FLOR,FLST,FURN,GLOB,HAZD,IDLE,IMAD,INGR,IPDS,KEYM,KYWD,LCRT,LCTN,LIGH,LVLI,LVLN,MESG,MGEF,MISC,MUSC,NPC_,OTFT,PACK,PERK,PHZD,PLYR,PROJ,QUST,RACE,REFR,RFCT,SCEN,SCRL,SHOU,SLGM,SNCT,SNDR,SOUN,SPEL,SPGD,STAT,TREE,TXST,VTYP,WEAP,WOOP,WRLD,WTHR,NULL
   ];
 
   wbScriptPropertyObject := wbUnion('Object Union', wbScriptObjFormatDecider, [
@@ -3149,7 +3149,7 @@ begin
 
     {--- Extra ---}
     wbInteger(XCNT, 'Count', itS32),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2),
     wbFloat(XHLP, 'Health'),
 
     wbRArrayS('Linked References', wbStructSK(XLKR, [0], 'Linked Reference', [
@@ -3174,7 +3174,7 @@ begin
       wbByteColors('Link End Color')
     ]),
     wbXLOD,
-    wbFormIDCk(XLCN, 'Persist Location', [LCTN]),
+    wbFormIDCk(XLCN, 'Persist Location', [LCTN]).SetToStr(wbREFRPersistLocToStr),
     wbFormIDCk(XLRL, 'Location Reference', [LCRT, LCTN, NULL], False, cpBenignIfAdded),
     wbEmpty(XIS2, 'Ignored by Sandbox'),
     wbArray(XLRT, 'Location Ref Type', wbFormIDCk('Ref', [LCRT, NULL])),
@@ -3879,7 +3879,7 @@ begin
   wbConditions :=
     wbRArray('Conditions',
       wbRStructSK([0,1,2], 'Condition', [
-      {0} wbStructSK(CTDA, [3,5,6], '', [
+      {0} wbStructSK(CTDA, [3,5,6,7], '', [
           {0} wbInteger('Type', itU8, wbConditionTypeToStr, wbConditionTypeToInt).SetAfterSet(wbConditionTypeAfterSet),
           {1} wbUnused(3),
           {2} wbUnion('Comparison Value', wbConditionCompValueDecider, [
@@ -9685,7 +9685,7 @@ begin
     wbEmpty(XMBP, 'MultiBound Primitive Marker', cpIgnore),
 
     wbRagdoll,
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2).SetToStr(wbREFRRadiusToStr),
 
     {--- Reflected By / Refracted By ---}
     wbRArrayS('Reflected/Refracted By',
@@ -9775,7 +9775,7 @@ begin
 
     wbFormIDCk(XLIB, 'Leveled Item Base Object', [LVLI]),
     wbXLCM,
-    wbFormIDCk(XLCN, 'Persist Location', [LCTN]),
+    wbFormIDCk(XLCN, 'Persist Location', [LCTN]).SetToStr(wbREFRPersistLocToStr),
 
     {>>> COLL form Index value <<<}
     wbInteger(XTRI, 'Collision Layer', itU32)

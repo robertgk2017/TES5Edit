@@ -10413,8 +10413,22 @@ begin
       end
 
       // string editor
-      else if not InputQuery('Edit Value', 'Please change the value:', EditValue) then
-        Exit;
+      else with TfrmViewElements.Create(Self) do
+      begin
+        Caption := vstView.Path(vstViewFocusedNode, 0, '\');
+        Settings := Self.Settings;
+
+        if Assigned(ActiveMaster) then
+          Caption := ActiveMaster.Name + '\' + Caption;
+
+        for var lIndex := Low(ActiveRecords) to High(ActiveRecords) do begin
+          var lNodeElement := NodeDatas[lIndex].Element;
+          if Assigned(lNodeElement) then
+            AddElement(lNodeElement, vstView.FocusedColumn = Succ(lIndex), lNodeElement.IsEditable);
+        end;
+
+        ShowModal;
+      end;
 
       if wbConvertIntFormID and Element.CanContainFormIDs then
       begin

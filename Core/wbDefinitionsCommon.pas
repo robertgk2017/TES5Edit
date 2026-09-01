@@ -37,10 +37,12 @@ function wbPlacedAddInfo(const aMainRecord: IwbMainRecord): string;
 function wbROADAddInfo  (const aMainRecord: IwbMainRecord): string;
 function wbSCENAddInfo  (const aMainRecord: IwbMainRecord): string;
 
-{>>> After Load Callbacks <<<} //13
+{>>> After Load Callbacks <<<} //16
 procedure wbACBSLevelMultAfterLoad     (const aElement: IwbElement);
 procedure wbAVIFSkillAfterLoad         (const aElement: IwbElement);
 procedure wbDOBJObjectsAfterLoad       (const aElement: IwbElement);
+procedure wbLargeRefsAfterLoad         (const aElement: IwbElement);
+procedure wbLargeRefsRNAMAfterLoad     (const aElement: IwbElement);
 procedure wbMESGAfterLoad              (const aElement: IwbElement);
 procedure wbPACKDateAfterLoad          (const aElement: IwbElement);
 procedure wbPACKDataBoolAfterLoad      (const aElement: IwbElement);
@@ -231,7 +233,7 @@ function wbVTXTPosition              (aInt: Int64; const aElement: IwbElement; a
 function wbWeatherCloudSpeedToStr    (aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 function wbPackagePSDTMonthValueToStr(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 
-{>>> To String Callback Procedures <<<} //24
+{>>> To String Callback Procedures <<<} //26
 procedure wbScriptPropertyArrayToStr(const aContainer: IwbContainerElementRef; var PropertyType: string; var PropertyValue: string);
 procedure wbScriptPropertyObjectToStr(const aContainer: IwbContainerElementRef; var PropertyName: string; var PropertyType: string; var PropertyValue: string);
 
@@ -249,6 +251,8 @@ procedure wbPERKRankToStr                    (var aValue: string; aBasePtr, aEnd
 procedure wbObjectPropertyToStr              (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbQUSTAliasToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbQUSTEventToStr                   (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbREFRPersistLocToStr              (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+procedure wbREFRRadiusToStr                  (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbREFRTeleportToStr                (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbRGBAToStr                        (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 procedure wbScriptToStr                      (var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
@@ -309,10 +313,11 @@ function wbIsFlag(const aFlag: Integer; const aValue: IwbValueDef; const aIsUnus
 function wbIsNotFlag(const aFlag: Integer; const aSignature: TwbSignature; const aValue: IwbValueDef; const aIsUnused: Boolean = True): IwbRecordMemberDef; overload;
 function wbIsNotFlag(const aFlag: Integer; const aValue: IwbValueDef; const aIsUnused: Boolean = True): IwbValueDef; overload;
 
-{>>> DLL Mode IfThen Defs <<<} //3
-function IsCS   (const aDef1, aDef2: string): string;
-function IsVR   (const aDef1, aDef2: string): string;
-function IsVRESL(const aDef1, aDef2: string): string;
+{>>> DLL Mode IfThen Defs <<<} //4
+function IsCS    (const aDef1, aDef2: string): string;
+function IsVR    (const aDef1, aDef2: string): string;
+function IsVRESL (const aDef1, aDef2: string): string;
+function IsHNVSE (const aDef1, aDef2: TwbConflictPriority): TwbConflictPriority;
 
 {>>> Game Mode IfThen Defs <<<} //36
 function IsTES3   (const aDef1, aDef2: string): string; overload;
@@ -913,7 +918,7 @@ begin
   end;
 end;
 
-{>>> After Load Callbacks <<<} //13
+{>>> After Load Callbacks <<<} //16
 
 procedure wbACBSLevelMultAfterLoad(const aElement: IwbElement);
 begin
@@ -963,6 +968,63 @@ begin
     finally
       lArray.EndUpdate;
     end;
+  finally
+    wbEndInternalEdit;
+  end;
+end;
+
+procedure wbLargeRefsAfterLoad(const aElement: IwbElement);
+begin
+  if not Assigned(aElement) then
+    Exit;
+
+  if wbBeginInternalEdit then
+  try
+    var lContainer := aElement as IwbContainerElementRef;
+
+    for var lIndex := Pred(lContainer.ElementCount) downto 0 do
+    begin
+      var lRNAM := lContainer.Elements[lIndex] as IwbContainerElementRef;
+      if not Assigned(lRNAM) then
+        Continue;
+
+      var lReferences := lRNAM.ElementByName['References'] as IwbContainerElementRef;
+
+      if lReferences.ElementCount = 0 then
+        lRNAM.Remove;
+    end;
+
+  finally
+    wbEndInternalEdit;
+  end;
+end;
+
+procedure wbLargeRefsRNAMAfterLoad(const aElement: IwbElement);
+begin
+  if not Assigned(aElement) then
+    Exit;
+
+  if wbBeginInternalEdit then
+  try
+    var lContainer := aElement as IwbContainerElementRef;
+
+    var lX := lContainer.ElementNativeValues['X'];
+    var lY := lContainer.ElementNativeValues['Y'];
+
+    var lRefs := lContainer.ElementByName['References'] as IwbContainerElementRef;
+
+    for var lIndex := Pred(lRefs.ElementCount) downto 0 do
+    begin
+      var lRef := lRefs.Elements[lIndex] as IwbContainerElementRef;
+      if not Assigned(lRef) then
+        Continue;
+
+      if (lRef.ElementNativeValues['X'] <> lX) or
+         (lRef.ElementNativeValues['Y'] <> lY)
+      then
+        lRef.Remove;
+    end;
+
   finally
     wbEndInternalEdit;
   end;
@@ -1206,15 +1268,6 @@ begin
     var lMainRecord : IwbMainRecord;
     if not Supports(aElement, IwbMainRecord, lMainRecord) then
       Exit;
-
-    if wbRemoveOffsetData then begin
-      if (wbIsSkyrim or wbIsFallout4 or wbIsFallout76) and (lMainRecord._File.LoadOrder = 0) then
-	        lMainRecord.RemoveElement('Large References');
-      if wbIsFallout4 or wbIsFallout76 or wbIsStarfield then
-        lMainRecord.RemoveElement(CLSZ);
-      if wbIsFallout76 then
-        lMainRecord.RemoveElement(VISI);
-    end;
 
     // large values in worldspace bounds cause stutter and performance issues in game (reported by Arthmoor)
     // CK can occasionally set them wrong, so make a warning
@@ -4395,7 +4448,7 @@ begin
   end;
 end;
 
-{>>> To String Callback Procedures <<<} //24
+{>>> To String Callback Procedures <<<} //26
 
 procedure wbABGRToStr(var aValue: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
 var
@@ -4893,6 +4946,199 @@ begin
   case aType of
     ctCheck: aValue := '<Warning: ' + lMainRecord.ShortName + ' has not been added to the story manager>';
     ctToStr: aValue := aElement.EditValue + '<Warning: ' + lMainRecord.ShortName + ' has not been added to the story manager>';
+  end;
+end;
+
+procedure wbREFRPersistLocToStr(var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+begin
+  if not (Assigned(aElement) and (aType in [ctCheck])) then
+    Exit;
+
+  var lLocation := aElement.LinksTo as IwbMainRecord;
+  if not Assigned(lLocation) then
+    Exit;
+
+  var lLocEDID := lLocation.EditorID;
+  if (lLocEDID = 'DebugLocation') or
+     (lLocEDID = 'PersistAll') or
+     (lLocEDID = 'PersistAllLocation') or
+     (lLocEDID = 'VirtualLocation')
+  then
+    Exit;
+
+  var lMainRecord := aElement.ContainingMainRecord;
+  if not Assigned(lMainRecord) then
+    Exit;
+
+  var lCell := lMainRecord.ElementByName['Cell'];
+  if not Assigned(lCell) then
+    Exit;
+
+  var lCellRecord := lCell.LinksTo as IwbMainRecord;
+  if not Assigned(lCellRecord) then
+    Exit;
+
+  var lWorld := lCellRecord.ElementByName['Worldspace'];
+
+  var lWorldRecord: IwbMainRecord;
+  if Assigned(lWorld) then
+    lWorldRecord := lWorld.LinksTo as IwbMainRecord;
+
+  if Assigned(lWorldRecord) and lMainRecord.IsPersistent then
+  begin
+    var lPosition: TwbVector;
+    lMainRecord.GetPosition(lPosition);
+
+    var lGridCell := wbPositionToGridCell(lPosition);
+
+    lCellRecord := lWorldRecord.ChildByGridCell[lGridCell];
+
+    if not Assigned(lCellRecord) then
+    begin
+      var lFile := aElement._File;
+      var lFormID := lMainRecord.FormID;
+      for var lMasterIdx := Pred(lFile.MasterCount[True]) downto 0 do
+      begin
+        var lMaster := lFile.Masters[lMasterIdx, True];
+
+        var lWorldRecordOverride := lMaster.ContainedRecordByLoadOrderFormID[lFormID, True];
+        if not Assigned(lWorldRecordOverride) then
+          Continue;
+
+        lCellRecord := lWorldRecordOverride.ChildByGridCell[lGridCell];
+        if Assigned(lCellRecord) then
+          Break;
+      end;
+    end;
+  end;
+
+  if not Assigned(lCellRecord) then
+    Exit;
+
+  var lPersistLocation: IwbMainRecord;
+
+  var lXEZN := lCellRecord.ElementBySignature[XEZN];
+  var lZone: IwbMainRecord;
+  var lDATA: IwbContainerElementRef;
+  var lDATALoc: IwbElement;
+
+  if Assigned(lXEZN) then
+  begin
+    lZone := lXEZN.LinksTo as IwbMainRecord;
+    if Assigned(lZone) then
+    begin
+      lDATA := lZone.ElementBySignature[DATA] as IwbContainerElementRef;
+      if Assigned(lDATA) then
+      begin
+        lDATALoc := lDATA.ElementByName['Location'];
+        if Assigned(lDATALoc) and (lDATALoc.NativeValue <> 0) then
+          lPersistLocation := lDATALoc.LinksTo as IwbMainRecord;
+      end;
+    end;
+  end;
+
+  var lXLCN: IwbElement;
+  if not Assigned(lPersistLocation) then
+  begin
+    lXLCN := lCellRecord.ElementBySignature[XLCN];
+    if Assigned(lXLCN) then
+      lPersistLocation := lXLCN.LinksTo as IwbMainRecord;
+  end;
+
+  if Assigned(lWorldRecord) then
+  begin
+    if not Assigned(lPersistLocation) then
+    begin
+      lXEZN := lWorldRecord.ElementBySignature[XEZN];
+      if Assigned(lXEZN) then
+      begin
+        lZone := lXEZN.LinksTo as IwbMainRecord;
+        if Assigned(lZone) then
+        begin
+          lDATA := lZone.ElementBySignature[DATA] as IwbContainerElementRef;
+          if Assigned(lDATA) then
+          begin
+            lDATALoc := lDATA.ElementByName['Location'];
+            if Assigned(lDATALoc) and (lDATALoc.NativeValue <> 0) then
+              lPersistLocation := lDATALoc.LinksTo as IwbMainRecord;
+          end;
+        end;
+      end;
+    end;
+
+    if not Assigned(lPersistLocation) then
+    begin
+      lXLCN := lWorldRecord.ElementBySignature[XLCN];
+      if Assigned(lXLCN) then
+        lPersistLocation := lXLCN.LinksTo as IwbMainRecord;
+    end;
+  end;
+
+  while Assigned(lPersistLocation) do
+  begin
+    if lLocation.MasterOrSelf = lPersistLocation.MasterOrSelf then
+      Exit;
+
+    var lParentLoc := lPersistLocation.ElementBySignature[PNAM];
+    if Assigned(lParentLoc) then
+      lPersistLocation := lParentLoc.LinksTo as IwbMainRecord
+    else
+    begin
+      aValue := '<Warning: Reference ' + lMainRecord.ShortName + ' is not in its Persist Location ' + aElement.EditValue +'>';
+      Exit;
+    end;
+  end;
+end;
+
+procedure wbREFRRadiusToStr(var aValue: string; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aType: TwbCallbackType);
+begin
+  if not (Assigned(aElement) and (aType in [ctCheck, ctFromEditValue, ctFromNativeValue, ctToStr, ctToEditValue, ctToNativeValue])) then
+    Exit;
+
+  var lMainRecord := aElement.ContainingMainRecord;
+  if not Assigned(lMainRecord) then
+    Exit;
+
+  var lNAME := lMainRecord.ElementBySignature[NAME];
+  if not Assigned(lNAME) then
+    Exit;
+
+  var lBaseRecord := lNAME.LinksTo as IwbMainRecord;
+  if not Assigned(lBaseRecord) then
+    Exit;
+
+  if lBaseRecord.Signature <> LIGH then
+    Exit;
+
+  var lRadius := lBaseRecord.ElementByPath[IsSF1('DAT2\Radius', 'DATA\Radius')];
+  if not Assigned(lRadius) then
+    Exit;
+
+  case aType of
+    ctCheck: begin
+      var lValue := StrToFloat(aElement.EditValue);
+
+      if lValue < 20.0 then
+        aValue := ' <Hint: Light Radius [' + FloatToStr(lValue) + '] is less then minimum of 20>';
+    end;
+    ctFromEditValue: begin
+      aValue := FloatToStr(StrToFloat(aValue) - StrToFloat(lRadius.EditValue));
+    end;
+    ctFromNativeValue: begin
+      aValue := FloatToStr(StrToFloat(aValue) - StrToFloat(lRadius.EditValue));
+    end;
+    ctToStr: begin
+      aValue := FloatToStr(StrToFloat(aValue) + StrToFloat(lRadius.EditValue));
+
+      if StrToFloat(aValue) < 20.0 then
+        aValue := aValue + ' <Hint: Light Radius is less then minimum of 20>';
+    end;
+    ctToEditValue: begin
+      aValue := FloatToStr(StrToFloat(aValue) + StrToFloat(lRadius.EditValue));
+    end;
+    ctToNativeValue: begin
+      aValue := FloatToStr(StrToFloat(aValue) + StrToFloat(lRadius.EditValue));
+    end;
   end;
 end;
 
@@ -6047,7 +6293,7 @@ begin
       ]).IncludeFlag(dfMustBeUnion);
 end;
 
-{>>> DLL Mod IfThen Defs <<<} //3
+{>>> DLL Mod IfThen Defs <<<} //4
 
 function IsCS(const aDef1, aDef2: string): string;
 begin
@@ -6067,6 +6313,13 @@ function IsVRESL(const aDef1, aDef2: string): string;
 begin
   Result := aDef2;
   if wbVRESL then
+    Result := aDef1;
+end;
+
+function IsHNVSE(const aDef1, aDef2: TwbConflictPriority): TwbConflictPriority;
+begin
+  Result := aDef2;
+  if wbHNVSE then
     Result := aDef1;
 end;
 
@@ -9682,7 +9935,7 @@ end;
 function wbWorldCellSizeData: IwbRecordMemberDef;
 begin
   Result :=
-    IfThen(wbSimpleRecords,
+    IfThen(wbHideLargeSubrecords,
       wbByteArray(CLSZ, 'Cell Sizes', 0, cpIgnore).SetDontShow(wbNeverShow),
       wbArray(CLSZ, 'Cell Sizes',
         wbArray('Row',
@@ -9754,8 +10007,10 @@ begin
         .SetSummaryPrefixSuffixOnValue(0, 'Y: ', '')
         .SetSummaryPrefixSuffixOnValue(1, 'X: ', '')
         .SetSummaryDelimiterOnValue(', ')
+        .SetAfterLoad(wbLargeRefsRNAMAfterLoad)
         .IncludeFlag(dfCollapsed, wbCollapsePlacement)
-    ).SetDontShow(wbNeverShow)
+    ).SetAfterLoad(wbLargeRefsAfterLoad)
+     .SetDontShow(wbNeverShow)
      .IncludeFlag(dfCollapsed, wbCollapseOther)
      .IncludeFlag(dfFastAssign)
      .IncludeFlag(dfNoCopyAsOverride)
@@ -9875,7 +10130,7 @@ begin
         .SetSummaryMemberPrefixSuffix(1, '', ']')
         .SetSummaryDelimiter(', ')
         .IncludeFlag(dfCollapsed, wbCollapseObjectBounds),
-      IfThen(wbRemoveOffsetData,
+      IfThen(wbHideLargeSubrecords,
         wbByteArray('Cell Heights', 0, cpBenign),
         wbArray('Cell Heights',
           wbArray('Row',
@@ -9946,7 +10201,7 @@ end;
 function wbWorldOffsetData: IwbRecordMemberDef;
 begin
   Result :=
-    IfThen(wbSimpleRecords,
+    IfThen(wbHideLargeSubrecords,
       wbByteArray(OFST, 'Offsets', 0, cpIgnore)
         .SetDontShow(wbNeverShow)
         .IncludeFlag(dfNoCopyAsOverride),
@@ -10013,7 +10268,7 @@ end;
 function wbWorldVisibleCellsData: IwbRecordMemberDef;
 begin
   Result :=
-    IfThen(wbSimpleRecords,
+    IfThen(wbHideLargeSubrecords,
       wbByteArray(VISI, 'Visible Cells', 0, cpIgnore).SetDontShow(wbNeverShow),
       wbStruct(VISI, 'Visible Cells', [
         wbArray('Row',

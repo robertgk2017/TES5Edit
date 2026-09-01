@@ -157,15 +157,13 @@
         <DCCReference Include="Core\wbHelpers.pas"/>
         <DCCReference Include="Core\wbLoadOrder.pas"/>
         <DCCReference Include="Core\wbHardcoded.pas"/>
+        <DCCReference Include="Core\wbDataFormatWwise.pas"/>
         <DCCReference Include="Core\wbDefinitionsCommon.pas"/>
         <DCCReference Include="Core\wbDefinitionsFNV.pas"/>
         <DCCReference Include="Core\wbDefinitionsFNVSaves.pas"/>
         <DCCReference Include="Core\wbDefinitionsFO3.pas"/>
         <DCCReference Include="Core\wbDefinitionsFO3Saves.pas"/>
-        <DCCReference Include="Core\wbDefinitionsFO4.pas">
-            <Form>$R *.res</Form>
-            <FormType>dfm</FormType>
-        </DCCReference>
+        <DCCReference Include="Core\wbDefinitionsFO4.pas"/>
         <DCCReference Include="Core\wbDefinitionsFO4Saves.pas"/>
         <DCCReference Include="Core\wbDefinitionsFO76.pas"/>
         <DCCReference Include="Core\wbDefinitionsTES3.pas"/>
@@ -201,15 +199,8 @@
                 <Excluded_Packages/>
             </Delphi.Personality>
             <Platforms>
-                <Platform value="Android">False</Platform>
-                <Platform value="Android64">False</Platform>
-                <Platform value="Linux64">False</Platform>
-                <Platform value="OSX64">False</Platform>
-                <Platform value="OSXARM64">False</Platform>
                 <Platform value="Win32">True</Platform>
                 <Platform value="Win64">True</Platform>
-                <Platform value="iOSDevice64">False</Platform>
-                <Platform value="iOSSimARM64">False</Platform>
             </Platforms>
         </BorlandProject>
         <ProjectFileVersion>12</ProjectFileVersion>

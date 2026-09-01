@@ -10677,6 +10677,15 @@ begin
         RemoveElement(CurrentRec, True);
       Include(mrStates, mrsOFSTRemoved);
     end;
+
+    if Supports(GetRecordBySignature('CLSZ'), IwbSubRecord, CurrentRec) then begin
+      if wbBeginInternalEdit(True) then try
+        RemoveElement('CLSZ');
+      finally
+        wbEndInternalEdit;
+      end else
+        RemoveElement(CurrentRec, True);
+    end;
   end;
 
   mrDef.AfterLoad(Self);
@@ -13664,7 +13673,7 @@ begin
   wbPlaceOffsetDataEntry(aCell, aStream, aPosition, True);
 end;
 
-procedure wbPlaceBlittedOffsetDataCells(const aGroup: IwbGroupRecord; aBase: Pointer; aStart: Int64; aStream: TStream);
+procedure wbPlaceBlittedOffsetDataCells(const aGroup: IwbGroupRecord; aBase: Pointer; aStart: UInt64; aStream: TStream);
 var
   Container  : IwbContainerElementRef;
   Group      : IwbGroupRecord;
@@ -21413,6 +21422,9 @@ begin
     eContainer := nil;
   end;
   inherited Create(aOwner);
+
+  arcDef.AfterLoad(Self);
+
   if aPos = Low(Integer) then begin
     SetModified(True);
     InvalidateStorage;

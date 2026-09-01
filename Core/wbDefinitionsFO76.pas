@@ -4902,7 +4902,7 @@ begin
   ]));
 
   var wbScriptObjectSignatures : TwbSignatures := [
-    AACT,ACHR,ACTI,ALCH,AMMO,ARMO,AVIF,BOOK,CELL,CHAL,CMPO,CNCY,COBJ,CONT,CSTY,CURV,DIAL,EFSH,ENCH,EXPL,FACT,FLOR,FLST,FURN,GLOB,HAZD,IDLE,IDLM,IMAD,IPDS,KEYM,KYWD,LCRT,LCTN,LIGH,LVLI,LVLN,MATT,MESG,MGEF,MISC,MSTT,MUSC,NOTE,NPC_,OMOD,OTFT,PACK,PCRD,PERK,PHZD,PPAK,PROJ,QMDL,QUST,RACE,REFR,REGN,RFCT,SCEN,SCSN,SNCT,SNDR,SOPM,SPEL,STAT,TACT,TERM,TXST,UTIL,VTYP,WEAP,WTHR,NULL
+    AACT,ACHR,ACTI,ALCH,AMMO,ARMO,AVIF,BOOK,CELL,CHAL,CMPO,CNCY,COBJ,CONT,CSTY,CURV,DIAL,EFSH,ENCH,EXPL,FACT,FLOR,FLST,FURN,GLOB,HAZD,IDLE,IDLM,IMAD,IPDS,KEYM,KYWD,LCRT,LCTN,LIGH,LVLI,LVLN,MATT,MESG,MGEF,MISC,MSTT,MUSC,NOTE,NPC_,OMOD,OTFT,PACK,PCRD,PERK,PHZD,PPAK,PROJ,QMDL,QUST,RACE,REFR,REGN,RFCT,SCEN,SCSN,SNCT,SNCT,SNDR,SOPM,SPEL,STAT,TACT,TERM,TXST,UTIL,VTYP,WEAP,WTHR,NULL
   ];
 
   wbScriptPropertyObject := wbUnion('Object Union', wbScriptObjFormatDecider, [
@@ -5540,7 +5540,7 @@ begin
 
     {--- Extra ---}
     wbInteger(XCNT, 'Count', itS32),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2),
     wbInteger(XHLT, 'Health %', itU32),
 
     wbXLKR,
@@ -5630,7 +5630,7 @@ begin
 
     wbXLWT,
 
-    wbFormIDCk(XLCN, 'Persist Location', [LCTN]),
+    wbFormIDCk(XLCN, 'Persist Location', [LCTN]).SetToStr(wbREFRPersistLocToStr),
     wbFormIDCk(XLRL, 'Location Reference', [LCRT, LCTN, NULL], False, cpBenignIfAdded),
     wbArray(XLRT, 'Location Ref Type', wbFormIDCk('Ref', [LCRT, NULL])),
 
@@ -6681,7 +6681,7 @@ begin
   wbConditions :=
     wbRArray('Conditions',
       wbRStructSK([0,1,2], 'Condition', [
-      {0} wbStructSK(CTDA, [3,5,6], '', [
+      {0} wbStructSK(CTDA, [3,5,6,7], '', [
           {0} wbInteger('Type', itU8, wbConditionTypeToStr, wbConditionTypeToInt).SetAfterSet(wbConditionTypeAfterSet),
           {1} wbUnused(3),
           {2} wbUnion('Comparison Value', wbConditionCompValueDecider, [
@@ -14565,7 +14565,7 @@ begin
     {--- Ragdoll ---}
     wbRagdoll,
 
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2).SetToStr(wbREFRRadiusToStr),
     wbXSCL,
 
     {--- Emittance ---}
@@ -14735,7 +14735,7 @@ begin
 
     wbFormIDCk(XLIB, 'Leveled Item Base Object', [LVLI]),
     wbXLCM,
-    wbFormIDCk(XLCN, 'Persist Location', [LCTN]),
+    wbFormIDCk(XLCN, 'Persist Location', [LCTN]).SetToStr(wbREFRPersistLocToStr),
 
     {>>> COLL form Index value <<<}
     wbInteger(XTRI, 'Collision Layer', itU32)

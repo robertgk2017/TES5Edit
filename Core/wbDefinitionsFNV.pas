@@ -3142,7 +3142,7 @@ begin
 
     {--- Extra ---}
     wbInteger(XCNT, 'Count', itS32),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2),
     wbFloat(XHLP, 'Health'),
 
     {--- Decals ---}
@@ -3224,7 +3224,7 @@ begin
 
     {--- Extra ---}
     wbInteger(XCNT, 'Count', itS32),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2),
     wbFloat(XHLP, 'Health'),
 
     {--- Decals ---}
@@ -3768,7 +3768,7 @@ begin
 
   wbConditions :=
     wbRArray('Conditions',
-      wbStructSK(CTDA, [3,5,6], 'Condition', [
+      wbStructSK(CTDA, [3,5,6,7], 'Condition', [
       {0} wbInteger('Type', itU8, wbConditionTypeToStr, wbConditionTypeToInt).SetAfterSet(wbConditionTypeAfterSet),
       {1} wbUnused(3),
       {2} wbUnion('Comparison Value', wbConditionCompValueDecider, [
@@ -4126,7 +4126,7 @@ begin
     wbFloat(XCLW, 'Water Height'),
     wbString(XNAM, 'Water Noise Texture'),
     wbArrayS(XCLR, 'Regions',
-      wbFormIDCk('Region', [REGN])
+      wbFormIDCk('Region', [REGN], False, IsHNVSE(cpBenign, cpNormal))
         .SetFormIDFilter(wbCELLRegionFilter)
         .SetToStr(wbCELLRegionToStr)
     ).SetDontShow(wbCellInteriorDontSHow),
@@ -5368,7 +5368,7 @@ begin
 
     {--- Extra ---}
     wbInteger(XCNT, 'Count', itS32),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2),
     wbFloat(XHLP, 'Health'),
 
     {--- Reflected By / Refracted By ---}
@@ -5449,7 +5449,7 @@ begin
 
     {--- Extra ---}
     wbInteger(XCNT, 'Count', itS32),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2),
     wbFloat(XHLP, 'Health'),
 
     {--- Reflected By / Refracted By ---}
@@ -5530,7 +5530,7 @@ begin
 
     {--- Extra ---}
     wbInteger(XCNT, 'Count', itS32),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2),
     wbFloat(XHLP, 'Health'),
 
     {--- Reflected By / Refracted By ---}
@@ -7675,7 +7675,7 @@ begin
 
     {--- Extra ---}
     wbInteger(XCNT, 'Count', itS32),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2).SetToStr(wbREFRRadiusToStr),
     wbFloat(XHLP, 'Health'),
     wbFloat(XRAD, 'Radiation'),
     wbFloat(XCHG, 'Charge'),
@@ -9020,6 +9020,10 @@ begin
   wbAddGroupOrder(INGR);
   wbAddGroupOrder(LIGH);
   wbAddGroupOrder(MISC);
+  wbAddGroupOrder(IMOD);
+  wbAddGroupOrder(CHIP);
+  wbAddGroupOrder(CCRD);
+  wbAddGroupOrder(CMNY);
   wbAddGroupOrder(STAT);
   wbAddGroupOrder(SCOL);
   wbAddGroupOrder(MSTT);
@@ -9092,20 +9096,20 @@ begin
   wbAddGroupOrder(DOBJ);
   wbAddGroupOrder(LGTM);
   wbAddGroupOrder(MUSC);
-  wbAddGroupOrder(IMOD);
+  //wbAddGroupOrder(IMOD);
   wbAddGroupOrder(REPU);
   //wbAddGroupOrder(PCBE);
   wbAddGroupOrder(RCPE);
   wbAddGroupOrder(RCCT);
-  wbAddGroupOrder(CHIP);
+  //wbAddGroupOrder(CHIP);
   wbAddGroupOrder(CSNO);
   wbAddGroupOrder(LSCT);
   wbAddGroupOrder(MSET);
   wbAddGroupOrder(ALOC);
   wbAddGroupOrder(CHAL);
   wbAddGroupOrder(AMEF);
-  wbAddGroupOrder(CCRD);
-  wbAddGroupOrder(CMNY);
+  //wbAddGroupOrder(CCRD);
+  //wbAddGroupOrder(CMNY);
   wbAddGroupOrder(CDCK);
   wbAddGroupOrder(DEHY);
   wbAddGroupOrder(HUNG);

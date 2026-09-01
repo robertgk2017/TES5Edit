@@ -41,6 +41,7 @@ uses
   wbHelpers in 'Core\wbHelpers.pas',
   wbLoadOrder in 'Core\wbLoadOrder.pas',
   wbHardcoded in 'Core\wbHardcoded.pas',
+  wbDataFormatWwise in 'Core\wbDataFormatWwise.pas',
   wbDefinitionsCommon in 'Core\wbDefinitionsCommon.pas',
   wbDefinitionsFNV in 'Core\wbDefinitionsFNV.pas',
   wbDefinitionsFNVSaves in 'Core\wbDefinitionsFNVSaves.pas',
@@ -1081,7 +1082,7 @@ begin
           end;
         end;
         gmTES5: begin
-          wbGameName := 'Skyrim';
+          wbGameName    := 'Skyrim';
           wbGameExeName := 'TESV';
           case wbToolSource of
             tsSaves:   DefineTES5Saves;
@@ -1089,8 +1090,8 @@ begin
           end;
         end;
         gmEnderal: begin
-          wbGameName := 'Enderal';
-          wbGameExeName := 'TESV';
+          wbGameName      := 'Enderal';
+          wbGameExeName   := 'TESV';
           wbGameMasterEsm := 'Skyrim.esm';
           case wbToolSource of
             tsSaves:   DefineTES5Saves;
@@ -1098,8 +1099,8 @@ begin
           end;
         end;
         gmTES5VR: begin
-          wbGameName := 'Skyrim';
-          wbGameName2 := 'Skyrim VR';
+          wbGameName    := 'Skyrim';
+          wbGameName2   := 'Skyrim VR';
           wbGameExeName := 'SkyrimVR';
           tss := [tsPlugins];
           case wbToolSource of
@@ -1108,19 +1109,21 @@ begin
           end;
         end;
         gmFO4: begin
-          wbGameName := 'Fallout4';
-          wbCreateContainedIn := False;
+          wbGameName           := 'Fallout4';
+          wbCreateContainedIn  := False;
+          wbVWDAsQuestChildren := True;
           case wbToolSource of
             tsSaves:   DefineFO4Saves;
             tsPlugins: DefineFO4;
           end;
         end;
         gmFO4VR: begin
-          wbGameName := 'Fallout4';
-          wbGameExeName := 'Fallout4VR';
-          wbGameName2 := 'Fallout4VR';
-          wbGameNameReg := 'Fallout 4 VR';
-          wbCreateContainedIn := False;
+          wbGameName           := 'Fallout4';
+          wbGameExeName        := 'Fallout4VR';
+          wbGameName2          := 'Fallout4VR';
+          wbGameNameReg        := 'Fallout 4 VR';
+          wbCreateContainedIn  := False;
+          wbVWDAsQuestChildren := True;
           tss := [tsPlugins];
           case wbToolSource of
             //tsSaves:   DefineFO4Saves;
@@ -1128,20 +1131,20 @@ begin
           end;
         end;
         gmSSE: begin
-          wbGameName := 'Skyrim';
+          wbGameName    := 'Skyrim';
           wbGameExeName := 'SkyrimSE';
-          wbGameName2 := 'Skyrim Special Edition';
+          wbGameName2   := 'Skyrim Special Edition';
           case wbToolSource of
             tsSaves:   DefineTES5Saves;
             tsPlugins: DefineTES5;
           end;
         end;
         gmEnderalSE: begin
-          wbAppName := 'EnderalSE';
-          wbGameName := 'Enderal';
-          wbGameExeName := 'SkyrimSE';
-          wbGameName2 := 'Enderal Special Edition';
-          wbGameNameReg := 'EnderalSE';
+          wbAppName       := 'EnderalSE';
+          wbGameName      := 'Enderal';
+          wbGameExeName   := 'SkyrimSE';
+          wbGameName2     := 'Enderal Special Edition';
+          wbGameNameReg   := 'EnderalSE';
           wbGameMasterEsm := 'Skyrim.esm';
           case wbToolSource of
             tsSaves:   DefineTES5Saves;
@@ -1149,18 +1152,20 @@ begin
           end;
         end;
         gmFO76: begin
-          wbGameName := 'Fallout76';
-          wbGameNameReg := 'Fallout 76';
-          wbGameMasterEsm := 'SeventySix.esm';
-          wbCreateContainedIn := False;
+          wbGameName           := 'Fallout76';
+          wbGameNameReg        := 'Fallout 76';
+          wbGameMasterEsm      := 'SeventySix.esm';
+          wbCreateContainedIn  := False;
+          wbVWDAsQuestChildren := True;
           tss := [tsPlugins];
           case wbToolSource of
             tsPlugins: DefineFO76;
           end;
         end;
         gmSF1: begin
-          wbGameName := 'Starfield';
-          wbCreateContainedIn := False;
+          wbGameName           := 'Starfield';
+          wbCreateContainedIn  := False;
+          wbVWDAsQuestChildren := True;
           case wbToolSource of
             tsPlugins: DefineSF1;
           end;
@@ -1315,7 +1320,8 @@ begin
         DumpForms.Free;
       end;
 
-      wbLoadAllBSAs := FindCmdLineSwitch('allbsa');
+      //wbLoadAllBSAs := FindCmdLineSwitch('allbsa');
+      wbLoadAllBSAs := True;
 
       if FindCmdLineSwitch('more') then
         wbMoreInfoForUnknown:= True
@@ -1704,6 +1710,10 @@ begin
               end;
             end;
           end;
+
+          if wbGameMode in [gmSF1] then
+            wbBuildSoundBankCache(Masters);
+
         finally
           FreeAndNil(Masters);
         end;

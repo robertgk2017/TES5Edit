@@ -3044,7 +3044,7 @@ begin
 
   wbConditions :=
     wbRArray('Conditions',
-      wbStructSK(CTDA, [3,5,6], 'Condition', [
+      wbStructSK(CTDA, [3,5,6,7], 'Condition', [
       {0} wbInteger('Type', itU8, wbConditionTypeToStr, wbConditionTypeToInt).SetAfterSet(wbConditionTypeAfterSet),
       {1} wbUnused(3),
       {2} wbUnion('Comparison Value', wbConditionCompValueDecider, [
@@ -3309,7 +3309,7 @@ begin
 
     {--- Extra ---}
     wbInteger(XCNT, 'Count', itS32),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2),
     wbFloat(XHLP, 'Health'),
 
     {--- Decals ---}
@@ -3389,7 +3389,7 @@ begin
 
     {--- Extra ---}
     wbInteger(XCNT, 'Count', itS32),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2),
     wbFloat(XHLP, 'Health'),
 
     {--- Decals ---}
@@ -4814,7 +4814,7 @@ begin
 
     {--- Extra ---}
     wbInteger(XCNT, 'Count', itS32),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2),
     wbFloat(XHLP, 'Health'),
 
     {--- Reflected By / Refracted By ---}
@@ -4893,7 +4893,7 @@ begin
 
     {--- Extra ---}
     wbInteger(XCNT, 'Count', itS32),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2),
     wbFloat(XHLP, 'Health'),
 
     {--- Reflected By / Refracted By ---}
@@ -4972,7 +4972,7 @@ begin
 
     {--- Extra ---}
     wbInteger(XCNT, 'Count', itS32),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2),
     wbFloat(XHLP, 'Health'),
 
     {--- Reflected By / Refracted By ---}
@@ -6997,7 +6997,7 @@ begin
 
     {--- Extra ---}
     wbInteger(XCNT, 'Count', itS32),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2).SetToStr(wbREFRRadiusToStr),
     wbFloat(XHLP, 'Health'),
     wbFloat(XRAD, 'Radiation'),
     wbFloat(XCHG, 'Charge'),

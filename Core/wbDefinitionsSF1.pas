@@ -4750,7 +4750,7 @@ begin
   var wbConditions :=
     wbRArray('Conditions',
       wbRStructSK([0,1,2], 'Condition', [
-      {0} wbStructSK(CTDA, [3,5,6], '', [
+      {0} wbStructSK(CTDA, [3,5,6,7], '', [
           {0} wbInteger('Type', itU8, wbConditionTypeToStr, wbConditionTypeToInt).SetAfterSet(wbConditionTypeAfterSet),
           {1} wbUnused(3),
           {2} wbUnion('Comparison Value', wbConditionCompValueDecider, [
@@ -8487,11 +8487,11 @@ begin
     wbFormIDCk(NAME, 'Base', [NPC_], False, cpNormal, True),
     wbXLCM,
     wbFormIDCk(XEMI, 'Emittance', [LIGH, REGN]),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2),
     wbRagdoll,
     wbFormIDCk(XRFG, 'Reference Group', [RFGP]),
     wbXPCS,
-    wbFormIDCk(XLCN, 'Persist Location', [LCTN]),
+    wbFormIDCk(XLCN, 'Persist Location', [LCTN]).SetToStr(wbREFRPersistLocToStr),
     wbFormIDCk(XLRL, 'Location Reference', [LCTN], False, cpBenignIfAdded),
     wbEmpty(XIS2, 'Ignored by Sandbox'),
     wbXPLKs,
@@ -8724,7 +8724,7 @@ begin
       wbUnknown(4),
       wbUnknown(4)
     ]).SetOptionalFrom(4),
-    wbFloat(XRDS, 'Radius'),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2).SetToStr(wbREFRRadiusToStr),
     wbRArray('Water Current Data',
       wbRStruct('Current', [
         wbRUnion('', [
@@ -8781,7 +8781,7 @@ begin
       ]), -1)
     ]), -1),
     wbXPCS,
-    wbFormIDCk(XLCN, 'Persist Location', [LCTN]),
+    wbFormIDCk(XLCN, 'Persist Location', [LCTN]).SetToStr(wbREFRPersistLocToStr),
     wbFormIDCk(XLRL, 'Location Reference', [LCTN], False, cpBenignIfAdded),
     wbRStruct('Projected Decal', [
       wbStruct(XPDD, 'Projected Decal Data', [

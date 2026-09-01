@@ -525,11 +525,20 @@ begin
 end;
 
 procedure IwbElement_SetEditValue(var Value: Variant; Args: TJvInterpreterArgs);
-var
-  Element: IwbElement;
 begin
-  if Supports(IInterface(Args.Values[0]), IwbElement, Element) then
-    Element.EditValue := string(Args.Values[1]);
+  case Args.Count of
+    0, 1: JvInterpreterError(ieNotEnoughParams, -1);
+    2: begin
+      var lElement: IwbElement;
+      if Supports(IInterface(Args.Values[0]), IwbElement, lElement) then
+        if not (wbAllowUnsafeScripts or lElement.IsEditable) then
+          raise Exception.Create(lElement.Path + ': Does not support editing')
+        else
+          lElement.EditValue := string(Args.Values[1]);
+    end;
+  else
+    JvInterpreterError(ieTooManyParams, -1);
+  end;
 end;
 
 procedure IwbElement_SetElementState(var Value: Variant; Args: TJvInterpreterArgs);
@@ -550,11 +559,20 @@ begin
 end;
 
 procedure IwbElement_SetNativeValue(var Value: Variant; Args: TJvInterpreterArgs);
-var
-  Element: IwbElement;
 begin
-  if Supports(IInterface(Args.Values[0]), IwbElement, Element) then
-    Element.NativeValue := Args.Values[1];
+  case Args.Count of
+    0, 1: JvInterpreterError(ieNotEnoughParams, -1);
+    2: begin
+      var lElement: IwbElement;
+      if Supports(IInterface(Args.Values[0]), IwbElement, lElement) then
+        if not (wbAllowUnsafeScripts or lElement.IsEditable) then
+          raise Exception.Create(lElement.Path + ': Does not support editing')
+        else
+          lElement.NativeValue := Args.Values[1];
+    end;
+  else
+    JvInterpreterError(ieTooManyParams, -1);
+  end;
 end;
 
 procedure IwbElement_SetToDefault(var Value: Variant; Args: TJvInterpreterArgs);
