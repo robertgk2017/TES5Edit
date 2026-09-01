@@ -4847,7 +4847,7 @@ begin
   var lFileID := aFormID.FileID;
   for var i:= Low(Files) to High(Files) do
     if Files[i].LoadOrderFileID = lFileID then begin
-      Result := Files[i].RecordByFormID[aFormID, True, False];
+      Result := Files[i].ContainedRecordByLoadOrderFormID[aFormID, True];
       if Assigned(Result) and Assigned(aSeenFromFile) then begin
         var lVisibleResult := Result.HighestOverrideVisibleForFile[aSeenFromFile];
         if Assigned(lVisibleResult) then
