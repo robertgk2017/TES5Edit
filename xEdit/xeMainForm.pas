@@ -21319,11 +21319,8 @@ begin
 
         lTmpFile := xeTestConflictsFile + '.partial';
         lHeader.SaveToFile(lTmpFile, TEncoding.UTF8);
-        if FileExists(xeTestConflictsFile) then
-          if not System.SysUtils.DeleteFile(xeTestConflictsFile) then
-            raise Exception.Create('could not replace ' + xeTestConflictsFile);
-        if not RenameFile(lTmpFile, xeTestConflictsFile) then
-          raise Exception.Create('could not rename ' + lTmpFile + ' to ' + xeTestConflictsFile);
+        if not MoveFileEx(PChar(lTmpFile), PChar(xeTestConflictsFile), MOVEFILE_REPLACE_EXISTING) then
+          RaiseLastOSError;
 
         wbProgress('Test Conflicts mode finished. ' + IntToStr(lData.Count) + ' rows written to ' +
                    xeTestConflictsFile);
@@ -21334,8 +21331,10 @@ begin
       lHeader.Free;
     end;
   except
-    on E: Exception do
+    on E: Exception do begin
       wbProgress('Test Conflicts mode FAILED: ' + E.ClassName + ': ' + E.Message);
+      CheckResult := 255;
+    end;
   end;
 end;
 
