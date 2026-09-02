@@ -21381,7 +21381,13 @@ begin
         end;
 
         if wbLoaderError then begin
-          ShowMessage('An error occured while loading modules. Editing is disabled. Check the message log and correct the error.');
+          if xeTestConflicts then begin
+            wbProgress('Test Conflicts mode FAILED: an error occured while loading modules');
+            CheckResult := 255;
+            if xeAutoExit then
+              tmrShutdown.Enabled := True;
+          end else
+            ShowMessage('An error occured while loading modules. Editing is disabled. Check the message log and correct the error.');
           Exit;
         end;
 
