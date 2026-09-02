@@ -491,12 +491,58 @@ begin
   BuildIndexFiles(aLoadOrder);
 end;
 
+function wbSoundBankJSONWithinBounds(const aData: TBytes): Boolean;
+const
+  cMaxBytes = 256 * 1024 * 1024;
+  cMaxDepth = 256;
+var
+  lDepth, lMaxDepth   : Integer;
+  lInString, lEscaped : Boolean;
+begin
+  Result := False;
+  if Length(aData) > cMaxBytes then
+    Exit;
+
+  lDepth := 0;
+  lMaxDepth := 0;
+  lInString := False;
+  lEscaped := False;
+  for var lByte in aData do
+    if lInString then begin
+      if lEscaped then
+        lEscaped := False
+      else if lByte = Ord('\') then
+        lEscaped := True
+      else if lByte = Ord('"') then
+        lInString := False;
+    end else
+      case lByte of
+        Ord('"'):
+          lInString := True;
+        Ord('{'), Ord('['): begin
+          Inc(lDepth);
+          if lDepth > lMaxDepth then
+            lMaxDepth := lDepth;
+        end;
+        Ord('}'), Ord(']'):
+          Dec(lDepth);
+      end;
+
+  Result := lMaxDepth <= cMaxDepth;
+end;
+
 procedure TwbSoundBankArray.BuildIndexFile(const aFileName, aModuleName: string);
 begin
   var lFile := wbContainerHandler.OpenResourceData('', aFileName);
 
   if Length(lFile) > 0 then
   begin
+    if not wbSoundBankJSONWithinBounds(lFile) then
+    begin
+      wbProgress('[%s] Skipped %s: larger or more deeply nested than a soundbank file can be', [aModuleName, aFileName]);
+      Exit;
+    end;
+
     var lJSON := TJSONObject.Create;
     try
       var lCount := 0;
