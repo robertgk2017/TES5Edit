@@ -5436,7 +5436,7 @@ begin
 
         sl.Clear;
         if wbToolSource in [tsPlugins] then begin
-          if (wbToolMode in wbPluginModes) or (xeAutoLoad and (GetAsyncKeyState(VK_CONTROL) >= 0)) then try
+          if (wbToolMode in wbPluginModes) or (xeAutoLoad and (xeTestConflicts or (GetAsyncKeyState(VK_CONTROL) >= 0))) then try
             if xeQuickClean then
               if Length(wbModulesByLoadOrder.FilteredByFlag(mfTaggedForPluginMode)) <> 1 then begin
                 ShowMessage('Exactly one module must be selected for Quick Clean mode.');
@@ -5589,7 +5589,7 @@ begin
       mniMasterAndLeafsDisabled.Checked := not OnlyShowMasterAndLeafs;
 
       // hold shift to skip building references
-      if (GetKeyState(VK_SHIFT) < 0) then begin
+      if not xeTestConflicts and (GetKeyState(VK_SHIFT) < 0) then begin
         wbBuildRefs := False;
         AddMessage('The SHIFT key is pressed, skip building references for all plugins!');
       end;
