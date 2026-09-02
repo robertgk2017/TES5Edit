@@ -560,20 +560,31 @@ end;
 
 procedure TwbSoundBankArray.BuildIndexFiles(const aFileNames: TStringList; const aModuleName: string = '');
 begin
-  for var I := 0 to Pred(aFileNames.Count) do
-  begin
-    var lFile := aFileNames[I];
-    var lFileName := TPath.GetFileNameWithoutExtension(lFile);
-    var lHash := TwbHash.FNV132(lFileName, True);
-    var lBankName := 'sound\soundbanks\' + UIntToStr(lHash) + '.json';
+  var lByHash := TDictionary<UInt32, string>.Create;
+  try
+    for var I := 0 to Pred(aFileNames.Count) do
+    begin
+      var lFile := aFileNames[I];
+      var lFileName := TPath.GetFileNameWithoutExtension(lFile);
+      var lHash := TwbHash.FNV132(lFileName, True);
+      var lBankName := 'sound\soundbanks\' + UIntToStr(lHash) + '.json';
 
-    var lModuleName: string;
-    if aModuleName <> '' then
-      lModuleName := aModuleName
-    else
-      lModuleName := ExtractFileName(lFile);
+      var lModuleName: string;
+      if aModuleName <> '' then
+        lModuleName := aModuleName
+      else
+        lModuleName := ExtractFileName(lFile);
 
-    BuildIndexFile(lBankName, lModuleName);
+      var lOther: string;
+      if lByHash.TryGetValue(lHash, lOther) then
+        wbProgress('[%s] %s is also the soundbank file of %s, the two names share one hash', [lModuleName, lBankName, ExtractFileName(lOther)])
+      else
+        lByHash.Add(lHash, lFile);
+
+      BuildIndexFile(lBankName, lModuleName);
+    end;
+  finally
+    lByHash.Free;
   end;
 end;
 
