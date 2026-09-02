@@ -21569,11 +21569,14 @@ begin
             end;
         end;
 
-        if xeTestConflicts then begin
-          DoTestConflictsDump;
-          if xeAutoExit then
-            tmrShutdown.Enabled := True;
-        end;
+        if xeTestConflicts then
+          if xeTestConflictsCompareTo <> '' then
+            TLoaderThread.Create(xeTestConflictsCompareTo, Files[High(Files)].FileName, Files[High(Files)].LoadOrder)
+          else begin
+            DoTestConflictsDump;
+            if xeAutoExit then
+              tmrShutdown.Enabled := True;
+          end;
       finally
         Dec(wbShowStartTime);
       end;
@@ -21661,6 +21664,16 @@ begin
           xeQuickClean := False;
           HideRemoveMessage := False;
         end;
+      end;
+
+      if xeTestConflicts then begin
+        if wbLoaderError then begin
+          wbProgress('Test Conflicts mode FAILED: an error occured while loading the compare to module');
+          CheckResult := 255;
+        end else
+          DoTestConflictsDump;
+        if xeAutoExit then
+          tmrShutdown.Enabled := True;
       end;
     end;
   finally

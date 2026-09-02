@@ -39,6 +39,7 @@ var
   xeAutoGameLink           : Boolean;
   xeTestConflicts          : Boolean;
   xeTestConflictsFile      : string;
+  xeTestConflictsCompareTo : string;
 
   xeParamIndex             : Integer = 1;     // First unused parameter
   xeModulesToUse           : TStringList;
@@ -1243,6 +1244,7 @@ begin
       end;
       xeTestConflicts := True;
       xeAutoLoad      := True;
+      wbFindCmdLineParam('comparetofile', xeTestConflictsCompareTo);
     end;
 
     if   FindCmdLineSwitch('autogamelink') or FindCmdLineSwitch('agl')
