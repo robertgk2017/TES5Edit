@@ -21241,6 +21241,7 @@ begin
         lHeader.Add('# Columns, tab separated:');
         lHeader.Add('#   load order / file / signature / load order FormID / local FormID /');
         lHeader.Add('#   EditorID / ConflictAll / ConflictThis');
+        lHeader.Add('#   EditorID escapes backslash, tab, CR and LF as \\ \t \r \n');
         lHeader.Add('#');
         lHeader.Add('# ConflictAll is the aggregate over the whole override chain and ConflictThis');
         lHeader.Add('# belongs to this record alone. Neither reaches individual fields: the child');
@@ -21299,6 +21300,10 @@ begin
 
             if lRec.CanHaveEditorID then
               lEditorID := lRec.EditorID
+                .Replace('\', '\\', [rfReplaceAll])
+                .Replace(#9, '\t', [rfReplaceAll])
+                .Replace(#13, '\r', [rfReplaceAll])
+                .Replace(#10, '\n', [rfReplaceAll])
             else
               lEditorID := '';
 
