@@ -978,6 +978,9 @@ begin
   if not Assigned(aElement) then
     Exit;
 
+  if esModified in aElement.ElementStates then
+    Exit;
+
   if wbBeginInternalEdit then
   try
     var lContainer := aElement as IwbContainerElementRef;
@@ -989,6 +992,8 @@ begin
         Continue;
 
       var lReferences := lRNAM.ElementByName['References'] as IwbContainerElementRef;
+      if not Assigned(lReferences) then
+        Continue;
 
       if lReferences.ElementCount = 0 then
         lRNAM.Remove;
@@ -1001,7 +1006,10 @@ end;
 
 procedure wbLargeRefsRNAMAfterLoad(const aElement: IwbElement);
 begin
-  if not Assigned(aElement) then
+  if not Assigned(aElement)then
+    Exit;
+
+  if esModified in aElement.ElementStates then
     Exit;
 
   if wbBeginInternalEdit then
@@ -1012,6 +1020,8 @@ begin
     var lY := lContainer.ElementNativeValues['Y'];
 
     var lRefs := lContainer.ElementByName['References'] as IwbContainerElementRef;
+    if not Assigned(lRefs) then
+      Exit;
 
     for var lIndex := Pred(lRefs.ElementCount) downto 0 do
     begin
