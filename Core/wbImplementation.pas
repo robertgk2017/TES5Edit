@@ -12754,12 +12754,12 @@ begin
     Exit;
   if MyBase^.mrsFlags._Flags <> OtherBase^.mrsFlags._Flags then
     Exit;
-  if MyBase^.mrsFormID <> OtherBase^.mrsFormID then
+  if MyBase^.mrsFormID^ <> OtherBase^.mrsFormID^ then
     Exit;
 
-  Inc(MyBase);
-  Inc(OtherBase);
-  Dec(MySize, SizeOf(TwbMainRecordStruct));
+  Inc(PByte(MyBase), wbSizeOfMainRecordStruct);
+  Inc(PByte(OtherBase), wbSizeOfMainRecordStruct);
+  Dec(MySize, wbSizeOfMainRecordStruct);
 
   Result := CompareMem(MyBase, OtherBase, MySize);
 end;
