@@ -6278,6 +6278,7 @@ type
     {---IwbValueDef---}
     function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
     function ToSummary(aDepth: Integer; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override;
+    function Check(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
     function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
     function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
     function ToEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
@@ -23740,6 +23741,22 @@ begin
   Used(aElement, Result);
 end;
 
+function TwbGuidDef.Check(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string;
+begin
+  Result := '';
+
+  var lLength := 0;
+  if Assigned(aBasePtr) and Assigned(aEndPtr) then
+    lLength := NativeInt(aEndPtr) - NativeInt(aBasePtr);
+  if lLength < 16 then begin
+    if wbCheckExpectedBytes then
+      Result := Format('Expected 16 bytes of data, found %d', [lLength]);
+    Exit;
+  end;
+
+  Result := inherited Check(aBasePtr, aEndPtr, aElement);
+end;
+
 function TwbGuidDef.ToStringInternal(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string;
 begin
   Result := '';
@@ -23747,8 +23764,11 @@ begin
   var lLength := 0;
   if Assigned(aBasePtr) and Assigned(aEndPtr) then
     lLength := NativeInt(aEndPtr) - NativeInt(aBasePtr);
-  if lLength < 16 then
+  if lLength < 16 then begin
+    if wbCheckExpectedBytes then
+      Result := Format('<Error: Expected 16 bytes of data, found %d>', [lLength]);
     Exit;
+  end;
 
   var pInt := PInt64(aBasePtr);
   Result := IntToHex(pInt^);

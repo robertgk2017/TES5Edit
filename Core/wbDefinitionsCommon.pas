@@ -5441,6 +5441,9 @@ begin
         Exit;
       end;
 
+      if not StartsText('{', aValue) then
+        Exit;
+
       var lName, lFilename: string;
       if wbSoundBankCache.TryLookupGUID(lNodeType, StringToGUID(aValue), lName, lFilename) then
         if lName <> '' then
