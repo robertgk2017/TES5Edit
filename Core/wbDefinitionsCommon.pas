@@ -9948,6 +9948,7 @@ begin
        .SetSummaryName('Rows')
        .IncludeFlag(dfCollapsed, wbCollapseObjectBounds)
        .IncludeFlag(dfFastAssign)
+       .IncludeFlag(dfInternalEditOnly)
        .IncludeFlag(dfNoCopyAsOverride)
        .IncludeFlag(dfNotAlignable));
 end;
@@ -10216,6 +10217,7 @@ begin
        .SetSummaryName('Rows')
        .IncludeFlag(dfCollapsed, wbCollapseOther)
        .IncludeFlag(dfFastAssign)
+       .IncludeFlag(dfInternalEditOnly)
        .IncludeFlag(dfNoCopyAsOverride)
        .IncludeFlag(dfNotAlignable));
 end;
