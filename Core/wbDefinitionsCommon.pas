@@ -5622,9 +5622,6 @@ begin
               end;
             end;
           end;
-
-          if lList1.Count = 0 then
-            lList1.Add('<Warning: Could not resolve Parent Node');
         end
         else
         begin

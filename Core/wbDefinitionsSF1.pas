@@ -9760,6 +9760,7 @@ begin
         .SetToStr(wbWwiseGUIDToStr),
       wbWwiseGuid('Variant')
         .SetNodeType(wntSwitch)
+        .SetParentNodePath('Category')
         .SetToStr(wbWwiseGUIDToStr)
     ]).IncludeFlag(dfCollapsed, wbCollapseSounds),
     wbStructSK(AFSG, [0,1], 'Foley Switch', [
@@ -9768,6 +9769,7 @@ begin
         .SetToStr(wbWwiseGUIDToStr),
       wbWwiseGuid('Variant')
         .SetNodeType(wntSwitch)
+        .SetParentNodePath('Category')
         .SetToStr(wbWwiseGUIDToStr)
     ]).IncludeFlag(dfCollapsed, wbCollapseSounds)
   ]).SetIgnoreList([FLLD, XFLG]);
