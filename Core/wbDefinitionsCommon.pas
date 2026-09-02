@@ -4130,6 +4130,7 @@ begin
   end else
     case aType of
       ctToStr, ctToSummary: Result := aInt.ToString;
+      ctToSortKey: Result := '00000000' + IntToHex(aInt, 4);
     end;
 end;
 
