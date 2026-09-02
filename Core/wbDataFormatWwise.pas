@@ -56,6 +56,8 @@ type
     FName: string;
     FParent: TwbWwiseObject;
     FRoot: TwbSoundBankArray;
+
+    function DisplayName: string; virtual;
   end;
 
   TwbActionSetState = class(TwbWwiseObject) end;
@@ -64,8 +66,13 @@ type
   TwbExternalSource = class(TwbWwiseObject) end;
   TwbGameParameter = class(TwbWwiseObject) end;
   TwbIncludedAuxBuss = class(TwbWwiseObject) end;
-  TwbSwitch = class(TwbWwiseObject) end;
-  TwbState = class(TwbWwiseObject) end;
+
+  TwbGroupMember = class(TwbWwiseObject)
+    function DisplayName: string; override;
+  end;
+
+  TwbSwitch = class(TwbGroupMember) end;
+  TwbState = class(TwbGroupMember) end;
 
   TwbSwitchGroup = class(TwbWwiseObject)
   public
@@ -211,6 +218,20 @@ begin
 
   Inc(aCount, aStateGroup.Count);
   //wbProgress('Processed [%d] States', [aStateGroup.Count]);
+end;
+
+{ TwbWwiseObject }
+
+function TwbWwiseObject.DisplayName: string;
+begin
+  Result := FName;
+end;
+
+{ TwbGroupMember }
+
+function TwbGroupMember.DisplayName: string;
+begin
+  Result := Format('%s [%s]', [FName, FParent.FName]);
 end;
 
 { TwbIncludedEvent }
@@ -694,7 +715,7 @@ begin
         
         for var I := 0 to Pred(Length(lGroup.FSwitches)) do
         begin
-          aList.Add(Format('%s [%s]', [lGroup.FSwitches[I].FName, lBank.FFilename]));
+          aList.Add(Format('%s [%s]', [lGroup.FSwitches[I].DisplayName, lBank.FFilename]));
         end;
       end;
     end;
@@ -734,7 +755,7 @@ procedure TwbSoundBankArray.RegisterNode(const aNodeType     : TwbWwiseNodeType;
                                          const aObject       : TwbWwiseObject;
                                          const aBankFilename : string);
 begin
-  var lDisplayString := Format('%s [%s]', [aObject.FName, aBankFileName]);
+  var lDisplayString := Format('%s [%s]', [aObject.DisplayName, aBankFileName]);
   FDisplayMap[aNodeType].TryAdd(lDisplayString, aObject.FGUID);
 
   FGuidMap[aNodeType].TryAdd(aObject.FGUID, aObject);
@@ -788,7 +809,7 @@ begin
   Result := FGuidMap[aNodeType].TryGetValue(aGUID, lObj);
   if Result then
   begin
-    aName := lObj.FName;
+    aName := lObj.DisplayName;
 
     var lParent := lObj;
     while not (lParent is TwbSoundBank)  do
