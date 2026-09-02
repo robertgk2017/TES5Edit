@@ -525,7 +525,7 @@ begin
     if aModuleName <> '' then
       lModuleName := aModuleName
     else
-      lModuleName := lFile;
+      lModuleName := ExtractFileName(lFile);
 
     BuildIndexFile(lBankName, lModuleName);
   end;
