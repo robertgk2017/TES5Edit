@@ -543,16 +543,17 @@ begin
       var lSoundBank := lSoundBanks[I];
       SetLength(FSoundBanks, Succ(Length(FSoundBanks)));
 
-      FSoundBanks[High(FSoundBanks)] := TwbSoundBank.Create;
+      var lIdx := High(FSoundBanks);
+      FSoundBanks[lIdx] := TwbSoundBank.Create;
 
-      with FSoundBanks[I] do
+      with FSoundBanks[lIdx] do
       begin
         FFilename := aModuleName;
         FGUID := StringToGUID(lSoundBank.S['GUID']);
         FName := lSoundBank.S['ShortName'];
         FRoot := Self;
 
-        RegisterNode(wntSoundBank, FSoundBanks[I], FFilename);
+        RegisterNode(wntSoundBank, FSoundBanks[lIdx], FFilename);
 
         BuildSoundBank(lSoundBank, aCount, FFilename);
       end;
