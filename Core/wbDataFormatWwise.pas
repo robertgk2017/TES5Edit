@@ -132,6 +132,7 @@ type
     var FDisplayMap: TDictionary<TwbWwiseNodeType, TDictionary<string, TGUID>>;
     var FGuidMap: TDictionary<TwbWwiseNodeType, TDictionary<TGUID, TwbWwiseObject>>;
     var FSoundBanks: TArray<TwbSoundBank>;
+    var FOwned: TObjectDictionary<TwbWwiseObject, Boolean>;
 
     procedure BuildIndexFile(const aFileName, aModuleName: string);
     procedure BuildIndexFiles(const aFileNames: TStringList; const aModuleName: string = '');
@@ -570,6 +571,7 @@ begin
   FComboBoxMap := TDictionary<string, TDictionary<TwbWwiseNodeType, TStringList>>.Create(TIStringComparer.Ordinal);
   FDisplayMap := TDictionary<TwbWwiseNodeType, TDictionary<string, TGUID>>.Create;
   FGuidMap := TDictionary<TwbWwiseNodeType, TDictionary<TGUID, TwbWwiseObject>>.Create;
+  FOwned := TObjectDictionary<TwbWwiseObject, Boolean>.Create([doOwnsKeys]);
 
   for var lNodeType := Low(TwbWwiseNodeType) to High(TwbWwiseNodeType) do
   begin
@@ -603,6 +605,7 @@ begin
   FComboBoxMap.Free;
   FDisplayMap.Free;
   FGuidMap.Free;
+  FOwned.Free;
 
   inherited;
 end;
@@ -678,6 +681,7 @@ begin
   FDisplayMap[aNodeType].TryAdd(lDisplayString, aObject.FGUID);
 
   FGuidMap[aNodeType].TryAdd(aObject.FGUID, aObject);
+  FOwned.TryAdd(aObject, True);
 
   var lInnerMap: TDictionary<TwbWwiseNodeType, TStringList>;
   if not FComboBoxMap.TryGetValue(aBankFilename, lInnerMap) then
