@@ -1711,16 +1711,19 @@ begin
             end;
           end;
 
+          ReportProgress('[' + wbDataPath + '] Setting Resource Path.');
+          wbContainerHandler.AddFolder(wbDataPath);
+
           if wbGameMode in [gmSF1] then
             wbBuildSoundBankCache(Masters);
 
         finally
           FreeAndNil(Masters);
         end;
+      end else begin
+        ReportProgress('[' + wbDataPath + '] Setting Resource Path.');
+        wbContainerHandler.AddFolder(wbDataPath);
       end;
-
-      ReportProgress('[' + wbDataPath + '] Setting Resource Path.');
-      wbContainerHandler.AddFolder(wbDataPath);
 
       wbResourcesLoaded;
 
