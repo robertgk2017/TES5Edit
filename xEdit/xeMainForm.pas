@@ -1319,7 +1319,7 @@ uses
 
   DDetours,
 
-  Diff,
+  wbDiff,
 
   ImagingTypes,
 
