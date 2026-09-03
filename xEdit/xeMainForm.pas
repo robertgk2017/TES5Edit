@@ -818,7 +818,7 @@ type
     procedure UpdatePnlCancelVisible;
   public
     procedure ConflictLevelForMainRecord(const aMainRecord: IwbMainRecord; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
-    function ConflictLevelForChildNodeDatas(const aNodeDatas: TDynViewNodeDatas; aSiblingCompare, aInjected: Boolean; const aConfig: TwbConflictConfig; const aOnField: TFieldConflictProc = nil): TConflictAll;
+    function ConflictLevelForChildNodeDatas(const aNodeDatas: TDynViewNodeDatas; aSiblingCompare, aInjected: Boolean; const aConfig: TwbConflictConfig; const aOnMessage: TwbConflictMessageProc; const aOnField: TFieldConflictProc = nil): TConflictAll;
     function ConflictLevelForNodeDatas(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer; aSiblingCompare, aInjected: Boolean): TConflictAll;
 
     procedure DoTestConflictsDump;
@@ -2403,12 +2403,14 @@ begin
         NodeDatas[0].ConflictThis := ctMaster;
         NodeDatas[1].ConflictThis := ctIdenticalToMaster;
       end else begin
-        aConflictAll := ConflictLevelForChildNodeDatas(NodeDatas, False, (aMainRecord.MasterOrSelf.IsInjected and not ((aMainRecord.Signature = 'GMST') or (aMainRecord.Signature = 'DFOB')) ), TwbConflictConfig.Current);
+        aConflictAll := ConflictLevelForChildNodeDatas(NodeDatas, False, (aMainRecord.MasterOrSelf.IsInjected and not ((aMainRecord.Signature = 'GMST') or (aMainRecord.Signature = 'DFOB')) ), TwbConflictConfig.Current,
+        procedure(const aMessage: string) begin PostAddMessage(aMessage); end);
         if aConflictAll = caNoConflict then
           IsCompareToSame;
       end
     end else
-      aConflictAll := ConflictLevelForChildNodeDatas(NodeDatas, False, (aMainRecord.MasterOrSelf.IsInjected and not ((aMainRecord.Signature = 'GMST') or (aMainRecord.Signature = 'DFOB')) ), TwbConflictConfig.Current);
+      aConflictAll := ConflictLevelForChildNodeDatas(NodeDatas, False, (aMainRecord.MasterOrSelf.IsInjected and not ((aMainRecord.Signature = 'GMST') or (aMainRecord.Signature = 'DFOB')) ), TwbConflictConfig.Current,
+        procedure(const aMessage: string) begin PostAddMessage(aMessage); end);
 
     for i := Low(NodeDatas) to High(NodeDatas) do
       with NodeDatas[i] do
@@ -4527,98 +4529,10 @@ begin
   SetLength(Result, j);
 end;
 
-function TfrmMain.ConflictLevelForChildNodeDatas(const aNodeDatas: TDynViewNodeDatas; aSiblingCompare, aInjected: Boolean; const aConfig: TwbConflictConfig; const aOnField: TFieldConflictProc = nil): TConflictAll;
-var
-  ChildCount    : Cardinal;
-  i, j          : Integer;
-  NodeDatas     : TDynViewNodeDatas;
-  States        : TwbConflictNodeStates;
-  ConflictAll   : TConflictAll;
-  ConflictThis  : TConflictThis;
-  Element       : IwbElement;
-  ElementCount  : Integer;
+function TfrmMain.ConflictLevelForChildNodeDatas(const aNodeDatas: TDynViewNodeDatas; aSiblingCompare, aInjected: Boolean; const aConfig: TwbConflictConfig; const aOnMessage: TwbConflictMessageProc; const aOnField: TFieldConflictProc = nil): TConflictAll;
 begin
-  case Length(aNodeDatas) of
-    0: Result := caUnknown;
-    1: begin
-      Result := caOnlyOne;
-      if not aConfig.TranslationMode then
-        aNodeDatas[0].ConflictThis := ctOnlyOne;
-    end;
-  else
-    Result := caNoConflict;
-  end;
-
-  if aConfig.TranslationMode then begin
-    if Result < caOnlyOne then
-      Exit;
-  end
-  else begin
-    if Result < caNoConflict then
-      Exit;
-  end;
-
-  ChildCount := 0;
-  InitChildren(@aNodeDatas[0], Length(aNodeDatas), ChildCount, aConfig,
-    procedure(const aMessage: string)
-    begin
-      PostAddMessage(aMessage);
-    end);
-  if ChildCount > 0 then
-    for i := 0 to Pred(ChildCount) do begin
-      NodeDatas := nil;
-      SetLength(NodeDatas, Length(aNodeDatas));
-      States := [];
-      InitNodes(@NodeDatas[0], @aNodeDatas[0], Length(aNodeDatas), i, States, nil);
-      if not (cnsDisabled in States) then begin
-
-        if cnsHasChildren in States then
-          ConflictAll := ConflictLevelForChildNodeDatas(NodeDatas, aSiblingCompare, aInjected, aConfig, aOnField)
-        else begin
-          ConflictAll := ConflictLevelForNodeDatas(@NodeDatas[0], Length(NodeDatas), aSiblingCompare, aInjected);
-          if Assigned(aOnField) then
-            aOnField(NodeDatas, ConflictAll);
-        end;
-
-        if ConflictAll > Result then
-          Result := ConflictAll;
-
-        for j := Low(aNodeDatas) to High(aNodeDatas) do
-          if NodeDatas[j].ConflictThis > aNodeDatas[j].ConflictThis then
-            aNodeDatas[j].ConflictThis := NodeDatas[j].ConflictThis;
-
-      end
-      else begin
-
-        ConflictThis := ctNotDefined;
-
-        for j := Low(aNodeDatas) to High(aNodeDatas) do begin
-          Element := aNodeDatas[j].Container;
-          if Assigned(Element) then
-            Break;
-        end;
-
-        if Assigned(Element) and (Element.ElementType in [etMainRecord, etSubRecordStruct]) then begin
-          ElementCount := (Element.Def as IwbRecordDef).MemberCount;
-          j := (Element as IwbContainer).AdditionalElementCount;
-          if (i >= j) and (i-j < ElementCount) then
-            with (Element.Def as IwbRecordDef).Members[i - j] do
-              if (aConfig.TranslationMode and (not (dfTranslatable in DefFlags))) or
-                (aConfig.TranslationMode and (ConflictPriority[nil] = cpIgnore)) then
-                ConflictThis := ctIgnored;
-        end;
-
-        if not Assigned(Element) then
-          if aConfig.TranslationMode then
-            ConflictThis := ctIgnored;
-
-        for j := Low(aNodeDatas) to High(aNodeDatas) do
-          if ConflictThis > aNodeDatas[j].ConflictThis then
-            aNodeDatas[j].ConflictThis := ConflictThis;
-      end;
-    end;
+  Result := wbConflictLevelForChildNodeDatas(aNodeDatas, aSiblingCompare, aInjected, aConfig, aOnMessage, aOnField);
 end;
-
 destructor TfrmMain.Destroy;
 begin
   inherited;
@@ -20755,7 +20669,9 @@ begin
                   lChainKey := IntToHex(lRec.LoadOrderFormID.ToCardinal, 8) + cTab + string(lRec.Signature) + cTab;
                   ConflictLevelForChildNodeDatas(lChain, False,
                     lRec.MasterOrSelf.IsInjected and not ((lRec.Signature = 'GMST') or (lRec.Signature = 'DFOB')),
-                    TwbConflictConfig.Current, lOnField);
+                    TwbConflictConfig.Current,
+                    procedure(const aMessage: string) begin PostAddMessage(aMessage); end,
+                    lOnField);
                 end;
               end;
             end;

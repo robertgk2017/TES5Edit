@@ -17,6 +17,8 @@ procedure wbConflictInitNodes(const aNodeDatas: PwbConflictNodeDatas;
 procedure wbConflictInitChildren(const aNodeDatas: PwbConflictNodeDatas; aNodeCount: Integer;
   var aChildCount: Cardinal; const aConfig: TwbConflictConfig; const aOnMessage: TwbConflictMessageProc);
 
+function wbConflictLevelForChildNodeDatas(const aNodeDatas: TwbDynConflictNodeDatas; aSiblingCompare, aInjected: Boolean; const aConfig: TwbConflictConfig; const aOnMessage: TwbConflictMessageProc; const aOnField: TwbFieldConflictProc = nil): TConflictAll;
+
 implementation
 
 uses
@@ -644,6 +646,94 @@ begin
       AllKeys.Free;
     end;
   end;
+end;
+
+function wbConflictLevelForChildNodeDatas(const aNodeDatas: TwbDynConflictNodeDatas; aSiblingCompare, aInjected: Boolean; const aConfig: TwbConflictConfig; const aOnMessage: TwbConflictMessageProc; const aOnField: TwbFieldConflictProc): TConflictAll;
+var
+  ChildCount    : Cardinal;
+  i, j          : Integer;
+  NodeDatas     : TwbDynConflictNodeDatas;
+  States        : TwbConflictNodeStates;
+  ConflictAll   : TConflictAll;
+  ConflictThis  : TConflictThis;
+  Element       : IwbElement;
+  ElementCount  : Integer;
+begin
+  case Length(aNodeDatas) of
+    0: Result := caUnknown;
+    1: begin
+      Result := caOnlyOne;
+      if not aConfig.TranslationMode then
+        aNodeDatas[0].ConflictThis := ctOnlyOne;
+    end;
+  else
+    Result := caNoConflict;
+  end;
+
+  if aConfig.TranslationMode then begin
+    if Result < caOnlyOne then
+      Exit;
+  end
+  else begin
+    if Result < caNoConflict then
+      Exit;
+  end;
+
+  ChildCount := 0;
+  wbConflictInitChildren(@aNodeDatas[0], Length(aNodeDatas), ChildCount, aConfig, aOnMessage);
+  if ChildCount > 0 then
+    for i := 0 to Pred(ChildCount) do begin
+      NodeDatas := nil;
+      SetLength(NodeDatas, Length(aNodeDatas));
+      States := [];
+      wbConflictInitNodes(@NodeDatas[0], @aNodeDatas[0], Length(aNodeDatas), i, States, nil);
+      if not (cnsDisabled in States) then begin
+
+        if cnsHasChildren in States then
+          ConflictAll := wbConflictLevelForChildNodeDatas(NodeDatas, aSiblingCompare, aInjected, aConfig, aOnMessage, aOnField)
+        else begin
+          ConflictAll := wbConflictLevelForNodeDatas(@NodeDatas[0], Length(NodeDatas), aSiblingCompare, aInjected);
+          if Assigned(aOnField) then
+            aOnField(NodeDatas, ConflictAll);
+        end;
+
+        if ConflictAll > Result then
+          Result := ConflictAll;
+
+        for j := Low(aNodeDatas) to High(aNodeDatas) do
+          if NodeDatas[j].ConflictThis > aNodeDatas[j].ConflictThis then
+            aNodeDatas[j].ConflictThis := NodeDatas[j].ConflictThis;
+
+      end
+      else begin
+
+        ConflictThis := ctNotDefined;
+
+        for j := Low(aNodeDatas) to High(aNodeDatas) do begin
+          Element := aNodeDatas[j].Container;
+          if Assigned(Element) then
+            Break;
+        end;
+
+        if Assigned(Element) and (Element.ElementType in [etMainRecord, etSubRecordStruct]) then begin
+          ElementCount := (Element.Def as IwbRecordDef).MemberCount;
+          j := (Element as IwbContainer).AdditionalElementCount;
+          if (i >= j) and (i-j < ElementCount) then
+            with (Element.Def as IwbRecordDef).Members[i - j] do
+              if (aConfig.TranslationMode and (not (dfTranslatable in DefFlags))) or
+                (aConfig.TranslationMode and (ConflictPriority[nil] = cpIgnore)) then
+                ConflictThis := ctIgnored;
+        end;
+
+        if not Assigned(Element) then
+          if aConfig.TranslationMode then
+            ConflictThis := ctIgnored;
+
+        for j := Low(aNodeDatas) to High(aNodeDatas) do
+          if ConflictThis > aNodeDatas[j].ConflictThis then
+            aNodeDatas[j].ConflictThis := ConflictThis;
+      end;
+    end;
 end;
 
 end.

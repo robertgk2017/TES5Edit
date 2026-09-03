@@ -1,4 +1,4 @@
-﻿{******************************************************************************
+{******************************************************************************
 
   This Source Code Form is subject to the terms of the Mozilla Public License,
   v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain
@@ -465,7 +465,8 @@ begin
   Value := caUnknown;
   if Length(NodeDatas) > 0 then
     if Assigned(NodeDatas[0].Container) then
-      Value := frmMain.ConflictLevelForChildNodeDatas(NodeDatas, Args.Values[i+1], Args.Values[i+2], TwbConflictConfig.Current)
+      Value := frmMain.ConflictLevelForChildNodeDatas(NodeDatas, Args.Values[i+1], Args.Values[i+2], TwbConflictConfig.Current,
+        procedure(const aMessage: string) begin frmMain.PostAddMessage(aMessage); end)
     else
       Value := frmMain.ConflictLevelForNodeDatas(@NodeDatas[0], Length(NodeDatas), Args.Values[i+1], Args.Values[i+2]);
 end;
