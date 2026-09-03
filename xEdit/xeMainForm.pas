@@ -121,6 +121,8 @@ type
 
   TDynViewNodeDatas = array of TViewNodeData;
 
+  TFieldConflictProc = reference to procedure(const aNodeDatas: TDynViewNodeDatas; aConflictAll: TConflictAll);
+
   TSpreadSheetNodeDatas = array[Word] of TSpreadSheetNodeData;
   PSpreadSheetNodeDatas = ^TSpreadSheetNodeDatas;
 
@@ -834,7 +836,7 @@ type
   public
     procedure ConflictLevelForMainRecord(const aMainRecord: IwbMainRecord; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
     procedure ConflictLevelForContainer(const aContainer: IwbDataContainer; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
-    function ConflictLevelForChildNodeDatas(const aNodeDatas: TDynViewNodeDatas; aSiblingCompare, aInjected: Boolean): TConflictAll;
+    function ConflictLevelForChildNodeDatas(const aNodeDatas: TDynViewNodeDatas; aSiblingCompare, aInjected: Boolean; const aOnField: TFieldConflictProc = nil): TConflictAll;
     function ConflictLevelForNodeDatas(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer; aSiblingCompare, aInjected: Boolean): TConflictAll;
 
     procedure DoTestConflictsDump;
@@ -4879,7 +4881,7 @@ begin
   SetLength(Result, j);
 end;
 
-function TfrmMain.ConflictLevelForChildNodeDatas(const aNodeDatas: TDynViewNodeDatas; aSiblingCompare, aInjected: Boolean): TConflictAll;
+function TfrmMain.ConflictLevelForChildNodeDatas(const aNodeDatas: TDynViewNodeDatas; aSiblingCompare, aInjected: Boolean; const aOnField: TFieldConflictProc = nil): TConflictAll;
 var
   ChildCount    : Cardinal;
   i, j          : Integer;
@@ -4921,9 +4923,12 @@ begin
       if not (ivsDisabled in InitialStates) then begin
 
         if ivsHasChildren in InitialStates then
-          ConflictAll := ConflictLevelForChildNodeDatas(NodeDatas, aSiblingCompare, aInjected)
-        else
+          ConflictAll := ConflictLevelForChildNodeDatas(NodeDatas, aSiblingCompare, aInjected, aOnField)
+        else begin
           ConflictAll := ConflictLevelForNodeDatas(@NodeDatas[0], Length(NodeDatas), aSiblingCompare, aInjected);
+          if Assigned(aOnField) then
+            aOnField(NodeDatas, ConflictAll);
+        end;
 
         if ConflictAll > Result then
           Result := ConflictAll;
@@ -21229,6 +21234,12 @@ var
   i, j           : Integer;
   lTmpFile       : string;
   lEditorID      : string;
+  lFields        : TStreamWriter;
+  lFieldsTmp     : string;
+  lFieldRows     : Integer;
+  lChain         : TDynViewNodeDatas;
+  lChainKey      : string;
+  lOnField       : TFieldConflictProc;
 begin
   try
     lHeader := TStringList.Create;
@@ -21288,34 +21299,115 @@ begin
         end;
         lHeader.Add('#');
 
-        for i := Low(Files) to High(Files) do begin
-          lFile := Files[i];
-          wbProgress('[Test Conflicts] ' + lFile.FileName + ' (' + IntToStr(lFile.RecordCount) + ' records)');
-          for j := 0 to Pred(lFile.RecordCount) do begin
-            lRec := lFile.Records[j];
-            if not Assigned(lRec) then
-              Continue;
+        lFields := nil;
+        lOnField := nil;
+        lFieldRows := 0;
+        try
+          if xeTestConflictsFieldsFile <> '' then begin
+            lFieldsTmp := xeTestConflictsFieldsFile + '.partial';
+            lFields := TStreamWriter.Create(lFieldsTmp, False, TEncoding.UTF8);
+            lFields.WriteLine('# xEdit conflict status dump, fields');
+            lFields.WriteLine('# ' + wbApplicationTitle);
+            lFields.WriteLine('#');
+            lFields.WriteLine('# Columns, tab separated:');
+            lFields.WriteLine('#   load order FormID of the first record in the override chain / signature /');
+            lFields.WriteLine('#   element path / ConflictAll of this element over the chain / load order /');
+            lFields.WriteLine('#   file / ConflictThis of this file''s element');
+            lFields.WriteLine('#   The path escapes tab, CR and LF as \t \r \n');
+            lFields.WriteLine('#');
+            lFields.WriteLine('# One row per element per file of the chain, in walk order: files in load');
+            lFields.WriteLine('# order, records in file order, elements in tree order. A file whose record');
+            lFields.WriteLine('# lacks the element still gets a row, carrying the verdict the comparison gave');
+            lFields.WriteLine('# the missing element. Every chain of two or more records is walked, including');
+            lFields.WriteLine('# a compare to pair the record dump reports as identical to master.');
+            lFields.WriteLine('# The row count is the last line.');
+            lFields.WriteLine('#');
+            lOnField :=
+              procedure(const aNodeDatas: TDynViewNodeDatas; aConflictAll: TConflictAll)
+              var
+                k        : Integer;
+                lElement : IwbElement;
+                lPath    : string;
+                lMember  : IwbMainRecord;
+                lWhere   : string;
+              begin
+                lElement := nil;
+                for k := Low(aNodeDatas) to High(aNodeDatas) do
+                  if Assigned(aNodeDatas[k].Element) then begin
+                    lElement := aNodeDatas[k].Element;
+                    Break;
+                  end;
+                if not Assigned(lElement) then
+                  Exit;
 
-            ConflictLevelForMainRecord(lRec, lCA, lCT);
+                lPath := lElement.Path
+                  .Replace(#9, '\t', [rfReplaceAll])
+                  .Replace(#13, '\r', [rfReplaceAll])
+                  .Replace(#10, '\n', [rfReplaceAll]);
 
-            if lRec.CanHaveEditorID then
-              lEditorID := lRec.EditorID
-                .Replace('\', '\\', [rfReplaceAll])
-                .Replace(#9, '\t', [rfReplaceAll])
-                .Replace(#13, '\r', [rfReplaceAll])
-                .Replace(#10, '\n', [rfReplaceAll])
-            else
-              lEditorID := '';
-
-            lData.Add(Format('%.3d', [lFile.LoadOrder]) + cTab +
-                      lFile.FileName + cTab +
-                      string(lRec.Signature) + cTab +
-                      IntToHex(lRec.LoadOrderFormID.ToCardinal, 8) + cTab +
-                      IntToHex(lRec.FormID.ToCardinal, 8) + cTab +
-                      lEditorID + cTab +
-                      wbNameConflictAll[lCA] + cTab +
-                      wbNameConflictThis[lCT]);
+                for k := Low(aNodeDatas) to High(aNodeDatas) do begin
+                  if (k <= High(lChain)) and Supports(lChain[k].Element, IwbMainRecord, lMember) then
+                    lWhere := Format('%.3d', [lMember._File.LoadOrder]) + cTab + lMember._File.FileName
+                  else
+                    lWhere := cTab;
+                  lFields.WriteLine(lChainKey + lPath + cTab +
+                                    wbNameConflictAll[aConflictAll] + cTab +
+                                    lWhere + cTab +
+                                    wbNameConflictThis[aNodeDatas[k].ConflictThis]);
+                  Inc(lFieldRows);
+                end;
+              end;
           end;
+
+          for i := Low(Files) to High(Files) do begin
+            lFile := Files[i];
+            wbProgress('[Test Conflicts] ' + lFile.FileName + ' (' + IntToStr(lFile.RecordCount) + ' records)');
+            for j := 0 to Pred(lFile.RecordCount) do begin
+              lRec := lFile.Records[j];
+              if not Assigned(lRec) then
+                Continue;
+
+              ConflictLevelForMainRecord(lRec, lCA, lCT);
+
+              if lRec.CanHaveEditorID then
+                lEditorID := lRec.EditorID
+                  .Replace('\', '\\', [rfReplaceAll])
+                  .Replace(#9, '\t', [rfReplaceAll])
+                  .Replace(#13, '\r', [rfReplaceAll])
+                  .Replace(#10, '\n', [rfReplaceAll])
+              else
+                lEditorID := '';
+
+              lData.Add(Format('%.3d', [lFile.LoadOrder]) + cTab +
+                        lFile.FileName + cTab +
+                        string(lRec.Signature) + cTab +
+                        IntToHex(lRec.LoadOrderFormID.ToCardinal, 8) + cTab +
+                        IntToHex(lRec.FormID.ToCardinal, 8) + cTab +
+                        lEditorID + cTab +
+                        wbNameConflictAll[lCA] + cTab +
+                        wbNameConflictThis[lCT]);
+
+              if Assigned(lFields) then begin
+                lChain := NodeDatasForMainRecord(lRec);
+                if (Length(lChain) > 1) and Assigned(lChain[0].Element) and lChain[0].Element.Equals(lRec) then begin
+                  lChainKey := IntToHex(lRec.LoadOrderFormID.ToCardinal, 8) + cTab + string(lRec.Signature) + cTab;
+                  ConflictLevelForChildNodeDatas(lChain, False,
+                    lRec.MasterOrSelf.IsInjected and not ((lRec.Signature = 'GMST') or (lRec.Signature = 'DFOB')),
+                    lOnField);
+                end;
+              end;
+            end;
+          end;
+
+          if Assigned(lFields) then begin
+            lFields.WriteLine('# rows: ' + IntToStr(lFieldRows));
+            FreeAndNil(lFields);
+            if not MoveFileEx(PChar(lFieldsTmp), PChar(xeTestConflictsFieldsFile), MOVEFILE_REPLACE_EXISTING) then
+              RaiseLastOSError;
+            wbProgress('Test Conflicts fields: ' + IntToStr(lFieldRows) + ' rows written to ' + xeTestConflictsFieldsFile);
+          end;
+        finally
+          lFields.Free;
         end;
 
         lData.CustomSort(xeCompareTestConflictRows);
