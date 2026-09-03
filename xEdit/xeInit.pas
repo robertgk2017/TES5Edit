@@ -39,6 +39,7 @@ var
   xeAutoGameLink           : Boolean;
   xeTestConflicts          : Boolean;
   xeTestConflictsFile      : string;
+  xeTestConflictsCompareTo : string;
 
   xeParamIndex             : Integer = 1;     // First unused parameter
   xeModulesToUse           : TStringList;
@@ -1243,6 +1244,7 @@ begin
       end;
       xeTestConflicts := True;
       xeAutoLoad      := True;
+      wbFindCmdLineParam('comparetofile', xeTestConflictsCompareTo);
     end;
 
     if   FindCmdLineSwitch('autogamelink') or FindCmdLineSwitch('agl')
@@ -1276,21 +1278,6 @@ begin
 
   if xeQuickClean then
     wbWriteOffsetData := True;
-
-  i := 0;
-  if xeQuickShowConflicts then
-    Inc(i);
-  if xeQuickClean then
-    Inc(i);
-  if xeAutoGameLink then
-    Inc(i);
-  if xeTestConflicts then
-    Inc(i);
-
-  if i > 1 then begin
-    ShowMessage('Can''t activate more than one out of Quick Clean, Quick Show Conflicts, Auto GameLink, or Test Conflicts modes same time.');
-    Exit(False);
-  end;
 
   if xeQuickClean then begin
     wbIKnowWhatImDoing := True;
@@ -1482,6 +1469,28 @@ begin
   if (not xeQuickEdit) and wbFindCmdLineParam('generateseq', xePluginToUse) then begin
     xeAutoLoad := True;
     xeQuickSEQ := True;
+  end;
+
+  i := 0;
+  if xeQuickShowConflicts then
+    Inc(i);
+  if xeQuickClean then
+    Inc(i);
+  if xeAutoGameLink then
+    Inc(i);
+  if xeTestConflicts then
+    Inc(i);
+  if xeQuickEdit then
+    Inc(i);
+  if xeQuickSEQ then
+    Inc(i);
+
+  if i > 1 then begin
+    if xeTestConflicts then
+      ExitCode := 255
+    else
+      ShowMessage('Can''t activate more than one out of Quick Clean, Quick Show Conflicts, Auto GameLink, Test Conflicts, Quick Edit, or Generate SEQ modes same time.');
+    Exit(False);
   end;
 
   if wbToolMode in wbPluginModes then // look for the file name

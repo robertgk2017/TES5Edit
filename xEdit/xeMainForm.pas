@@ -5436,7 +5436,7 @@ begin
 
         sl.Clear;
         if wbToolSource in [tsPlugins] then begin
-          if (wbToolMode in wbPluginModes) or (xeAutoLoad and (GetAsyncKeyState(VK_CONTROL) >= 0)) then try
+          if (wbToolMode in wbPluginModes) or (xeAutoLoad and (xeTestConflicts or (GetAsyncKeyState(VK_CONTROL) >= 0))) then try
             if xeQuickClean then
               if Length(wbModulesByLoadOrder.FilteredByFlag(mfTaggedForPluginMode)) <> 1 then begin
                 ShowMessage('Exactly one module must be selected for Quick Clean mode.');
@@ -5589,7 +5589,7 @@ begin
       mniMasterAndLeafsDisabled.Checked := not OnlyShowMasterAndLeafs;
 
       // hold shift to skip building references
-      if (GetKeyState(VK_SHIFT) < 0) then begin
+      if not xeTestConflicts and (GetKeyState(VK_SHIFT) < 0) then begin
         wbBuildRefs := False;
         AddMessage('The SHIFT key is pressed, skip building references for all plugins!');
       end;
@@ -21251,6 +21251,7 @@ begin
         lHeader.Add('# Columns, tab separated:');
         lHeader.Add('#   load order / file / signature / load order FormID / local FormID /');
         lHeader.Add('#   EditorID / ConflictAll / ConflictThis');
+        lHeader.Add('#   EditorID escapes backslash, tab, CR and LF as \\ \t \r \n');
         lHeader.Add('#');
         lHeader.Add('# ConflictAll is the aggregate over the whole override chain and ConflictThis');
         lHeader.Add('# belongs to this record alone. Neither reaches individual fields: the child');
@@ -21309,6 +21310,10 @@ begin
 
             if lRec.CanHaveEditorID then
               lEditorID := lRec.EditorID
+                .Replace('\', '\\', [rfReplaceAll])
+                .Replace(#9, '\t', [rfReplaceAll])
+                .Replace(#13, '\r', [rfReplaceAll])
+                .Replace(#10, '\n', [rfReplaceAll])
             else
               lEditorID := '';
 
@@ -21329,11 +21334,8 @@ begin
 
         lTmpFile := xeTestConflictsFile + '.partial';
         lHeader.SaveToFile(lTmpFile, TEncoding.UTF8);
-        if FileExists(xeTestConflictsFile) then
-          if not System.SysUtils.DeleteFile(xeTestConflictsFile) then
-            raise Exception.Create('could not replace ' + xeTestConflictsFile);
-        if not RenameFile(lTmpFile, xeTestConflictsFile) then
-          raise Exception.Create('could not rename ' + lTmpFile + ' to ' + xeTestConflictsFile);
+        if not MoveFileEx(PChar(lTmpFile), PChar(xeTestConflictsFile), MOVEFILE_REPLACE_EXISTING) then
+          RaiseLastOSError;
 
         wbProgress('Test Conflicts mode finished. ' + IntToStr(lData.Count) + ' rows written to ' +
                    xeTestConflictsFile);
@@ -21344,8 +21346,10 @@ begin
       lHeader.Free;
     end;
   except
-    on E: Exception do
+    on E: Exception do begin
       wbProgress('Test Conflicts mode FAILED: ' + E.ClassName + ': ' + E.Message);
+      CheckResult := 255;
+    end;
   end;
 end;
 
@@ -21392,7 +21396,13 @@ begin
         end;
 
         if wbLoaderError then begin
-          ShowMessage('An error occured while loading modules. Editing is disabled. Check the message log and correct the error.');
+          if xeTestConflicts then begin
+            wbProgress('Test Conflicts mode FAILED: an error occured while loading modules');
+            CheckResult := 255;
+            if xeAutoExit then
+              tmrShutdown.Enabled := True;
+          end else
+            ShowMessage('An error occured while loading modules. Editing is disabled. Check the message log and correct the error.');
           Exit;
         end;
 
@@ -21569,11 +21579,14 @@ begin
             end;
         end;
 
-        if xeTestConflicts then begin
-          DoTestConflictsDump;
-          if xeAutoExit then
-            tmrShutdown.Enabled := True;
-        end;
+        if xeTestConflicts then
+          if xeTestConflictsCompareTo <> '' then
+            TLoaderThread.Create(xeTestConflictsCompareTo, Files[High(Files)].FileName, Files[High(Files)].LoadOrder)
+          else begin
+            DoTestConflictsDump;
+            if xeAutoExit then
+              tmrShutdown.Enabled := True;
+          end;
       finally
         Dec(wbShowStartTime);
       end;
@@ -21661,6 +21674,16 @@ begin
           xeQuickClean := False;
           HideRemoveMessage := False;
         end;
+      end;
+
+      if xeTestConflicts then begin
+        if wbLoaderError then begin
+          wbProgress('Test Conflicts mode FAILED: an error occured while loading the compare to module');
+          CheckResult := 255;
+        end else
+          DoTestConflictsDump;
+        if xeAutoExit then
+          tmrShutdown.Enabled := True;
       end;
     end;
   finally

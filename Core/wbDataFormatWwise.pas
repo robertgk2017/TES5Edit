@@ -56,6 +56,8 @@ type
     FName: string;
     FParent: TwbWwiseObject;
     FRoot: TwbSoundBankArray;
+
+    function DisplayName: string; virtual;
   end;
 
   TwbActionSetState = class(TwbWwiseObject) end;
@@ -64,8 +66,13 @@ type
   TwbExternalSource = class(TwbWwiseObject) end;
   TwbGameParameter = class(TwbWwiseObject) end;
   TwbIncludedAuxBuss = class(TwbWwiseObject) end;
-  TwbSwitch = class(TwbWwiseObject) end;
-  TwbState = class(TwbWwiseObject) end;
+
+  TwbGroupMember = class(TwbWwiseObject)
+    function DisplayName: string; override;
+  end;
+
+  TwbSwitch = class(TwbGroupMember) end;
+  TwbState = class(TwbGroupMember) end;
 
   TwbSwitchGroup = class(TwbWwiseObject)
   public
@@ -132,6 +139,7 @@ type
     var FDisplayMap: TDictionary<TwbWwiseNodeType, TDictionary<string, TGUID>>;
     var FGuidMap: TDictionary<TwbWwiseNodeType, TDictionary<TGUID, TwbWwiseObject>>;
     var FSoundBanks: TArray<TwbSoundBank>;
+    var FOwned: TObjectDictionary<TwbWwiseObject, Boolean>;
 
     procedure BuildIndexFile(const aFileName, aModuleName: string);
     procedure BuildIndexFiles(const aFileNames: TStringList; const aModuleName: string = '');
@@ -210,6 +218,20 @@ begin
 
   Inc(aCount, aStateGroup.Count);
   //wbProgress('Processed [%d] States', [aStateGroup.Count]);
+end;
+
+{ TwbWwiseObject }
+
+function TwbWwiseObject.DisplayName: string;
+begin
+  Result := FName;
+end;
+
+{ TwbGroupMember }
+
+function TwbGroupMember.DisplayName: string;
+begin
+  Result := Format('%s [%s]', [FName, FParent.FName]);
 end;
 
 { TwbIncludedEvent }
@@ -490,12 +512,58 @@ begin
   BuildIndexFiles(aLoadOrder);
 end;
 
+function wbSoundBankJSONWithinBounds(const aData: TBytes): Boolean;
+const
+  cMaxBytes = 256 * 1024 * 1024;
+  cMaxDepth = 256;
+var
+  lDepth, lMaxDepth   : Integer;
+  lInString, lEscaped : Boolean;
+begin
+  Result := False;
+  if Length(aData) > cMaxBytes then
+    Exit;
+
+  lDepth := 0;
+  lMaxDepth := 0;
+  lInString := False;
+  lEscaped := False;
+  for var lByte in aData do
+    if lInString then begin
+      if lEscaped then
+        lEscaped := False
+      else if lByte = Ord('\') then
+        lEscaped := True
+      else if lByte = Ord('"') then
+        lInString := False;
+    end else
+      case lByte of
+        Ord('"'):
+          lInString := True;
+        Ord('{'), Ord('['): begin
+          Inc(lDepth);
+          if lDepth > lMaxDepth then
+            lMaxDepth := lDepth;
+        end;
+        Ord('}'), Ord(']'):
+          Dec(lDepth);
+      end;
+
+  Result := lMaxDepth <= cMaxDepth;
+end;
+
 procedure TwbSoundBankArray.BuildIndexFile(const aFileName, aModuleName: string);
 begin
   var lFile := wbContainerHandler.OpenResourceData('', aFileName);
 
   if Length(lFile) > 0 then
   begin
+    if not wbSoundBankJSONWithinBounds(lFile) then
+    begin
+      wbProgress('[%s] Skipped %s: larger or more deeply nested than a soundbank file can be', [aModuleName, aFileName]);
+      Exit;
+    end;
+
     var lJSON := TJSONObject.Create;
     try
       var lCount := 0;
@@ -513,20 +581,31 @@ end;
 
 procedure TwbSoundBankArray.BuildIndexFiles(const aFileNames: TStringList; const aModuleName: string = '');
 begin
-  for var I := 0 to Pred(aFileNames.Count) do
-  begin
-    var lFile := aFileNames[I];
-    var lFileName := TPath.GetFileNameWithoutExtension(lFile);
-    var lHash := TwbHash.FNV132(lFileName, True);
-    var lBankName := 'sound\soundbanks\' + UIntToStr(lHash) + '.json';
+  var lByHash := TDictionary<UInt32, string>.Create;
+  try
+    for var I := 0 to Pred(aFileNames.Count) do
+    begin
+      var lFile := aFileNames[I];
+      var lFileName := TPath.GetFileNameWithoutExtension(lFile);
+      var lHash := TwbHash.FNV132(lFileName, True);
+      var lBankName := 'sound\soundbanks\' + UIntToStr(lHash) + '.json';
 
-    var lModuleName: string;
-    if aModuleName <> '' then
-      lModuleName := aModuleName
-    else
-      lModuleName := lFile;
+      var lModuleName: string;
+      if aModuleName <> '' then
+        lModuleName := aModuleName
+      else
+        lModuleName := ExtractFileName(lFile);
 
-    BuildIndexFile(lBankName, lModuleName);
+      var lOther: string;
+      if lByHash.TryGetValue(lHash, lOther) then
+        wbProgress('[%s] %s is also the soundbank file of %s, the two names share one hash', [lModuleName, lBankName, ExtractFileName(lOther)])
+      else
+        lByHash.Add(lHash, lFile);
+
+      BuildIndexFile(lBankName, lModuleName);
+    end;
+  finally
+    lByHash.Free;
   end;
 end;
 
@@ -543,16 +622,17 @@ begin
       var lSoundBank := lSoundBanks[I];
       SetLength(FSoundBanks, Succ(Length(FSoundBanks)));
 
-      FSoundBanks[High(FSoundBanks)] := TwbSoundBank.Create;
+      var lIdx := High(FSoundBanks);
+      FSoundBanks[lIdx] := TwbSoundBank.Create;
 
-      with FSoundBanks[I] do
+      with FSoundBanks[lIdx] do
       begin
         FFilename := aModuleName;
         FGUID := StringToGUID(lSoundBank.S['GUID']);
         FName := lSoundBank.S['ShortName'];
         FRoot := Self;
 
-        RegisterNode(wntSoundBank, FSoundBanks[I], FFilename);
+        RegisterNode(wntSoundBank, FSoundBanks[lIdx], FFilename);
 
         BuildSoundBank(lSoundBank, aCount, FFilename);
       end;
@@ -569,6 +649,7 @@ begin
   FComboBoxMap := TDictionary<string, TDictionary<TwbWwiseNodeType, TStringList>>.Create(TIStringComparer.Ordinal);
   FDisplayMap := TDictionary<TwbWwiseNodeType, TDictionary<string, TGUID>>.Create;
   FGuidMap := TDictionary<TwbWwiseNodeType, TDictionary<TGUID, TwbWwiseObject>>.Create;
+  FOwned := TObjectDictionary<TwbWwiseObject, Boolean>.Create([doOwnsKeys]);
 
   for var lNodeType := Low(TwbWwiseNodeType) to High(TwbWwiseNodeType) do
   begin
@@ -602,6 +683,7 @@ begin
   FComboBoxMap.Free;
   FDisplayMap.Free;
   FGuidMap.Free;
+  FOwned.Free;
 
   inherited;
 end;
@@ -633,7 +715,7 @@ begin
         
         for var I := 0 to Pred(Length(lGroup.FSwitches)) do
         begin
-          aList.Add(Format('%s [%s]', [lGroup.FSwitches[I].FName, lBank.FFilename]));
+          aList.Add(Format('%s [%s]', [lGroup.FSwitches[I].DisplayName, lBank.FFilename]));
         end;
       end;
     end;
@@ -673,10 +755,11 @@ procedure TwbSoundBankArray.RegisterNode(const aNodeType     : TwbWwiseNodeType;
                                          const aObject       : TwbWwiseObject;
                                          const aBankFilename : string);
 begin
-  var lDisplayString := Format('%s [%s]', [aObject.FName, aBankFileName]);
+  var lDisplayString := Format('%s [%s]', [aObject.DisplayName, aBankFileName]);
   FDisplayMap[aNodeType].TryAdd(lDisplayString, aObject.FGUID);
 
   FGuidMap[aNodeType].TryAdd(aObject.FGUID, aObject);
+  FOwned.TryAdd(aObject, True);
 
   var lInnerMap: TDictionary<TwbWwiseNodeType, TStringList>;
   if not FComboBoxMap.TryGetValue(aBankFilename, lInnerMap) then
@@ -726,7 +809,7 @@ begin
   Result := FGuidMap[aNodeType].TryGetValue(aGUID, lObj);
   if Result then
   begin
-    aName := lObj.FName;
+    aName := lObj.DisplayName;
 
     var lParent := lObj;
     while not (lParent is TwbSoundBank)  do

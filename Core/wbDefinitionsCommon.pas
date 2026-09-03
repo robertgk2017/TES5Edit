@@ -4140,6 +4140,7 @@ begin
   end else
     case aType of
       ctToStr, ctToSummary: Result := aInt.ToString;
+      ctToSortKey: Result := '00000000' + IntToHex(aInt, 4);
     end;
 end;
 
@@ -5450,6 +5451,9 @@ begin
         Exit;
       end;
 
+      if not StartsText('{', aValue) then
+        Exit;
+
       var lName, lFilename: string;
       if wbSoundBankCache.TryLookupGUID(lNodeType, StringToGUID(aValue), lName, lFilename) then
         if lName <> '' then
@@ -5628,9 +5632,6 @@ begin
               end;
             end;
           end;
-
-          if lList1.Count = 0 then
-            lList1.Add('<Warning: Could not resolve Parent Node');
         end
         else
         begin
