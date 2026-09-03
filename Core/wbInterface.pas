@@ -2254,6 +2254,7 @@ type
   TwbConflictNodeStates = set of TwbConflictNodeState;
 
   TwbConflictMessageProc = reference to procedure(const aMessage: string);
+  TwbConflictElementProc = reference to procedure(aColumn: Integer; const aElement: IwbElement);
 
   PwbConflictNodeData = ^TwbConflictNodeData;
   TwbConflictNodeData = record

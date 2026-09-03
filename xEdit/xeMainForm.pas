@@ -828,7 +828,7 @@ type
     function GetUniqueLinksTo(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer): TDynMainRecords;
 
     procedure InitChildren(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer; var aChildCount: Cardinal; const aOnMessage: TwbConflictMessageProc);
-    procedure InitNodes(const aNode: PVirtualNode; const aNodeDatas, aParentDatas: PViewNodeDatas; aNodeCount: Integer; aIndex: Cardinal; var aStates: TwbConflictNodeStates);
+    procedure InitNodes(const aNodeDatas, aParentDatas: PViewNodeDatas; aNodeCount: Integer; aIndex: Cardinal; var aStates: TwbConflictNodeStates; const aOnElement: TwbConflictElementProc);
     procedure InitConflictStatus(aNode: PVirtualNode; aInjected: Boolean; aNodeDatas: PViewNodeDatas = nil);
     procedure InheritStateFromChildren(Node: PVirtualNode; NodeData: PNavNodeData);
 
@@ -4906,7 +4906,7 @@ begin
       NodeDatas := nil;
       SetLength(NodeDatas, Length(aNodeDatas));
       States := [];
-      InitNodes(nil, @NodeDatas[0], @aNodeDatas[0], Length(aNodeDatas), i, States);
+      InitNodes(@NodeDatas[0], @aNodeDatas[0], Length(aNodeDatas), i, States, nil);
       if not (cnsDisabled in States) then begin
 
         if cnsHasChildren in States then
@@ -7637,11 +7637,12 @@ begin
     end;
 end;
 
-procedure TfrmMain.InitNodes(const aNode: PVirtualNode; const aNodeDatas: PViewNodeDatas;
+procedure TfrmMain.InitNodes(const aNodeDatas: PViewNodeDatas;
   const aParentDatas: PViewNodeDatas;
   aNodeCount: Integer;
   aIndex: Cardinal;
-  var aStates: TwbConflictNodeStates);
+  var aStates: TwbConflictNodeStates;
+  const aOnElement: TwbConflictElementProc);
 var
   NodeData                    : PViewNodeData;
   ParentData                  : PViewNodeData;
@@ -7667,11 +7668,8 @@ begin
         end;
     end;
     if Assigned(NodeData.Element) then begin
-      if Assigned(aNode) and Assigned(ViewFocusedElement) and not Assigned(NodeForViewFocusedElement) then
-        if ViewFocusedElement.Equals(NodeData.Element) then begin
-          NodeForViewFocusedElement := aNode;
-          ColumnForViewFocusedElement := Succ(i);
-        end;
+      if Assigned(aOnElement) then
+        aOnElement(i, NodeData.Element);
       if NodeData.Element.DontShow then begin
         NodeData.Element := nil;
         Include(NodeData.ViewNodeFlags, vnfDontShow);
@@ -19336,7 +19334,15 @@ begin
   ParentDatas := Sender.GetNodeData(ParentNode);
   if not Assigned(ParentDatas) then
     ParentDatas := @ActiveRecords[0];
-  InitNodes(Node, NodeDatas, ParentDatas, Length(ActiveRecords), Node.Index, States);
+  InitNodes(NodeDatas, ParentDatas, Length(ActiveRecords), Node.Index, States,
+    procedure(aColumn: Integer; const aElement: IwbElement)
+    begin
+      if Assigned(ViewFocusedElement) and not Assigned(NodeForViewFocusedElement) then
+        if ViewFocusedElement.Equals(aElement) then begin
+          NodeForViewFocusedElement := Node;
+          ColumnForViewFocusedElement := Succ(aColumn);
+        end;
+    end);
   InitialStates := [];
   if cnsDisabled in States then
     Include(InitialStates, ivsDisabled);
