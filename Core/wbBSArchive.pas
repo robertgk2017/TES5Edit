@@ -27,7 +27,7 @@ const
 type
   TwbBSArchiveType = (baNone, baTES3, baTES4, baFO3, baSSE, baFO4, baFO4dds, baSF, baSFdds);
   TwbBSArchiveTypes = set of TwbBSArchiveType;
-  TwbBSArchiveTarget = (btPC, btXBox);
+  TwbBSArchiveTarget = (btPC, btXBox, btPS);
   TwbBSArchive = class;
   TwbBSArchives = array of TwbBSArchive;
   TwbBSArchivePacker = class;
@@ -104,8 +104,9 @@ type
       DXGIFormat : Byte;
       Flags      : Byte;
       TileMode   : Byte;
-      TexChunks  : array of TwbBSFileChunkTex;
     end;
+    GNF: TGNFTextureDescriptor;
+    TexChunks  : array of TwbBSFileChunkTex;
     constructor Create(aArchive: TwbBSArchive);
     destructor Destroy; override;
     function DXGIFormatName: string;
@@ -156,6 +157,7 @@ type
   const
     cExceptionInvalidDDS = 'Not a valid DDS file';
     cExceptionUnsupportedDDS = 'Unsupported DDS format';
+    cExceptionUnsupportedPS = 'Unsupported PlayStation archive';
     cExceptionIsXboxDDS = 'DDS is in XBox format';
     cExceptionIsNotXboxDDS = 'DDS is not in XBox format';
     // max game supported file offset in .bsa archives
@@ -532,11 +534,13 @@ const
   MAGIC_BSA : TMagic4 = 'BSA'#0;
   MAGIC_BTDX: TMagic4 = 'BTDX';
   MAGIC_GNRL: TMagic4 = 'GNRL';
+  MAGIC_GNMF: TMagic4 = 'GNMF';
 
-  // max allowed chunks in DX10 archives, hardcoded to 4 in BGS engine
+  // max allowed chunks in BA2 texture archives, hardcoded to 4 in BGS engine
   CHUNK_COUNT_MAX = 4;
   CHUNK_HEADER_SIZE_GNRL = 16;
   CHUNK_HEADER_SIZE_DX10 = 24;
+  CHUNK_HEADER_SIZE_GNMF = 48;
   COMPRESSION_METHOD_ZLIB = 0;
   COMPRESSION_METHOD_LZ4 = 3;
   DDS_FLAG_CUBEMAP = $01;
@@ -860,14 +864,14 @@ end;
 
 destructor TwbBSFileEntry.Destroy;
 begin
-  for var c in DDS.TexChunks do c.Free;
+  for var c in TexChunks do c.Free;
   inherited;
 end;
 
 function TwbBSFileEntry.GetCompressed: Boolean;
 begin
   if Archive.IsDDSArchive(Archive.ArchiveType) then
-    Result := (Length(DDS.TexChunks) <> 0) and DDS.TexChunks[0].Compressed
+    Result := (Length(TexChunks) <> 0) and TexChunks[0].Compressed
   else
     Result := inherited;
 end;
@@ -879,7 +883,10 @@ end;
 
 function TwbBSFileEntry.IsCubeMap: Boolean;
 begin
-  Result := DDS.Flags and DDS_FLAG_CUBEMAP <> 0;
+  if Archive.ArchiveTarget in [btPC, btXBox] then
+    Result := DDS.Flags and DDS_FLAG_CUBEMAP <> 0
+  else
+    Result := GNF.TextureType = Cardinal(GNF_TEXTURE_CUBEMAP);
 end;
 
 function TwbBSFileEntry.Unpack: TBytes;
@@ -921,13 +928,22 @@ begin
           Offset
         ])
       else if Archive.IsDDSArchive(Archive.ArchiveType) then begin
-        Result := Result + Format(#13#10'  Width: %04d  Height: %04d  CubeMap: %s  Format: %s', [
-          DDS.Width,
-          DDS.Height,
-          IfThen(IsCubeMap, 'Yes', 'No'),
-          DXGIFormatName
-        ]);
-        for var c in DDS.TexChunks do
+        if Archive.ArchiveTarget in [btPC, btXBox] then
+          Result := Result + Format(#13#10'  Width: %04d  Height: %04d  CubeMap: %s  Format: %s', [
+            DDS.Width,
+            DDS.Height,
+            IfThen(IsCubeMap, 'Yes', 'No'),
+            DXGIFormatName
+          ]);
+        if Archive.ArchiveTarget = btPS then
+          Result := Result + Format(#13#10'  Width: %04d  Height: %04d  CubeMap: %s  Format: %s_%s', [
+            GNF.Width,
+            GNF.Height,
+            IfThen(IsCubeMap, 'Yes', 'No'),
+            GNF.SurfaceFormatName,
+            GNF.ChannelTypeName
+          ]);
+        for var c in TexChunks do
           Result := Result + Format(#13#10'    MipMaps %.2d-%.2d  Size: %8d  PackedSize: %8d  Offset: %d', [
             c.StartMip,
             c.EndMip,
@@ -1428,9 +1444,9 @@ begin
       fCompressionType := ctZLib;
       // read header
       fHeader.Magic2 := Int2Magic(fStream.ReadCardinal);
-      if (fHeader.Magic2 <> MAGIC_GNRL) and (fHeader.Magic2 <> MAGIC_DX10) then
+      if (fHeader.Magic2 <> MAGIC_GNRL) and (fHeader.Magic2 <> MAGIC_DX10) and (fHeader.Magic2 <> MAGIC_GNMF) then
         raise Exception.Create('Unsupported BA2 archive type: ' + fHeader.Magic2);
-      if fHeader.Magic2 = MAGIC_DX10 then case fType of
+      if (fHeader.Magic2 = MAGIC_DX10) or (fHeader.Magic2 = MAGIC_GNMF) then case fType of
         baFO4: fType := baFO4dds;
         baSF : fType := baSFdds;
       end;
@@ -1446,6 +1462,11 @@ begin
             fCompressionType := ctLZ4;
         end;
       end;
+
+      // idk how to differentiare between PC and XBox, something in the image data itself
+      // PS is obvious though
+      if fHeader.Magic2 = MAGIC_GNMF then
+         ArchiveTarget := btPS;
 
       // read files
       Count := fHeader.FileCount;
@@ -1470,18 +1491,26 @@ begin
         end
         // Textures
         else begin
-          //if headersize <> CHUNK_HEADER_SIZE_DX10 then
-          //  raise Exception.Create('Invalid chunk header size: ' + IntToStr(headersize));
-          f.DDS.Height := fStream.ReadWord;
-          f.DDS.Width := fStream.ReadWord;
-          f.DDS.NumMips := fStream.ReadByte;
-          f.DDS.DXGIFormat := fStream.ReadByte;
-          f.DDS.Flags := fStream.ReadByte;
-          f.DDS.TileMode := fStream.ReadByte;
-          SetLength(f.DDS.TexChunks, chunkscount);
-          for var i := Low(f.DDS.TexChunks) to High(f.DDS.TexChunks) do
-            f.DDS.TexChunks[i] := TwbBSFileChunkTex.Create;
-          for var c in f.DDS.TexChunks do begin
+          if fHeader.Magic2 = MAGIC_DX10 then begin
+            //if headersize <> CHUNK_HEADER_SIZE_DX10 then
+            //  raise Exception.Create('Invalid chunk header size: ' + IntToStr(headersize));
+            f.DDS.Height := fStream.ReadWord;
+            f.DDS.Width := fStream.ReadWord;
+            f.DDS.NumMips := fStream.ReadByte;
+            f.DDS.DXGIFormat := fStream.ReadByte;
+            f.DDS.Flags := fStream.ReadByte;
+            f.DDS.TileMode := fStream.ReadByte;
+          end
+          else if fHeader.Magic2 = MAGIC_GNMF then begin
+            //if headersize <> CHUNK_HEADER_SIZE_GNMF then
+            //  raise Exception.Create('Invalid chunk header size: ' + IntToStr(headersize));
+            fStream.ReadBuffer(f.GNF, SizeOf(f.GNF));
+          end;
+
+          SetLength(f.TexChunks, chunkscount);
+          for var i := Low(f.TexChunks) to High(f.TexChunks) do
+            f.TexChunks[i] := TwbBSFileChunkTex.Create;
+          for var c in f.TexChunks do begin
             c.Offset := fStream.ReadInt64;
             c.PackedSize := fStream.ReadCardinal;
             c.Size := fStream.ReadCardinal;
@@ -1882,7 +1911,7 @@ begin
       for var f in Self do begin
         if (fHeader.Magic2 = MAGIC_GNRL) and (f.Offset = 0) then
           raise Exception.Create('Packed file has no data: ' + f.Name);
-        if (fHeader.Magic2 = MAGIC_DX10) and (Length(f.DDS.TexChunks) = 0) then
+        if (fHeader.Magic2 = MAGIC_DX10) and (Length(f.TexChunks) = 0) then
           raise Exception.Create('Packed file has no data: ' + f.Name);
       end;
 
@@ -1925,7 +1954,7 @@ begin
           fStream.WriteCardinal(iFileFO4Tail);
         end
         else begin
-          fStream.WriteByte(Length(f.DDS.TexChunks));
+          fStream.WriteByte(Length(f.TexChunks));
           fStream.WriteWord(CHUNK_HEADER_SIZE_DX10);
           fStream.WriteWord(f.DDS.Height);
           fStream.WriteWord(f.DDS.Width);
@@ -1933,7 +1962,7 @@ begin
           fStream.WriteByte(f.DDS.DXGIFormat);
           fStream.WriteByte(f.DDS.Flags);
           fStream.WriteByte(f.DDS.TileMode);
-          for var c in f.DDS.TexChunks do begin
+          for var c in f.TexChunks do begin
             fStream.WriteInt64(c.Offset);
             fStream.WriteCardinal(c.PackedSize);
             fStream.WriteCardinal(c.Size);
@@ -2063,6 +2092,9 @@ begin
   end;
 
   // DDS chunks packing
+  if fTarget = btPS then
+    raise Exception.Create(cExceptionUnsupportedPS);
+
   if not TwbDDS.IsDDS(aData, aSize) then
     raise Exception.Create(cExceptionInvalidDDS);
 
@@ -2100,24 +2132,24 @@ begin
   MipSize := (aFile.DDS.Width * aFile.DDS.Height * TwbDDS.GetBitsPerPixel(TDXGI(aFile.DDS.DXGIFormat))) shr 3;
 
   // store chunks
-  SetLength(aFile.DDS.TexChunks, chunks);
-  for i := Low(aFile.DDS.TexChunks) to High(aFile.DDS.TexChunks) do begin
-    aFile.DDS.TexChunks[i] := TwbBSFileChunkTex.Create;
-    aFile.DDS.TexChunks[i].StartMip := i;
-    if i < High(aFile.DDS.TexChunks) then
-      aFile.DDS.TexChunks[i].EndMip := i
+  SetLength(aFile.TexChunks, chunks);
+  for i := Low(aFile.TexChunks) to High(aFile.TexChunks) do begin
+    aFile.TexChunks[i] := TwbBSFileChunkTex.Create;
+    aFile.TexChunks[i].StartMip := i;
+    if i < High(aFile.TexChunks) then
+      aFile.TexChunks[i].EndMip := i
     else begin
       // last chunk stores all remaining mipmaps
-      aFile.DDS.TexChunks[i].EndMip := Pred(aFile.DDS.NumMips);
+      aFile.TexChunks[i].EndMip := Pred(aFile.DDS.NumMips);
       MipSize := aSize - Off;
     end;
 
     if Assigned(fPacker) then begin
       var d := nil; var s := 0; var u := 0;
       fPacker.GetChunk(aFile.Name, aFile.FileObject, d, s, u, i + 1);
-      PackData(aFile, aFile.DDS.TexChunks[i], d, s, u);
+      PackData(aFile, aFile.TexChunks[i], d, s, u);
     end else
-      PackData(aFile, aFile.DDS.TexChunks[i], PByte(aData) + Off, MipSize, MipSize);
+      PackData(aFile, aFile.TexChunks[i], PByte(aData) + Off, MipSize, MipSize);
 
     Inc(Off, MipSize);
     MipSize := MipSize div 4;
@@ -2198,10 +2230,15 @@ begin
       end;
 
       baFO4dds, baSFdds: begin
+        if fTarget = btPS then
+          raise Exception.Create(cExceptionUnsupportedPS);
+
         var IsXBox := LowerCase(FileName).Contains('_xbox.');
+        var dxgi := TDXGI(aFile.DDS.DXGIFormat);
+
         // allocate space for total DDS size
         TexSize := SizeOf(TDDSHeader);
-        if IsXBox or not (TDXGI(aFile.DDS.DXGIFormat) in TwbDDS.DXGI_DX9) then begin
+        if IsXBox or not (dxgi in TwbDDS.DXGI_DX9) then begin
           Inc(TexSize, SizeOf(TDDSHeaderDX10));
           if IsXBox then
             Inc(TexSize, SizeOf(TDDSHeaderXBOX));
@@ -2209,16 +2246,16 @@ begin
 
         // offset to image data (total size of DDS header)
         MipOffset := TexSize;
-        for var c in aFile.DDS.TexChunks do Inc(TexSize, c.Size);
+        for var c in aFile.TexChunks do Inc(TexSize, c.Size);
         SetLength(Result, TexSize);
 
         // set up DDS header
-        TwbDDS.SetUpHeader(Result, TDXGI(aFile.DDS.DXGIFormat), aFile.DDS.Width, aFile.DDS.Height, aFile.DDS.NumMips, aFile.IsCubeMap, IsXBox);
+        TwbDDS.SetUpHeader(Result, dxgi, aFile.DDS.Width, aFile.DDS.Height, aFile.DDS.NumMips, aFile.IsCubeMap, IsXBox);
         if IsXBox then
           TwbDDS.HeaderXBOX(Result).tileMode := aFile.DDS.TileMode;
 
         // append mipmap chunks
-        for var c in aFile.DDS.TexChunks do begin
+        for var c in aFile.TexChunks do begin
           fStream.Position := c.Offset;
           if c.Compressed then begin
             SetLength(Buffer, c.PackedSize);
@@ -2522,6 +2559,9 @@ begin
 
     // DDS archives - multiple chunks for mipmaps
     else begin
+      if fTarget = btPS then
+        raise Exception.Create(cExceptionUnsupportedPS);
+
       if not TwbDDS.IsDDS(buf, Length(buf)) then
         raise Exception.Create(cExceptionInvalidDDS);
 
