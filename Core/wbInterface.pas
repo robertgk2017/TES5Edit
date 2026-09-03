@@ -2250,6 +2250,9 @@ type
   );
   TwbConflictNodeFlags = set of TwbConflictNodeFlag;
 
+  TwbConflictNodeState = (cnsDisabled, cnsHasChildren);
+  TwbConflictNodeStates = set of TwbConflictNodeState;
+
   PwbConflictNodeData = ^TwbConflictNodeData;
   TwbConflictNodeData = record
     Element: IwbElement;

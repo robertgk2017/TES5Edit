@@ -828,7 +828,7 @@ type
     function GetUniqueLinksTo(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer): TDynMainRecords;
 
     procedure InitChildren(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer; var aChildCount: Cardinal);
-    procedure InitNodes(const aNode: PVirtualNode; const aNodeDatas, aParentDatas: PViewNodeDatas; aNodeCount: Integer; aIndex: Cardinal; var aInitialStates: TVirtualNodeInitStates);
+    procedure InitNodes(const aNode: PVirtualNode; const aNodeDatas, aParentDatas: PViewNodeDatas; aNodeCount: Integer; aIndex: Cardinal; var aStates: TwbConflictNodeStates);
     procedure InitConflictStatus(aNode: PVirtualNode; aInjected: Boolean; aNodeDatas: PViewNodeDatas = nil);
     procedure InheritStateFromChildren(Node: PVirtualNode; NodeData: PNavNodeData);
 
@@ -4869,7 +4869,7 @@ var
   ChildCount    : Cardinal;
   i, j          : Integer;
   NodeDatas     : TDynViewNodeDatas;
-  InitialStates : TVirtualNodeInitStates;
+  States        : TwbConflictNodeStates;
   ConflictAll   : TConflictAll;
   ConflictThis  : TConflictThis;
   Element       : IwbElement;
@@ -4901,11 +4901,11 @@ begin
     for i := 0 to Pred(ChildCount) do begin
       NodeDatas := nil;
       SetLength(NodeDatas, Length(aNodeDatas));
-      InitialStates := [];
-      InitNodes(nil, @NodeDatas[0], @aNodeDatas[0], Length(aNodeDatas), i, InitialStates);
-      if not (ivsDisabled in InitialStates) then begin
+      States := [];
+      InitNodes(nil, @NodeDatas[0], @aNodeDatas[0], Length(aNodeDatas), i, States);
+      if not (cnsDisabled in States) then begin
 
-        if ivsHasChildren in InitialStates then
+        if cnsHasChildren in States then
           ConflictAll := ConflictLevelForChildNodeDatas(NodeDatas, aSiblingCompare, aInjected, aOnField)
         else begin
           ConflictAll := ConflictLevelForNodeDatas(@NodeDatas[0], Length(NodeDatas), aSiblingCompare, aInjected);
@@ -7637,7 +7637,7 @@ procedure TfrmMain.InitNodes(const aNode: PVirtualNode; const aNodeDatas: PViewN
   const aParentDatas: PViewNodeDatas;
   aNodeCount: Integer;
   aIndex: Cardinal;
-  var aInitialStates: TVirtualNodeInitStates);
+  var aStates: TwbConflictNodeStates);
 var
   NodeData                    : PViewNodeData;
   ParentData                  : PViewNodeData;
@@ -7684,11 +7684,11 @@ begin
     end;
   end;
 
-  aInitialStates := [ivsDisabled];
+  aStates := [cnsDisabled];
   for i := 0 to Pred(aNodeCount) do
     with aNodeDatas[i] do begin
       if Assigned(Element) then
-        Exclude(aInitialStates, ivsDisabled)
+        Exclude(aStates, cnsDisabled)
       else begin
         if Assigned(aParentDatas) and ((vnfIgnore in aParentDatas[i].ViewNodeFlags) or (Assigned(aParentDatas[i].Element) and (aParentDatas[i].Element.ConflictPriority in [cpIgnore, cpNormalIgnoreEmpty]))) then
           Include(ViewNodeFlags, vnfIgnore);
@@ -7704,9 +7704,9 @@ begin
 
       if Assigned(Container) then
         if Container.ElementCount > 0 then
-          Include(aInitialStates, ivsHasChildren)
+          Include(aStates, cnsHasChildren)
         else if Supports(Container, IwbSubRecordStruct) then
-          Include(aInitialStates, ivsHasChildren);
+          Include(aStates, cnsHasChildren);
     end;
 end;
 
@@ -19322,12 +19322,18 @@ procedure TfrmMain.vstViewInitNode(Sender: TBaseVirtualTree; ParentNode,
 var
   NodeDatas                   : PViewNodeDatas;
   ParentDatas                 : PViewNodeDatas;
+  States                      : TwbConflictNodeStates;
 begin
   NodeDatas := Sender.GetNodeData(Node);
   ParentDatas := Sender.GetNodeData(ParentNode);
   if not Assigned(ParentDatas) then
     ParentDatas := @ActiveRecords[0];
-  InitNodes(Node, NodeDatas, ParentDatas, Length(ActiveRecords), Node.Index, InitialStates);
+  InitNodes(Node, NodeDatas, ParentDatas, Length(ActiveRecords), Node.Index, States);
+  InitialStates := [];
+  if cnsDisabled in States then
+    Include(InitialStates, ivsDisabled);
+  if cnsHasChildren in States then
+    Include(InitialStates, ivsHasChildren);
 end;
 
 procedure TfrmMain.vstViewKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
