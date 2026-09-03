@@ -2253,6 +2253,8 @@ type
   TwbConflictNodeState = (cnsDisabled, cnsHasChildren);
   TwbConflictNodeStates = set of TwbConflictNodeState;
 
+  TwbConflictMessageProc = reference to procedure(const aMessage: string);
+
   PwbConflictNodeData = ^TwbConflictNodeData;
   TwbConflictNodeData = record
     Element: IwbElement;

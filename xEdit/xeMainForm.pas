@@ -827,7 +827,7 @@ type
 
     function GetUniqueLinksTo(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer): TDynMainRecords;
 
-    procedure InitChildren(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer; var aChildCount: Cardinal);
+    procedure InitChildren(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer; var aChildCount: Cardinal; const aOnMessage: TwbConflictMessageProc);
     procedure InitNodes(const aNode: PVirtualNode; const aNodeDatas, aParentDatas: PViewNodeDatas; aNodeCount: Integer; aIndex: Cardinal; var aStates: TwbConflictNodeStates);
     procedure InitConflictStatus(aNode: PVirtualNode; aInjected: Boolean; aNodeDatas: PViewNodeDatas = nil);
     procedure InheritStateFromChildren(Node: PVirtualNode; NodeData: PNavNodeData);
@@ -4896,7 +4896,11 @@ begin
   end;
 
   ChildCount := 0;
-  InitChildren(@aNodeDatas[0], Length(aNodeDatas), ChildCount);
+  InitChildren(@aNodeDatas[0], Length(aNodeDatas), ChildCount,
+    procedure(const aMessage: string)
+    begin
+      PostAddMessage(aMessage);
+    end);
   if ChildCount > 0 then
     for i := 0 to Pred(ChildCount) do begin
       NodeDatas := nil;
@@ -7211,7 +7215,7 @@ begin
 end;
 
 procedure TfrmMain.InitChildren(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer;
-  var aChildCount: Cardinal);
+  var aChildCount: Cardinal; const aOnMessage: TwbConflictMessageProc);
 var
   NodeData                    : PViewNodeData;
   Container                   : IwbContainerElementRef;
@@ -7259,8 +7263,8 @@ begin
   if NonSortedCount > 0 then
     Inc(i);
   if i > 1 then begin
-    if Assigned(FirstContainer) then
-      PostAddMessage('Warning: Comparing a mix of sorted, unsorted, and/or alignable entries for "' + FirstContainer.Path + '" in "'+FirstContainer.ContainingMainRecord.Name+'"');
+    if Assigned(FirstContainer) and Assigned(aOnMessage) then
+      aOnMessage('Warning: Comparing a mix of sorted, unsorted, and/or alignable entries for "' + FirstContainer.Path + '" in "'+FirstContainer.ContainingMainRecord.Name+'"');
     SortedCount := 0;
     AlignableCount := 0;
   end;
@@ -7342,10 +7346,10 @@ begin
             etMainRecord, etSubRecordStruct: begin
                 aChildCount := (Container.Def as IwbRecordDef).MemberCount;
                 Inc(aChildCount, Container.AdditionalElementCount);
-                if Cardinal(Container.ElementCount) > aChildCount then begin
-                  PostAddMessage('Error: Container.ElementCount {'+IntToStr(Container.ElementCount)+'} > aChildCount {'+IntToStr(aChildCount)+'} for ' + Container.Path + ' in ' + Container.ContainingMainRecord.Name);
+                if (Cardinal(Container.ElementCount) > aChildCount) and Assigned(aOnMessage) then begin
+                  aOnMessage('Error: Container.ElementCount {'+IntToStr(Container.ElementCount)+'} > aChildCount {'+IntToStr(aChildCount)+'} for ' + Container.Path + ' in ' + Container.ContainingMainRecord.Name);
                   for j := 0 to Pred(Container.ElementCount) do
-                  PostAddMessage('  #'+IntToStr(j)+': ' + Container.Elements[j].Name);
+                  aOnMessage('  #'+IntToStr(j)+': ' + Container.Elements[j].Name);
                   //Assert(Cardinal(Container.ElementCount) <= aChildCount);
                 end;
               end;
@@ -19314,7 +19318,11 @@ end;
 
 procedure TfrmMain.vstViewInitChildren(Sender: TBaseVirtualTree; Node: PVirtualNode; var ChildCount: Cardinal);
 begin
-  InitChildren(Sender.GetNodeData(Node), Length(ActiveRecords), ChildCount);
+  InitChildren(Sender.GetNodeData(Node), Length(ActiveRecords), ChildCount,
+    procedure(const aMessage: string)
+    begin
+      PostAddMessage(aMessage);
+    end);
 end;
 
 procedure TfrmMain.vstViewInitNode(Sender: TBaseVirtualTree; ParentNode,
