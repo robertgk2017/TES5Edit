@@ -7,12 +7,24 @@ uses
 
 function wbConflictLevelForNodeDatas(const aNodeDatas: PwbConflictNodeDatas; aNodeCount: Integer; aSiblingCompare, aInjected: Boolean): TConflictAll;
 
+procedure wbConflictInitNodes(const aNodeDatas: PwbConflictNodeDatas;
+  const aParentDatas: PwbConflictNodeDatas;
+  aNodeCount: Integer;
+  aIndex: Cardinal;
+  var aStates: TwbConflictNodeStates;
+  const aOnElement: TwbConflictElementProc);
+
+procedure wbConflictInitChildren(const aNodeDatas: PwbConflictNodeDatas; aNodeCount: Integer;
+  var aChildCount: Cardinal; const aConfig: TwbConflictConfig; const aOnMessage: TwbConflictMessageProc);
+
 implementation
 
 uses
   System.SysUtils,
   System.Classes,
-  System.Math;
+  System.Math,
+  wbBetterStringList,
+  wbDiff;
 
 function wbConflictLevelForNodeDatas(const aNodeDatas: PwbConflictNodeDatas; aNodeCount: Integer; aSiblingCompare, aInjected: Boolean): TConflictAll;
 var
@@ -306,6 +318,330 @@ begin
 
     finally
       FreeAndNil(UniqueValues);
+    end;
+  end;
+end;
+
+procedure wbConflictInitNodes(const aNodeDatas: PwbConflictNodeDatas;
+  const aParentDatas: PwbConflictNodeDatas;
+  aNodeCount: Integer;
+  aIndex: Cardinal;
+  var aStates: TwbConflictNodeStates;
+  const aOnElement: TwbConflictElementProc);
+var
+  NodeData                    : PwbConflictNodeData;
+  ParentData                  : PwbConflictNodeData;
+  Container                   : IwbContainerElementRef;
+  SortableContainer           : IwbSortableContainer;
+  i                           : Integer;
+begin
+  for i := 0 to Pred(aNodeCount) do begin
+    NodeData := @aNodeDatas[i];
+    ParentData := @aParentDatas[i];
+
+    Container := ParentData.Container;
+    if Assigned(Container) then begin
+      if (vnfUseSortOrder in ParentData.ViewNodeFlags) or (Supports(Container, IwbSortableContainer, SortableContainer) and SortableContainer.Sorted) then
+        NodeData.Element := Container.ElementBySortOrder[aIndex]
+      else
+        case Container.ElementType of
+          etMainRecord, etSubRecordStruct:
+            NodeData.Element := Container.ElementBySortOrder[aIndex];
+          etSubRecordArray, etArray, etStruct, etSubRecord, etValue, etUnion, etStructChapter:
+            if aIndex < Cardinal(Container.ElementCount) then
+              NodeData.Element := Container.Elements[aIndex];
+        end;
+    end;
+    if Assigned(NodeData.Element) then begin
+      if Assigned(aOnElement) then
+        aOnElement(i, NodeData.Element);
+      if NodeData.Element.DontShow then begin
+        NodeData.Element := nil;
+        Include(NodeData.ViewNodeFlags, vnfDontShow);
+      end;
+    end;
+
+    if not Assigned(NodeData.Element) and
+       Assigned(Container) and
+       (Container.ElementType = etMainRecord) and
+       (Container as IwbMainRecord).IsPartialForm
+    then begin
+      Include(NodeData.ViewNodeFlags, vnfIgnore);
+      Include(NodeData.ViewNodeFlags, vnfIsPartialForm);
+    end;
+  end;
+
+  aStates := [cnsDisabled];
+  for i := 0 to Pred(aNodeCount) do
+    with aNodeDatas[i] do begin
+      if Assigned(Element) then
+        Exclude(aStates, cnsDisabled)
+      else begin
+        if Assigned(aParentDatas) and ((vnfIgnore in aParentDatas[i].ViewNodeFlags) or (Assigned(aParentDatas[i].Element) and (aParentDatas[i].Element.ConflictPriority in [cpIgnore, cpNormalIgnoreEmpty]))) then
+          Include(ViewNodeFlags, vnfIgnore);
+        if Assigned(aParentDatas) and (vnfIsPartialForm in aParentDatas[i].ViewNodeFlags) then
+          Include(ViewNodeFlags, vnfIsPartialForm);
+      end;
+
+      if not Assigned(Container) then
+        if Supports(Element, IwbContainerElementRef, Container) then begin
+          //          if Container.ElementCount = 0 then
+          //            Container := nil;
+        end;
+
+      if Assigned(Container) then
+        if Container.ElementCount > 0 then
+          Include(aStates, cnsHasChildren)
+        else if Supports(Container, IwbSubRecordStruct) then
+          Include(aStates, cnsHasChildren);
+    end;
+end;
+
+procedure wbConflictInitChildren(const aNodeDatas: PwbConflictNodeDatas; aNodeCount: Integer;
+  var aChildCount: Cardinal; const aConfig: TwbConflictConfig; const aOnMessage: TwbConflictMessageProc);
+var
+  NodeData                    : PwbConflictNodeData;
+  Container                   : IwbContainerElementRef;
+  FirstContainer              : IwbContainerElementRef;
+  SortableContainer           : IwbSortableContainer;
+  Element                     : IwbElement;
+  i, j, k                     : Integer;
+  SortedCount                 : Integer;
+  AlignableCount              : Integer;
+  NonSortedCount              : Integer;
+  SortedKeys                  : array of TwbFastStringListCS;
+  Sortables                   : array of IwbSortableContainer;
+  SortKey                     : string;
+  LastSortKey                 : string;
+  DupCounter                  : Integer;
+
+  AllKeys                     : TwbFastStringListCS;
+  LeftKeys,RightKeys          : array of integer;
+  KeyedElements               : array of array of Pointer;{skip the ref counting}
+begin
+  SortedCount := 0;
+  NonSortedCount := 0;
+  AlignableCount := 0;
+  FirstContainer := nil;
+  for i := 0 to Pred(aNodeCount) do begin
+    NodeData := @aNodeDatas[i];
+    Container := NodeData.Container;
+    if not Assigned(FirstContainer) then
+      FirstContainer := Container;
+    if Assigned(Container) then
+      if Supports(Container, IwbSortableContainer, SortableContainer) then begin
+        if SortableContainer.Sorted then
+          Inc(SortedCount)
+        else if SortableContainer.Alignable then
+          Inc(AlignableCount)
+      end else
+        Inc(NonSortedCount);
+  end;
+
+  i := 0;
+  if SortedCount > 0 then
+    Inc(i);
+  if AlignableCount > 0 then
+    Inc(i);
+  if NonSortedCount > 0 then
+    Inc(i);
+  if i > 1 then begin
+    if Assigned(FirstContainer) and Assigned(aOnMessage) then
+      aOnMessage('Warning: Comparing a mix of sorted, unsorted, and/or alignable entries for "' + FirstContainer.Path + '" in "'+FirstContainer.ContainingMainRecord.Name+'"');
+    SortedCount := 0;
+    AlignableCount := 0;
+  end;
+
+  if SortedCount > 0 then begin
+//    Assert(NonSortedCount = 0);
+
+    SetLength(SortedKeys, Succ(aNodeCount));
+    for i := Low(SortedKeys) to High(SortedKeys) do begin
+      SortedKeys[i] := TwbFastStringListCS.Create;
+      SortedKeys[i].Sorted := True;
+      SortedKeys[i].Duplicates := dupError;
+    end;
+
+    try
+      SortedKeys[aNodeCount].Duplicates := dupIgnore;
+
+      SetLength(Sortables, aNodeCount);
+
+      for i := 0 to Pred(aNodeCount) do begin
+        NodeData := @aNodeDatas[i];
+        Include(NodeData.ViewNodeFlags, vnfIsSorted);
+        if Supports(NodeData.Container, IwbSortableContainer, Sortables[i]) then begin
+          SortableContainer := Sortables[i];
+          DupCounter := 0;
+          LastSortKey := '';
+          for j := 0 to Pred(SortableContainer.ElementCount) do begin
+            Element := SortableContainer.Elements[j];
+            SortKey := Element.DisplaySortKey[False];
+            if SameStr(LastSortKey, SortKey) then
+              Inc(DupCounter)
+            else begin
+              DupCounter := 0;
+              LastSortKey := SortKey;
+            end;
+
+            SortKey := SortKey + '<' + IntToHex64(DupCounter, 4) + '>';
+
+            SortedKeys[i].AddObject(SortKey, Pointer(Element));
+            SortedKeys[aNodeCount].Add(SortKey);
+          end;
+        end;
+      end;
+
+      aChildCount := SortedKeys[aNodeCount].Count;
+
+      for j := 0 to Pred(aChildCount) do begin
+        SortKey := SortedKeys[aNodeCount].Strings[j];
+        for i := 0 to Pred(aNodeCount) do
+          if SortedKeys[i].Find(SortKey, k) then
+            IwbElement(Pointer(SortedKeys[i].Objects[k])).SortOrder := j;
+      end;
+
+      for i := 0 to Pred(aNodeCount) do begin
+        NodeData := @aNodeDatas[i];
+        if Assigned(NodeData.Container) then
+          NodeData.Container.SetIsSortedBySortOrder(False);
+      end;
+
+    finally
+
+      for i := Low(SortedKeys) to High(SortedKeys) do
+        FreeAndNil(SortedKeys[i]);
+
+    end;
+
+  end else begin
+    if aConfig.AlignArrayElements and (AlignableCount > 1) then
+      AllKeys := TwbFastStringListCS.Create
+    else
+      AllKeys := nil;
+    try
+      for i := 0 to Pred(aNodeCount) do begin
+        NodeData := @aNodeDatas[i];
+        Container := NodeData.Container;
+
+        if Assigned(Container) then begin
+          case Container.ElementType of
+            etMainRecord, etSubRecordStruct: begin
+                aChildCount := (Container.Def as IwbRecordDef).MemberCount;
+                Inc(aChildCount, Container.AdditionalElementCount);
+                if (Cardinal(Container.ElementCount) > aChildCount) and Assigned(aOnMessage) then begin
+                  aOnMessage('Error: Container.ElementCount {'+IntToStr(Container.ElementCount)+'} > aChildCount {'+IntToStr(aChildCount)+'} for ' + Container.Path + ' in ' + Container.ContainingMainRecord.Name);
+                  for j := 0 to Pred(Container.ElementCount) do
+                  aOnMessage('  #'+IntToStr(j)+': ' + Container.Elements[j].Name);
+                  //Assert(Cardinal(Container.ElementCount) <= aChildCount);
+                end;
+              end;
+            etSubRecordArray, etSubRecord, etArray: begin
+
+              with aNodeDatas[i].Container do begin
+                if ElementCount > aConfig.AlignArrayLimit then
+                  FreeAndNil(AllKeys);
+                if Assigned(AllKeys) then
+                  for j := 0 to Pred(ElementCount) do
+                    AllKeys.Add(Elements[j].DisplaySortKey[False]);
+              end;
+              if aChildCount < Cardinal(Container.ElementCount) then
+                aChildCount := Container.ElementCount;
+            end;
+            etStruct, etValue, etUnion, etStructChapter:
+              if aChildCount < Cardinal(Container.ElementCount) then
+                aChildCount := Container.ElementCount;
+          end;
+        end;
+      end;
+      if Assigned(AllKeys) then begin
+        AllKeys.Sorted := True;
+        AllKeys.RemoveDuplicates;
+        if AllKeys.Count > 1 then begin
+          KeyedElements := nil;
+          SetLength(KeyedElements, aNodeCount);
+          FirstContainer := nil;
+          if AllKeys.Count > 0 then begin
+            for i := 0 to Pred(aNodeCount) do begin
+              NodeData := @aNodeDatas[i];
+              Container := NodeData.Container;
+              if Assigned(Container) and (Container.ElementCount > 0) then begin
+                if not Assigned(FirstContainer) then begin
+                  FirstContainer := Container;
+                  with Container do begin
+                    SetLength(LeftKeys, ElementCount);
+                    SetLength(KeyedElements[i], ElementCount);
+                    for j := 0 to Pred(ElementCount) do begin
+                      if not AllKeys.Find(Elements[j].DisplaySortKey[False], LeftKeys[j]) then
+                        Assert(False);
+                      KeyedElements[i, j] := Elements[j];
+                    end;
+                  end;
+                end else begin
+                  with Container do begin
+                    SetLength(RightKeys, ElementCount);
+                    for j := 0 to Pred(ElementCount) do
+                      if not AllKeys.Find(Elements[j].DisplaySortKey[False], RightKeys[j]) then
+                        Assert(False);
+                  end;
+
+                  with TDiff.Create(nil) do try
+                    AllowModify := False;
+                    if not Execute(PInteger(@LeftKeys[0]), PInteger(@RightKeys[0]), Length(LeftKeys), Length(RightKeys)) then
+                      Assert(False);
+
+                    for j := Pred(i) downto 0 do
+                      if Length(KeyedElements[j]) > 0 then begin
+                        SetLength(KeyedElements[j], Count);
+                        for k := Pred(Count) downto 0 do
+                          with Compares[k] do
+                            if Kind in [ckNone, ckDelete] then
+                              if oldIndex1 <> k then begin
+                                KeyedElements[j, k] := KeyedElements[j, oldIndex1];
+                                KeyedElements[j, oldIndex1] := nil;
+                              end;
+                      end;
+
+                    with Container do begin
+                      SetLength(KeyedElements[i], Count);
+                      SetLength(LeftKeys, Count);
+                      RightKeys := nil;
+                      for k := Pred(Count) downto 0 do
+                        with Compares[k] do begin
+                          if Kind in [ckNone, ckAdd] then begin
+                            KeyedElements[i, k] := Elements[oldIndex2];
+                            LeftKeys[k] := int2;
+                          end else
+                            LeftKeys[k] := int1;
+                        end;
+                      if aChildCount < Count then
+                        aChildCount := Count;
+                    end;
+
+                  finally
+                    Free;
+                  end;
+
+                end;
+
+              end;
+            end;
+            for i := 0 to Pred(aNodeCount) do begin
+              NodeData := @aNodeDatas[i];
+              Include(NodeData.ViewNodeFlags, vnfUseSortOrder);
+              Include(NodeData.ViewNodeFlags, vnfIsAligned);
+              for j := Low(KeyedElements[i]) to High(KeyedElements[i]) do
+                if Assigned(KeyedElements[i, j]) then
+                  IwbElement(KeyedElements[i, j]).SortOrder := j;
+              if Assigned(NodeData.Container) then
+                NodeData.Container.SetIsSortedBySortOrder(True);
+            end;
+          end;
+        end;
+      end;
+
+    finally
+      AllKeys.Free;
     end;
   end;
 end;
