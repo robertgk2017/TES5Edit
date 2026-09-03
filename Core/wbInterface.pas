@@ -2256,6 +2256,13 @@ type
   TwbConflictMessageProc = reference to procedure(const aMessage: string);
   TwbConflictElementProc = reference to procedure(aColumn: Integer; const aElement: IwbElement);
 
+  TwbConflictConfig = record
+    TranslationMode    : Boolean;
+    AlignArrayElements : Boolean;
+    AlignArrayLimit    : Integer;
+    class function Current: TwbConflictConfig; static;
+  end;
+
   PwbConflictNodeData = ^TwbConflictNodeData;
   TwbConflictNodeData = record
     Element: IwbElement;
@@ -4864,6 +4871,13 @@ uses
   wbHalfFloat,
   wbLocalization,
   wbSort;
+
+class function TwbConflictConfig.Current: TwbConflictConfig;
+begin
+  Result.TranslationMode := wbTranslationMode;
+  Result.AlignArrayElements := wbAlignArrayElements;
+  Result.AlignArrayLimit := wbAlignArrayLimit;
+end;
 
 procedure TwbConflictNodeData.UpdateRefs;
 begin

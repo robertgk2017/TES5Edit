@@ -465,7 +465,7 @@ begin
   Value := caUnknown;
   if Length(NodeDatas) > 0 then
     if Assigned(NodeDatas[0].Container) then
-      Value := frmMain.ConflictLevelForChildNodeDatas(NodeDatas, Args.Values[i+1], Args.Values[i+2])
+      Value := frmMain.ConflictLevelForChildNodeDatas(NodeDatas, Args.Values[i+1], Args.Values[i+2], TwbConflictConfig.Current)
     else
       Value := frmMain.ConflictLevelForNodeDatas(@NodeDatas[0], Length(NodeDatas), Args.Values[i+1], Args.Values[i+2]);
 end;

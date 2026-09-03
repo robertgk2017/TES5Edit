@@ -818,7 +818,7 @@ type
     procedure UpdatePnlCancelVisible;
   public
     procedure ConflictLevelForMainRecord(const aMainRecord: IwbMainRecord; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
-    function ConflictLevelForChildNodeDatas(const aNodeDatas: TDynViewNodeDatas; aSiblingCompare, aInjected: Boolean; const aOnField: TFieldConflictProc = nil): TConflictAll;
+    function ConflictLevelForChildNodeDatas(const aNodeDatas: TDynViewNodeDatas; aSiblingCompare, aInjected: Boolean; const aConfig: TwbConflictConfig; const aOnField: TFieldConflictProc = nil): TConflictAll;
     function ConflictLevelForNodeDatas(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer; aSiblingCompare, aInjected: Boolean): TConflictAll;
 
     procedure DoTestConflictsDump;
@@ -826,7 +826,7 @@ type
 
     function GetUniqueLinksTo(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer): TDynMainRecords;
 
-    procedure InitChildren(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer; var aChildCount: Cardinal; const aOnMessage: TwbConflictMessageProc);
+    procedure InitChildren(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer; var aChildCount: Cardinal; const aConfig: TwbConflictConfig; const aOnMessage: TwbConflictMessageProc);
     procedure InitNodes(const aNodeDatas, aParentDatas: PViewNodeDatas; aNodeCount: Integer; aIndex: Cardinal; var aStates: TwbConflictNodeStates; const aOnElement: TwbConflictElementProc);
     procedure InitConflictStatus(aNode: PVirtualNode; aInjected: Boolean; aNodeDatas: PViewNodeDatas = nil);
     procedure InheritStateFromChildren(Node: PVirtualNode; NodeData: PNavNodeData);
@@ -2402,12 +2402,12 @@ begin
         NodeDatas[0].ConflictThis := ctMaster;
         NodeDatas[1].ConflictThis := ctIdenticalToMaster;
       end else begin
-        aConflictAll := ConflictLevelForChildNodeDatas(NodeDatas, False, (aMainRecord.MasterOrSelf.IsInjected and not ((aMainRecord.Signature = 'GMST') or (aMainRecord.Signature = 'DFOB')) ) );
+        aConflictAll := ConflictLevelForChildNodeDatas(NodeDatas, False, (aMainRecord.MasterOrSelf.IsInjected and not ((aMainRecord.Signature = 'GMST') or (aMainRecord.Signature = 'DFOB')) ), TwbConflictConfig.Current);
         if aConflictAll = caNoConflict then
           IsCompareToSame;
       end
     end else
-      aConflictAll := ConflictLevelForChildNodeDatas(NodeDatas, False, (aMainRecord.MasterOrSelf.IsInjected and not ((aMainRecord.Signature = 'GMST') or (aMainRecord.Signature = 'DFOB')) ) );
+      aConflictAll := ConflictLevelForChildNodeDatas(NodeDatas, False, (aMainRecord.MasterOrSelf.IsInjected and not ((aMainRecord.Signature = 'GMST') or (aMainRecord.Signature = 'DFOB')) ), TwbConflictConfig.Current);
 
     for i := Low(NodeDatas) to High(NodeDatas) do
       with NodeDatas[i] do
@@ -4817,7 +4817,7 @@ begin
   SetLength(Result, j);
 end;
 
-function TfrmMain.ConflictLevelForChildNodeDatas(const aNodeDatas: TDynViewNodeDatas; aSiblingCompare, aInjected: Boolean; const aOnField: TFieldConflictProc = nil): TConflictAll;
+function TfrmMain.ConflictLevelForChildNodeDatas(const aNodeDatas: TDynViewNodeDatas; aSiblingCompare, aInjected: Boolean; const aConfig: TwbConflictConfig; const aOnField: TFieldConflictProc = nil): TConflictAll;
 var
   ChildCount    : Cardinal;
   i, j          : Integer;
@@ -4832,14 +4832,14 @@ begin
     0: Result := caUnknown;
     1: begin
       Result := caOnlyOne;
-      if not wbTranslationMode then
+      if not aConfig.TranslationMode then
         aNodeDatas[0].ConflictThis := ctOnlyOne;
     end;
   else
     Result := caNoConflict;
   end;
 
-  if wbTranslationMode then begin
+  if aConfig.TranslationMode then begin
     if Result < caOnlyOne then
       Exit;
   end
@@ -4849,7 +4849,7 @@ begin
   end;
 
   ChildCount := 0;
-  InitChildren(@aNodeDatas[0], Length(aNodeDatas), ChildCount,
+  InitChildren(@aNodeDatas[0], Length(aNodeDatas), ChildCount, aConfig,
     procedure(const aMessage: string)
     begin
       PostAddMessage(aMessage);
@@ -4863,7 +4863,7 @@ begin
       if not (cnsDisabled in States) then begin
 
         if cnsHasChildren in States then
-          ConflictAll := ConflictLevelForChildNodeDatas(NodeDatas, aSiblingCompare, aInjected, aOnField)
+          ConflictAll := ConflictLevelForChildNodeDatas(NodeDatas, aSiblingCompare, aInjected, aConfig, aOnField)
         else begin
           ConflictAll := ConflictLevelForNodeDatas(@NodeDatas[0], Length(NodeDatas), aSiblingCompare, aInjected);
           if Assigned(aOnField) then
@@ -4893,13 +4893,13 @@ begin
           j := (Element as IwbContainer).AdditionalElementCount;
           if (i >= j) and (i-j < ElementCount) then
             with (Element.Def as IwbRecordDef).Members[i - j] do
-              if (wbTranslationMode and (not (dfTranslatable in DefFlags))) or
-                (wbTranslationMode and (ConflictPriority[nil] = cpIgnore)) then
+              if (aConfig.TranslationMode and (not (dfTranslatable in DefFlags))) or
+                (aConfig.TranslationMode and (ConflictPriority[nil] = cpIgnore)) then
                 ConflictThis := ctIgnored;
         end;
 
         if not Assigned(Element) then
-          if wbTranslationMode then
+          if aConfig.TranslationMode then
             ConflictThis := ctIgnored;
 
         for j := Low(aNodeDatas) to High(aNodeDatas) do
@@ -7168,7 +7168,7 @@ begin
 end;
 
 procedure TfrmMain.InitChildren(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer;
-  var aChildCount: Cardinal; const aOnMessage: TwbConflictMessageProc);
+  var aChildCount: Cardinal; const aConfig: TwbConflictConfig; const aOnMessage: TwbConflictMessageProc);
 var
   NodeData                    : PViewNodeData;
   Container                   : IwbContainerElementRef;
@@ -7285,7 +7285,7 @@ begin
     end;
 
   end else begin
-    if wbAlignArrayElements and (AlignableCount > 1) then
+    if aConfig.AlignArrayElements and (AlignableCount > 1) then
       AllKeys := TwbFastStringListCS.Create
     else
       AllKeys := nil;
@@ -7309,7 +7309,7 @@ begin
             etSubRecordArray, etSubRecord, etArray: begin
 
               with aNodeDatas[i].Container do begin
-                if ElementCount > wbAlignArrayLimit then
+                if ElementCount > aConfig.AlignArrayLimit then
                   FreeAndNil(AllKeys);
                 if Assigned(AllKeys) then
                   for j := 0 to Pred(ElementCount) do
@@ -19269,7 +19269,7 @@ end;
 
 procedure TfrmMain.vstViewInitChildren(Sender: TBaseVirtualTree; Node: PVirtualNode; var ChildCount: Cardinal);
 begin
-  InitChildren(Sender.GetNodeData(Node), Length(ActiveRecords), ChildCount,
+  InitChildren(Sender.GetNodeData(Node), Length(ActiveRecords), ChildCount, TwbConflictConfig.Current,
     procedure(const aMessage: string)
     begin
       PostAddMessage(aMessage);
@@ -21355,7 +21355,7 @@ begin
                   lChainKey := IntToHex(lRec.LoadOrderFormID.ToCardinal, 8) + cTab + string(lRec.Signature) + cTab;
                   ConflictLevelForChildNodeDatas(lChain, False,
                     lRec.MasterOrSelf.IsInjected and not ((lRec.Signature = 'GMST') or (lRec.Signature = 'DFOB')),
-                    lOnField);
+                    TwbConflictConfig.Current, lOnField);
                 end;
               end;
             end;
