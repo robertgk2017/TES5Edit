@@ -818,7 +818,6 @@ type
     procedure UpdatePnlCancelVisible;
   public
     procedure ConflictLevelForMainRecord(const aMainRecord: IwbMainRecord; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
-    procedure ConflictLevelForContainer(const aContainer: IwbDataContainer; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
     function ConflictLevelForChildNodeDatas(const aNodeDatas: TDynViewNodeDatas; aSiblingCompare, aInjected: Boolean; const aOnField: TFieldConflictProc = nil): TConflictAll;
     function ConflictLevelForNodeDatas(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer; aSiblingCompare, aInjected: Boolean): TConflictAll;
 
@@ -2423,52 +2422,6 @@ begin
       Fix(Master.Overrides[i]);
 
     aConflictThis := aMainRecord.ConflictThis;
-  end;
-end;
-
-procedure TfrmMain.ConflictLevelForContainer(const aContainer: IwbDataContainer; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
-
-  procedure Fix(const aMainRecord: IwbMainRecord);
-  begin
-    with aMainRecord do begin
-      ConflictAll := aConflictAll;
-      if ConflictThis = ctUnknown then begin
-        ConflictThis := ctHiddenByModGroup;
-      end;
-    end;
-  end;
-
-var
-  NodeDatas     : TDynViewNodeDatas;
-  i             : Integer;
-  KeepAliveRoot : IwbKeepAliveRoot;
-  MainRecord    : IwbMainRecord;
-begin
-  KeepAliveRoot := wbCreateKeepAliveRoot;
-
-  Mainrecord := aContainer as IwbMainrecord;
-
-  if Assigned(Mainrecord) then begin
-    ConflictLevelForMainRecord(MainRecord, aConflictAll, aConflictThis);
-  end else begin
-    NodeDatas := NodeDatasForContainer(aContainer);
-    if Length(NodeDatas) = 1 then begin
-      aConflictAll := caOnlyOne;
-      NodeDatas[0].ConflictAll := caOnlyOne;
-      NodeDatas[0].ConflictThis := ctOnlyOne;
-    end else if xeQuickShowConflicts and (Length(NodeDatas) = 2) then begin
-      aConflictAll := caOverride;
-      NodeDatas[0].ConflictAll := caOverride;
-      NodeDatas[1].ConflictAll := caOverride;
-      NodeDatas[0].ConflictThis := ctMaster;
-      NodeDatas[1].ConflictThis := ctOverride;
-    end else
-      aConflictAll := ConflictLevelForChildNodeDatas(NodeDatas, False, False );
-
-    for i := Low(NodeDatas) to High(NodeDatas) do
-      with NodeDatas[i] do
-        if Assigned(Element) and (Element as IwbDataContainer = aContainer) then
-          aConflictThis := NodeDatas[i].ConflictThis;
   end;
 end;
 
