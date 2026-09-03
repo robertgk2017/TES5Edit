@@ -88,40 +88,23 @@ type
     Flags           : TNavNodeFlags;
   end;
 
-  TViewNodeFlag = (
-    vnfDontShow,
-    vnfIgnore,
-    vnfUseSortOrder,
-    vnfIsSorted,
-    vnfIsAligned,
-    vnfIsPartialForm
-  );
-  TViewNodeFlags = set of TViewNodeFlag;
+  TViewNodeFlag = TwbConflictNodeFlag;
+  TViewNodeFlags = TwbConflictNodeFlags;
 
-  PViewNodeData = ^TViewNodeData;
-  TViewNodeData = record
-    Element: IwbElement;
-    Container: IwbContainerElementRef;
-    ConflictAll: TConflictAll;
-    ConflictThis: TConflictThis;
-    ElementGen   : Integer;
-    ContainerGen : Integer;
-    MissingElements : TDynElements;
-    ViewNodeFlags: TViewNodeFlags;
-    procedure UpdateRefs;
-  end;
+  PViewNodeData = PwbConflictNodeData;
+  TViewNodeData = TwbConflictNodeData;
 
   PSpreadSheetNodeData = ^TSpreadSheetNodeData;
   TSpreadSheetNodeData = record
     Element: IwbElement;
   end;
 
-  TViewNodeDatas = array[Word] of TViewNodeData;
-  PViewNodeDatas = ^TViewNodeDatas;
+  TViewNodeDatas = TwbConflictNodeDatas;
+  PViewNodeDatas = PwbConflictNodeDatas;
 
-  TDynViewNodeDatas = array of TViewNodeData;
+  TDynViewNodeDatas = TwbDynConflictNodeDatas;
 
-  TFieldConflictProc = reference to procedure(const aNodeDatas: TDynViewNodeDatas; aConflictAll: TConflictAll);
+  TFieldConflictProc = TwbFieldConflictProc;
 
   TSpreadSheetNodeDatas = array[Word] of TSpreadSheetNodeData;
   PSpreadSheetNodeDatas = ^TSpreadSheetNodeDatas;
@@ -22297,12 +22280,6 @@ begin
 end;
 
 { TViewNodeData }
-
-procedure TViewNodeData.UpdateRefs;
-begin
-  if Assigned(Element) and (Element.ElementType = etMainRecord) then
-    (Element as IwbMainRecord).UpdateRefs;
-end;
 
 { TTabHistoryEntry }
 

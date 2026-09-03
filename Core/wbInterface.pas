@@ -2240,6 +2240,36 @@ type
   TDynCardinalArray = array of UInt64;
   {$ENDIF WIN32}
 
+  TwbConflictNodeFlag = (
+    vnfDontShow,
+    vnfIgnore,
+    vnfUseSortOrder,
+    vnfIsSorted,
+    vnfIsAligned,
+    vnfIsPartialForm
+  );
+  TwbConflictNodeFlags = set of TwbConflictNodeFlag;
+
+  PwbConflictNodeData = ^TwbConflictNodeData;
+  TwbConflictNodeData = record
+    Element: IwbElement;
+    Container: IwbContainerElementRef;
+    ConflictAll: TConflictAll;
+    ConflictThis: TConflictThis;
+    ElementGen   : Integer;
+    ContainerGen : Integer;
+    MissingElements : TDynElements;
+    ViewNodeFlags: TwbConflictNodeFlags;
+    procedure UpdateRefs;
+  end;
+
+  TwbConflictNodeDatas = array[Word] of TwbConflictNodeData;
+  PwbConflictNodeDatas = ^TwbConflictNodeDatas;
+
+  TwbDynConflictNodeDatas = array of TwbConflictNodeData;
+
+  TwbFieldConflictProc = reference to procedure(const aNodeDatas: TwbDynConflictNodeDatas; aConflictAll: TConflictAll);
+
   TDynElementsHelper = record helper for TDynElements
     procedure Add(const aElement: IwbElement);
   end;
@@ -4828,6 +4858,12 @@ uses
   wbHalfFloat,
   wbLocalization,
   wbSort;
+
+procedure TwbConflictNodeData.UpdateRefs;
+begin
+  if Assigned(Element) and (Element.ElementType = etMainRecord) then
+    (Element as IwbMainRecord).UpdateRefs;
+end;
 
 function wbGetGameMasterFile: IwbFile;
 begin
