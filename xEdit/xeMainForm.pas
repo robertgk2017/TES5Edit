@@ -1319,7 +1319,6 @@ uses
 
   DDetours,
 
-  wbDiff,
   wbConflict,
 
   ImagingTypes,
