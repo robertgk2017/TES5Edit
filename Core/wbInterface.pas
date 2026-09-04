@@ -2263,6 +2263,12 @@ type
     class function Current: TwbConflictConfig; static;
   end;
 
+  TwbConflictPolicy = record
+    QuickShowConflicts : Boolean;
+    OnlyMasterAndLeafs : Boolean;
+    ModGroupsEnabled   : Boolean;
+  end;
+
   PwbConflictNodeData = ^TwbConflictNodeData;
   TwbConflictNodeData = record
     Element: IwbElement;

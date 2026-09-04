@@ -832,6 +832,7 @@ type
     procedure InheritStateFromChildren(Node: PVirtualNode; NodeData: PNavNodeData);
 
     function NodeDatasForMainRecord(const aMainRecord: IwbMainRecord): TDynViewNodeDatas;
+    function ConflictPolicy: TwbConflictPolicy;
     function NodeDatasForContainer(const aContainer: IwbDataContainer): TDynViewNodeDatas;
 
     procedure ShowChangeReferencedBy(const OldFormID, NewFormID: TwbFormID; const ReferencedBy: TDynMainRecords; aSilent: Boolean);
@@ -14336,160 +14337,16 @@ begin
 end;
 
 function TfrmMain.NodeDatasForMainRecord(const aMainRecord: IwbMainRecord): TDynViewNodeDatas;
-var
-  Master        : IwbMainRecord;
-  Rec           : IwbMainRecord;
-  i, j          : Integer;
-  EditorID      : string;
-  FormID        : TwbFormID;
-  LoadOrder     : Integer;
-  Group         : IwbGroupRecord;
-  Signature     : TwbSignature;
-  MainRecords   : TDynMainRecords;
-  Modules       : TwbModuleInfos;
-  FirstModule   : PwbModuleInfo;
-  LastModule    : PwbModuleInfo;
 begin
   Assert(wbLoaderDone);
-  MainRecords := nil;
-  Result := nil;
+  Result := wbConflictNodeDatasForMainRecord(aMainRecord, Files, ConflictPolicy);
+end;
 
-  if (aMainRecord.Signature = 'GMST') or (aMainRecord.Signature = 'DFOB') then begin
-    EditorID := aMainRecord.EditorID;
-    SetLength(MainRecords, Length(Files));
-    Master := nil;
-    j := 0;
-    for i := Low(Files) to High(Files) do begin
-      Group := Files[i].GroupBySignature[aMainRecord.Signature];
-      if Assigned(Group) then begin
-        Rec := Group.MainRecordByEditorID[EditorID];
-        if Assigned(Rec) then begin
-          if not Assigned(Master) then
-            Master := Rec;
-          MainRecords[j] := Rec;
-          Inc(j);
-        end;
-      end;
-    end;
-    SetLength(MainRecords, j);
-
-  end else if (aMainRecord.Signature = 'NAVI') (* or (aMainRecord.Signature = 'TES4') *) then begin
-    Signature := aMainRecord.Signature;
-    FormID := aMainRecord.FormID;
-    LoadOrder := aMainRecord.GetFile.LoadOrder;
-    SetLength(MainRecords, Length(Files));
-    Master := nil;
-    j := 0;
-    for i := Low(Files) to High(Files) do
-      if Files[i].LoadOrder = LoadOrder then begin
-        Group := Files[i].GroupBySignature[Signature];
-        if Assigned(Group) then begin
-          Rec := Group.MainRecordByFormID[FormID];
-          if Assigned(Rec) then begin
-            if not Assigned(Master) then
-              Master := Rec;
-            MainRecords[j] := Rec;
-            Inc(j);
-          end;
-        end;
-      end;
-    SetLength(MainRecords, j);
-
-  end else if (aMainRecord.Signature = 'TES4') then begin
-    Signature := aMainRecord.Signature;
-    LoadOrder := aMainRecord.GetFile.LoadOrder;
-    SetLength(MainRecords, Length(Files));
-    Master := nil;
-    j := 0;
-    for i := Low(Files) to High(Files) do
-      if Files[i].LoadOrder = LoadOrder then begin
-        // header of .exe file, show only itself
-        if SameText(ExtractFileExt(aMainRecord.GetFile.FileName), csDotExe) and not SameText(ExtractFileExt(Files[i].FileName), csDotExe) then
-          Continue;
-        // skip .exe file header by default
-        if not SameText(ExtractFileExt(aMainRecord.GetFile.FileName), csDotExe) and SameText(ExtractFileExt(Files[i].FileName), csDotExe) then
-          Continue;
-        Rec := Files[i].Elements[0] as IwbMainRecord;
-        if Assigned(Rec) then begin
-          if not Assigned(Master) then
-            Master := Rec;
-          MainRecords[j] := Rec;
-          Inc(j);
-        end;
-      end;
-    SetLength(MainRecords, j);
-
-  end else begin
-    Master := aMainRecord.MasterOrSelf;
-
-    if OnlyShowMasterAndLeafs then begin
-      MainRecords := Master.MasterAndLeafs;
-    end else begin
-      SetLength(MainRecords, Succ(Master.OverrideCount));
-      MainRecords[0] := Master;
-      for i := 0 to Pred(Master.OverrideCount) do
-        MainRecords[Succ(i)] := Master.Overrides[i];
-    end;
-  end;
-
-  if ModGroupsEnabled and (Length(MainRecords) > 2) then begin
-    SetLength(Modules, Length(MainRecords));
-    for i := Low(MainRecords) to High(MainRecords) do begin
-      Modules[i] := MainRecords[i]._File.ModuleInfo;
-      if Assigned(Modules[i]) then
-        Exclude(Modules[i].miFlags, mfEphemeralModGroupTagged);
-    end;
-    FirstModule := nil;
-    LastModule := nil;
-    for i := Low(Modules) to High(Modules) do
-      if Assigned(Modules[i]) then begin
-        if not Assigned(FirstModule) then
-          FirstModule := Modules[i];
-        with Modules[i]^ do
-          for j := Low(miModGroupTargets) to High(miModGroupTargets) do
-            Include(miModGroupTargets[j].miFlags, mfEphemeralModGroupTagged);
-        LastModule := Modules[i];
-      end;
-
-    if Assigned(FirstModule) then
-      Exclude(FirstModule.miFlags, mfEphemeralModGroupTagged);
-    if Assigned(LastModule) then
-      Exclude(LastModule.miFlags, mfEphemeralModGroupTagged);
-
-    j := 0;
-    for i := Low(Modules) to High(Modules) do
-      if not Assigned(Modules[i]) or not (mfEphemeralModGroupTagged in Modules[i].miFlags) then begin
-        if i <> j then
-          MainRecords[j] := MainRecords[i];
-        Inc(j);
-      end;
-    SetLength(MainRecords, j);
-  end;
-
-  j := 0;
-  for i := Low(MainRecords) to High(MainRecords) do
-    if not MainRecords[i].IsHidden then begin
-      if i <> j then
-        MainRecords[j] := MainRecords[i];
-      Inc(j);
-    end;
-  SetLength(MainRecords, j);
-
-  if Length(MainRecords) < 1 then
-    MainRecords := [aMainRecord];
-
-  SetLength(Result, Length(MainRecords));
-  for i := Low(MainRecords) to High(MainRecords) do
-    with Result[i] do begin
-      Rec := MainRecords[i];
-      if i = 0 then
-        Master := Rec;
-
-      Container := Rec as IwbContainerElementRef;
-      Element := Container;
-      if (Container.ElementCount = 0) or (Rec.Signature <> Master.Signature) then
-        Container := nil;
-    end;
+function TfrmMain.ConflictPolicy: TwbConflictPolicy;
+begin
+  Result.QuickShowConflicts := xeQuickShowConflicts;
+  Result.OnlyMasterAndLeafs := OnlyShowMasterAndLeafs;
+  Result.ModGroupsEnabled := ModGroupsEnabled;
 end;
 
 procedure TfrmMain.PerformActionOnSelectedFiles(const aDesc: string; const aAction: TProc<IwbFile>);
