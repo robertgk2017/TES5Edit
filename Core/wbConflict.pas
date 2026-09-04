@@ -21,6 +21,8 @@ function wbConflictLevelForChildNodeDatas(const aNodeDatas: TwbDynConflictNodeDa
 
 function wbConflictNodeDatasForMainRecord(const aMainRecord: IwbMainRecord; const aFiles: TwbFiles; const aPolicy: TwbConflictPolicy): TwbDynConflictNodeDatas;
 
+procedure wbConflictLevelForMainRecord(const aMainRecord: IwbMainRecord; const aFiles: TwbFiles; const aPolicy: TwbConflictPolicy; const aConfig: TwbConflictConfig; const aOnMessage: TwbConflictMessageProc; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
+
 implementation
 
 uses
@@ -28,6 +30,7 @@ uses
   System.Classes,
   System.Math,
   wbBetterStringList,
+  wbImplementation,
   wbLoadOrder,
   wbDiff;
 
@@ -893,6 +896,120 @@ begin
       if (Container.ElementCount = 0) or (Rec.Signature <> Master.Signature) then
         Container := nil;
     end;
+end;
+
+procedure wbConflictLevelForMainRecord(const aMainRecord: IwbMainRecord; const aFiles: TwbFiles; const aPolicy: TwbConflictPolicy; const aConfig: TwbConflictConfig; const aOnMessage: TwbConflictMessageProc; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
+
+  procedure Fix(const aMainRecord: IwbMainRecord);
+  begin
+    with aMainRecord do begin
+      ConflictAll := aConflictAll;
+      if ConflictThis = ctUnknown then begin
+        ConflictThis := ctHiddenByModGroup;
+      end;
+    end;
+  end;
+
+var
+  NodeDatas                   : TwbDynConflictNodeDatas;
+
+  function IsCompareToSame: Boolean;
+  var
+    MainRecordMaster, MainRecordOverride: IwbMainRecord;
+    FileMaster, FileOverride: IwbFile;
+  begin
+    Result := False;
+
+    if Length(NodeDatas) <> 2 then
+      Exit;
+
+    if not Supports(NodeDatas[0].Element, IwbMainRecord, MainRecordMaster) then
+      Exit;
+    if MainRecordMaster.Modified then
+      Exit;
+
+    if not Supports(NodeDatas[1].Element, IwbMainRecord, MainRecordOverride) then
+      Exit;
+    if MainRecordOverride.Modified then
+      Exit;
+
+    FileOverride := MainRecordOverride._File;
+    if not Assigned(FileOverride) then
+      Exit;
+
+    if not (fsCompareToHasSameMasters in FileOverride.FileStates) then
+      Exit;
+
+    FileMaster := MainRecordMaster._File;
+    if not Assigned(FileMaster) then
+      Exit;
+
+    if not FileMaster.Equals(FileOverride.CompareToFile) then
+      Exit;
+
+    Result := MainRecordMaster.ContentEquals(MainRecordOverride);
+  end;
+
+var
+  i                           : Integer;
+  Master                      : IwbMainRecord;
+  KeepAliveRoot               : IwbKeepAliveRoot;
+begin
+  KeepAliveRoot := wbCreateKeepAliveRoot;
+
+  aConflictAll := aMainRecord.ConflictAll;
+  aConflictThis := aMainRecord.ConflictThis;
+
+  if aConflictAll > caUnknown then
+    Exit;
+
+  Master := aMainRecord.MasterOrSelf;
+  if (Master.OverrideCount = 0) and not aConfig.TranslationMode and not ((Master.Signature = 'GMST') or (Master.Signature = 'DFOB')) then begin
+    aConflictAll := caOnlyOne;
+    aConflictThis := ctOnlyOne;
+    aMainRecord.ConflictAll := aConflictAll;
+    aMainRecord.ConflictThis := aConflictThis;
+  end else begin
+    NodeDatas := wbConflictNodeDatasForMainRecord(aMainRecord, aFiles, aPolicy);
+    if (Length(NodeDatas) = 1) and not aConfig.TranslationMode then begin
+      aConflictAll := caOnlyOne;
+      NodeDatas[0].ConflictAll := caOnlyOne;
+      NodeDatas[0].ConflictThis := ctOnlyOne;
+    end else if Length(NodeDatas) = 2 then begin
+      if aPolicy.QuickShowConflicts then begin
+        aConflictAll := caOverride;
+        NodeDatas[0].ConflictAll := caOverride;
+        NodeDatas[1].ConflictAll := caOverride;
+        NodeDatas[0].ConflictThis := ctMaster;
+        NodeDatas[1].ConflictThis := ctOverride;
+      end else if IsCompareToSame then begin
+        aConflictAll := caNoConflict;
+        NodeDatas[0].ConflictAll := caNoConflict;
+        NodeDatas[1].ConflictAll := caNoConflict;
+        NodeDatas[0].ConflictThis := ctMaster;
+        NodeDatas[1].ConflictThis := ctIdenticalToMaster;
+      end else begin
+        aConflictAll := wbConflictLevelForChildNodeDatas(NodeDatas, False, (aMainRecord.MasterOrSelf.IsInjected and not ((aMainRecord.Signature = 'GMST') or (aMainRecord.Signature = 'DFOB')) ), aConfig, aOnMessage);
+        if aConflictAll = caNoConflict then
+          IsCompareToSame;
+      end
+    end else
+      aConflictAll := wbConflictLevelForChildNodeDatas(NodeDatas, False, (aMainRecord.MasterOrSelf.IsInjected and not ((aMainRecord.Signature = 'GMST') or (aMainRecord.Signature = 'DFOB')) ), aConfig, aOnMessage);
+
+    for i := Low(NodeDatas) to High(NodeDatas) do
+      with NodeDatas[i] do
+        if Assigned(Element) then
+          with (Element as IwbMainRecord) do begin
+            ConflictAll := aConflictAll;
+            ConflictThis := NodeDatas[i].ConflictThis;
+          end;
+
+    Fix(Master);
+    for i := 0 to Pred(Master.OverrideCount) do
+      Fix(Master.Overrides[i]);
+
+    aConflictThis := aMainRecord.ConflictThis;
+  end;
 end;
 
 end.
