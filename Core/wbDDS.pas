@@ -460,9 +460,30 @@ type
     property MipMapCount: Cardinal read GetMipMapCount;
   end;
 
+  TGNFHeader = packed record
+    Magic: TMagic4;
+    ContentSize: Cardinal;
+    Version: Byte; // 2 (PS4) / 3 (PS5)
+    NumTextures: Byte;
+    Alignment: Byte;
+    Unused: Byte;
+    StreamSize: Cardinal;
+    // this should be array Textures[NumTextures], but ba2 supports single texture only
+    // so do we
+    Texture: TGNFTextureDescriptor;
+  end;
+  PGNFHeader = ^TGNFHeader;
+
+  TwbGNF = class abstract
+  public
+    class function IsGNF(aGNFData: Pointer; aSize: Integer): Boolean;
+    class function GetHeaderSize(aGNFData: Pointer): Integer;
+  end;
+
 
 const
   MAGIC_DDS : TMagic4 = 'DDS ';
+  MAGIC_GNF : TMagic4 = 'GNF ';
   MAGIC_DXT1: TMagic4 = 'DXT1';
   MAGIC_DXT3: TMagic4 = 'DXT3';
   MAGIC_DXT5: TMagic4 = 'DXT5';
@@ -516,6 +537,10 @@ const
   DDS_ALPHA_MODE_PREMULTIPLIED  = $00000002;
   DDS_ALPHA_MODE_OPAQUE         = $00000003;
   DDS_ALPHA_MODE_CUSTOM         = $00000004;
+
+  // GNF
+  GNF_ALIGNMENT = 8;
+  GNF_PADDED_HEADER_SIZE = 1 shl GNF_ALIGNMENT;
 
 
 implementation
@@ -1129,6 +1154,22 @@ end;
 function TGNFTextureDescriptor.GetMipMapCount: Cardinal;
 begin
   Result := LastMipLevel + 1;
+end;
+
+class function TwbGNF.IsGNF(aGNFData: Pointer; aSize: Integer): Boolean;
+begin
+  Result := Assigned(aGNFData) and
+    (aSize >= SizeOf(TGNFHeader)) and
+    (PGNFHeader(aGNFData).Magic = MAGIC_GNF) and
+    (aSize >= GetHeaderSize(aGNFData));
+end;
+
+class function TwbGNF.GetHeaderSize(aGNFData: Pointer): Integer;
+var
+  GNFHeader: PGNFHeader;
+begin
+  GNFHeader := aGNFData;
+  Result := SizeOf(GNFHeader.Magic) + SizeOf(GNFHeader.ContentSize) + GNFHeader.ContentSize;
 end;
 
 
