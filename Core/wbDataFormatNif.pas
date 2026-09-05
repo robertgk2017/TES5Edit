@@ -562,6 +562,8 @@ begin
   h := dfCalcHash(aTemplate);
   i := NiObjectInfos.IndexOf(aNiObject);
   Result := False;
+  if i < 0 then
+    Exit;
   repeat
     if NiObjectInfos.NiObjects[i].NameHash = h then begin
       Result := True;
@@ -4336,7 +4338,8 @@ begin
     dfInteger('Num Strings', dtU32).SetOnEnabled(NiHeader_EnSince20103),
     dfInteger('Max String Length', dtU32).SetOnEnabled(NiHeader_EnSince20103),
     dfArray('Strings', wbSizedString('String'), 0, 'Num Strings').SetOnEnabled(NiHeader_EnSince20103),
-    dfInteger('Num Groups', dtU32).SetOnEnabled(NiHeader_EnSince5001)
+    dfInteger('Num Groups', dtU32).SetOnEnabled(NiHeader_EnSince5001),
+    dfArray('Groups', dfInteger('Group', dtU32), 0, 'Num Groups').SetOnEnabled(NiHeader_EnSince5001)
   ]).SetOnAfterLoad(NiHeader_AfterLoad));
 
   { NiFooter }

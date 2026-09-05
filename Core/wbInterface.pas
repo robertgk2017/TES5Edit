@@ -4283,6 +4283,13 @@ function wbRefID(const aName      : string;
                        aRequired  : Boolean = False)
                                   : IwbIntegerDef; overload;
 
+function wbLoadOrderFormID: IwbFormID; overload;
+
+function wbLoadOrderFormID(const aName      : string;
+                                 aPriority  : TwbConflictPriority = cpNormal;
+                                 aRequired  : Boolean = False)
+                                            : IwbIntegerDef; overload;
+
 function wbRefIDT(const aName      : string;
                         aPriority  : TwbConflictPriority = cpNormal;
                         aRequired  : Boolean = False)
@@ -4741,6 +4748,9 @@ function IntToSignature(aInt: Cardinal): TwbSignature; inline;
 
 function FixupFormID(const aFormID: TwbFormID; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts; aAllowHardcodedRangeUse: Boolean): TwbFormID;
 
+type
+  TwbFilePluginNames = procedure(const aHeader: IwbContainer; aNames: TStrings);
+
 threadvar
   _InternalEditCount: Integer;
   _BlockInternalEdit: Boolean;
@@ -4752,6 +4762,7 @@ var
   wbNullSignature     : TwbSignature = #0#0#0#0;
   wbFileMagic         : TwbFileMagic;
   wbFilePlugins       : string = 'Master Files';
+  wbFilePluginNames   : TwbFilePluginNames = nil;
   wbUseFalsePlugins   : Boolean = False;
   wbFileHeader        : IwbStructDef;
   wbFileChapters      : IwbStructDef;
@@ -4901,6 +4912,15 @@ begin
       if IsFullSlot and (FullSlot = 0) then
         Exit(Files[lIdx]);
   Result := nil;
+end;
+
+function wbGameMasterRecordByFormID(const aFormID: TwbFormID): IwbMainRecord;
+begin
+  var lGameMaster := wbGetGameMasterFile;
+  if Assigned(lGameMaster) then
+    Result := lGameMaster.RecordByFormID[aFormID, True, False]
+  else
+    Result := nil;
 end;
 
 function wbRecordByLoadOrderFormID(const aFormID: TwbFormID; const aSeenFromFile: IwbFile): IwbMainRecord;
@@ -7193,6 +7213,13 @@ type
     {---IwbIntegerDefFormater---}
     function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override;
     procedure BuildRef(aInt: Int64; const aElement: IwbElement); override;
+  public
+    procedure AfterConstruction; override;
+  end;
+
+  TwbLoadOrderFormID = class(TwbFormIDDefFormater)
+  public
+    procedure AfterConstruction; override;
   end;
 
   TwbFormIDChecked = class(TwbFormIDDefFormater, IwbFormIDChecked)
@@ -8951,6 +8978,28 @@ function wbRefIDT(const aName     : string;
                                   : IwbIntegerDef; overload;
 begin
   Result := wbIntegerT(aName, itU24, wbRefID, aPriority, aRequired);
+end;
+
+var
+  _LoadOrderFormID: IwbFormID;
+
+function wbLoadOrderFormID: IwbFormID;
+begin
+  if wbReportMode then
+    Result := TwbLoadOrderFormID.Create
+  else begin
+    if not Assigned(_LoadOrderFormID) then
+      _LoadOrderFormID := TwbLoadOrderFormID.Create;
+    Result := _LoadOrderFormID;
+  end;
+end;
+
+function wbLoadOrderFormID(const aName     : string;
+                                 aPriority : TwbConflictPriority = cpNormal;
+                                 aRequired : Boolean = False)
+                                           : IwbIntegerDef; overload;
+begin
+  Result := wbInteger(aName, itU32, wbLoadOrderFormID, aPriority, aRequired);
 end;
 
 var
@@ -10841,9 +10890,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).IncludeFlagOnValue(aFlag, aOnlyWhenTrue));
 
+  if Assigned(srValue) then begin
+    srValue := srValue.IncludeFlag(aFlag, aOnlyWhenTrue);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := srValue.IncludeFlag(aFlag, aOnlyWhenTrue);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 procedure TwbSubRecordDef.InitFromParentDoChildren;
@@ -10915,9 +10966,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetCountFromEnumOnValue(aEnum));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbArrayDef).SetCountFromEnum(aEnum);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbArrayDef).SetCountFromEnum(aEnum);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetCountPathOnValue(const aValue: string; aUseForCountCallback: Boolean): IwbSubRecordWithArrayDef;
@@ -10928,8 +10981,10 @@ end;
 function TwbSubRecordDef.SetCountPathOnValue(const aValues: array of string; aUseForCountCallback: Boolean): IwbSubRecordWithArrayDef;
 begin
   if defIsLocked then begin
-    var lCountCallback := (srValue as IwbArrayDef).GetCountCallback;
-    if not Assigned(lCountCallback) then begin
+    var lCountCallback: TwbCountCallback := nil;
+    if Assigned(srValue) then
+      lCountCallback := (srValue as IwbArrayDef).GetCountCallback;
+    if Assigned(srValue) and not Assigned(lCountCallback) then begin
       var lCountPaths := (srValue as IwbArrayDef).GetCountPaths;
 
       var lDifferent := False;
@@ -10957,9 +11012,11 @@ begin
     Exit(TwbSubRecordDef(Duplicate).SetCountPathOnValue(aValues, aUseForCountCallback));
   end;
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbArrayDef).SetCountPath(aValues, aUseForCountCallback);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbArrayDef).SetCountPath(aValues, aUseForCountCallback);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetDefaultEditValue(const aValue: string): IwbSubRecordDef;
@@ -10994,9 +11051,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetDefaultEditValuesOnValue(aValues));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbArrayDef).SetDefaultEditValues(aValues);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbArrayDef).SetDefaultEditValues(aValues);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetDefaultNativeValue(const aValue: Variant): IwbSubRecordDef;
@@ -11025,9 +11084,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetFormaterOnValue(aFormater));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbBaseStringDef).SetFormater(aFormater);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbBaseStringDef).SetFormater(aFormater);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetFormIDFilter(const aFormIDFilter: TwbFormIDFilterCallback): IwbSubRecordWithFormIDCheckedDef;
@@ -11035,9 +11096,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetFormIDFilter(aFormIDFilter));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbIntegerWithFormIDCheckedDef).SetFormIDFilter(aFormIDFilter);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbIntegerWithFormIDCheckedDef).SetFormIDFilter(aFormIDFilter);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetGetCP(const aGetCP: TwbGetConflictPriority): IwbRecordMemberDef;
@@ -11045,8 +11108,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetGetCP(aGetCP));
 
+  if Assigned(srValue) then begin
+    srValue := srValue.SetGetCP(aGetCP);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  defGetCP := aGetCP;
 end;
 
 function TwbSubRecordDef.SetIsRemovable(const aCallback: TwbIsRemovableCallback): IwbRecordMemberDef;
@@ -11155,9 +11221,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetStaticEditInfo(aEditInfo));
 
+  if Assigned(srValue) then begin
+    srValue := srValue.SetStaticEditInfo(aEditInfo);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := srValue.SetStaticEditInfo(aEditInfo);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryDelimiterOnArray(const aDelimiter: string): IwbSubRecordWithArrayDef;
@@ -11165,9 +11233,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetSummaryDelimiterOnArray(aDelimiter));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbArrayDef).SetSummaryDelimiter(aDelimiter);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbArrayDef).SetSummaryDelimiter(aDelimiter);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryDelimiterOnStruct(const aDelimiter: string): IwbSubRecordWithStructDef;
@@ -11175,9 +11245,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetSummaryDelimiterOnStruct(aDelimiter));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbStructDef).SetSummaryDelimiter(aDelimiter);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbStructDef).SetSummaryDelimiter(aDelimiter);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryKeyOnValue(const aSummaryKey: array of Integer): IwbSubRecordWithStructDef;
@@ -11185,9 +11257,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetSummaryKeyOnValue(aSummaryKey));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbStructDef).SetSummaryKey(aSummaryKey);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbStructDef).SetSummaryKey(aSummaryKey);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryMemberMaxDepthOnValue(aIndex, aMaxDepth: Integer): IwbSubRecordWithStructDef;
@@ -11195,9 +11269,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetSummaryMemberMaxDepthOnValue(aIndex, aMaxDepth));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbStructDef).SetSummaryMemberMaxDepth(aIndex, aMaxDepth);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbStructDef).SetSummaryMemberMaxDepth(aIndex, aMaxDepth);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryName(const aName: string): IwbRecordMemberDef;
@@ -11210,9 +11286,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetSummaryPassthroughMaxCountOnValue(aCount));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbArrayDef).SetSummaryPassthroughMaxCount(aCount);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbArrayDef).SetSummaryPassthroughMaxCount(aCount);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryPassthroughMaxDepthOnValue(aDepth: Integer): IwbSubRecordWithArrayDef;
@@ -11220,9 +11298,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetSummaryPassthroughMaxDepthOnValue(aDepth));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbArrayDef).SetSummaryPassthroughMaxDepth(aDepth);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbArrayDef).SetSummaryPassthroughMaxDepth(aDepth);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryPassthroughMaxLengthOnValue(aLength: Integer): IwbSubRecordWithArrayDef;
@@ -11230,9 +11310,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetSummaryPassthroughMaxLengthOnValue(aLength));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbArrayDef).SetSummaryPassthroughMaxLength(aLength);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbArrayDef).SetSummaryPassthroughMaxLength(aLength);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryPrefixSuffixOnValue(aIndex: Integer; const aPrefix, aSuffix: string): IwbSubRecordWithStructDef;
@@ -11240,9 +11322,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetSummaryPrefixSuffixOnValue(aIndex, aPrefix, aSuffix));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbStructDef).SetSummaryMemberPrefixSuffix(aIndex, aPrefix, aSuffix);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbStructDef).SetSummaryMemberPrefixSuffix(aIndex, aPrefix, aSuffix);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetRequired(const aRequired: Boolean): IwbRecordMemberDef;
@@ -11272,9 +11356,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetWronglyAssumedFixedSizePerElementOnValue(aSize));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbArrayDef).SetWronglyAssumedFixedSizePerElement(aSize);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbArrayDef).SetWronglyAssumedFixedSizePerElement(aSize);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.ToSummary(aDepth: Integer; const aElement: IwbElement; var aLinksTo: IwbElement): string;
@@ -16161,6 +16247,21 @@ end;
 
 procedure TwbFloatDef.FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string);
 begin
+  var lValueString := aValue;
+  if Assigned(ndToStr) then
+    ndToStr(lValueString, aBasePtr, aEndPtr, aElement, ctFromEditValue);
+
+  lValueString := lValueString.Trim;
+
+  if lValueString = wbIgnoreStringValue then
+    Exit;
+
+  if not ((lValueString = '') or SameText(lValueString, 'NaN') or SameText(lValueString, 'Inf') or SameText(lValueString, '+Inf') or
+          SameText(lValueString, '-Inf') or SameText(lValueString, 'Default') or SameText(lValueString, 'Max') or SameText(lValueString, 'Min')) then begin
+    FromValue(StrToFloat(lValueString), aBasePtr, aEndPtr, aElement);
+    Exit;
+  end;
+
   var lSize: Integer;
   case fdKind of
     fkHalf  : lSize := SizeOf(THalfFloat)+Ord(ndTerminator);
@@ -16170,15 +16271,7 @@ begin
   end;
   aElement.RequestStorageChange(aBasePtr, aEndPtr, lSize);
 
-  var lValueString := aValue;
-  if Assigned(ndToStr) then
-    ndToStr(lValueString, aBasePtr, aEndPtr, aElement, ctFromEditValue);
-
-  lValueString := lValueString.Trim;
-
-  if lValueString = wbIgnoreStringValue then begin
-    //do nothing
-  end else if lValueString = '' then begin
+  if lValueString = '' then begin
     case fdKind of
       fkHalf  : PHalfFloat(aBasePtr)^ := 0;
       fkSingle: PSingle(aBasePtr)^ := 0.0;
@@ -16214,10 +16307,6 @@ begin
       fkSingle: PCardinal(aBasePtr)^ := $FF7FFFFF;
       fkDouble: PInt64(aBasePtr)^ := -$10000000000001 // $FFEFFFFFFFFFFFFF
     end;
-  end else begin
-    var lValue := StrToFloat(lValueString);
-    FromValue(lValue, aBasePtr, aEndPtr, aElement);
-    Exit;
   end;
 
   if ndTerminator then
@@ -16971,7 +17060,7 @@ begin
 
         var lMainRecord: IwbMainRecord;
         if lFormID.IsHardcoded then
-          lMainRecord := wbGetGameMasterFile.RecordByFormID[lFormID, True, False]
+          lMainRecord := wbGameMasterRecordByFormID(lFormID)
         else
           lMainRecord := lFile.RecordByFormID[lFormID, True, aElement.MastersUpdated];
 
@@ -17157,7 +17246,7 @@ begin
 
       try
         StrToInt64('$' + s);
-        if Length(s) in [8, 9] then
+        if (Length(s) = 8) or ((Length(s) = 9) and (s[1] = '0')) then
           i := 0
         else
           i := Pos('[', t);
@@ -17172,7 +17261,7 @@ begin
       Delete(s, 1, 5);
   end;
 
-  if Length(s) in [8,9] then
+  if (Length(s) = 8) or ((Length(s) = 9) and (s[1] = '0')) then
     Result := StrToInt64('$' + s)
   else begin
     if IsValid('ACVA') and SameText(Trim(aValue), 'None') then begin
@@ -17188,6 +17277,9 @@ begin
         Result := StrToInt64('$' + aValue);
     end;
   end;
+
+  if (Result < 0) or (Result > High(Cardinal)) then
+    raise Exception.Create('"' + aValue + '" is not a valid FormID');
 
   if (Result <> 0) and (dfUnmappedFormID in defFlags) then begin
     var lFormID := TwbFormID.FromCardinal(Result);
@@ -17552,7 +17644,7 @@ begin
           lFormID.FileID := TwbFileID.Null;
 
       if lFormID.IsHardcoded then
-        Result := wbGetGameMasterFile.RecordByFormID[lFormID, True, False]
+        Result := wbGameMasterRecordByFormID(lFormID)
       else
         Result := lFile.RecordByFormID[lFormID, True, aElement.MastersUpdated];
     except end;
@@ -17584,7 +17676,7 @@ begin
             lFormID.FileID := TwbFileID.Null;
 
         if lFormID.IsHardcoded then
-          Result := wbGetGameMasterFile.RecordByFormID[lFormID, True, False]
+          Result := wbGameMasterRecordByFormID(lFormID)
         else
           Result := lFile.RecordByFormID[lFormID, True, aElement.MastersUpdated];
 
@@ -17886,7 +17978,7 @@ begin
               FormID.FileID := TwbFileID.Null;
 
           if FormID.IsHardcoded then
-            MainRecord := wbGetGameMasterFile.RecordByFormID[FormID, True, False]
+            MainRecord := wbGameMasterRecordByFormID(FormID)
           else begin
             MainRecord := _File.RecordByFormID[FormID, True, aElement.MastersUpdated];
             if wbDisplayLoadOrderFormID then
@@ -19474,7 +19566,7 @@ begin
             FormID.FileID := TwbFileID.Null;
 
         if FormID.IsHardcoded then
-          MainRecord := wbGetGameMasterFile.RecordByFormID[FormID, True, False]
+          MainRecord := wbGameMasterRecordByFormID(FormID)
         else begin
           MainRecord := _File.RecordByFormID[FormID, True, aElement.MastersUpdated];
           if wbDisplayLoadOrderFormID then
@@ -21505,6 +21597,18 @@ begin
   wbRefIDArray := anArray;
 end;
 
+procedure TwbRefID.AfterConstruction;
+begin
+  inherited;
+  Include(defFlags, dfUseLoadOrder);
+end;
+
+procedure TwbLoadOrderFormID.AfterConstruction;
+begin
+  inherited;
+  Include(defFlags, dfUseLoadOrder);
+end;
+
 procedure TwbRefID.BuildRef(aInt: Int64; const aElement: IwbElement);
 var
   key        : Integer;
@@ -21517,7 +21621,7 @@ begin
   key := aInt shr 22;
   val := aInt and $003FFFFF;
   case key of
-    0: if (val > 0) and (val < Length(wbRefIDArray)) then
+    0: if (val > 0) and (val <= Length(wbRefIDArray)) then
          inherited BuildRef(wbRefIDArray[val - 1], aElement);
     1: inherited BuildRef(val, aElement); // '['+IntToHex64(val, 8)+'] Skyrim.esm FormID';
   end;
@@ -21534,7 +21638,7 @@ begin
   case key of
     0: if val = 0 then
          Result := '[00000000] NULL'
-       else if val < Length(wbRefIDArray) then begin
+       else if val <= Length(wbRefIDArray) then begin
          val := wbRefIDArray[val - 1];
          Result := inherited ToString(val, aElement, aForSummary);
          Result := Copy(Result, 1, Pos('[', Result)) + IntToHex64(val, 8) + Copy(Result, Pos(']', Result), Length(Result));

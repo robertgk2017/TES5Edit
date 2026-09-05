@@ -16,6 +16,7 @@ procedure SwitchToTES5CoSave;
 implementation
 
 uses
+  System.Classes,
   System.SysUtils,
 
   wbDefinitionsCommon,
@@ -360,20 +361,68 @@ begin
   Result := SaveVersionDecider(11, aBasePtr, aEndPtr, aElement);
 end;
 
-function SaveFormVersionDecider(aMinimum: Integer; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
+function SaveContent(const aElement: IwbElement): IwbContainer;
 var
-  aType : Integer;
-  Element : IwbElement;
-  Container: IwbDataContainer;
+  Element   : IwbElement;
+  Container : IwbContainer;
+  Union     : IwbContainer;
+  i         : Integer;
 begin
-  Result := 0;
+  Result := nil;
   if not Assigned(aElement) then Exit;
   Element := aElement;
   while Assigned(Element.Container) do
     Element := Element.Container;
 
-  if Supports(Element, IwbContainer, Container) then begin
-    Element := Container.ElementByPath['Save File Header\Content\Form Version'];
+  if not Supports(Element, IwbContainer, Container) then Exit;
+  if not Supports(Container.ElementByName['Save File Header'], IwbContainer, Container) then Exit;
+  for i := 0 to Pred(Container.ElementCount) do
+    if Supports(Container.Elements[i], IwbContainer, Union) and (Union.Name = '') then begin
+      Element := Union.ElementByName['Content'];
+      if not Assigned(Element) then
+        Element := Union.ElementByPath['Compressed\Data\Content'];
+      if not Assigned(Element) then
+        Element := Union.ElementByPath['Compressed\Data\Data\Content'];
+      Supports(Element, IwbContainer, Result);
+      Exit;
+    end;
+end;
+
+procedure SavePluginNames(const aHeader: IwbContainer; aNames: TStrings);
+
+  procedure AddNames(const aList: IwbElement);
+  var
+    List : IwbContainerElementRef;
+    i    : Integer;
+  begin
+    if Supports(aList, IwbContainerElementRef, List) then
+      for i := 0 to Pred(List.ElementCount) do
+        aNames.Add(List[i].EditValue);
+  end;
+
+var
+  Content : IwbContainer;
+  Union   : IwbContainer;
+  i       : Integer;
+begin
+  Content := SaveContent(aHeader);
+  if not Assigned(Content) then Exit;
+  AddNames(Content.ElementByName[wbFilePlugins]);
+  for i := 0 to Pred(Content.ElementCount) do
+    if Supports(Content.Elements[i], IwbContainer, Union) and (Union.Name = '') then
+      AddNames(Union.ElementByName['Light plugins']);
+end;
+
+function SaveFormVersionDecider(aMinimum: Integer; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
+var
+  aType : Integer;
+  Element : IwbElement;
+  Container: IwbContainer;
+begin
+  Result := 0;
+  Container := SaveContent(aElement);
+  if Assigned(Container) then begin
+    Element := Container.ElementByName['Form Version'];
     if Assigned(Element) then begin
       aType := Element.NativeValue;
       if aType>aMinimum then
@@ -386,16 +435,12 @@ function SaveFormVersion55Decider(aBasePtr: Pointer; aEndPtr: Pointer; const aEl
 var
   aType : Integer;
   Element : IwbElement;
-  Container: IwbDataContainer;
+  Container: IwbContainer;
 begin
   Result := 0;
-  if not Assigned(aElement) then Exit;
-  Element := aElement;
-  while Assigned(Element.Container) do
-    Element := Element.Container;
-
-  if Supports(Element, IwbContainer, Container) then begin
-    Element := Container.ElementByPath['Save File Header\Form Version'];
+  Container := SaveContent(aElement);
+  if Assigned(Container) then begin
+    Element := Container.ElementByName['Form Version'];
     if Assigned(Element) then begin
       aType := Element.NativeValue;
       if aType = 55 then
@@ -423,7 +468,7 @@ end;
 
 function SaveFormVersionGreaterThan77Decider(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
 begin
-    Result := SaveFormVersionDecider(78, aBasePtr, aEndPtr, aElement);
+    Result := SaveFormVersionDecider(77, aBasePtr, aEndPtr, aElement);
 end;
 
 function ScreenShotDataCounter(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Cardinal;
@@ -458,19 +503,14 @@ end;
 function FileLocationTableCountCounter(const aName: string; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Cardinal;
 var
   Element : IwbElement;
-  Container: IwbDataContainer;
+  Container: IwbContainer;
 begin
   Result := 0;
-  if not Assigned(aElement) then Exit;
-  Element := aElement;
-  while Assigned(Element.Container) do
-    Element := Element.Container;
-
-  if Supports(Element, IwbContainer, Container) then begin
-    Element := Container.ElementByPath['Save File Header\File Location Table\'+aName+' Count'];
-    if Assigned(Element) then begin
+  Container := SaveContent(aElement);
+  if Assigned(Container) then begin
+    Element := Container.ElementByPath['File Location Table\'+aName+' Count'];
+    if Assigned(Element) then
       Result := Element.NativeValue;
-    end;
   end;
 end;
 
@@ -625,11 +665,10 @@ begin
   Result := 0;
   if not Assigned(aElement) then Exit;
   Element := wbFindSaveElement('Variable', aElement);
-  Assert(Element.BaseName='Variable');
+  if Element.BaseName <> 'Variable' then Exit;
 
   if Supports(Element, IwbDataContainer, Container) then begin
     Element := Container.ElementByName['Type'];
-    Assert(Assigned(Element));
     if Assigned(Element) then begin
       aType := Element.NativeValue;
       case aType of
@@ -1385,32 +1424,21 @@ begin
 end;
 
 function SaveDataSizer(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement; var CompressedSize: Integer): Cardinal;
-const
-  OffsetLength = -8;
 var
   Element    : IwbElement;
   Container  : IwbDataContainer;
-  BasePtr    : Pointer;
 begin
   Result := 0;
-  Element := aElement;
+  if not Assigned(aElement) then Exit;
+  Element := wbFindSaveElement('Compressed', aElement);
 
   if Supports(Element, IwbDataContainer, Container) then begin
-    BasePtr := Container.DataBasePtr;
-    Element := Container.ElementByPath['Uncompressed Size'];
-    if Assigned(Element) then begin
+    Element := Container.ElementByName['Uncompressed Size'];
+    if Assigned(Element) then
       Result := Element.NativeValue;
-    end else with Container do if IsValidOffset(BasePtr, DataEndPtr, OffsetLength) then begin // we are part a proper structure
-      aBasePtr := PByte(BasePtr) + OffsetLength;
-      Result := PCardinal(aBasePtr)^;
-    end;
-    Element := Container.ElementByPath['Compressed Size'];
-    if Assigned(Element) then begin
+    Element := Container.ElementByName['Compressed Size'];
+    if Assigned(Element) then
       CompressedSize := Element.NativeValue;
-    end else with Container do if IsValidOffset(BasePtr, DataEndPtr, OffsetLength + 4) then begin // we are part a proper structure
-      aBasePtr := PByte(BasePtr) + OffsetLength + 4;
-      CompressedSize := PCardinal(aBasePtr)^;
-    end;
   end else
     CompressedSize := 0;
 end;
@@ -6087,8 +6115,8 @@ begin
     ,wbArray('Global Data 2', wbGlobalData, [], GlobalData2Counter)
     ,wbArray('Changed Forms', wbChangedForm, [], ChangedFormsCounter)
     ,wbArray('Global Data 3', wbGlobalData, [], GlobalData3Counter)
-    ,wbArray('FormIDs', wbFormID('FormID', cpFormID), -1).SetAfterLoad(RefIDTableAfterLoad)
-    ,wbArray('Visited Worldspace', wbFormID('FormID', cpFormID), -1).SetAfterLoad(WorldspaceTableAfterLoad)
+    ,wbArray('FormIDs', wbLoadOrderFormID('FormID', cpFormID), -1).SetAfterLoad(RefIDTableAfterLoad)
+    ,wbArray('Visited Worldspace', wbLoadOrderFormID('FormID', cpFormID), -1).SetAfterLoad(WorldspaceTableAfterLoad)
     ,wbInteger('Unknown Table Size', itU32)
     ,wbArray('Unknown Table', wbLenString('Unknown', 2), -1)
 //    ,wbByteArray('Unused', SkipCounter) // Lets you skip an arbitrary number of byte, Setable from CommandLine -bts:n
@@ -6190,7 +6218,7 @@ begin
     wbCoSavePlugins
   ]);
 
-  wbFileChapters := wbSaveChapters;
+  wbFileChapters := wbStruct('Save File Chapters', []);
   wbFileHeader := wbSaveHeader;
   wbSaveHeader.TreeHead := True;
   wbCoSaveHeader.TreeHead := True;
@@ -6207,6 +6235,7 @@ begin
   wbFileMagic := 'TESV_SAVEGAME';
   wbExtractInfo := @ExtractInfoSave;
   wbFilePlugins := 'Plugins';
+  wbFilePluginNames := SavePluginNames;
   DefineTES5;
   DefineTES5SavesA;
   DefineTES5SavesS;
@@ -6217,6 +6246,7 @@ begin
   wbFileMagic := 'SKSE';
   wbExtractInfo := @ExtractInfoCoSave;
   wbFilePlugins := 'Absolute:44';
+  wbFilePluginNames := nil;
   wbFileChapters := wbCoSaveChapters;
   wbFileHeader := wbCoSaveHeader;
 end;

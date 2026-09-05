@@ -967,6 +967,7 @@ type
     procedure Scan; override;
     constructor CreateNew(const aFileName: string; aLoadOrder: Integer);
     procedure GetMasters(aMasters: TStrings); override;
+    procedure GetPluginNames(const aHeader: IwbFileHeader; aNames: TStrings);
   end;
 
   TwbDataContainerFlag = (
@@ -5444,25 +5445,6 @@ begin
                        ))
                     then begin
                       if (not wbMasterUpdateFilterONAM) or Current.IsWinningOverride then begin
-                        // ONAMs are for overridden temporary refs only
-                        if Current.IsPersistent then
-                          Continue;
-
-                        if Current.Signature <> 'CELL' then
-                        begin
-                          if not Assigned(ONAMs) then begin
-                            if not Supports(FileHeader.Add('ONAM', True), IwbContainerElementRef, ONAMs) then
-                              Assert(False);
-                            ONAMs.BeginUpdate;
-                            Assert(ONAMs.ElementCount = 1);
-                            NewONAM := ONAMs.Elements[0];
-                          end else repeat
-                            NewONAM := ONAMs.Assign(wbAssignAdd, nil, True);
-                          until NewONAM.NativeValue = 0;
-
-                          NewONAM.NativeValue := FormID.ToCardinal;
-                        end;
-
                         if wbMasterUpdateFixPersistence and not Current.IsPersistent and not Current.IsMaster then begin
                           Master := Current.Master;
                           if Assigned(Master) then begin
@@ -5480,6 +5462,25 @@ begin
                                     Break;
                                   end;
                           end;
+                        end;
+
+                        // ONAMs are for overridden temporary refs only
+                        if Current.IsPersistent then
+                          Continue;
+
+                        if Current.Signature <> 'CELL' then
+                        begin
+                          if not Assigned(ONAMs) then begin
+                            if not Supports(FileHeader.Add('ONAM', True), IwbContainerElementRef, ONAMs) then
+                              Assert(False);
+                            ONAMs.BeginUpdate;
+                            Assert(ONAMs.ElementCount = 1);
+                            NewONAM := ONAMs.Elements[0];
+                          end else repeat
+                            NewONAM := ONAMs.Assign(wbAssignAdd, nil, True);
+                          until NewONAM.NativeValue = 0;
+
+                          NewONAM.NativeValue := FormID.ToCardinal;
                         end;
                       end;
                     end;
@@ -5848,7 +5849,7 @@ begin
       raise Exception.CreateFmt('Unexpected error reading file "%s"', [flFileName]);
 
     if Header.Signature <> wbHeaderSignature then
-      raise Exception.CreateFmt('Expected header signature TES4, found %s in file "%s"', [String(Header.Signature), flFileName]);
+      raise Exception.CreateFmt('Expected header signature %s, found %s in file "%s"', [String(wbHeaderSignature), String(Header.Signature), flFileName]);
 
     if fsOnlyHeader in flStates then
       Exit;
@@ -10628,6 +10629,10 @@ begin
 
     (cntElements[CurrentRecPos] as IwbElementInternal).SetSortOrder(CurrentDefPos);
     (cntElements[CurrentRecPos] as IwbElementInternal).SetMemoryOrder(CurrentDefPos);
+    if esModified in (cntElements[CurrentRecPos] as IwbElementInternal).ElementStates then begin
+      SetInternalModified(True);
+      InvalidateStorage;
+    end;
     Include(PresentRecords, CurrentDefPos);
     LastElementForMember[CurrentDefPos] := cntElements[CurrentRecPos];
 
@@ -11493,7 +11498,9 @@ end;
 function TwbMainRecord.GetFormID: TwbFormID;
 begin
   if wbGameMode = gmTES3 then begin
-    if not mrDef.GetFormID(Self, Result) then
+    if not Assigned(mrDef) then
+      Result := TwbFormID.Null
+    else if not mrDef.GetFormID(Self, Result) then
       Result :=  wbFormIDFromIdentity(mrDef.GetFormIDBase, mrDef.GetFormIDNameBase, mrDef.GetIdentity(Self))
   end else
     Result := mrStruct.mrsFormID^;
@@ -13748,31 +13755,35 @@ var
             raise Exception.Create('Record "' + GetFullPath + '" can not be contained in ' + GroupRecord.Name);
         end;
         8, 10: begin {Persistent and Visible when Distant/Quest Children}
-          if (GetSignature <> 'REFR') and
-             (GetSignature <> 'ACHR') and
-             (GetSignature <> 'ACRE') and
-             (GetSignature <> 'PGRE') and
-             (GetSignature <> 'PMIS') and
-             (GetSignature <> 'PARW') and {>>> Skyrim <<<}
-             (GetSignature <> 'PBEA') and {>>> Skyrim <<<}
-             (GetSignature <> 'PFLA') and {>>> Skyrim <<<}
-             (GetSignature <> 'PCON') and {>>> Skyrim <<<}
-             (GetSignature <> 'PBAR') and {>>> Skyrim <<<}
-             (GetSignature <> 'PHZD')     {>>> Skyrim <<<}
-          then
-            if not (wbVWDAsQuestChildren and ((GetSignature = 'DLBR') or (GetSignature = 'DIAL') or (GetSignature = 'SCEN'))) then
+          if wbVWDAsQuestChildren and (GroupRecord.GroupType = 10) then begin
+            if (GetSignature <> 'DLBR') and (GetSignature <> 'DIAL') and (GetSignature <> 'SCEN') then
+              raise Exception.Create('Record "' + GetFullPath + '" can not be contained in ' + GroupRecord.Name);
+          end else begin
+            if (GetSignature <> 'REFR') and
+               (GetSignature <> 'ACHR') and
+               (GetSignature <> 'ACRE') and
+               (GetSignature <> 'PGRE') and
+               (GetSignature <> 'PMIS') and
+               (GetSignature <> 'PARW') and {>>> Skyrim <<<}
+               (GetSignature <> 'PBEA') and {>>> Skyrim <<<}
+               (GetSignature <> 'PFLA') and {>>> Skyrim <<<}
+               (GetSignature <> 'PCON') and {>>> Skyrim <<<}
+               (GetSignature <> 'PBAR') and {>>> Skyrim <<<}
+               (GetSignature <> 'PHZD')     {>>> Skyrim <<<}
+            then
               raise Exception.Create('Record "' + GetFullPath + '" can not be contained in ' + GroupRecord.Name);
 
-          case GroupRecord.GroupType of
-            8:begin
-              if not mrStruct.mrsFlags.IsPersistent then
-                raise Exception.Create('Record "' + GetFullPath + '" needs to have it''s Persistent flag set to be contained in ' + GroupRecord.Name);
-            end;
-            10: if not wbVWDAsQuestChildren then begin
-              if not mrStruct.mrsFlags.IsVisibleWhenDistant then
-                raise Exception.Create('Record "' + GetFullPath + '" needs to have it''s Visible when Distant flag set to be contained in ' + GroupRecord.Name);
-              if mrStruct.mrsFlags.IsPersistent then
-                raise Exception.Create('Record "' + GetFullPath + '" can not have it''s Persistent flag set to be contained in ' + GroupRecord.Name);
+            case GroupRecord.GroupType of
+              8: begin
+                if not mrStruct.mrsFlags.IsPersistent then
+                  raise Exception.Create('Record "' + GetFullPath + '" needs to have it''s Persistent flag set to be contained in ' + GroupRecord.Name);
+              end;
+              10: begin
+                if not mrStruct.mrsFlags.IsVisibleWhenDistant then
+                  raise Exception.Create('Record "' + GetFullPath + '" needs to have it''s Visible when Distant flag set to be contained in ' + GroupRecord.Name);
+                if mrStruct.mrsFlags.IsPersistent then
+                  raise Exception.Create('Record "' + GetFullPath + '" can not have it''s Persistent flag set to be contained in ' + GroupRecord.Name);
+              end;
             end;
           end;
         end;
@@ -17145,12 +17156,15 @@ var
 
 begin
   if not (dcfDontSave in dcFlags) then begin
+    SelfRef := Self as IwbContainerElementRef;
+    DoInit(False);
     if (esModified in eStates) or (dcfBasePtrInvalid in dcFlags) or wbTestWrite or (srStruct.srsDataSize = 0) then begin
-      SelfRef := Self as IwbContainerElementRef;
       DoInit(True);
 
-      if (aResetModified = rmYes) and (dcfStorageInvalid in dcFlags) then
+      if dcfStorageInvalid in dcFlags then begin
+        PrepareSave;
         UpdateStorageFromElements;
+      end;
 
       BigDataSize := GetDataSize;
       if (BigDataSize > High(Word)) and (wbGameMode <> gmTES3) then begin
@@ -23207,7 +23221,7 @@ begin
           PByte(dcDataBasePtr),
           GetDataSize,
           @dcDataStorage[0],
-          PCardinal(dcDataBasePtr)^
+          szUncompressedSize
         );
       scLZComp:
         TwbCompression.Decompress(
@@ -23215,7 +23229,7 @@ begin
           PByte(dcDataBasePtr),
           GetDataSize,
           @dcDataStorage[0],
-          PCardinal(dcDataBasePtr)^
+          szUncompressedSize
         );
       else
         Assert(False);  // Something hasn't been updated yet.
@@ -25826,12 +25840,10 @@ end;
 
 procedure TwbFileSource.GetMasters(aMasters: TStrings);
 var
-  Header      : IwbFileHeader;
-  MasterFiles : IwbContainerElementRef;
-  fPath       : String;
-  i           : Integer;
-  modPtr      : Pointer;
-  mods        : TwbArray;
+  Header : IwbFileHeader;
+  Names  : TStringList;
+  fPath  : String;
+  i      : Integer;
 begin
   if (GetElementCount <> 1) or not Supports(GetElement(0), IwbFileHeader, Header) then
     raise Exception.CreateFmt('Unexpected error reading file "%s"', [flFileName]);
@@ -25840,20 +25852,41 @@ begin
     raise Exception.CreateFmt('Expected File Magic %s, found %s in file "%s"',
       [wbFileMagic, String(Header.FileMagic), flFileName]);
 
+  Names := TStringList.Create;
+  try
+    GetPluginNames(Header, Names);
+    for i := 0 to Pred(Names.Count) do begin
+      fPath := wbDataPath + Names[i];
+      if FileExists(fPath) then
+        aMasters.Add(Names[i]);
+    end;
+  finally
+    Names.Free;
+  end;
+end;
+
+procedure TwbFileSource.GetPluginNames(const aHeader: IwbFileHeader; aNames: TStrings);
+var
+  MasterFiles : IwbContainerElementRef;
+  i           : Integer;
+  modPtr      : Pointer;
+  mods        : TwbArray;
+begin
+  if Assigned(wbFilePluginNames) then begin
+    wbFilePluginNames(aHeader, aNames);
+    Exit;
+  end;
+
   if Pos('Absolute:', wbFilePlugins)=1 then begin
     modPtr := PByte(flView) + StrToInt(Copy(wbFilePlugins, 10, Length(wbFilePlugins)));
     mods := TwbArray.Create(nil, modPtr, flEndPtr, wbArray('Modules', wbLenString('PluginName', 2), -4), '', False);
     Supports(mods, IwbContainerElementRef, MasterFiles);
   end else
-    MasterFiles := Header.ElementByName[wbFilePlugins] as IwbContainerElementRef;
+    MasterFiles := aHeader.ElementByName[wbFilePlugins] as IwbContainerElementRef;
 
   if Assigned(MasterFiles) then
-    for i := 0 to Pred(MasterFiles.ElementCount) do begin
-      fPath := wbDataPath + MasterFiles[i].EditValue;
-      if FileExists(fPath) then
-        aMasters.Add(MasterFiles[i].EditValue)
-    end;
-
+    for i := 0 to Pred(MasterFiles.ElementCount) do
+      aNames.Add(MasterFiles[i].EditValue);
 end;
 
 function CreateTemporaryCopy(const FileName : string; var CompareFile: String): String;
@@ -25903,19 +25936,20 @@ procedure TwbFileSource.Scan;
 var
   CurrentPtr  : Pointer;
   Header      : IwbFileHeader;
-  MasterFiles : IwbContainerElementRef;
+  Names       : TStringList;
   i           : Integer;
   ExtractInfo : TByteSet;
   Element     : IwbElement;
   Container   : IwbContainer;
   SelfRef     : IwbContainerElementRef;
   fPath       : String;
-  modPtr      : Pointer;
-  mods        : TwbArray;
   ValueDef    : IwbValueDef;
 begin
   SelfRef := Self as IwbContainerElementRef;
   flProgress('Start processing');
+
+  if not Assigned(wbFileHeader) then
+    raise Exception.CreateFmt('Expected a module, found "%s"', [flFileName]);
 
   flLoadOrderFileID := TwbFileID.CreateFull($FF);
 
@@ -25934,16 +25968,11 @@ begin
   if fsOnlyHeader in flStates then
     Exit;
 
-  if Pos('Absolute:', wbFilePlugins)=1 then begin
-    modPtr := PByte(flView) + StrToInt(Copy(wbFilePlugins, 10, Length(wbFilePlugins)));
-    mods := TwbArray.Create(nil, modPtr, flEndPtr, wbArray('Modules', wbLenString('PluginName', 2), -4), '', False);
-    Supports(mods, IwbContainerElementRef, MasterFiles);
-  end else
-    MasterFiles := Header.ElementByName[wbFilePlugins] as IwbContainerElementRef;
-
-  if Assigned(MasterFiles) then
-    for i := 0 to Pred(MasterFiles.ElementCount) do begin
-      fPath := wbDataPath + MasterFiles[i].EditValue;
+  Names := TStringList.Create;
+  try
+    GetPluginNames(Header, Names);
+    for i := 0 to Pred(Names.Count) do begin
+      fPath := wbDataPath + Names[i];
       if FileExists(fPath) then
         AddMaster(fPath, False, True)
       else if wbUseFalsePlugins then begin
@@ -25951,9 +25980,12 @@ begin
         if not FileExists(fPath) then
           fPath := ExtractFilePath(wbProgramPath) + wbAppName + TheEmptyPlugin; // place holder to keep save indexes
         if FileExists(fPath) then
-          AddMaster(SelectTemporaryCopy(fPath, MasterFiles[i].EditValue), True, True);
+          AddMaster(SelectTemporaryCopy(fPath, Names[i]), True, True);
       end;
     end;
+  finally
+    Names.Free;
+  end;
 
   if flCompareTo <> '' then
     AddMaster(flCompareTo);

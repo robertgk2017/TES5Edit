@@ -1705,8 +1705,12 @@ begin
   if VarSameValue(aOldValue, aNewValue) then
     Exit;
 
+  var lContainer := aElement.Container;
+  if not Assigned(lContainer) then
+    Exit;
+
   if wbBeginInternalEdit then try
-    var lSounds := aElement.Container.ElementByPath['Sound Mappings'];
+    var lSounds := lContainer.ElementByPath['Sound Mappings'];
     if Assigned(lSounds) then
       lSounds.Remove;
   finally
@@ -2313,7 +2317,15 @@ begin
   if not Assigned(MainRecord) then
     Exit;
 
-  if MainRecord.ConflictAll > caNoConflict then
+  var Master := MainRecord.MasterOrSelf;
+  if Master.Equals(MainRecord) then
+    Exit;
+
+  var HeightMap := MainRecord.ElementBySignature[VHGT];
+  var MasterHeightMap := Master.ElementBySignature[VHGT];
+  if Assigned(HeightMap) <> Assigned(MasterHeightMap) then
+    aConflictPriority := cpNormal
+  else if Assigned(HeightMap) and not SameStr(HeightMap.DisplaySortKey[True], MasterHeightMap.DisplaySortKey[True]) then
     aConflictPriority := cpNormal;
 end;
 
@@ -4098,50 +4110,73 @@ begin
 end;
 
 function wbNVTREdgeToStr(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
-var
-  Index      : Integer;
-  Flags      : Cardinal;
-  IsExternal : Boolean;
-  Container  : IwbContainerElementRef;
-begin
-  Result := '';
-  IsExternal := False;
-  if Supports(aElement, IwbContainerElementRef, Container) then begin
-    Index := StrToIntDef(Copy(Container.Name, 11, 1), -1);
-    if (Index >= 0) and (Index <= 2) then begin
-      Flags := Container.ElementNativeValues['..\..\Flags'];
-      IsExternal := Flags and (Cardinal(1) shl Index) <> 0;
-    end;
+
+  function IsExternal(out aEdgeLink: IwbContainerElementRef): Boolean;
+  var
+    Edge       : Integer;
+    Triangle   : IwbContainerElementRef;
+    Flags      : Int64;
+    MainRecord : IwbMainRecord;
+    EdgeLinks  : IwbContainerElementRef;
+  begin
+    Result := False;
+    aEdgeLink := nil;
+    if not Assigned(aElement) then
+      Exit;
+
+    var lName := aElement.Name;
+    if lName = 'Edge 0-1' then
+      Edge := 0
+    else if lName = 'Edge 1-2' then
+      Edge := 1
+    else if lName = 'Edge 2-0' then
+      Edge := 2
+    else
+      Exit;
+
+    Triangle := aElement.Container as IwbContainerElementRef;
+    if not Assigned(Triangle) then
+      Exit;
+
+    Flags := Triangle.ElementNativeValues['Flags'];
+    Result := Flags and (1 shl Edge) <> 0;
+    if not Result then
+      Exit;
+
+    MainRecord := aElement.ContainingMainRecord;
+    if not Assigned(MainRecord) then
+      Exit;
+
+    if not Supports(MainRecord.ElementBySignature[NVEX], IwbContainerElementRef, EdgeLinks) then
+      Exit;
+    if (aInt < 0) or (aInt >= EdgeLinks.ElementCount) then
+      Exit;
+
+    Supports(EdgeLinks.Elements[aInt], IwbContainerElementRef, aEdgeLink);
   end;
 
-  if IsExternal then begin
-    case aType of
-      ctToStr, ctToSummary: begin
-        Result := aInt.ToString;
-        if Container.ElementExists['..\..\..\..\NVEX\Edge Link #' + aInt.ToString] then
-          Result := Result + ' (Triangle #' +
-            Container.ElementValues['..\..\..\..\NVEX\Edge Link #' + aInt.ToString + '\Triangle'] + ' in ' +
-            Container.ElementValues['..\..\..\..\NVEX\Edge Link #' + aInt.ToString + '\Navmesh'] + ')'
-        else
-          if aType = ctToStr then
-            Result := Result + ' <Error: NVEX\Edge Link #' + aInt.ToString + ' is missing>';
-      end;
-      ctToSortKey:
-        if Container.ElementExists['..\..\..\..\NVEX\Edge Link #' + aInt.ToString] then
-          Result :=
-            Container.ElementSortKeys['..\..\..\..\NVEX\Edge Link #' + aInt.ToString + '\Navmesh', True] + '|' +
-            Container.ElementSortKeys['..\..\..\..\NVEX\Edge Link #' + aInt.ToString + '\Triangle', True];
-      ctCheck:
-        if Container.ElementExists['..\..\..\..\NVEX\Edge Link #' + aInt.ToString] then
-          Result := ''
-        else
-          Result := 'NVEX\Edge Link #' + aInt.ToString + ' is missing';
+var
+  EdgeLink: IwbContainerElementRef;
+begin
+  Result := '';
+  case aType of
+    ctToStr, ctToSummary: begin
+      Result := aInt.ToString;
+      if IsExternal(EdgeLink) then
+        if Assigned(EdgeLink) then
+          Result := Result + ' (Triangle #' + EdgeLink.ElementValues['Triangle'] + ' in ' + EdgeLink.ElementValues['Navmesh'] + ')'
+        else if aType = ctToStr then
+          Result := Result + ' <Error: NVEX Edge Link #' + aInt.ToString + ' is missing>';
     end;
-  end else
-    case aType of
-      ctToStr, ctToSummary: Result := aInt.ToString;
-      ctToSortKey: Result := '00000000' + IntToHex(aInt, 4);
+    ctToSortKey: begin
+      Result := '00000000' + IntToHex(aInt, 4);
+      if IsExternal(EdgeLink) and Assigned(EdgeLink) then
+        Result := EdgeLink.ElementSortKeys['Navmesh', True] + '|' + EdgeLink.ElementSortKeys['Triangle', True];
     end;
+    ctCheck:
+      if IsExternal(EdgeLink) and not Assigned(EdgeLink) then
+        Result := 'NVEX Edge Link #' + aInt.ToString + ' is missing';
+  end;
 end;
 
 function wbPackageLocationAliasToStr(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
@@ -5521,8 +5556,10 @@ begin
             lList3 := TStringList.Create;
             try
               lFile := aElement._File;
-              lFile.GetMasters(lList2);
-              lList2.Add(lFile.FileName);
+              if Assigned(lFile) then begin
+                lFile.GetMasters(lList2);
+                lList2.Add(lFile.FileName);
+              end;
 
               wbSoundBankCache.GetStrings(wntSwitchGroup, lList2, lList3);
 
@@ -5553,8 +5590,10 @@ begin
           lList2 := TStringList.Create;
           try
             lFile := aElement._File;
-            lFile.GetMasters(lList2);
-            lList2.Add(lFile.FileName);
+            if Assigned(lFile) then begin
+              lFile.GetMasters(lList2);
+              lList2.Add(lFile.FileName);
+            end;
 
             wbSoundBankCache.GetStrings(lNodeType, lList2, lList1);
           finally
@@ -5605,8 +5644,10 @@ begin
               lList3 := TStringList.Create;
               try
                 lFile := aElement._File;
-                lFile.GetMasters(lList2);
-                lList2.Add(lFile.FileName);
+                if Assigned(lFile) then begin
+                  lFile.GetMasters(lList2);
+                  lList2.Add(lFile.FileName);
+                end;
 
                 wbSoundBankCache.GetStrings(wntSwitchGroup, lList2, lList3);
 
@@ -5638,8 +5679,10 @@ begin
           lList2 := TStringList.Create;
           try
             lFile := aElement._File;
-            lFile.GetMasters(lList2);
-            lList2.Add(lFile.FileName);
+            if Assigned(lFile) then begin
+              lFile.GetMasters(lList2);
+              lList2.Add(lFile.FileName);
+            end;
 
             wbSoundBankCache.GetStrings(lNodeType, lList2, lList1);
           finally

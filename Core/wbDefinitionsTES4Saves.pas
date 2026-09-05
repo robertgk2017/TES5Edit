@@ -6773,8 +6773,8 @@ begin
      wbArray('Global Data 1', wbGlobalData, [], GlobalData1Counter)
     ,wbArray('Changed Forms', wbChangedForm, [], ChangedFormsCounter)
     ,wbArray('Global Data 2', wbGlobalData, [], GlobalData2Counter)
-    ,wbArray('FormIDs', wbFormID('FormID', cpFormID), -1).SetAfterLoad(RefIDTableAfterLoad)
-    ,wbArray('Visited Worldspace', wbFormID('FormID', cpFormID), -1).SetAfterLoad(WorldspaceTableAfterLoad)
+    ,wbArray('FormIDs', wbLoadOrderFormID('FormID', cpFormID), -1).SetAfterLoad(RefIDTableAfterLoad)
+    ,wbArray('Visited Worldspace', wbLoadOrderFormID('FormID', cpFormID), -1).SetAfterLoad(WorldspaceTableAfterLoad)
     ,wbArray('Unknown Table', wbInteger('Unknown', itU8), -1)
 //    ,wbByteArray('Unused', SkipCounter) // Lets you skip an arbitrary number of byte, Setable from CommandLine -bts:n
 //    ,wbArray('Remaining',  WbByteArray('Unknown', wbBytesToGroup), DumpCounter) // Lets you dump an arbitrary number of quartet, Setable from CommandLine -btd:n

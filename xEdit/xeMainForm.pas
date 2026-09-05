@@ -20598,7 +20598,7 @@ begin
 
         ModGroups := nil;
 
-        if not (xeQuickClean or (wbToolMode in wbAutoModes) or xeTestConflicts) then
+        if not (xeQuickClean or (wbToolMode in wbAutoModes) or (xeTestConflicts and not xeTestConflictsModGroups)) then
           if xeQuickShowConflicts or xeAutoLoad then begin
             ModGroups := wbModGroupsByName;
             wbModGroupsByName(False).ShowValidationMessages;
@@ -21000,8 +21000,9 @@ begin
   ltLoadList := aList;
   aList := nil;
   ltStates := aFileStates;
-  inherited Create(False);
+  inherited Create(True);
   FreeOnTerminate := True;
+  Start;
 end;
 
 constructor TLoaderThread.Create(const aFileName, aMaster: string; aLoadOrder: Integer; aFileStates: TwbFileStates = []);
@@ -21012,8 +21013,9 @@ begin
   ltLoadList.Add(aFileName);
   ltMaster := aMaster;
   ltStates := aFileStates;
-  inherited Create(False);
+  inherited Create(True);
   FreeOnTerminate := True;
+  Start;
 end;
 
 destructor TLoaderThread.Destroy;

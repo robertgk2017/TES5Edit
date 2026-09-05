@@ -303,11 +303,11 @@ begin
   if Assigned(aBasePtr) and Assigned(aEndPtr) and (NativeUInt(aBasePtr)<=NativeUInt(aEndPtr)) then begin
     Assert(anOffset>0); // Offset needs to be a positive number
     case aSize of
-      4 : Result := PCardinal(Cardinal(aBasePtr)-anOffset)^;
+      4 : Result := PCardinal(NativeUInt(aBasePtr)-anOffset)^;
       3 : Result := wbReadInteger24(PCardinal(NativeUInt(aBasePtr)-anOffset));
-      2 : Result := PWord(Cardinal(aBasePtr)-anOffset)^;
+      2 : Result := PWord(NativeUInt(aBasePtr)-anOffset)^;
     else
-      Result := PByte(Cardinal(aBasePtr)-anOffset)^;
+      Result := PByte(NativeUInt(aBasePtr)-anOffset)^;
     end;
   end else begin
     Element := wbFindSaveElement(aContainerName, aElement);
@@ -6829,8 +6829,8 @@ begin
      wbArray('Global Data 1', wbGlobalData, [], GlobalData1Counter),
      wbArray('Changed Forms', wbChangedForm, [], ChangedFormsCounter),
      wbArray('Global Data 2', wbGlobalData, [], GlobalData2Counter),
-     wbArray('FormIDs', wbFormID('FormID', cpFormID), -1).SetAfterLoad(RefIDTableAfterLoad),
-     wbArray('Visited Worldspace', wbFormID('FormID', cpFormID), -1).SetAfterLoad(WorldspaceTableAfterLoad),
+     wbArray('FormIDs', wbLoadOrderFormID('FormID', cpFormID), -1).SetAfterLoad(RefIDTableAfterLoad),
+     wbArray('Visited Worldspace', wbLoadOrderFormID('FormID', cpFormID), -1).SetAfterLoad(WorldspaceTableAfterLoad),
      wbArray('Unknown Table', wbInteger('Unknown', itU8), -1)
 //    ,wbByteArray('Unused', SkipCounter) // Lets you skip an arbitrary number of byte, Setable from CommandLine -bts:n
 //    ,wbArray('Remaining',  WbByteArray('Unknown', wbBytesToGroup), DumpCounter) // Lets you dump an arbitrary number of quartet, Setable from CommandLine -btd:n

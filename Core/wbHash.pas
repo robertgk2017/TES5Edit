@@ -568,14 +568,13 @@ end;
 
 class function TwbHash.FNV132(aData: PByte; aSize: UInt64): UInt32;
 const
-  // FNV-1a 32-bit constants
   FNV_Offset_Basis = 2166136261;
   FNV_Prime        = 16777619;
 var
   i: NativeUInt;
 begin
   Result := FNV_Offset_Basis;
-  for i := 0 to aSize - 1 do
+  for i := 1 to aSize do
   begin
     Result := Result * FNV_Prime;
     Result := Result xor aData^;
