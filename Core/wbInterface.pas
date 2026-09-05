@@ -17194,7 +17194,7 @@ begin
 
       try
         StrToInt64('$' + s);
-        if Length(s) in [8, 9] then
+        if (Length(s) = 8) or ((Length(s) = 9) and (s[1] = '0')) then
           i := 0
         else
           i := Pos('[', t);
@@ -17209,7 +17209,7 @@ begin
       Delete(s, 1, 5);
   end;
 
-  if Length(s) in [8,9] then
+  if (Length(s) = 8) or ((Length(s) = 9) and (s[1] = '0')) then
     Result := StrToInt64('$' + s)
   else begin
     if IsValid('ACVA') and SameText(Trim(aValue), 'None') then begin
@@ -17225,6 +17225,9 @@ begin
         Result := StrToInt64('$' + aValue);
     end;
   end;
+
+  if (Result < 0) or (Result > High(Cardinal)) then
+    raise Exception.Create('"' + aValue + '" is not a valid FormID');
 
   if (Result <> 0) and (dfUnmappedFormID in defFlags) then begin
     var lFormID := TwbFormID.FromCardinal(Result);
