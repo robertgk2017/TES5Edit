@@ -16356,8 +16356,8 @@ begin
     .SetFlagHasDontShow(30, wbFlagNavmeshGroundDontShow), [
     wbEDID,
     wbVMADFragmentedQUST,
-    wbFULL,
     wbBaseFormComponents,
+    wbFULL,
     wbStruct(DNAM, 'General', [
       wbInteger('Flags', itU32, wbFlags([
         {0x000001} 'Start Game Enabled',
