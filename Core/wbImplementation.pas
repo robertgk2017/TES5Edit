@@ -5848,7 +5848,7 @@ begin
       raise Exception.CreateFmt('Unexpected error reading file "%s"', [flFileName]);
 
     if Header.Signature <> wbHeaderSignature then
-      raise Exception.CreateFmt('Expected header signature TES4, found %s in file "%s"', [String(Header.Signature), flFileName]);
+      raise Exception.CreateFmt('Expected header signature %s, found %s in file "%s"', [String(wbHeaderSignature), String(Header.Signature), flFileName]);
 
     if fsOnlyHeader in flStates then
       Exit;
@@ -11493,7 +11493,9 @@ end;
 function TwbMainRecord.GetFormID: TwbFormID;
 begin
   if wbGameMode = gmTES3 then begin
-    if not mrDef.GetFormID(Self, Result) then
+    if not Assigned(mrDef) then
+      Result := TwbFormID.Null
+    else if not mrDef.GetFormID(Self, Result) then
       Result :=  wbFormIDFromIdentity(mrDef.GetFormIDBase, mrDef.GetFormIDNameBase, mrDef.GetIdentity(Self))
   end else
     Result := mrStruct.mrsFormID^;
