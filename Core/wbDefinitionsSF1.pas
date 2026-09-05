@@ -1982,7 +1982,7 @@ function wbOMODDataPropertyValue1Decider(aBasePtr: Pointer; aEndPtr: Pointer; co
 var
   Container     : IwbContainer;
   ValueType     : Integer;
-  PropName      : string;
+  PropSig       : Cardinal;
 begin
   Result := 0;
 
@@ -1990,7 +1990,7 @@ begin
     Exit;
 
   ValueType := Container.ElementNativeValues['Value Type'];
-  PropName := Container.ElementEditValues['Property'];
+  PropSig := Container.ElementNativeValues['Value'];
 
   case ValueType of
     0: Result := 1;
@@ -1998,9 +1998,9 @@ begin
     2: Result := 3;
     4, 6: Result := 4;
     5: begin
-      if PropName = 'SoundLevel'    then Result := 6 else
-      if PropName = 'StaggerValue'  then Result := 7 else
-      if PropName = 'HitBehaviour'  then Result := 8 else
+      if PropSig = Sig2Int('WSLV') then Result := 6 else
+      if PropSig = Sig2Int('WSTG') then Result := 7 else
+      if PropSig = Sig2Int('WHBV') then Result := 8 else
       Result := 5;
     end;
   end;

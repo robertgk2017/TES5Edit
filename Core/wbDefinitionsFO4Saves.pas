@@ -16,6 +16,7 @@ procedure SwitchToFO4CoSave;
 implementation
 
 uses
+  System.Classes,
   System.SysUtils,
 
   wbDefinitionsCommon,
@@ -7393,11 +7394,34 @@ var
   ExtractInfoSave:   TByteSet = [4, 5]; // SaveFileChapters that should be initialized before dumping to get more information
   ExtractInfoCoSave: TByteSet = [];     // CoSaveFileChapters that should be initialized before dumping to get more information
 
+procedure SavePluginNames(const aHeader: IwbContainer; aNames: TStrings);
+
+  procedure AddNames(const aList: IwbElement);
+  var
+    List : IwbContainerElementRef;
+    i    : Integer;
+  begin
+    if Supports(aList, IwbContainerElementRef, List) then
+      for i := 0 to Pred(List.ElementCount) do
+        aNames.Add(List[i].EditValue);
+  end;
+
+var
+  Union : IwbContainer;
+  i     : Integer;
+begin
+  AddNames(aHeader.ElementByName[wbFilePlugins]);
+  for i := 0 to Pred(aHeader.ElementCount) do
+    if Supports(aHeader.Elements[i], IwbContainer, Union) and (Union.Name = '') then
+      AddNames(Union.ElementByName['Light plugins']);
+end;
+
 procedure DefineFO4Saves;
 begin
   wbFileMagic := 'FO4_SAVEGAME';
   wbExtractInfo := @ExtractInfoSave;
   wbFilePlugins := 'Plugins';
+  wbFilePluginNames := SavePluginNames;
   DefineFO4;
   DefineFO4SavesA;
   DefineFO4SavesS;
@@ -7408,6 +7432,7 @@ begin
   wbFileMagic := 'F4SE';
   wbExtractInfo := @ExtractInfoCoSave;
   wbFilePlugins := 'Absolute:44';
+  wbFilePluginNames := nil;
   wbFileChapters := wbCoSaveChapters;
   wbFileHeader := wbCoSaveHeader;
 end;

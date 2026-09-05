@@ -26327,6 +26327,7 @@ initialization
   FilesMap.Sorted := True;
   FilesMap.Duplicates := dupError;
 finalization
+  Files := nil;
   WriteSubRecordOrderList;
   FreeAndNil(SubRecordOrderList);
   FreeAndNil(RecordToSkip);
