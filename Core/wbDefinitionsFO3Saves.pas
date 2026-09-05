@@ -303,11 +303,11 @@ begin
   if Assigned(aBasePtr) and Assigned(aEndPtr) and (Cardinal(aBasePtr)<=Cardinal(aEndPtr)) then begin
     Assert(anOffset>0); // Offset needs to be a positive number
     case aSize of
-      4 : Result := PCardinal(Cardinal(aBasePtr)-anOffset)^;
-      3 : Result := wbReadInteger24(PCardinal(Cardinal(aBasePtr)-anOffset));
-      2 : Result := PWord(Cardinal(aBasePtr)-anOffset)^;
+      4 : Result := PCardinal(NativeUInt(aBasePtr)-anOffset)^;
+      3 : Result := wbReadInteger24(PCardinal(NativeUInt(aBasePtr)-anOffset));
+      2 : Result := PWord(NativeUInt(aBasePtr)-anOffset)^;
     else
-      Result := PByte(Cardinal(aBasePtr)-anOffset)^;
+      Result := PByte(NativeUInt(aBasePtr)-anOffset)^;
     end;
   end else begin
     Element := wbFindSaveElement(aContainerName, aElement);
