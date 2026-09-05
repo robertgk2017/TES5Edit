@@ -2303,7 +2303,15 @@ begin
   if not Assigned(MainRecord) then
     Exit;
 
-  if MainRecord.ConflictAll > caNoConflict then
+  var Master := MainRecord.MasterOrSelf;
+  if Master.Equals(MainRecord) then
+    Exit;
+
+  var HeightMap := MainRecord.ElementBySignature[VHGT];
+  var MasterHeightMap := Master.ElementBySignature[VHGT];
+  if Assigned(HeightMap) <> Assigned(MasterHeightMap) then
+    aConflictPriority := cpNormal
+  else if Assigned(HeightMap) and not SameStr(HeightMap.DisplaySortKey[True], MasterHeightMap.DisplaySortKey[True]) then
     aConflictPriority := cpNormal;
 end;
 
