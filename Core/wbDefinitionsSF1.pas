@@ -8724,7 +8724,7 @@ begin
       wbUnknown(4),
       wbUnknown(4)
     ]).SetOptionalFrom(4),
-    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2).SetToStr(wbREFRRadiusToStr),
+    wbFloat(XRDS, 'Radius', cpNormal, False, 1, 2),
     wbRArray('Water Current Data',
       wbRStruct('Current', [
         wbRUnion('', [
