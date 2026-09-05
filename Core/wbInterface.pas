@@ -11045,8 +11045,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetGetCP(aGetCP));
 
+  if Assigned(srValue) then begin
+    srValue := srValue.SetGetCP(aGetCP);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  defGetCP := aGetCP;
 end;
 
 function TwbSubRecordDef.SetIsRemovable(const aCallback: TwbIsRemovableCallback): IwbRecordMemberDef;
