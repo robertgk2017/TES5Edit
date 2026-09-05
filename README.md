@@ -1,6 +1,20 @@
 # xEdit
 
-xEdit 4.0.0 by ElminsterAU. Updates since 2012 include TES5Edit/SSEEdit/FO4Edit by Hlp, Zilav and Sharlikran. LOD management by Sheson.
+xEdit by ElminsterAU. The editing and conflict-resolution tool for Bethesda game plugins — Oblivion through Starfield.
+
+## Maintainers and Contributors
+
+**Author and upstream maintainer:** [ElminsterAU](https://github.com/ElminsterAU) (since 2006)
+
+**Co-maintainer:** [robertgk2017](https://github.com/robertgk2017) — record definitions across all supported game formats, BSArch/BSArchPro, core editor fixes; integration point for incoming contributions
+
+**Regular contributors:** [Jonathan Ostrus](https://github.com/jbostrus), [fireundubh](https://github.com/fireundubh), [eckserah](https://github.com/eckserah)
+
+**LOD tooling (xLODGen/DynDOLOD):** Sheson
+
+**Historical maintainers (2012–2019):** Hlp, Zilav, Sharlikran
+
+See the [contributors graph](https://github.com/TES5Edit/TES5Edit/graphs/contributors) and [whatsnew.md](whatsnew.md) for per-release attribution.
 
 ## GitHub Issue Tracker
 
