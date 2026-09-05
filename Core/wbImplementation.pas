@@ -5444,25 +5444,6 @@ begin
                        ))
                     then begin
                       if (not wbMasterUpdateFilterONAM) or Current.IsWinningOverride then begin
-                        // ONAMs are for overridden temporary refs only
-                        if Current.IsPersistent then
-                          Continue;
-
-                        if Current.Signature <> 'CELL' then
-                        begin
-                          if not Assigned(ONAMs) then begin
-                            if not Supports(FileHeader.Add('ONAM', True), IwbContainerElementRef, ONAMs) then
-                              Assert(False);
-                            ONAMs.BeginUpdate;
-                            Assert(ONAMs.ElementCount = 1);
-                            NewONAM := ONAMs.Elements[0];
-                          end else repeat
-                            NewONAM := ONAMs.Assign(wbAssignAdd, nil, True);
-                          until NewONAM.NativeValue = 0;
-
-                          NewONAM.NativeValue := FormID.ToCardinal;
-                        end;
-
                         if wbMasterUpdateFixPersistence and not Current.IsPersistent and not Current.IsMaster then begin
                           Master := Current.Master;
                           if Assigned(Master) then begin
@@ -5480,6 +5461,25 @@ begin
                                     Break;
                                   end;
                           end;
+                        end;
+
+                        // ONAMs are for overridden temporary refs only
+                        if Current.IsPersistent then
+                          Continue;
+
+                        if Current.Signature <> 'CELL' then
+                        begin
+                          if not Assigned(ONAMs) then begin
+                            if not Supports(FileHeader.Add('ONAM', True), IwbContainerElementRef, ONAMs) then
+                              Assert(False);
+                            ONAMs.BeginUpdate;
+                            Assert(ONAMs.ElementCount = 1);
+                            NewONAM := ONAMs.Elements[0];
+                          end else repeat
+                            NewONAM := ONAMs.Assign(wbAssignAdd, nil, True);
+                          until NewONAM.NativeValue = 0;
+
+                          NewONAM.NativeValue := FormID.ToCardinal;
                         end;
                       end;
                     end;
