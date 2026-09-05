@@ -1170,9 +1170,17 @@ begin
             tsPlugins: DefineSF1;
           end;
         end;
-      else
-        WriteLn(ErrOutput, 'Application name must contain FNV, FO3, FO4, FO4VR, FO76, SSE, TES4, TES5 or TES5VR to select game.');
+      else begin
+        s := '';
+        for gm := Low(TwbGameMode) to High(TwbGameMode) do
+          if gm in [gmFNV, gmFO3, gmTES3, gmTES4, gmTES5, gmEnderal, gmTES5VR, gmFO4, gmFO4VR, gmSSE, gmEnderalSE, gmFO76, gmSF1] then begin
+            if s <> '' then
+              s := s + ', ';
+            s := s + Copy(GetEnumName(TypeInfo(TwbGameMode), Ord(gm)), 3);
+          end;
+        WriteLn(ErrOutput, 'Application name must contain one of ' + s + ' to select game.');
         Exit;
+      end;
       end;
 
       if wbGameName2 = '' then
@@ -1727,15 +1735,22 @@ begin
 
       wbResourcesLoaded;
 
+      if wbGameMode = gmTES3 then begin
+        b := TwbHardcodedContainer.GetHardCodedDat;
+        if Length(b) > 0 then
+          wbFile(wbGameExeName, 0, '', [fsIsHardcoded], b);
+      end;
+
       if wbToolMode in [tmDump] then
         _File := wbFile(s, High(Integer));
 
-      with wbModuleByName(wbGameMasterEsm)^ do
-        if mfHasFile in miFlags then begin
-          b := TwbHardcodedContainer.GetHardCodedDat;
-          if Length(b) > 0 then
-            wbFile(wbGameExeName, 0, wbGameMasterEsm, [fsIsHardcoded], b);
-        end;
+      if wbGameMode <> gmTES3 then
+        with wbModuleByName(wbGameMasterEsm)^ do
+          if mfHasFile in miFlags then begin
+            b := TwbHardcodedContainer.GetHardCodedDat;
+            if Length(b) > 0 then
+              wbFile(wbGameExeName, 0, wbGameMasterEsm, [fsIsHardcoded], b);
+          end;
 
       ReportProgress('Finished loading record. Starting Dump.');
 
