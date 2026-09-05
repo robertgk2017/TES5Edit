@@ -21554,7 +21554,7 @@ begin
   key := aInt shr 22;
   val := aInt and $003FFFFF;
   case key of
-    0: if (val > 0) and (val < Length(wbRefIDArray)) then
+    0: if (val > 0) and (val <= Length(wbRefIDArray)) then
          inherited BuildRef(wbRefIDArray[val - 1], aElement);
     1: inherited BuildRef(val, aElement); // '['+IntToHex64(val, 8)+'] Skyrim.esm FormID';
   end;
@@ -21571,7 +21571,7 @@ begin
   case key of
     0: if val = 0 then
          Result := '[00000000] NULL'
-       else if val < Length(wbRefIDArray) then begin
+       else if val <= Length(wbRefIDArray) then begin
          val := wbRefIDArray[val - 1];
          Result := inherited ToString(val, aElement, aForSummary);
          Result := Copy(Result, 1, Pos('[', Result)) + IntToHex64(val, 8) + Copy(Result, Pos(']', Result), Length(Result));

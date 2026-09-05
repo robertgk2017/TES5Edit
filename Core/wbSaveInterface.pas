@@ -143,11 +143,13 @@ begin
   for i := 0 to High(ohfVMObjectHandleTable) do
     if ohfVMObjectHandleTable[i].Handle=aInt then begin
       VMType := ohfVMObjectHandleTable[i].VMType;
+      Break;
     end;
   if VMType<0 then
     for i := 0 to High(ohfVMObjectDetachedHandleTable) do
       if ohfVMObjectDetachedHandleTable[i].Handle=aInt then begin
         VMType := ohfVMObjectDetachedHandleTable[i].VMType;
+        Break;
       end;
   if VMType >= 0 then
     Result := '[' + IntToHex64(aInt, 8) + '] '+ sifVMTypeArray[VMType];
@@ -267,7 +269,7 @@ end;
 
 function GetSaveRefID(aIndex: Cardinal): Cardinal;
 begin
-  if (aIndex>0) and (aIndex<Length(SaveRefIDArray)) then
+  if (aIndex>0) and (aIndex<=Length(SaveRefIDArray)) then
     Result := SaveRefIDArray[aIndex-1]
   else
     Result := 0;
