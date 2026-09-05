@@ -667,7 +667,7 @@ begin
   SplitDirName(aFileName, Result.FolderNoDelimiter, Result.FileName);
   Result.Folder := Result.FolderNoDelimiter + '\';
   SplitNameExt(Result.FileName, Result.FileNameNoExtension, Result.ExtensionNoDot, True);
-  Result.Extension := '.' + Result.Extension;
+  Result.Extension := '.' + Result.ExtensionNoDot;
 end;
 
 class function TwbAsset.AssetTypeByFolder(const aAssetName: string): TwbAssetType;
