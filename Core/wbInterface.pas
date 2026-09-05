@@ -10841,9 +10841,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).IncludeFlagOnValue(aFlag, aOnlyWhenTrue));
 
+  if Assigned(srValue) then begin
+    srValue := srValue.IncludeFlag(aFlag, aOnlyWhenTrue);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := srValue.IncludeFlag(aFlag, aOnlyWhenTrue);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 procedure TwbSubRecordDef.InitFromParentDoChildren;
@@ -10915,9 +10917,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetCountFromEnumOnValue(aEnum));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbArrayDef).SetCountFromEnum(aEnum);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbArrayDef).SetCountFromEnum(aEnum);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetCountPathOnValue(const aValue: string; aUseForCountCallback: Boolean): IwbSubRecordWithArrayDef;
@@ -10928,8 +10932,10 @@ end;
 function TwbSubRecordDef.SetCountPathOnValue(const aValues: array of string; aUseForCountCallback: Boolean): IwbSubRecordWithArrayDef;
 begin
   if defIsLocked then begin
-    var lCountCallback := (srValue as IwbArrayDef).GetCountCallback;
-    if not Assigned(lCountCallback) then begin
+    var lCountCallback: TwbCountCallback := nil;
+    if Assigned(srValue) then
+      lCountCallback := (srValue as IwbArrayDef).GetCountCallback;
+    if Assigned(srValue) and not Assigned(lCountCallback) then begin
       var lCountPaths := (srValue as IwbArrayDef).GetCountPaths;
 
       var lDifferent := False;
@@ -10957,9 +10963,11 @@ begin
     Exit(TwbSubRecordDef(Duplicate).SetCountPathOnValue(aValues, aUseForCountCallback));
   end;
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbArrayDef).SetCountPath(aValues, aUseForCountCallback);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbArrayDef).SetCountPath(aValues, aUseForCountCallback);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetDefaultEditValue(const aValue: string): IwbSubRecordDef;
@@ -10994,9 +11002,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetDefaultEditValuesOnValue(aValues));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbArrayDef).SetDefaultEditValues(aValues);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbArrayDef).SetDefaultEditValues(aValues);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetDefaultNativeValue(const aValue: Variant): IwbSubRecordDef;
@@ -11025,9 +11035,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetFormaterOnValue(aFormater));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbBaseStringDef).SetFormater(aFormater);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbBaseStringDef).SetFormater(aFormater);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetFormIDFilter(const aFormIDFilter: TwbFormIDFilterCallback): IwbSubRecordWithFormIDCheckedDef;
@@ -11035,9 +11047,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetFormIDFilter(aFormIDFilter));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbIntegerWithFormIDCheckedDef).SetFormIDFilter(aFormIDFilter);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbIntegerWithFormIDCheckedDef).SetFormIDFilter(aFormIDFilter);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetGetCP(const aGetCP: TwbGetConflictPriority): IwbRecordMemberDef;
@@ -11158,9 +11172,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetStaticEditInfo(aEditInfo));
 
+  if Assigned(srValue) then begin
+    srValue := srValue.SetStaticEditInfo(aEditInfo);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := srValue.SetStaticEditInfo(aEditInfo);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryDelimiterOnArray(const aDelimiter: string): IwbSubRecordWithArrayDef;
@@ -11168,9 +11184,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetSummaryDelimiterOnArray(aDelimiter));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbArrayDef).SetSummaryDelimiter(aDelimiter);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbArrayDef).SetSummaryDelimiter(aDelimiter);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryDelimiterOnStruct(const aDelimiter: string): IwbSubRecordWithStructDef;
@@ -11178,9 +11196,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetSummaryDelimiterOnStruct(aDelimiter));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbStructDef).SetSummaryDelimiter(aDelimiter);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbStructDef).SetSummaryDelimiter(aDelimiter);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryKeyOnValue(const aSummaryKey: array of Integer): IwbSubRecordWithStructDef;
@@ -11188,9 +11208,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetSummaryKeyOnValue(aSummaryKey));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbStructDef).SetSummaryKey(aSummaryKey);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbStructDef).SetSummaryKey(aSummaryKey);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryMemberMaxDepthOnValue(aIndex, aMaxDepth: Integer): IwbSubRecordWithStructDef;
@@ -11198,9 +11220,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetSummaryMemberMaxDepthOnValue(aIndex, aMaxDepth));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbStructDef).SetSummaryMemberMaxDepth(aIndex, aMaxDepth);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbStructDef).SetSummaryMemberMaxDepth(aIndex, aMaxDepth);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryName(const aName: string): IwbRecordMemberDef;
@@ -11213,9 +11237,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetSummaryPassthroughMaxCountOnValue(aCount));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbArrayDef).SetSummaryPassthroughMaxCount(aCount);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbArrayDef).SetSummaryPassthroughMaxCount(aCount);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryPassthroughMaxDepthOnValue(aDepth: Integer): IwbSubRecordWithArrayDef;
@@ -11223,9 +11249,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetSummaryPassthroughMaxDepthOnValue(aDepth));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbArrayDef).SetSummaryPassthroughMaxDepth(aDepth);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbArrayDef).SetSummaryPassthroughMaxDepth(aDepth);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryPassthroughMaxLengthOnValue(aLength: Integer): IwbSubRecordWithArrayDef;
@@ -11233,9 +11261,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetSummaryPassthroughMaxLengthOnValue(aLength));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbArrayDef).SetSummaryPassthroughMaxLength(aLength);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbArrayDef).SetSummaryPassthroughMaxLength(aLength);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetSummaryPrefixSuffixOnValue(aIndex: Integer; const aPrefix, aSuffix: string): IwbSubRecordWithStructDef;
@@ -11243,9 +11273,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetSummaryPrefixSuffixOnValue(aIndex, aPrefix, aSuffix));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbStructDef).SetSummaryMemberPrefixSuffix(aIndex, aPrefix, aSuffix);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbStructDef).SetSummaryMemberPrefixSuffix(aIndex, aPrefix, aSuffix);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.SetRequired(const aRequired: Boolean): IwbRecordMemberDef;
@@ -11275,9 +11307,11 @@ begin
   if defIsLocked then
     Exit(TwbSubRecordDef(Duplicate).SetWronglyAssumedFixedSizePerElementOnValue(aSize));
 
+  if Assigned(srValue) then begin
+    srValue := (srValue as IwbArrayDef).SetWronglyAssumedFixedSizePerElement(aSize);
+    srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
+  end;
   Result := Self;
-  srValue := (srValue as IwbArrayDef).SetWronglyAssumedFixedSizePerElement(aSize);
-  srValue := (srValue as IwbDefInternal).SetParent(Self, False) as IwbValueDef;
 end;
 
 function TwbSubRecordDef.ToSummary(aDepth: Integer; const aElement: IwbElement; var aLinksTo: IwbElement): string;
