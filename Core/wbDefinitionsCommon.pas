@@ -1695,8 +1695,12 @@ begin
   if VarSameValue(aOldValue, aNewValue) then
     Exit;
 
+  var lContainer := aElement.Container;
+  if not Assigned(lContainer) then
+    Exit;
+
   if wbBeginInternalEdit then try
-    var lSounds := aElement.Container.ElementByPath['Sound Mappings'];
+    var lSounds := lContainer.ElementByPath['Sound Mappings'];
     if Assigned(lSounds) then
       lSounds.Remove;
   finally
@@ -5519,8 +5523,10 @@ begin
             lList3 := TStringList.Create;
             try
               lFile := aElement._File;
-              lFile.GetMasters(lList2);
-              lList2.Add(lFile.FileName);
+              if Assigned(lFile) then begin
+                lFile.GetMasters(lList2);
+                lList2.Add(lFile.FileName);
+              end;
 
               wbSoundBankCache.GetStrings(wntSwitchGroup, lList2, lList3);
 
@@ -5551,8 +5557,10 @@ begin
           lList2 := TStringList.Create;
           try
             lFile := aElement._File;
-            lFile.GetMasters(lList2);
-            lList2.Add(lFile.FileName);
+            if Assigned(lFile) then begin
+              lFile.GetMasters(lList2);
+              lList2.Add(lFile.FileName);
+            end;
 
             wbSoundBankCache.GetStrings(lNodeType, lList2, lList1);
           finally
@@ -5603,8 +5611,10 @@ begin
               lList3 := TStringList.Create;
               try
                 lFile := aElement._File;
-                lFile.GetMasters(lList2);
-                lList2.Add(lFile.FileName);
+                if Assigned(lFile) then begin
+                  lFile.GetMasters(lList2);
+                  lList2.Add(lFile.FileName);
+                end;
 
                 wbSoundBankCache.GetStrings(wntSwitchGroup, lList2, lList3);
 
@@ -5636,8 +5646,10 @@ begin
           lList2 := TStringList.Create;
           try
             lFile := aElement._File;
-            lFile.GetMasters(lList2);
-            lList2.Add(lFile.FileName);
+            if Assigned(lFile) then begin
+              lFile.GetMasters(lList2);
+              lList2.Add(lFile.FileName);
+            end;
 
             wbSoundBankCache.GetStrings(lNodeType, lList2, lList1);
           finally

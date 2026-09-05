@@ -433,7 +433,10 @@ begin
       if MessageDlg('The script has been modified. Do you want to save it?', mtConfirmation,mbYesNo, 0) = mrYes then
         btnSaveClick(Sender);
     Script := Editor.Lines.Text;
-    LastUsedScript := cmbScripts.Items[cmbScripts.ItemIndex];
+    if cmbScripts.ItemIndex < 0 then
+      LastUsedScript := sNewScript
+    else
+      LastUsedScript := cmbScripts.Items[cmbScripts.ItemIndex];
 
     var s := LastUsedScript;
     if s = sNewScript then

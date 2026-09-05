@@ -151,8 +151,12 @@ begin
         VMType := ohfVMObjectDetachedHandleTable[i].VMType;
         Break;
       end;
-  if VMType >= 0 then
-    Result := '[' + IntToHex64(aInt, 8) + '] '+ sifVMTypeArray[VMType];
+  if VMType < 0 then
+    Exit;
+  if VMType < Length(sifVMTypeArray) then
+    Result := '[' + IntToHex64(aInt, 8) + '] '+ sifVMTypeArray[VMType]
+  else
+    Result := '[' + IntToHex64(aInt, 8) + '] <no such type>';
 end;
 
 function TwbHandleFormaterToString(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
