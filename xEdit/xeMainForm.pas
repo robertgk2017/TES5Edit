@@ -20990,9 +20990,8 @@ begin
   ltLoadList := aList;
   aList := nil;
   ltStates := aFileStates;
-  inherited Create(True);
+  inherited Create(False);
   FreeOnTerminate := True;
-  Start;
 end;
 
 constructor TLoaderThread.Create(const aFileName, aMaster: string; aLoadOrder: Integer; aFileStates: TwbFileStates = []);
@@ -21003,9 +21002,8 @@ begin
   ltLoadList.Add(aFileName);
   ltMaster := aMaster;
   ltStates := aFileStates;
-  inherited Create(True);
+  inherited Create(False);
   FreeOnTerminate := True;
-  Start;
 end;
 
 destructor TLoaderThread.Destroy;
