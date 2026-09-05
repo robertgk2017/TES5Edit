@@ -988,11 +988,8 @@ begin
         NodeDatas[1].ConflictAll := caNoConflict;
         NodeDatas[0].ConflictThis := ctMaster;
         NodeDatas[1].ConflictThis := ctIdenticalToMaster;
-      end else begin
+      end else
         aConflictAll := wbConflictLevelForChildNodeDatas(NodeDatas, False, (aMainRecord.MasterOrSelf.IsInjected and not ((aMainRecord.Signature = 'GMST') or (aMainRecord.Signature = 'DFOB')) ), aConfig, aOnMessage);
-        if aConflictAll = caNoConflict then
-          IsCompareToSame;
-      end
     end else
       aConflictAll := wbConflictLevelForChildNodeDatas(NodeDatas, False, (aMainRecord.MasterOrSelf.IsInjected and not ((aMainRecord.Signature = 'GMST') or (aMainRecord.Signature = 'DFOB')) ), aConfig, aOnMessage);
 
