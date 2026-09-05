@@ -4283,6 +4283,13 @@ function wbRefID(const aName      : string;
                        aRequired  : Boolean = False)
                                   : IwbIntegerDef; overload;
 
+function wbLoadOrderFormID: IwbFormID; overload;
+
+function wbLoadOrderFormID(const aName      : string;
+                                 aPriority  : TwbConflictPriority = cpNormal;
+                                 aRequired  : Boolean = False)
+                                            : IwbIntegerDef; overload;
+
 function wbRefIDT(const aName      : string;
                         aPriority  : TwbConflictPriority = cpNormal;
                         aRequired  : Boolean = False)
@@ -7206,6 +7213,13 @@ type
     {---IwbIntegerDefFormater---}
     function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override;
     procedure BuildRef(aInt: Int64; const aElement: IwbElement); override;
+  public
+    procedure AfterConstruction; override;
+  end;
+
+  TwbLoadOrderFormID = class(TwbFormIDDefFormater)
+  public
+    procedure AfterConstruction; override;
   end;
 
   TwbFormIDChecked = class(TwbFormIDDefFormater, IwbFormIDChecked)
@@ -8964,6 +8978,28 @@ function wbRefIDT(const aName     : string;
                                   : IwbIntegerDef; overload;
 begin
   Result := wbIntegerT(aName, itU24, wbRefID, aPriority, aRequired);
+end;
+
+var
+  _LoadOrderFormID: IwbFormID;
+
+function wbLoadOrderFormID: IwbFormID;
+begin
+  if wbReportMode then
+    Result := TwbLoadOrderFormID.Create
+  else begin
+    if not Assigned(_LoadOrderFormID) then
+      _LoadOrderFormID := TwbLoadOrderFormID.Create;
+    Result := _LoadOrderFormID;
+  end;
+end;
+
+function wbLoadOrderFormID(const aName     : string;
+                                 aPriority : TwbConflictPriority = cpNormal;
+                                 aRequired : Boolean = False)
+                                           : IwbIntegerDef; overload;
+begin
+  Result := wbInteger(aName, itU32, wbLoadOrderFormID, aPriority, aRequired);
 end;
 
 var
@@ -21559,6 +21595,18 @@ var
 procedure InitializeRefIDArray(const anArray: TwbRefIDArray);
 begin
   wbRefIDArray := anArray;
+end;
+
+procedure TwbRefID.AfterConstruction;
+begin
+  inherited;
+  Include(defFlags, dfUseLoadOrder);
+end;
+
+procedure TwbLoadOrderFormID.AfterConstruction;
+begin
+  inherited;
+  Include(defFlags, dfUseLoadOrder);
 end;
 
 procedure TwbRefID.BuildRef(aInt: Int64; const aElement: IwbElement);
