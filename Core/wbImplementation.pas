@@ -23209,7 +23209,7 @@ begin
           PByte(dcDataBasePtr),
           GetDataSize,
           @dcDataStorage[0],
-          PCardinal(dcDataBasePtr)^
+          szUncompressedSize
         );
       scLZComp:
         TwbCompression.Decompress(
@@ -23217,7 +23217,7 @@ begin
           PByte(dcDataBasePtr),
           GetDataSize,
           @dcDataStorage[0],
-          PCardinal(dcDataBasePtr)^
+          szUncompressedSize
         );
       else
         Assert(False);  // Something hasn't been updated yet.
