@@ -20588,7 +20588,7 @@ begin
 
         ModGroups := nil;
 
-        if not (xeQuickClean or (wbToolMode in wbAutoModes) or xeTestConflicts) then
+        if not (xeQuickClean or (wbToolMode in wbAutoModes) or (xeTestConflicts and not xeTestConflictsModGroups)) then
           if xeQuickShowConflicts or xeAutoLoad then begin
             ModGroups := wbModGroupsByName;
             wbModGroupsByName(False).ShowValidationMessages;
