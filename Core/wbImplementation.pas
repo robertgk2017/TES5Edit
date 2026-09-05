@@ -13750,31 +13750,35 @@ var
             raise Exception.Create('Record "' + GetFullPath + '" can not be contained in ' + GroupRecord.Name);
         end;
         8, 10: begin {Persistent and Visible when Distant/Quest Children}
-          if (GetSignature <> 'REFR') and
-             (GetSignature <> 'ACHR') and
-             (GetSignature <> 'ACRE') and
-             (GetSignature <> 'PGRE') and
-             (GetSignature <> 'PMIS') and
-             (GetSignature <> 'PARW') and {>>> Skyrim <<<}
-             (GetSignature <> 'PBEA') and {>>> Skyrim <<<}
-             (GetSignature <> 'PFLA') and {>>> Skyrim <<<}
-             (GetSignature <> 'PCON') and {>>> Skyrim <<<}
-             (GetSignature <> 'PBAR') and {>>> Skyrim <<<}
-             (GetSignature <> 'PHZD')     {>>> Skyrim <<<}
-          then
-            if not (wbVWDAsQuestChildren and ((GetSignature = 'DLBR') or (GetSignature = 'DIAL') or (GetSignature = 'SCEN'))) then
+          if wbVWDAsQuestChildren and (GroupRecord.GroupType = 10) then begin
+            if (GetSignature <> 'DLBR') and (GetSignature <> 'DIAL') and (GetSignature <> 'SCEN') then
+              raise Exception.Create('Record "' + GetFullPath + '" can not be contained in ' + GroupRecord.Name);
+          end else begin
+            if (GetSignature <> 'REFR') and
+               (GetSignature <> 'ACHR') and
+               (GetSignature <> 'ACRE') and
+               (GetSignature <> 'PGRE') and
+               (GetSignature <> 'PMIS') and
+               (GetSignature <> 'PARW') and {>>> Skyrim <<<}
+               (GetSignature <> 'PBEA') and {>>> Skyrim <<<}
+               (GetSignature <> 'PFLA') and {>>> Skyrim <<<}
+               (GetSignature <> 'PCON') and {>>> Skyrim <<<}
+               (GetSignature <> 'PBAR') and {>>> Skyrim <<<}
+               (GetSignature <> 'PHZD')     {>>> Skyrim <<<}
+            then
               raise Exception.Create('Record "' + GetFullPath + '" can not be contained in ' + GroupRecord.Name);
 
-          case GroupRecord.GroupType of
-            8:begin
-              if not mrStruct.mrsFlags.IsPersistent then
-                raise Exception.Create('Record "' + GetFullPath + '" needs to have it''s Persistent flag set to be contained in ' + GroupRecord.Name);
-            end;
-            10: if not wbVWDAsQuestChildren then begin
-              if not mrStruct.mrsFlags.IsVisibleWhenDistant then
-                raise Exception.Create('Record "' + GetFullPath + '" needs to have it''s Visible when Distant flag set to be contained in ' + GroupRecord.Name);
-              if mrStruct.mrsFlags.IsPersistent then
-                raise Exception.Create('Record "' + GetFullPath + '" can not have it''s Persistent flag set to be contained in ' + GroupRecord.Name);
+            case GroupRecord.GroupType of
+              8: begin
+                if not mrStruct.mrsFlags.IsPersistent then
+                  raise Exception.Create('Record "' + GetFullPath + '" needs to have it''s Persistent flag set to be contained in ' + GroupRecord.Name);
+              end;
+              10: begin
+                if not mrStruct.mrsFlags.IsVisibleWhenDistant then
+                  raise Exception.Create('Record "' + GetFullPath + '" needs to have it''s Visible when Distant flag set to be contained in ' + GroupRecord.Name);
+                if mrStruct.mrsFlags.IsPersistent then
+                  raise Exception.Create('Record "' + GetFullPath + '" can not have it''s Persistent flag set to be contained in ' + GroupRecord.Name);
+              end;
             end;
           end;
         end;
