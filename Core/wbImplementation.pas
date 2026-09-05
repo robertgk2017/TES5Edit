@@ -17151,12 +17151,15 @@ var
 
 begin
   if not (dcfDontSave in dcFlags) then begin
+    SelfRef := Self as IwbContainerElementRef;
+    DoInit(False);
     if (esModified in eStates) or (dcfBasePtrInvalid in dcFlags) or wbTestWrite or (srStruct.srsDataSize = 0) then begin
-      SelfRef := Self as IwbContainerElementRef;
       DoInit(True);
 
-      if (aResetModified = rmYes) and (dcfStorageInvalid in dcFlags) then
+      if dcfStorageInvalid in dcFlags then begin
+        PrepareSave;
         UpdateStorageFromElements;
+      end;
 
       BigDataSize := GetDataSize;
       if (BigDataSize > High(Word)) and (wbGameMode <> gmTES3) then begin
