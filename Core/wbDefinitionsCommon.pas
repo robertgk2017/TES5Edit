@@ -4228,7 +4228,7 @@ begin
 
   if wbResolveAlias then begin
     var lCER : IwbContainerElementRef;
-    if not Assigned(lCER) then
+    if not Supports(aElement.Container, IwbContainerElementRef, lCER) then
       Exit;
 
     Result := wbAliasToStr(aInt, lCER.ElementBySignature['ALEQ'] , aType);
