@@ -179,7 +179,7 @@ type
     Nodes: array of TBaseNiNode;
     constructor Create;
     destructor Destroy; override;
-    procedure Load(aStream: TStream);
+    function Load(aStream: TStream): Boolean;
     function GetNode(aRef: TNodeRef): TBaseNiNode;
   end;
 
@@ -284,7 +284,8 @@ procedure TNiHeader.Load(aStream: TStream);
 const
   NifMagic = 'Gamebryo File Format';
 var
-  i, j, n: Cardinal;
+  i: Integer;
+  j, n: Cardinal;
 begin
   inherited;
 
@@ -359,7 +360,9 @@ begin
         NodeStrings[i] := ReadSizedString;
     end;
   end;
-  data.ReadUInt32; // skip Unknown Int 2
+  n := data.ReadUInt32;
+  for i := 1 to n do
+    data.ReadUInt32;
 
   // calculate blocks offsets
   SetLength(NodeOffsets, NodeCount);
@@ -402,7 +405,8 @@ end;
 //===========================================================================
 procedure TNodeBSShaderTextureSet.Load(aStream: TStream);
 var
-  i, n: Cardinal;
+  i: Integer;
+  n: Cardinal;
 begin
   inherited;
   n := data.ReadUInt32;
@@ -414,7 +418,8 @@ end;
 //===========================================================================
 procedure TNodeBSLightingShaderProperty.Load(aStream: TStream);
 var
-  i, n: Cardinal;
+  i: Integer;
+  n: Cardinal;
 begin
   inherited;
   SkyrimShaderType := data.ReadUInt32;
@@ -460,7 +465,8 @@ end;
 //===========================================================================
 procedure TNodeNiTriShape.Load(aStream: TStream);
 var
-  i, n: Cardinal;
+  i: Integer;
+  n: Cardinal;
 begin
   inherited;
   Name := ReadString;
@@ -509,7 +515,8 @@ end;
 //===========================================================================
 procedure TNodeNiTriShapeData.Load(aStream: TStream);
 var
-  i, n: Cardinal;
+  i: Integer;
+  n: Cardinal;
 begin
   inherited;
   data.ReadInt32;
@@ -603,7 +610,7 @@ begin
 end;
 
 //===========================================================================
-procedure TNiFile.Load(aStream: TStream);
+function TNiFile.Load(aStream: TStream): Boolean;
 var
   i: integer;
   NodeType: string;
@@ -611,7 +618,8 @@ begin
   Header := TNiHeader.Create(Self, Low(Integer));
   Header.Load(aStream);
 
-  if Length(Header.NodeSizes) = 0 then
+  Result := Length(Header.NodeSizes) > 0;
+  if not Result then
     Exit;
 
   SetLength(Nodes, Header.NodeCount);
@@ -682,7 +690,8 @@ begin
   bs := TBytesStream.Create(aNifData);
   nif := TNiFile.Create;
   try
-    nif.Load(bs);
+    if not nif.Load(bs) then
+      Exit;
     for i := Low(nif.Nodes) to High(nif.Nodes) do begin
       n := nif.Nodes[i];
       if not Assigned(n) then
@@ -720,7 +729,8 @@ begin
   bs := TBytesStream.Create(aNifData);
   nif := TNiFile.Create;
   try
-    nif.Load(bs);
+    if not nif.Load(bs) then
+      Exit;
     for i := Low(nif.Nodes) to High(nif.Nodes) do begin
       n := nif.Nodes[i];
       if not Assigned(n) then
@@ -769,7 +779,8 @@ begin
   bs := TBytesStream.Create(aNifData);
   nif := TNiFile.Create;
   try
-    nif.Load(bs);
+    if not nif.Load(bs) then
+      Exit;
     for i := Low(nif.Nodes) to High(nif.Nodes) do begin
       n := nif.Nodes[i];
       if not Assigned(n) then
