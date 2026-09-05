@@ -25919,6 +25919,9 @@ begin
   SelfRef := Self as IwbContainerElementRef;
   flProgress('Start processing');
 
+  if not Assigned(wbFileHeader) then
+    raise Exception.CreateFmt('Expected a module, found "%s"', [flFileName]);
+
   flLoadOrderFileID := TwbFileID.CreateFull($FF);
 
   wbBaseOffset := NativeUInt(flView);
