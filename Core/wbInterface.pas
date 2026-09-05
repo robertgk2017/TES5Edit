@@ -4741,6 +4741,9 @@ function IntToSignature(aInt: Cardinal): TwbSignature; inline;
 
 function FixupFormID(const aFormID: TwbFormID; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts; aAllowHardcodedRangeUse: Boolean): TwbFormID;
 
+type
+  TwbFilePluginNames = procedure(const aHeader: IwbContainer; aNames: TStrings);
+
 threadvar
   _InternalEditCount: Integer;
   _BlockInternalEdit: Boolean;
@@ -4752,6 +4755,7 @@ var
   wbNullSignature     : TwbSignature = #0#0#0#0;
   wbFileMagic         : TwbFileMagic;
   wbFilePlugins       : string = 'Master Files';
+  wbFilePluginNames   : TwbFilePluginNames = nil;
   wbUseFalsePlugins   : Boolean = False;
   wbFileHeader        : IwbStructDef;
   wbFileChapters      : IwbStructDef;

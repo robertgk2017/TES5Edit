@@ -967,6 +967,7 @@ type
     procedure Scan; override;
     constructor CreateNew(const aFileName: string; aLoadOrder: Integer);
     procedure GetMasters(aMasters: TStrings); override;
+    procedure GetPluginNames(const aHeader: IwbFileHeader; aNames: TStrings);
   end;
 
   TwbDataContainerFlag = (
@@ -25839,12 +25840,10 @@ end;
 
 procedure TwbFileSource.GetMasters(aMasters: TStrings);
 var
-  Header      : IwbFileHeader;
-  MasterFiles : IwbContainerElementRef;
-  fPath       : String;
-  i           : Integer;
-  modPtr      : Pointer;
-  mods        : TwbArray;
+  Header : IwbFileHeader;
+  Names  : TStringList;
+  fPath  : String;
+  i      : Integer;
 begin
   if (GetElementCount <> 1) or not Supports(GetElement(0), IwbFileHeader, Header) then
     raise Exception.CreateFmt('Unexpected error reading file "%s"', [flFileName]);
@@ -25853,20 +25852,41 @@ begin
     raise Exception.CreateFmt('Expected File Magic %s, found %s in file "%s"',
       [wbFileMagic, String(Header.FileMagic), flFileName]);
 
+  Names := TStringList.Create;
+  try
+    GetPluginNames(Header, Names);
+    for i := 0 to Pred(Names.Count) do begin
+      fPath := wbDataPath + Names[i];
+      if FileExists(fPath) then
+        aMasters.Add(Names[i]);
+    end;
+  finally
+    Names.Free;
+  end;
+end;
+
+procedure TwbFileSource.GetPluginNames(const aHeader: IwbFileHeader; aNames: TStrings);
+var
+  MasterFiles : IwbContainerElementRef;
+  i           : Integer;
+  modPtr      : Pointer;
+  mods        : TwbArray;
+begin
+  if Assigned(wbFilePluginNames) then begin
+    wbFilePluginNames(aHeader, aNames);
+    Exit;
+  end;
+
   if Pos('Absolute:', wbFilePlugins)=1 then begin
     modPtr := PByte(flView) + StrToInt(Copy(wbFilePlugins, 10, Length(wbFilePlugins)));
     mods := TwbArray.Create(nil, modPtr, flEndPtr, wbArray('Modules', wbLenString('PluginName', 2), -4), '', False);
     Supports(mods, IwbContainerElementRef, MasterFiles);
   end else
-    MasterFiles := Header.ElementByName[wbFilePlugins] as IwbContainerElementRef;
+    MasterFiles := aHeader.ElementByName[wbFilePlugins] as IwbContainerElementRef;
 
   if Assigned(MasterFiles) then
-    for i := 0 to Pred(MasterFiles.ElementCount) do begin
-      fPath := wbDataPath + MasterFiles[i].EditValue;
-      if FileExists(fPath) then
-        aMasters.Add(MasterFiles[i].EditValue)
-    end;
-
+    for i := 0 to Pred(MasterFiles.ElementCount) do
+      aNames.Add(MasterFiles[i].EditValue);
 end;
 
 function CreateTemporaryCopy(const FileName : string; var CompareFile: String): String;
@@ -25916,15 +25936,13 @@ procedure TwbFileSource.Scan;
 var
   CurrentPtr  : Pointer;
   Header      : IwbFileHeader;
-  MasterFiles : IwbContainerElementRef;
+  Names       : TStringList;
   i           : Integer;
   ExtractInfo : TByteSet;
   Element     : IwbElement;
   Container   : IwbContainer;
   SelfRef     : IwbContainerElementRef;
   fPath       : String;
-  modPtr      : Pointer;
-  mods        : TwbArray;
   ValueDef    : IwbValueDef;
 begin
   SelfRef := Self as IwbContainerElementRef;
@@ -25950,16 +25968,11 @@ begin
   if fsOnlyHeader in flStates then
     Exit;
 
-  if Pos('Absolute:', wbFilePlugins)=1 then begin
-    modPtr := PByte(flView) + StrToInt(Copy(wbFilePlugins, 10, Length(wbFilePlugins)));
-    mods := TwbArray.Create(nil, modPtr, flEndPtr, wbArray('Modules', wbLenString('PluginName', 2), -4), '', False);
-    Supports(mods, IwbContainerElementRef, MasterFiles);
-  end else
-    MasterFiles := Header.ElementByName[wbFilePlugins] as IwbContainerElementRef;
-
-  if Assigned(MasterFiles) then
-    for i := 0 to Pred(MasterFiles.ElementCount) do begin
-      fPath := wbDataPath + MasterFiles[i].EditValue;
+  Names := TStringList.Create;
+  try
+    GetPluginNames(Header, Names);
+    for i := 0 to Pred(Names.Count) do begin
+      fPath := wbDataPath + Names[i];
       if FileExists(fPath) then
         AddMaster(fPath, False, True)
       else if wbUseFalsePlugins then begin
@@ -25967,9 +25980,12 @@ begin
         if not FileExists(fPath) then
           fPath := ExtractFilePath(wbProgramPath) + wbAppName + TheEmptyPlugin; // place holder to keep save indexes
         if FileExists(fPath) then
-          AddMaster(SelectTemporaryCopy(fPath, MasterFiles[i].EditValue), True, True);
+          AddMaster(SelectTemporaryCopy(fPath, Names[i]), True, True);
       end;
     end;
+  finally
+    Names.Free;
+  end;
 
   if flCompareTo <> '' then
     AddMaster(flCompareTo);

@@ -16,6 +16,7 @@ procedure SwitchToTES5CoSave;
 implementation
 
 uses
+  System.Classes,
   System.SysUtils,
 
   wbDefinitionsCommon,
@@ -385,6 +386,31 @@ begin
       Supports(Element, IwbContainer, Result);
       Exit;
     end;
+end;
+
+procedure SavePluginNames(const aHeader: IwbContainer; aNames: TStrings);
+
+  procedure AddNames(const aList: IwbElement);
+  var
+    List : IwbContainerElementRef;
+    i    : Integer;
+  begin
+    if Supports(aList, IwbContainerElementRef, List) then
+      for i := 0 to Pred(List.ElementCount) do
+        aNames.Add(List[i].EditValue);
+  end;
+
+var
+  Content : IwbContainer;
+  Union   : IwbContainer;
+  i       : Integer;
+begin
+  Content := SaveContent(aHeader);
+  if not Assigned(Content) then Exit;
+  AddNames(Content.ElementByName[wbFilePlugins]);
+  for i := 0 to Pred(Content.ElementCount) do
+    if Supports(Content.Elements[i], IwbContainer, Union) and (Union.Name = '') then
+      AddNames(Union.ElementByName['Light plugins']);
 end;
 
 function SaveFormVersionDecider(aMinimum: Integer; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
@@ -6209,6 +6235,7 @@ begin
   wbFileMagic := 'TESV_SAVEGAME';
   wbExtractInfo := @ExtractInfoSave;
   wbFilePlugins := 'Plugins';
+  wbFilePluginNames := SavePluginNames;
   DefineTES5;
   DefineTES5SavesA;
   DefineTES5SavesS;
@@ -6219,6 +6246,7 @@ begin
   wbFileMagic := 'SKSE';
   wbExtractInfo := @ExtractInfoCoSave;
   wbFilePlugins := 'Absolute:44';
+  wbFilePluginNames := nil;
   wbFileChapters := wbCoSaveChapters;
   wbFileHeader := wbCoSaveHeader;
 end;
