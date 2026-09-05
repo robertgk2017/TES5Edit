@@ -10628,6 +10628,10 @@ begin
 
     (cntElements[CurrentRecPos] as IwbElementInternal).SetSortOrder(CurrentDefPos);
     (cntElements[CurrentRecPos] as IwbElementInternal).SetMemoryOrder(CurrentDefPos);
+    if esModified in (cntElements[CurrentRecPos] as IwbElementInternal).ElementStates then begin
+      SetInternalModified(True);
+      InvalidateStorage;
+    end;
     Include(PresentRecords, CurrentDefPos);
     LastElementForMember[CurrentDefPos] := cntElements[CurrentRecPos];
 
