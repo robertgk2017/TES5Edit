@@ -16198,6 +16198,21 @@ end;
 
 procedure TwbFloatDef.FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string);
 begin
+  var lValueString := aValue;
+  if Assigned(ndToStr) then
+    ndToStr(lValueString, aBasePtr, aEndPtr, aElement, ctFromEditValue);
+
+  lValueString := lValueString.Trim;
+
+  if lValueString = wbIgnoreStringValue then
+    Exit;
+
+  if not ((lValueString = '') or SameText(lValueString, 'NaN') or SameText(lValueString, 'Inf') or SameText(lValueString, '+Inf') or
+          SameText(lValueString, '-Inf') or SameText(lValueString, 'Default') or SameText(lValueString, 'Max') or SameText(lValueString, 'Min')) then begin
+    FromValue(StrToFloat(lValueString), aBasePtr, aEndPtr, aElement);
+    Exit;
+  end;
+
   var lSize: Integer;
   case fdKind of
     fkHalf  : lSize := SizeOf(THalfFloat)+Ord(ndTerminator);
@@ -16207,15 +16222,7 @@ begin
   end;
   aElement.RequestStorageChange(aBasePtr, aEndPtr, lSize);
 
-  var lValueString := aValue;
-  if Assigned(ndToStr) then
-    ndToStr(lValueString, aBasePtr, aEndPtr, aElement, ctFromEditValue);
-
-  lValueString := lValueString.Trim;
-
-  if lValueString = wbIgnoreStringValue then begin
-    //do nothing
-  end else if lValueString = '' then begin
+  if lValueString = '' then begin
     case fdKind of
       fkHalf  : PHalfFloat(aBasePtr)^ := 0;
       fkSingle: PSingle(aBasePtr)^ := 0.0;
@@ -16251,10 +16258,6 @@ begin
       fkSingle: PCardinal(aBasePtr)^ := $FF7FFFFF;
       fkDouble: PInt64(aBasePtr)^ := -$10000000000001 // $FFEFFFFFFFFFFFFF
     end;
-  end else begin
-    var lValue := StrToFloat(lValueString);
-    FromValue(lValue, aBasePtr, aEndPtr, aElement);
-    Exit;
   end;
 
   if ndTerminator then
