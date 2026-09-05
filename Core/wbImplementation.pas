@@ -12754,7 +12754,7 @@ begin
     Exit;
   if MyBase^.mrsFlags._Flags <> OtherBase^.mrsFlags._Flags then
     Exit;
-  if MyBase^.mrsFormID^ <> OtherBase^.mrsFormID^ then
+  if (MyBase^.mrsFormID <> nil) and (MyBase^.mrsFormID^ <> OtherBase^.mrsFormID^) then
     Exit;
 
   Inc(PByte(MyBase), wbSizeOfMainRecordStruct);

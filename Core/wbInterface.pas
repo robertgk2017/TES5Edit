@@ -2240,6 +2240,55 @@ type
   TDynCardinalArray = array of UInt64;
   {$ENDIF WIN32}
 
+  TwbConflictNodeFlag = (
+    vnfDontShow,
+    vnfIgnore,
+    vnfUseSortOrder,
+    vnfIsSorted,
+    vnfIsAligned,
+    vnfIsPartialForm
+  );
+  TwbConflictNodeFlags = set of TwbConflictNodeFlag;
+
+  TwbConflictNodeState = (cnsDisabled, cnsHasChildren);
+  TwbConflictNodeStates = set of TwbConflictNodeState;
+
+  TwbConflictMessageProc = reference to procedure(const aMessage: string);
+  TwbConflictElementProc = reference to procedure(aColumn: Integer; const aElement: IwbElement);
+
+  TwbConflictConfig = record
+    TranslationMode    : Boolean;
+    AlignArrayElements : Boolean;
+    AlignArrayLimit    : Integer;
+    class function Current: TwbConflictConfig; static;
+  end;
+
+  TwbConflictPolicy = record
+    QuickShowConflicts : Boolean;
+    OnlyMasterAndLeafs : Boolean;
+    ModGroupsEnabled   : Boolean;
+  end;
+
+  PwbConflictNodeData = ^TwbConflictNodeData;
+  TwbConflictNodeData = record
+    Element: IwbElement;
+    Container: IwbContainerElementRef;
+    ConflictAll: TConflictAll;
+    ConflictThis: TConflictThis;
+    ElementGen   : Integer;
+    ContainerGen : Integer;
+    MissingElements : TDynElements;
+    ViewNodeFlags: TwbConflictNodeFlags;
+    procedure UpdateRefs;
+  end;
+
+  TwbConflictNodeDatas = array[Word] of TwbConflictNodeData;
+  PwbConflictNodeDatas = ^TwbConflictNodeDatas;
+
+  TwbDynConflictNodeDatas = array of TwbConflictNodeData;
+
+  TwbFieldConflictProc = reference to procedure(const aNodeDatas: TwbDynConflictNodeDatas; aConflictAll: TConflictAll);
+
   TDynElementsHelper = record helper for TDynElements
     procedure Add(const aElement: IwbElement);
   end;
@@ -4828,6 +4877,19 @@ uses
   wbHalfFloat,
   wbLocalization,
   wbSort;
+
+class function TwbConflictConfig.Current: TwbConflictConfig;
+begin
+  Result.TranslationMode := wbTranslationMode;
+  Result.AlignArrayElements := wbAlignArrayElements;
+  Result.AlignArrayLimit := wbAlignArrayLimit;
+end;
+
+procedure TwbConflictNodeData.UpdateRefs;
+begin
+  if Assigned(Element) and (Element.ElementType = etMainRecord) then
+    (Element as IwbMainRecord).UpdateRefs;
+end;
 
 function wbGetGameMasterFile: IwbFile;
 begin
