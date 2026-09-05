@@ -4903,6 +4903,15 @@ begin
   Result := nil;
 end;
 
+function wbGameMasterRecordByFormID(const aFormID: TwbFormID): IwbMainRecord;
+begin
+  var lGameMaster := wbGetGameMasterFile;
+  if Assigned(lGameMaster) then
+    Result := lGameMaster.RecordByFormID[aFormID, True, False]
+  else
+    Result := nil;
+end;
+
 function wbRecordByLoadOrderFormID(const aFormID: TwbFormID; const aSeenFromFile: IwbFile): IwbMainRecord;
 begin
   Result := nil;
@@ -17011,7 +17020,7 @@ begin
 
         var lMainRecord: IwbMainRecord;
         if lFormID.IsHardcoded then
-          lMainRecord := wbGetGameMasterFile.RecordByFormID[lFormID, True, False]
+          lMainRecord := wbGameMasterRecordByFormID(lFormID)
         else
           lMainRecord := lFile.RecordByFormID[lFormID, True, aElement.MastersUpdated];
 
@@ -17595,7 +17604,7 @@ begin
           lFormID.FileID := TwbFileID.Null;
 
       if lFormID.IsHardcoded then
-        Result := wbGetGameMasterFile.RecordByFormID[lFormID, True, False]
+        Result := wbGameMasterRecordByFormID(lFormID)
       else
         Result := lFile.RecordByFormID[lFormID, True, aElement.MastersUpdated];
     except end;
@@ -17627,7 +17636,7 @@ begin
             lFormID.FileID := TwbFileID.Null;
 
         if lFormID.IsHardcoded then
-          Result := wbGetGameMasterFile.RecordByFormID[lFormID, True, False]
+          Result := wbGameMasterRecordByFormID(lFormID)
         else
           Result := lFile.RecordByFormID[lFormID, True, aElement.MastersUpdated];
 
@@ -17929,7 +17938,7 @@ begin
               FormID.FileID := TwbFileID.Null;
 
           if FormID.IsHardcoded then
-            MainRecord := wbGetGameMasterFile.RecordByFormID[FormID, True, False]
+            MainRecord := wbGameMasterRecordByFormID(FormID)
           else begin
             MainRecord := _File.RecordByFormID[FormID, True, aElement.MastersUpdated];
             if wbDisplayLoadOrderFormID then
@@ -19517,7 +19526,7 @@ begin
             FormID.FileID := TwbFileID.Null;
 
         if FormID.IsHardcoded then
-          MainRecord := wbGetGameMasterFile.RecordByFormID[FormID, True, False]
+          MainRecord := wbGameMasterRecordByFormID(FormID)
         else begin
           MainRecord := _File.RecordByFormID[FormID, True, aElement.MastersUpdated];
           if wbDisplayLoadOrderFormID then
