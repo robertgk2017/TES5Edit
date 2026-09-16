@@ -375,6 +375,7 @@ type
     function GetContainingSubRecord: IwbSubRecord; virtual;
     function GetFile: IwbFile; virtual;
     function GameDefObj: TwbGameDef; virtual;
+    function GetGameDefObj: TwbGameDef;
     function GetReferenceFile: IwbFile; virtual;
     function GetSortOrder: Integer;
     procedure BuildRef; virtual;
@@ -2451,7 +2452,7 @@ begin
 
     end else begin
 
-      if gcFormIDInRecordHeader in flContext.GameDef.Capabilities then begin
+      if gcFormIDInRecordHeader in flContextObj.GameDefObj.Capabilities then begin
         var lFixedFormID := aRecord.FixedFormID;
         if flSetContainsFixedFormID(lFixedFormID) then
           raise EwbSkipLoad.Create('Duplicate FormID [' + lFixedFormID.ToString(True) + '] in file ' + GetName);
@@ -2640,7 +2641,7 @@ var
         if not Assigned(lFile) then
           raise Exception.CreateFmt('[AddMasters] Requested file to add is not loaded: "%s"', [lMasters[i]]);
 
-        if lFile.IsBlueprint and flContext.GameDef.IsStarfield then
+        if lFile.IsBlueprint and flContextObj.GameDefObj.IsStarfield then
           raise Exception.CreateFmt('[AddMasters] File [%s] not added. %s does not support blueprint files as masters to other modules.', [lMasters[i], wbGameName]);
 
         var lIsLightFile := lFile.IsLight;
@@ -2701,7 +2702,7 @@ begin;
         t := ExtractFileExt(s);
         if SameText(t, '.esp') and (not wbAllowESPMasters) then
           raise Exception.CreateFmt('[AddMasters] You cannot add a .esp as a master in %s.', [wbGameName]);
-        if SameText(t, '.esm') or SameText(t, '.esp') or (flContext.GameDef.IsLightSupported and SameText(t, '.esl')) then
+        if SameText(t, '.esm') or SameText(t, '.esp') or (flContextObj.GameDefObj.IsLightSupported and SameText(t, '.esl')) then
           lMasters.Add(s);
       end;
 
@@ -2710,7 +2711,7 @@ begin;
 
     Inner;
 
-    if gcMasterSlotsInFormID in flContext.GameDef.Capabilities then
+    if gcMasterSlotsInFormID in flContextObj.GameDefObj.Capabilities then
       if Length(flOldMasters) <> Length(flMasters) then begin
         var lOldCount := TwbSlotCounts.Create(flOldMasters);
         var lNewCount := TwbSlotCounts.Create(flMasters);
@@ -2844,7 +2845,7 @@ begin
   if Length(cntElements) < 1 then
     Exit;
 
-  var lGameDef := flContext.GameDef;
+  var lGameDef := flContextObj.GameDefObj;
   cntElements[0].Reached;
 
   for i := Low(flRecords) to High(flRecords) do
@@ -3254,7 +3255,7 @@ begin
           Assert(SameText(Rec.EditValue, flMasters[i].FileName), '[TwbFile.CleanMasters] not SameText(Rec.EditValue, flMasters[i].FileName)');
         end;
 
-        if gcMasterSlotsInFormID in flContext.GameDef.Capabilities then
+        if gcMasterSlotsInFormID in flContextObj.GameDefObj.Capabilities then
         begin
           var lOldCount := TwbSlotCounts.Create(flOldMasters);
           var lNewCount := TwbSlotCounts.Create(flMasters);
@@ -3388,7 +3389,7 @@ var
 begin
   flContext := wbCurrentContext;
   flContextObj := _CurrentContext;
-  var lGameDef := flContext.GameDef;
+  var lGameDef := flContextObj.GameDefObj;
   Assert(not (aIsLight and aIsMedium));
 
   Assert((not aIsLight) or lGameDef.IsLightSupported);
@@ -3464,7 +3465,7 @@ var
 begin
   flContext := wbCurrentContext;
   flContextObj := _CurrentContext;
-  var lGameDef := flContext.GameDef;
+  var lGameDef := flContextObj.GameDefObj;
   flLoadOrderFileID := TwbFileID.Invalid;
   Include(flStates, fsIsNew);
   Include(flStates, fsLightCompatible);
@@ -3926,7 +3927,7 @@ end;
 
 function TwbFile.flSetContainsFixedFormID(const aFormID: TwbFormID): Boolean;
 begin
-  if not (gcFormIDInRecordHeader in flContext.GameDef.Capabilities) then
+  if not (gcFormIDInRecordHeader in flContextObj.GameDefObj.Capabilities) then
     Exit(False);
 
   var ID := aFormID.ToCardinal;
@@ -4404,7 +4405,7 @@ begin
       ((not (fsIsCompareLoad in flStates)) or (fsIsDeltaPatch in flStates))
     );
 
-  if flContext.GameDef.IsStarfield and not wbRedPill then
+  if flContextObj.GameDefObj.IsStarfield and not wbRedPill then
     if [fsIsGameMaster, fsIsHardcoded, fsIsOfficial] * flStates <> [] then
       Exit(False);
 end;
@@ -4416,7 +4417,7 @@ begin
   if wbPseudoMedium then
     Exit(fsPseudoMedium in flStates);
 
-  if not flContext.GameDef.IsMediumSupported or GetIsNotPlugin then
+  if not flContextObj.GameDefObj.IsMediumSupported or GetIsNotPlugin then
     Exit(False);
 
   var SelfRef := Self as IwbContainerElementRef;
@@ -4431,7 +4432,7 @@ function TwbFile.GetIsMediumDirect: Boolean;
 var
   Header         : IwbMainRecord;
 begin
-  if not flContext.GameDef.IsMediumSupported or GetIsNotPlugin then
+  if not flContextObj.GameDefObj.IsMediumSupported or GetIsNotPlugin then
     Exit(False);
 
   var SelfRef := Self as IwbContainerElementRef;
@@ -4446,7 +4447,7 @@ function TwbFile.GetIsBlueprint: Boolean;
 var
   Header         : IwbMainRecord;
 begin
-  if not flContext.GameDef.IsBlueprintSupported or GetIsNotPlugin then
+  if not flContextObj.GameDefObj.IsBlueprintSupported or GetIsNotPlugin then
     Exit(False);
 
   var SelfRef := Self as IwbContainerElementRef;
@@ -4461,7 +4462,7 @@ function TwbFile.GetIsBlueprintDirect: Boolean;
 var
   Header         : IwbMainRecord;
 begin
-  if not flContext.GameDef.IsBlueprintSupported or GetIsNotPlugin then
+  if not flContextObj.GameDefObj.IsBlueprintSupported or GetIsNotPlugin then
     Exit(False);
 
   var SelfRef := Self as IwbContainerElementRef;
@@ -4489,7 +4490,7 @@ begin
   if wbPseudoLight then
     Exit(fsPseudoLight in flStates);
 
-  if not flContext.GameDef.IsLightSupported or GetIsNotPlugin then
+  if not flContextObj.GameDefObj.IsLightSupported or GetIsNotPlugin then
     Exit(False);
 
   var SelfRef := Self as IwbContainerElementRef;
@@ -4504,7 +4505,7 @@ function TwbFile.GetIsLightDirect: Boolean;
 var
   Header         : IwbMainRecord;
 begin
-  if not flContext.GameDef.IsLightSupported or GetIsNotPlugin then
+  if not flContextObj.GameDefObj.IsLightSupported or GetIsNotPlugin then
     Exit(False);
 
   var SelfRef := Self as IwbContainerElementRef;
@@ -4522,7 +4523,7 @@ begin
   if wbPseudoUpdate then
     Exit(fsPseudoUpdate in flStates);
 
-  if not flContext.GameDef.IsUpdateSupported or GetIsNotPlugin then
+  if not flContextObj.GameDefObj.IsUpdateSupported or GetIsNotPlugin then
     Exit(False);
 
   var SelfRef := Self as IwbContainerElementRef;
@@ -4537,7 +4538,7 @@ function TwbFile.GetIsUpdateDirect: Boolean;
 var
   Header         : IwbMainRecord;
 begin
-  if not flContext.GameDef.IsUpdateSupported or GetIsNotPlugin then
+  if not flContextObj.GameDefObj.IsUpdateSupported or GetIsNotPlugin then
     Exit(False);
 
   var SelfRef := Self as IwbContainerElementRef;
@@ -4595,7 +4596,7 @@ var
   V              : Variant;
   i              : Int64;
 begin
-  if (gcHeaderNextObjectID in flContext.GameDef.Capabilities) and (GetElementCount > 0) and Supports(GetElement(0), IwbContainerElementRef, Header) then begin
+  if (gcHeaderNextObjectID in flContextObj.GameDefObj.Capabilities) and (GetElementCount > 0) and Supports(GetElement(0), IwbContainerElementRef, Header) then begin
     V := Header.ElementNativeValues['HEDR\Next Object ID'];
     i := V;
     Result := i;
@@ -4607,7 +4608,7 @@ procedure TwbFile.SetNextObjectID(aObjectID: Cardinal);
 var
   Header         : IwbMainRecord;
 begin
-  if gcHeaderNextObjectID in flContext.GameDef.Capabilities then
+  if gcHeaderNextObjectID in flContextObj.GameDefObj.Capabilities then
     if (GetElementCount > 0) and Supports(GetElement(0), IwbContainerElementRef, Header) then
       Header.ElementNativeValues['HEDR\Next Object ID'] := aObjectID;
 end;
@@ -5044,7 +5045,7 @@ begin
   if Length(flInjectedRecords) > 0 then begin
     if FindInjectedID(aRecord.FixedFormID, i) then begin
       if wbHasProgressCallback then
-        if (gcFormIDInRecordHeader in flContext.GameDef.Capabilities) or not (fsIsHardcoded in flStates) then
+        if (gcFormIDInRecordHeader in flContextObj.GameDefObj.Capabilities) or not (fsIsHardcoded in flStates) then
           if ([fsIsHardcoded, fsIsCompareLoad] * flInjectedRecords[i]._File.FileStates = []) then
             wbProgressCallback('<Warning: ' + aRecord.Name + ' was injected into ' + GetFileName + ' which already has been injected with ' + flInjectedRecords[i].Name + ' from ' + flInjectedRecords[i]._File.FileName + ' >');
       (flInjectedRecords[i] as IwbMainRecordInternal).AddOverride(aRecord);
@@ -5054,7 +5055,7 @@ begin
     i := 0;
 
   if wbHasProgressCallback then
-    if (gcFormIDInRecordHeader in flContext.GameDef.Capabilities) or not (fsIsHardcoded in flStates) then
+    if (gcFormIDInRecordHeader in flContextObj.GameDefObj.Capabilities) or not (fsIsHardcoded in flStates) then
       if [fsIsHardcoded, fsIsCompareLoad] * aRecord._File.FileStates = [] then
         if wbReportInjected then
           wbProgressCallback('<Note: ' + aRecord.Name + ' was injected into ' + GetFileName + '>');
@@ -5304,7 +5305,7 @@ var
 begin
   Assert(not (fsMastersUpdating in flStates));
 
-  var lGameDef := flContext.GameDef;
+  var lGameDef := flContextObj.GameDefObj;
   SelfRef := Self as IwbContainerElementRef;
   DoInit(True);
 
@@ -5792,8 +5793,9 @@ var
 
     if flLoadOrder >= 0 then begin
       flContextObj.NextLoadOrder := Max(flContextObj.NextLoadOrder, Succ(flLoadOrder));
-      if flContext.GameDef.IsLightSupported or wbPseudoLight or flContext.GameDef.IsMediumSupported or wbPseudoMedium or flContext.GameDef.IsUpdateSupported or wbPseudoUpdate then begin
-        if (flContext.GameDef.IsUpdateSupported or wbPseudoUpdate) and ((fsPseudoUpdate in flStates) or ((Header.IsUpdate) and not wbIgnoreUpdate)) then
+      var lGameDef := flContextObj.GameDefObj;
+      if lGameDef.IsLightSupported or wbPseudoLight or lGameDef.IsMediumSupported or wbPseudoMedium or lGameDef.IsUpdateSupported or wbPseudoUpdate then begin
+        if (lGameDef.IsUpdateSupported or wbPseudoUpdate) and ((fsPseudoUpdate in flStates) or ((Header.IsUpdate) and not wbIgnoreUpdate)) then
           flLoadOrderFileID := TwbFileID.Invalid
         else if (fsPseudoLight in flStates) or ((Header.IsLight or flFileName.EndsWith(csDotEsl, True)) and not wbIgnoreLight) then
           flLoadOrderFileID := TwbFileID.CreateLight(flContextObj.AllocateLightSlot)
@@ -5846,7 +5848,7 @@ var
   IsInternal  : Boolean;
   EndPtr      : Pointer;
 begin
-  var lGameDef := flContext.GameDef;
+  var lGameDef := flContextObj.GameDefObj;
   SelfRef := Self as IwbContainerElementRef;
   flProgress('Start processing');
 
@@ -6231,7 +6233,7 @@ procedure TwbFile.SetIsMedium(Value: Boolean);
 var
   Header         : IwbMainRecord;
 begin
-  if not flContext.GameDef.IsMediumSupported then
+  if not flContextObj.GameDefObj.IsMediumSupported then
     Exit;
   if GetIsNotPlugin then
     Exit;
@@ -6251,7 +6253,7 @@ procedure TwbFile.SetIsBlueprint(Value: Boolean);
 var
   Header         : IwbMainRecord;
 begin
-  if not flContext.GameDef.IsBlueprintSupported then
+  if not flContextObj.GameDefObj.IsBlueprintSupported then
     Exit;
   if GetIsNotPlugin then
     Exit;
@@ -6271,7 +6273,7 @@ procedure TwbFile.SetIsLight(Value: Boolean);
 var
   Header         : IwbMainRecord;
 begin
-  if not flContext.GameDef.IsLightSupported then
+  if not flContextObj.GameDefObj.IsLightSupported then
     Exit;
   if GetIsNotPlugin then
     Exit;
@@ -6291,7 +6293,7 @@ procedure TwbFile.SetIsUpdate(Value: Boolean);
 var
   Header         : IwbMainRecord;
 begin
-  if not flContext.GameDef.IsUpdateSupported then
+  if not flContextObj.GameDefObj.IsUpdateSupported then
     Exit;
   if GetIsNotPlugin then
     Exit;
@@ -6502,7 +6504,7 @@ begin
             wbEndInternalEdit;
           end else
             Assert(False);
-          if gcMasterSlotsInFormID in flContext.GameDef.Capabilities then
+          if gcMasterSlotsInFormID in flContextObj.GameDefObj.Capabilities then
           begin
             var lOldCount := TwbSlotCounts.Create(flOldMasters);
             var lNewCount := TwbSlotCounts.Create(flMasters);
@@ -9418,7 +9420,7 @@ begin
         GroupRecord := nil;
 
         BasePtr := dcBasePtr;
-        with TwbRecordHeaderStruct.Create(Self, BasePtr, PByte(BasePtr) + wbSizeOfMainRecordStruct, mrDef.RecordHeaderStruct, '') do begin
+        with TwbRecordHeaderStruct.Create(Self, BasePtr, PByte(BasePtr) + GameDefObj.SizeOfMainRecordStruct, mrDef.RecordHeaderStruct, '') do begin
           Include(dcFlags, dcfDontSave);
           SetSortOrder(-1);
           SetMemoryOrder(Low(Integer));
@@ -10375,7 +10377,7 @@ begin
     GroupRecord := nil;
 
     BasePtr := dcBasePtr;
-    with TwbRecordHeaderStruct.Create(Self, BasePtr, PByte(BasePtr) + wbSizeOfMainRecordStruct, mrDef.RecordHeaderStruct, '') do begin
+    with TwbRecordHeaderStruct.Create(Self, BasePtr, PByte(BasePtr) + GameDefObj.SizeOfMainRecordStruct, mrDef.RecordHeaderStruct, '') do begin
       Include(dcFlags, dcfDontSave);
       SetSortOrder(-1);
       SetMemoryOrder(Low(Integer));
@@ -10483,7 +10485,7 @@ begin
       RecordHeaderStruct := wbMainRecordHeader as IwbStructDef;
 
     CurrentPtr := dcBasePtr;
-    with TwbRecordHeaderStruct.Create(Self, CurrentPtr, PByte(CurrentPtr) + wbSizeOfMainRecordStruct, RecordHeaderStruct, '') do begin
+    with TwbRecordHeaderStruct.Create(Self, CurrentPtr, PByte(CurrentPtr) + GameDefObj.SizeOfMainRecordStruct, RecordHeaderStruct, '') do begin
       Include(dcFlags, dcfDontSave);
       SetSortOrder(-1);
       SetMemoryOrder(Low(Integer));
@@ -12675,7 +12677,7 @@ begin
       dcBasePtr := p;
       dcEndPtr := nil;
     end else begin
-      dcDataBasePtr := PByte(dcBasePtr) + wbSizeOfMainRecordStruct;
+      dcDataBasePtr := PByte(dcBasePtr) + mrGameDefObj.SizeOfMainRecordStruct;
       dcDataEndPtr := PByte(dcDataBasePtr) + mrStruct.mrsDataSize;
       dcEndPtr := dcDataEndPtr;
     end;
@@ -12800,15 +12802,17 @@ begin
     Exit;
   if MyBase^.mrsDataSize <> OtherBase^.mrsDataSize then
     Exit;
-  var lFormIDInHeader := gcFormIDInRecordHeader in GameDefObj.Capabilities;
+  var lGameDef := GameDefObj;
+  var lFormIDInHeader := gcFormIDInRecordHeader in lGameDef.Capabilities;
   if MyBase^.mrsFlags(lFormIDInHeader)._Flags <> OtherBase^.mrsFlags(lFormIDInHeader)._Flags then
     Exit;
   if lFormIDInHeader and (MyBase^.mrsFormID(lFormIDInHeader)^ <> OtherBase^.mrsFormID(lFormIDInHeader)^) then
     Exit;
 
-  Inc(PByte(MyBase), wbSizeOfMainRecordStruct);
-  Inc(PByte(OtherBase), wbSizeOfMainRecordStruct);
-  Dec(MySize, wbSizeOfMainRecordStruct);
+  var lSizeOfMainRecordStruct := lGameDef.SizeOfMainRecordStruct;
+  Inc(PByte(MyBase), lSizeOfMainRecordStruct);
+  Inc(PByte(OtherBase), lSizeOfMainRecordStruct);
+  Dec(MySize, lSizeOfMainRecordStruct);
 
   Result := CompareMem(MyBase, OtherBase, MySize);
 end;
@@ -13070,7 +13074,7 @@ begin
     RecordHeader := GetElementBySortOrder( (-1) + GetAdditionalElementCount );
     if Assigned(RecordHeader) then begin
       BasePtr := p;
-      RecordHeader.InformStorage(BasePtr, PByte(BasePtr) + wbSizeOfMainRecordStruct);
+      RecordHeader.InformStorage(BasePtr, PByte(BasePtr) + GameDefObj.SizeOfMainRecordStruct);
     end;
   end;
 
@@ -13109,7 +13113,7 @@ begin
     GroupRecord := nil;
 
     BasePtr := dcBasePtr;
-    with TwbRecordHeaderStruct.Create(Self, BasePtr, PByte(BasePtr) + wbSizeOfMainRecordStruct, mrDef.RecordHeaderStruct, '') do begin
+    with TwbRecordHeaderStruct.Create(Self, BasePtr, PByte(BasePtr) + GameDefObj.SizeOfMainRecordStruct, mrDef.RecordHeaderStruct, '') do begin
       Include(dcFlags, dcfDontSave);
       SetSortOrder(-1);
       SetMemoryOrder(Low(Integer));
@@ -13371,6 +13375,7 @@ type
     odcSizePlaced   : Integer;
     odcCellSlot     : Int64;
     odcCellStart    : Int64;
+    odcSizeOfMainRecordStruct : Integer;
   end;
 
 threadvar
@@ -13665,7 +13670,7 @@ begin
 
   Value := aEnd - _OffsetData.odcCellStart;
   if aHasChildren then
-    Inc(Value, wbSizeOfMainRecordStruct);
+    Inc(Value, _OffsetData.odcSizeOfMainRecordStruct);
 
   wbWriteCellSizeEntry(_OffsetData.odcCellSlot, Value, aStream);
   _OffsetData.odcCellSlot := -1;
@@ -13745,10 +13750,11 @@ begin
           aStart + (NativeUInt(Internal.mrStruct) - NativeUInt(aBase)), True);
 
         if _OffsetData.odcCellSlot >= 0 then begin
-          CellSize := wbSizeOfMainRecordStruct + Int64(Internal.mrStruct.mrsDataSize);
+          var lSizeOfMainRecordStruct := MainRecord.GameDefObj.SizeOfMainRecordStruct;
+          CellSize := lSizeOfMainRecordStruct + Int64(Internal.mrStruct.mrsDataSize);
           ChildGroup := MainRecord.ChildGroup;
           if Assigned(ChildGroup) then
-            Inc(CellSize, wbSizeOfMainRecordStruct + Int64(ChildGroup.DataSize) + wbSizeOfMainRecordStruct);
+            Inc(CellSize, lSizeOfMainRecordStruct + Int64(ChildGroup.DataSize) + lSizeOfMainRecordStruct);
           wbWriteCellSizeEntry(_OffsetData.odcCellSlot, CellSize, aStream);
           _OffsetData.odcCellSlot := -1;
         end;
@@ -14523,7 +14529,7 @@ begin
       GroupRecord := nil;
 
       BasePtr := dcBasePtr;
-      with TwbRecordHeaderStruct.Create(Self, BasePtr, PByte(BasePtr) + wbSizeOfMainRecordStruct, mrDef.RecordHeaderStruct, '') do begin
+      with TwbRecordHeaderStruct.Create(Self, BasePtr, PByte(BasePtr) + GameDefObj.SizeOfMainRecordStruct, mrDef.RecordHeaderStruct, '') do begin
         Include(dcFlags, dcfDontSave);
         SetSortOrder(-1);
         SetMemoryOrder(Low(Integer));
@@ -14664,7 +14670,7 @@ begin
       GroupRecord := nil;
 
       BasePtr := dcBasePtr;
-      with TwbRecordHeaderStruct.Create(Self, BasePtr, PByte(BasePtr) + wbSizeOfMainRecordStruct, mrDef.RecordHeaderStruct, '') do begin
+      with TwbRecordHeaderStruct.Create(Self, BasePtr, PByte(BasePtr) + GameDefObj.SizeOfMainRecordStruct, mrDef.RecordHeaderStruct, '') do begin
         Include(dcFlags, dcfDontSave);
         SetSortOrder(-1);
         SetMemoryOrder(Low(Integer));
@@ -15291,6 +15297,8 @@ var
   begin
     KAR := wbCreateKeepAliveRoot;
 
+    var lGameDef := GameDefObj;
+    var lSizeOfMainRecordStruct := lGameDef.SizeOfMainRecordStruct;
     RecordPosition := aStream.Position;
     Signature := GetSignature;
 
@@ -15299,6 +15307,7 @@ var
         wbWriteWorldOffsetDataEntry(Self, aStream, RecordPosition);
     end else if Signature = 'WRLD' then begin
       _OffsetData := Default(TwbOffsetDataContext);
+      _OffsetData.odcSizeOfMainRecordStruct := lSizeOfMainRecordStruct;
       if (mrsOFSTReserved in mrStates) and (RecordPosition > 0) then begin
         Exclude(mrStates, mrsOFSTReserved);
         if not GetIsCompressed then
@@ -15347,14 +15356,14 @@ var
         Stream := MS;
       end;
 
-      Stream.WriteBuffer(mrs, wbSizeOfMainRecordStruct );
+      Stream.WriteBuffer(mrs, lSizeOfMainRecordStruct );
 
       if wbForceNewHeader then begin
         var lNewHeaderAddon := wbNewHeaderAddon;
         Stream.WriteBuffer(lNewHeaderAddon, SizeOf(lNewHeaderAddon) );
       end;
 
-      if mrStruct.mrsFlags(gcFormIDInRecordHeader in GameDefObj.Capabilities).IsCompressed then begin
+      if mrStruct.mrsFlags(gcFormIDInRecordHeader in lGameDef.Capabilities).IsCompressed then begin
 
         MemoryStream := TMemoryStream.Create;
         try
@@ -15374,9 +15383,9 @@ var
       end;
 
       if wbForceNewHeader then
-        DataSize := Stream.Size - wbSizeOfMainRecordStruct - SizeOf(Cardinal)
+        DataSize := Stream.Size - lSizeOfMainRecordStruct - SizeOf(Cardinal)
       else
-        DataSize := Stream.Size - wbSizeOfMainRecordStruct;
+        DataSize := Stream.Size - lSizeOfMainRecordStruct;
       Stream.Position := 4;
       Stream.WriteBuffer(DataSize, SizeOf(DataSize));
 
@@ -15394,8 +15403,8 @@ var
 
       CurrentPosition := aStream.Position;
       aStream.WriteBuffer(dcBasePtr^, NativeUInt(dcEndPtr) - NativeUInt(dcBasePtr));
-      if CurrentPosition + wbSizeOfMainRecordStruct + mrStruct.mrsDataSize <> aStream.Position then
-        Assert(CurrentPosition + wbSizeOfMainRecordStruct + mrStruct.mrsDataSize <> aStream.Position);
+      if CurrentPosition + lSizeOfMainRecordStruct + mrStruct.mrsDataSize <> aStream.Position then
+        Assert(CurrentPosition + lSizeOfMainRecordStruct + mrStruct.mrsDataSize <> aStream.Position);
 
     end;
 
@@ -18195,7 +18204,7 @@ begin
 
   New(BasePtr);
   BasePtr.grsSignature := 'GRUP';
-  BasePtr.grsGroupSize := wbSizeOfMainRecordStruct;
+  BasePtr.grsGroupSize := aContainer.GameDefObj.SizeOfMainRecordStruct;
   BasePtr.grsLabel := aMainRecord.FormID.ToCardinal;
   BasePtr.grsGroupType := aType;
   BasePtr.grsStamp := 0;
@@ -18241,7 +18250,7 @@ begin
 
   New(BasePtr);
   BasePtr.grsSignature := 'GRUP';
-  BasePtr.grsGroupSize := wbSizeOfMainRecordStruct;
+  BasePtr.grsGroupSize := aContainer.GameDefObj.SizeOfMainRecordStruct;
   BasePtr.grsLabel := aLabel;
   BasePtr.grsGroupType := aType;
   BasePtr.grsStamp := 0;
@@ -18260,7 +18269,7 @@ var
 begin
   New(BasePtr);
   BasePtr.grsSignature := 'GRUP';
-  BasePtr.grsGroupSize := wbSizeOfMainRecordStruct;
+  BasePtr.grsGroupSize := aContainer.GameDefObj.SizeOfMainRecordStruct;
   BasePtr.grsLabel := Cardinal(aSignature);
   BasePtr.grsGroupType := 0;
   BasePtr.grsStamp := 0;
@@ -18594,8 +18603,9 @@ var
   Dummy: Integer;
 begin
   if Assigned(dcEndPtr) then begin
-    dcDataBasePtr := PByte(dcBasePtr) + wbSizeOfMainRecordStruct;
-    if grStruct.grsGroupSize < wbSizeOfMainRecordStruct then
+    var lSizeOfMainRecordStruct := GameDefObj.SizeOfMainRecordStruct;
+    dcDataBasePtr := PByte(dcBasePtr) + lSizeOfMainRecordStruct;
+    if grStruct.grsGroupSize < lSizeOfMainRecordStruct then
       raise Exception.CreateFmt('[%s] %s size is invalid.', [GetFile.FileName, GetName]);
 
     dcDataEndPtr := PByte(dcBasePtr) + grStruct.grsGroupSize;
@@ -19389,7 +19399,7 @@ var
 begin
   CurrentPosition := aStream.Position;
   grs := grStruct^;
-  aStream.WriteBuffer(grs, wbSizeOfMainRecordStruct );
+  aStream.WriteBuffer(grs, GameDefObj.SizeOfMainRecordStruct );
   if wbForceNewHeader then begin
     var lNewHeaderAddon := wbNewHeaderAddon;
     aStream.WriteBuffer(lNewHeaderAddon, SizeOf(lNewHeaderAddon) );
@@ -20224,6 +20234,11 @@ begin
     Result := IwbContainerInternal(eContainer).GameDefObj
   else
     Result := _CurrentGameDef;
+end;
+
+function TwbElement.GetGameDefObj: TwbGameDef;
+begin
+  Result := GameDefObj;
 end;
 
 function TwbElement.GetFound: Boolean;
@@ -25430,7 +25445,7 @@ begin
       end;
     end;
     p := MainRecordInternal.mrStruct;
-    InformStorage(p, PByte(p) + wbSizeOfMainRecordStruct);
+    InformStorage(p, PByte(p) + GameDefObj.SizeOfMainRecordStruct);
 
     with MainRecordInternal do begin
       if ToggleDeleted then

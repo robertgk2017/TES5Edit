@@ -664,6 +664,7 @@ var
 const
   wbAssignThis = Low(Integer);
   wbAssignAdd = High(Integer);
+  RecordDefHashMapSize = 1546;
 
 type
   //keep ordered by release date
@@ -798,6 +799,7 @@ type
 
   IwbContainer = interface;
   IwbGameDef = interface;
+  TwbGameDef = class;
   IwbGameContext = interface;
   IwbFile = interface;
   IwbSaveTables = interface;
@@ -1057,6 +1059,7 @@ type
     function GetContainingSubRecord: IwbSubRecord;
     function GetFile: IwbFile;
     function GetReferenceFile: IwbFile;
+    function GetGameDefObj: TwbGameDef;
     function GetSortOrder: Integer;
     procedure SetSortOrder(aSortOrder: Integer);
     function GetMemoryOrder: Integer;
@@ -1180,6 +1183,8 @@ type
       read GetFile;
     property ReferenceFile: IwbFile
       read GetReferenceFile;
+    property GameDefObj: TwbGameDef
+      read GetGameDefObj;
     property InjectionSourceFiles: TwbFiles
       read GetInjectionSourceFiles;
 
@@ -3924,10 +3929,6 @@ type
     procedure Add(const aMainRecordDef: IwbMainRecordDef);
   end;
 
-const
-  RecordDefHashMapSize = 1546;
-
-type
   TwbGameDef = class(TInterfacedObject, IwbGameDef)
   protected
     gdHEDRVersion      : Double;
@@ -3959,6 +3960,13 @@ type
     gdGameMode         : TwbGameMode;
     gdToolSource       : TwbToolSource;
     gdCapabilities     : TwbGameCapabilities;
+    gdLiveKeyValid         : Boolean;
+    gdLiveKeyGameMode      : TwbGameMode;
+    gdLiveKeyLightSupport  : Boolean;
+    gdLiveKeyMediumSupport : Boolean;
+    gdLiveKeyUpdateSupport : Boolean;
+    gdLiveKeyCS            : Boolean;
+    gdLiveKeyHNVSE         : Boolean;
     gdDefaultFormVersion : Word;
     gdQuestFlagsSignature : TwbSignature;
     gdRaceFlagsSignature  : TwbSignature;
@@ -4015,6 +4023,43 @@ type
       read GetGameMode;
     property Capabilities: TwbGameCapabilities
       read GetCapabilities;
+    function IsCS(const aDef1, aDef2: string): string; overload;
+    function IsHNVSE(const aDef1, aDef2: TwbConflictPriority): TwbConflictPriority; overload;
+    function IsTES3(const aDef1, aDef2: string): string; overload;
+    function IsTES4(const aDef1, aDef2: Integer): Integer; overload;
+    function IsTES4(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef; overload;
+    function IsTES4(const aDef1, aDef2: IwbValueDef): IwbValueDef; overload;
+    function IsTES4(const aDef1, aDef2: string): string; overload;
+    function IsTES4(const aDef1, aDef2: TwbSignature): TwbSignature; overload;
+    function IsTES4R(const aDef1, aDef2: Integer): Integer; overload;
+    function IsTES4R(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef; overload;
+    function IsTES4FO3(const aDef1, aDef2: IwbValueDef): IwbValueDef; overload;
+    function IsTES4FO3(const aDef1, aDef2: string): string; overload;
+    function IsFO3(const aDef1, aDef2: Integer): Integer; overload;
+    function IsFO3(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef; overload;
+    function IsFO3(const aDef1, aDef2: IwbValueDef): IwbValueDef; overload;
+    function IsFO3(const aDef1, aDef2: string): string; overload;
+    function IsFNV(const aDef1, aDef2: string): string; overload;
+    function IsFNV(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef; overload;
+    function IsFNV(const aDef1, aDef2: IwbValueDef): IwbValueDef; overload;
+    function IsTES5(const aDef1, aDef2: string): string; overload;
+    function IsTES5(const aDef1, aDef2: Cardinal): Cardinal; overload;
+    function IsTES5(const aDef1, aDef2: Integer): Integer; overload;
+    function IsTES5(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef; overload;
+    function IsTES5(const aDef1, aDef2: IwbValueDef): IwbValueDef; overload;
+    function IsSSE(const aDef1, aDef2: string): string; overload;
+    function IsSSE(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef; overload;
+    function IsSSE(const aDef1, aDef2: IwbValueDef): IwbValueDef; overload;
+    function IsFO4Plus(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef; overload;
+    function IsFO4Plus(const aDef1, aDef2: IwbValueDef): IwbValueDef; overload;
+    function IsFO4Plus(const aDef1, aDef2: string): string; overload;
+    function IsFO76(const aDef1, aDef2: IwbValueDef): IwbValueDef; overload;
+    function IsFO76(const aDef1, aDef2: string): string; overload;
+    function IsFO76SF1(const aDef1, aDef2: string): string; overload;
+    function IsSF1(const aDef1, aDef2: Integer): Integer; overload;
+    function IsSF1(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef; overload;
+    function IsSF1(const aDef1, aDef2: IwbValueDef): IwbValueDef; overload;
+    function IsSF1(const aDef1, aDef2: string): string; overload;
     property IsMorrowind: Boolean
       read GetIsMorrowind;
     property IsOblivion: Boolean
@@ -5755,7 +5800,7 @@ function wbIsMediumSupported: Boolean; inline;
 function wbIsBlueprintSupported: Boolean; inline;
 function wbIsUpdateSupported: Boolean; inline;
 function wbCurrentCapabilities: TwbGameCapabilities;
-function wbGameDefOf(const aElement: IwbElement): IwbGameDef;
+function wbGameDefOf(const aElement: IwbElement): TwbGameDef;
 
 procedure ReportDefs;
 
@@ -6356,63 +6401,53 @@ end;
 
 function wbIsMorrowind: Boolean; inline;
 begin
-  Result := wbCurrentGameMode in [gmTES3];
+  Result := _CurrentGameDef.IsMorrowind;
 end;
 
 function wbIsOblivion: Boolean; inline;
 begin
-  Result := wbCurrentGameMode in [gmTES4, gmTES4R];
+  Result := _CurrentGameDef.IsOblivion;
 end;
 
 function wbIsOblivionR: Boolean; Inline;
 begin
-  Result := wbCurrentGameMode in [gmTES4R]
+  Result := _CurrentGameDef.IsOblivionR;
 end;
 
 function wbIsFallout3: Boolean; inline;
 begin
-  Result := wbCurrentGameMode in [gmFO3, gmFNV];
+  Result := _CurrentGameDef.IsFallout3;
 end;
 
 function wbIsFalloutNV: Boolean; inline;
 begin
-  Result := wbCurrentGameMode in [gmFNV];
+  Result := _CurrentGameDef.IsFalloutNV;
 end;
 
 function wbIsSkyrim: Boolean; inline;
 begin
-  Result := wbCurrentGameMode in [gmTES5, gmEnderal, gmTES5VR, gmSSE, gmEnderalSE];
+  Result := _CurrentGameDef.IsSkyrim;
 end;
 
 function wbIsSkyrimSE: Boolean; inline;
 begin
-  Result := wbCurrentGameMode in [gmTES5VR, gmSSE, gmEnderalSE];
+  Result := _CurrentGameDef.IsSkyrimSE;
 end;
 
 function wbIsFallout4: Boolean; inline;
 begin
-  Result := wbCurrentGameMode in [gmFO4, gmFO4VR];
+  Result := _CurrentGameDef.IsFallout4;
 end;
 
 function wbIsFallout76: Boolean; inline;
 begin
-  Result := wbCurrentGameMode in [gmFO76];
+  Result := _CurrentGameDef.IsFallout76;
 end;
 
 function wbIsStarfield: Boolean; inline;
 begin
-  Result := wbCurrentGameMode in [gmSF1];
+  Result := _CurrentGameDef.IsStarfield;
 end;
-
-var
-  _CapabilitiesGameMode      : TwbGameMode;
-  _CapabilitiesLightSupport  : Boolean;
-  _CapabilitiesMediumSupport : Boolean;
-  _CapabilitiesUpdateSupport : Boolean;
-  _CapabilitiesCS            : Boolean;
-  _CapabilitiesHNVSE         : Boolean;
-  _CapabilitiesValid         : Boolean;
-  _Capabilities              : TwbGameCapabilities;
 
 function wbComputeCapabilities(aGameMode: TwbGameMode; aLightSupport, aMediumSupport, aUpdateSupport, aCS, aHNVSE: Boolean): TwbGameCapabilities;
 begin
@@ -6507,45 +6542,27 @@ end;
 
 function wbCurrentCapabilities: TwbGameCapabilities;
 begin
-  if not _CurrentGameDef.gdLive then
-    Exit(_CurrentGameDef.gdCapabilities);
-  if not _CapabilitiesValid or
-     (_CapabilitiesGameMode <> wbGameMode) or
-     (_CapabilitiesLightSupport <> wbHasAddedLightSupport) or
-     (_CapabilitiesMediumSupport <> wbHasAddedMediumSupport) or
-     (_CapabilitiesUpdateSupport <> wbHasAddedUpdateSupport) or
-     (_CapabilitiesCS <> wbCS) or
-     (_CapabilitiesHNVSE <> wbHNVSE) then begin
-    _CapabilitiesGameMode := wbGameMode;
-    _CapabilitiesLightSupport := wbHasAddedLightSupport;
-    _CapabilitiesMediumSupport := wbHasAddedMediumSupport;
-    _CapabilitiesUpdateSupport := wbHasAddedUpdateSupport;
-    _CapabilitiesCS := wbCS;
-    _CapabilitiesHNVSE := wbHNVSE;
-    _Capabilities := wbComputeCapabilities(wbGameMode, wbHasAddedLightSupport, wbHasAddedMediumSupport, wbHasAddedUpdateSupport, wbCS, wbHNVSE);
-    _CapabilitiesValid := True;
-  end;
-  Result := _Capabilities;
+  Result := _CurrentGameDef.Capabilities;
 end;
 
 function wbIsLightSupported: Boolean; inline;
 begin
-  Result := gcLightPlugins in wbCurrentCapabilities;
+  Result := gcLightPlugins in _CurrentGameDef.Capabilities;
 end;
 
 function wbIsMediumSupported: Boolean; inline;
 begin
-  Result := gcMediumPlugins in wbCurrentCapabilities;
+  Result := gcMediumPlugins in _CurrentGameDef.Capabilities;
 end;
 
 function wbIsBlueprintSupported: Boolean; inline;
 begin
-  Result := gcBlueprintPlugins in wbCurrentCapabilities;
+  Result := gcBlueprintPlugins in _CurrentGameDef.Capabilities;
 end;
 
 function wbIsUpdateSupported: Boolean; inline;
 begin
-  Result := gcUpdatePlugins in wbCurrentCapabilities;
+  Result := gcUpdatePlugins in _CurrentGameDef.Capabilities;
 end;
 
 constructor TwbGameDef.Create(aGameMode: TwbGameMode; aToolSource: TwbToolSource);
@@ -6686,9 +6703,23 @@ end;
 function TwbGameDef.GetCapabilities: TwbGameCapabilities;
 begin
   if gdLive then
-    Result := wbCurrentCapabilities
-  else
-    Result := gdCapabilities;
+    if not gdLiveKeyValid or
+       (gdLiveKeyGameMode <> wbGameMode) or
+       (gdLiveKeyLightSupport <> wbHasAddedLightSupport) or
+       (gdLiveKeyMediumSupport <> wbHasAddedMediumSupport) or
+       (gdLiveKeyUpdateSupport <> wbHasAddedUpdateSupport) or
+       (gdLiveKeyCS <> wbCS) or
+       (gdLiveKeyHNVSE <> wbHNVSE) then begin
+      gdLiveKeyGameMode := wbGameMode;
+      gdLiveKeyLightSupport := wbHasAddedLightSupport;
+      gdLiveKeyMediumSupport := wbHasAddedMediumSupport;
+      gdLiveKeyUpdateSupport := wbHasAddedUpdateSupport;
+      gdLiveKeyCS := wbCS;
+      gdLiveKeyHNVSE := wbHNVSE;
+      gdCapabilities := wbComputeCapabilities(wbGameMode, wbHasAddedLightSupport, wbHasAddedMediumSupport, wbHasAddedUpdateSupport, wbCS, wbHNVSE);
+      gdLiveKeyValid := True;
+    end;
+  Result := gdCapabilities;
 end;
 
 function TwbGameDef.GetIsMorrowind: Boolean;
@@ -6741,6 +6772,265 @@ begin
   Result := GetGameMode in [gmSF1];
 end;
 
+function TwbGameDef.IsCS(const aDef1, aDef2: string): string;
+begin
+  Result := aDef2;
+  if gcCommunityShaders in Capabilities then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsHNVSE(const aDef1, aDef2: TwbConflictPriority): TwbConflictPriority;
+begin
+  Result := aDef2;
+  if gcHNVSE in Capabilities then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsTES3(const aDef1, aDef2: string): string;
+begin
+  Result := aDef2;
+  if IsMorrowind then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsTES4(const aDef1, aDef2: Integer): Integer;
+begin
+  Result := aDef2;
+  if IsOblivion then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsTES4(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef;
+begin
+  Result := aDef2;
+  if IsOblivion then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsTES4(const aDef1, aDef2: IwbValueDef): IwbValueDef;
+begin
+  Result := aDef2;
+  if IsOblivion then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsTES4(const aDef1, aDef2: string): string;
+begin
+  Result := aDef2;
+  if IsOblivion then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsTES4(const aDef1, aDef2: TwbSignature): TwbSignature;
+begin
+  Result := aDef2;
+  if IsOblivion then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsTES4R(const aDef1, aDef2: Integer): Integer;
+begin
+  Result := aDef2;
+  if IsOblivionR then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsTES4R(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef;
+begin
+  Result := aDef2;
+  if IsOblivionR then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsTES4FO3(const aDef1, aDef2: IwbValueDef): IwbValueDef;
+begin
+  Result := aDef2;
+  if IsOblivion or IsFallout3 then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsTES4FO3(const aDef1, aDef2: string): string;
+begin
+  Result := aDef2;
+  if IsOblivion or IsFallout3 then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsFO3(const aDef1, aDef2: Integer): Integer;
+begin
+  Result := aDef2;
+  if IsFallout3 then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsFO3(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef;
+begin
+  Result := aDef2;
+  if IsFallout3 then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsFO3(const aDef1, aDef2: IwbValueDef): IwbValueDef;
+begin
+  Result := aDef2;
+  if IsFallout3 then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsFO3(const aDef1, aDef2: string): string;
+begin
+  Result := aDef2;
+  if IsFallout3 then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsFNV(const aDef1, aDef2: string): string;
+begin
+  Result := aDef2;
+  if IsFalloutNV then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsFNV(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef;
+begin
+  Result := aDef2;
+  if IsFalloutNV then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsFNV(const aDef1, aDef2: IwbValueDef): IwbValueDef;
+begin
+  Result := aDef2;
+  if IsFalloutNV then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsTES5(const aDef1, aDef2: string): string;
+begin
+  Result := aDef2;
+  if IsSkyrim then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsTES5(const aDef1, aDef2: Cardinal): Cardinal;
+begin
+  Result := aDef2;
+  if IsSkyrim then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsTES5(const aDef1, aDef2: Integer): Integer;
+begin
+  Result := aDef2;
+  if IsSkyrim then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsTES5(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef;
+begin
+  Result := aDef2;
+  if IsSkyrim then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsTES5(const aDef1, aDef2: IwbValueDef): IwbValueDef;
+begin
+  Result := aDef2;
+  if IsSkyrim then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsSSE(const aDef1, aDef2: string): string;
+begin
+  Result := aDef2;
+  if IsSkyrimSE then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsSSE(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef;
+begin
+  Result := aDef2;
+  if IsSkyrimSE then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsSSE(const aDef1, aDef2: IwbValueDef): IwbValueDef;
+begin
+  Result := aDef2;
+  if IsSkyrimSE then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsFO4Plus(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef;
+begin
+  Result := aDef2;
+  if IsFallout4 or IsFallout76 or IsStarfield then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsFO4Plus(const aDef1, aDef2: IwbValueDef): IwbValueDef;
+begin
+  Result := aDef2;
+  if IsFallout4 or IsFallout76 or IsStarfield then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsFO4Plus(const aDef1, aDef2: string): string;
+begin
+  Result := aDef2;
+  if IsFallout4 or IsFallout76 or IsStarfield then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsFO76(const aDef1, aDef2: IwbValueDef): IwbValueDef;
+begin
+  Result := aDef2;
+  if IsFallout76 then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsFO76(const aDef1, aDef2: string): string;
+begin
+  Result := aDef2;
+  if IsFallout76 then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsFO76SF1(const aDef1, aDef2: string): string;
+begin
+  Result := aDef2;
+  if IsFallout76 or IsStarfield then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsSF1(const aDef1, aDef2: Integer): Integer;
+begin
+  Result := aDef2;
+  if IsStarfield then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsSF1(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef;
+begin
+  Result := aDef2;
+  if IsStarfield then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsSF1(const aDef1, aDef2: IwbValueDef): IwbValueDef;
+begin
+  Result := aDef2;
+  if IsStarfield then
+    Result := aDef1;
+end;
+
+function TwbGameDef.IsSF1(const aDef1, aDef2: string): string;
+begin
+  Result := aDef2;
+  if IsStarfield then
+    Result := aDef1;
+end;
+
 function TwbGameDef.GetIsLightSupported: Boolean;
 begin
   Result := gcLightPlugins in GetCapabilities;
@@ -6774,15 +7064,11 @@ var
   _CurrentGameDefRef : IwbGameDef;
   _CurrentContextRef : IwbGameContext;
 
-function wbGameDefOf(const aElement: IwbElement): IwbGameDef;
-var
-  lFile : IwbFile;
+function wbGameDefOf(const aElement: IwbElement): TwbGameDef;
 begin
   Result := nil;
   if Assigned(aElement) then
-    lFile := aElement._File;
-  if Assigned(lFile) then
-    Result := lFile.Context.GameDef;
+    Result := aElement.GameDefObj;
   if not Assigned(Result) then
     Result := _CurrentGameDef;
 end;
