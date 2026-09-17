@@ -801,6 +801,7 @@ type
   IwbGameDef = interface;
   TwbGameDef = class;
   IwbGameContext = interface;
+  TwbGameContext = class;
   IwbFile = interface;
   IwbSaveTables = interface;
   IwbNamedDef = interface;
@@ -1060,6 +1061,7 @@ type
     function GetFile: IwbFile;
     function GetReferenceFile: IwbFile;
     function GetGameDefObj: TwbGameDef;
+    function GetContextObj: TwbGameContext;
     function GetSortOrder: Integer;
     procedure SetSortOrder(aSortOrder: Integer);
     function GetMemoryOrder: Integer;
@@ -1185,6 +1187,8 @@ type
       read GetReferenceFile;
     property GameDefObj: TwbGameDef
       read GetGameDefObj;
+    property ContextObj: TwbGameContext
+      read GetContextObj;
     property InjectionSourceFiles: TwbFiles
       read GetInjectionSourceFiles;
 
@@ -4186,9 +4190,16 @@ type
                                      aPriority    : TwbConflictPriority;
                                      aRequired    : Boolean;
                                      aIsReference : Boolean)
-                                                  : IwbMainRecordDef;
+                                                  : IwbMainRecordDef; overload;
     procedure AddRefRecordDef(const aRecordDef: IwbMainRecordDef);
-    function FindRecordDef(const aSignature: TwbSignature; out aRecordDef: PwbMainRecordDef): Boolean;
+    function RegisterRecordDef(const aSignature: TwbSignature; const aName: string; const aRecordFlags: IwbIntegerDefFormater; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
+    function RegisterRecordDef(const aSignature: TwbSignature; const aName: string; const aKnownSRs: PwbKnownSubRecordSignatures; const aRecordFlags: IwbIntegerDefFormater; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
+    function RegisterRecordDef(const aSignature: TwbSignature; const aName: string; const aKnownSRs: PwbKnownSubRecordSignatures; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
+    function RegisterRecordDef(const aSignature: TwbSignature; const aName: string; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
+    function RegisterRefRecordDef(const aSignature: TwbSignature; const aName: string; const aRecordFlags: IwbIntegerDefFormater; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
+    function RegisterRefRecordDef(const aSignature: TwbSignature; const aName: string; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
+    function FindRecordDef(const aSignature: TwbSignature; out aRecordDef: PwbMainRecordDef): Boolean; overload;
+    function FindRecordDef(const aSignature: AnsiString; out aRecordDef: PwbMainRecordDef): Boolean; overload;
     function RecordDefMap: TStringList;
     procedure InitRecords;
     procedure ReportDefs;
@@ -4493,6 +4504,12 @@ type
     procedure IncGlobalGeneration;
     function FormIDFromIdentity(aFormIDBase, aFormIDNameBase: Byte; aIdentity: string): TwbFormID;
 
+    function LoadFile(const aFileName: string; aLoadOrder: Integer = -1; const aCompareTo: string = ''; aStates: TwbFileStates = []; const aData: TBytes = nil): IwbFile; virtual; abstract;
+    function NewFile(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean): IwbFile; virtual; abstract;
+    function MastersForFile(const aFileName: string; aMasters: TStrings; aIsESM: PBoolean = nil; aIsLight: PBoolean = nil; aIsLocalized: PBoolean = nil; aIsUpdate: PBoolean = nil; aIsMedium: PBoolean = nil; aIsBluePrint: PBoolean = nil): Boolean; overload; virtual; abstract;
+    function MastersForFile(const aFileName: string; out aMasters: TDynStrings; aIsESM: PBoolean = nil; aIsLight: PBoolean = nil; aIsLocalized: PBoolean = nil; aIsUpdate: PBoolean = nil; aIsMedium: PBoolean = nil; aIsBluePrint: PBoolean = nil): Boolean; overload; virtual; abstract;
+    procedure ForceClosedFiles; virtual; abstract;
+
     property GlobalGeneration: Integer
       read gcGlobalGeneration;
 
@@ -4554,6 +4571,8 @@ type
     function EncodingForLanguage(const aLanguage: string; aFallback: Boolean): TEncoding;
   end;
 
+  TwbGameContextClass = class of TwbGameContext;
+
 const
   arcU32 = -1;
   arcU16 = -2;
@@ -4586,54 +4605,6 @@ function wbNamedIndexName(aIndex : TwbNamedIndex)
 
 
 function wbNamedIndexComparer(aIndex: TwbNamedIndex): IwbNamedIndexEqualityComparer;
-
-function wbRecord(const aSignature      : TwbSignature;
-                  const aName           : string;
-                  const aRecordFlags    : IwbIntegerDefFormater;
-                  const aMembers        : array of IwbRecordMemberDef;
-                        aPriority       : TwbConflictPriority = cpNormal;
-                        aRequired       : Boolean = False)
-                                        : IwbMainRecordDef; overload;
-
-function wbRecord(const aSignature      : TwbSignature;
-                  const aName           : string;
-                  const aKnownSRs       : PwbKnownSubRecordSignatures;
-                  const aRecordFlags    : IwbIntegerDefFormater;
-                  const aMembers        : array of IwbRecordMemberDef;
-                        aPriority       : TwbConflictPriority = cpNormal;
-                        aRequired       : Boolean = False)
-                                        : IwbMainRecordDef; overload;
-
-function wbRecord(const aSignature      : TwbSignature;
-                  const aName           : string;
-                  const aKnownSRs       : PwbKnownSubRecordSignatures;
-                  const aMembers        : array of IwbRecordMemberDef;
-                        aPriority       : TwbConflictPriority = cpNormal;
-                        aRequired       : Boolean = False)
-                                        : IwbMainRecordDef; overload;
-
-function wbRecord(const aSignature      : TwbSignature;
-                  const aName           : string;
-                  const aMembers        : array of IwbRecordMemberDef;
-
-                        aPriority       : TwbConflictPriority = cpNormal;
-                        aRequired       : Boolean = False)
-                                        : IwbMainRecordDef; overload;
-
-function wbRefRecord(const aSignature      : TwbSignature;
-                     const aName           : string;
-                     const aRecordFlags    : IwbIntegerDefFormater;
-                     const aMembers        : array of IwbRecordMemberDef;
-                           aPriority       : TwbConflictPriority = cpNormal;
-                           aRequired       : Boolean = False)
-                                           : IwbMainRecordDef; overload;
-
-function wbRefRecord(const aSignature      : TwbSignature;
-                     const aName           : string;
-                     const aMembers        : array of IwbRecordMemberDef;
-                           aPriority       : TwbConflictPriority = cpNormal;
-                           aRequired       : Boolean = False)
-                                           : IwbMainRecordDef; overload;
 
 function wbSubRecord(const aSignature : TwbSignature;
                      const aName      : string;
@@ -5698,9 +5669,6 @@ function wbIsSave(const aFileName: string): Boolean;
 
 function wbStr4ToString(aInt: Int64): string;
 
-procedure wbAddGroupOrder(const aSignature: TwbSignature);
-function wbGetGroupOrder(const aSignature: TwbSignature): Integer;
-
 function IntToHex64(Value: Int64; Digits: Integer): string; inline;
 function CmpB8(a, b: Byte): Integer;
 function CmpI32(a, b : Integer) : Integer;
@@ -5802,8 +5770,6 @@ function wbIsUpdateSupported: Boolean; inline;
 function wbCurrentCapabilities: TwbGameCapabilities;
 function wbGameDefOf(const aElement: IwbElement): TwbGameDef;
 
-procedure ReportDefs;
-
 type
   IwbProgress = interface
     ['{054006B0-096D-43CD-A92A-3095B525C854}']
@@ -5888,14 +5854,6 @@ function wbReadInteger24(aBasePtr: pointer): Int64;
 function wbSaveTablesFor(const aElement: IwbElement): IwbSaveTables;
 function wbFaceGenCacheOf(const aElement: IwbElement): IwbFaceGenCache;
 
-function wbFindRecordDef(const aSignature : TwbSignature;
-                           out aRecordDef : PwbMainRecordDef)
-                                          : Boolean; overload; inline;
-
-function wbFindRecordDef(const aSignature : AnsiString;
-                           out aRecordDef : PwbMainRecordDef)
-                                          : Boolean; overload;
-
 function _wbRecordDefMap: TStringList;
 
 function wbProgressLock: Integer;
@@ -5959,8 +5917,6 @@ procedure wbTimeStampToString(var aValue:string; aBasePtr: Pointer; aEndPtr: Poi
 /// <summary>Collapse and truncate the given text to fit in the given width.</summary>
 function ShortenText(const aText: string; const aWidth: Integer = 64; const aPlaceholder: string = '�'): string;
 
-procedure wbInitRecords;
-
 function wbGetUnknownIntString(aInt: Int64): string;
 
 procedure wbResourcesLoaded;
@@ -5972,9 +5928,11 @@ var
 
   _CurrentGameDef  : TwbGameDef;
   _CurrentContext  : TwbGameContext;
+  wbGameContextClass : TwbGameContextClass;
 
 procedure wbRegisterGameDef(const aGameModes: TwbGameModes; aToolSource: TwbToolSource; aGameDefClass: TwbGameDefClass);
 function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource): IwbGameDef;
+function wbCreateGameContext(const aGameDef: IwbGameDef): IwbGameContext;
 
 function wbCurrentContext: IwbGameContext;
 procedure wbMakeCurrentContext(const aContext: IwbGameContext);
@@ -6384,11 +6342,6 @@ function NullCreateWaitForm(const aCaption     : string;
                                                : IwbWaitForm;
 begin
   Result := TwbNullWaitForm.Create;
-end;
-
-procedure ReportDefs;
-begin
-  _CurrentGameDef.ReportDefs;
 end;
 
 function wbCurrentGameMode: TwbGameMode; inline;
@@ -7096,6 +7049,13 @@ begin
   else
     _CurrentContext := nil;
   _CurrentContextRef := aContext;
+end;
+
+function wbCreateGameContext(const aGameDef: IwbGameDef): IwbGameContext;
+begin
+  Assert(Assigned(wbGameContextClass));
+  Result := wbGameContextClass.Create(aGameDef);
+  wbMakeCurrentContext(Result);
 end;
 
 { TwbGameContextSettings }
@@ -8325,16 +8285,6 @@ end;
 function ConflictThisToColor(aConflictThis: TConflictThis): TColor;
 begin
   Result := wbColorConflictThis[aConflictThis];
-end;
-
-procedure wbAddGroupOrder(const aSignature: TwbSignature);
-begin
-  _CurrentGameDef.AddGroupOrder(aSignature);
-end;
-
-function wbGetGroupOrder(const aSignature: TwbSignature): Integer;
-begin
-  Result := _CurrentGameDef.GetGroupOrder(aSignature);
 end;
 
 function CompareElementsFormIDAndLoadOrder(Item1, Item2: Pointer): Integer;
@@ -10459,9 +10409,46 @@ begin
   gdRecordDefHashMap[Hash] := Succ(NewIndex);
 end;
 
+
+function TwbGameDef.RegisterRecordDef(const aSignature: TwbSignature; const aName: string; const aRecordFlags: IwbIntegerDefFormater; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority; aRequired: Boolean): IwbMainRecordDef;
+begin
+  Result := RegisterRecordDef(aSignature, aName, nil, aRecordFlags, aMembers, aPriority, aRequired, False);
+end;
+
+function TwbGameDef.RegisterRecordDef(const aSignature: TwbSignature; const aName: string; const aKnownSRs: PwbKnownSubRecordSignatures; const aRecordFlags: IwbIntegerDefFormater; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority; aRequired: Boolean): IwbMainRecordDef;
+begin
+  Result := RegisterRecordDef(aSignature, aName, aKnownSRs, aRecordFlags, aMembers, aPriority, aRequired, False);
+end;
+
+function TwbGameDef.RegisterRecordDef(const aSignature: TwbSignature; const aName: string; const aKnownSRs: PwbKnownSubRecordSignatures; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority; aRequired: Boolean): IwbMainRecordDef;
+begin
+  Result := RegisterRecordDef(aSignature, aName, aKnownSRs, nil, aMembers, aPriority, aRequired);
+end;
+
+function TwbGameDef.RegisterRecordDef(const aSignature: TwbSignature; const aName: string; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority; aRequired: Boolean): IwbMainRecordDef;
+begin
+  Result := RegisterRecordDef(aSignature, aName, nil, nil, aMembers, aPriority, aRequired);
+end;
+
+function TwbGameDef.RegisterRefRecordDef(const aSignature: TwbSignature; const aName: string; const aRecordFlags: IwbIntegerDefFormater; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority; aRequired: Boolean): IwbMainRecordDef;
+begin
+  Result := RegisterRecordDef(aSignature, aName, nil, aRecordFlags, aMembers, aPriority, aRequired, True);
+  AddRefRecordDef(Result);
+end;
+
+function TwbGameDef.RegisterRefRecordDef(const aSignature: TwbSignature; const aName: string; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority; aRequired: Boolean): IwbMainRecordDef;
+begin
+  Result := RegisterRefRecordDef(aSignature, aName, nil, aMembers, aPriority, aRequired);
+end;
 procedure TwbGameDef.AddRefRecordDef(const aRecordDef: IwbMainRecordDef);
 begin
   gdRefRecordDefs.Add(aRecordDef);
+end;
+
+function TwbGameDef.FindRecordDef(const aSignature: AnsiString; out aRecordDef: PwbMainRecordDef): Boolean;
+begin
+  Result := (Length(aSignature) = 4) and
+    FindRecordDef(PwbSignature(@aSignature[1])^, aRecordDef);
 end;
 
 function TwbGameDef.FindRecordDef(const aSignature: TwbSignature; out aRecordDef: PwbMainRecordDef): Boolean;
@@ -10526,85 +10513,6 @@ var
 begin
   for i:= Low(gdRecordDefs) to High(gdRecordDefs) do
     gdRecordDefs[i].rdeDef.Report(nil);
-end;
-
-function wbRecord(const aSignature       : TwbSignature;
-                  const aName            : string;
-                  const aKnownSRs        : PwbKnownSubRecordSignatures;
-                  const aRecordFlags     : IwbIntegerDefFormater;
-                  const aMembers         : array of IwbRecordMemberDef;
-                        aPriority        : TwbConflictPriority;
-                        aRequired        : Boolean;
-                        aIsReference     : Boolean)
-                                         : IwbMainRecordDef; overload;
-begin
-  Result := _CurrentGameDef.RegisterRecordDef(aSignature, aName, aKnownSRs, aRecordFlags, aMembers, aPriority, aRequired, aIsReference);
-end;
-
-function wbRecord(const aSignature       : TwbSignature;
-                  const aName            : string;
-                  const aRecordFlags     : IwbIntegerDefFormater;
-                  const aMembers         : array of IwbRecordMemberDef;
-                        aPriority        : TwbConflictPriority = cpNormal;
-                        aRequired        : Boolean = False)
-                                         : IwbMainRecordDef;
-begin
-  Result := wbRecord(aSignature, aName, nil, aRecordFlags, aMembers, aPriority, aRequired, False);
-end;
-
-function wbRecord(const aSignature       : TwbSignature;
-                  const aName            : string;
-                  const aKnownSRs        : PwbKnownSubRecordSignatures;
-                  const aRecordFlags     : IwbIntegerDefFormater;
-                  const aMembers         : array of IwbRecordMemberDef;
-                        aPriority        : TwbConflictPriority = cpNormal;
-                        aRequired        : Boolean = False)
-                                         : IwbMainRecordDef;
-begin
-  Result := wbRecord(aSignature, aName, aKnownSRs, aRecordFlags, aMembers, aPriority, aRequired, False);
-end;
-
-function wbRecord(const aSignature       : TwbSignature;
-                  const aName            : string;
-                  const aKnownSRs        : PwbKnownSubRecordSignatures;
-                  const aMembers         : array of IwbRecordMemberDef;
-                        aPriority        : TwbConflictPriority = cpNormal;
-                        aRequired        : Boolean = False)
-                                         : IwbMainRecordDef;
-begin
-  Result := wbRecord(aSignature, aName, aKnownSRs, nil, aMembers, aPriority, aRequired);
-end;
-
-function wbRecord(const aSignature       : TwbSignature;
-                  const aName            : string;
-                  const aMembers         : array of IwbRecordMemberDef;
-                        aPriority        : TwbConflictPriority = cpNormal;
-                        aRequired        : Boolean = False)
-                                         : IwbMainRecordDef;
-begin
-  Result := wbRecord(aSignature, aName, nil, nil, aMembers, aPriority, aRequired);
-end;
-
-function wbRefRecord(const aSignature       : TwbSignature;
-                     const aName            : string;
-                     const aRecordFlags     : IwbIntegerDefFormater;
-                     const aMembers         : array of IwbRecordMemberDef;
-                           aPriority        : TwbConflictPriority = cpNormal;
-                           aRequired        : Boolean = False)
-                                            : IwbMainRecordDef;
-begin
-  Result := wbRecord(aSignature, aName, nil, aRecordFlags, aMembers, aPriority, aRequired, True);
-  _CurrentGameDef.AddRefRecordDef(Result);
-end;
-
-function wbRefRecord(const aSignature       : TwbSignature;
-                     const aName            : string;
-                     const aMembers         : array of IwbRecordMemberDef;
-                           aPriority        : TwbConflictPriority = cpNormal;
-                           aRequired        : Boolean = False)
-                                            : IwbMainRecordDef;
-begin
-  Result := wbRefRecord(aSignature, aName, nil, aMembers, aPriority, aRequired);
 end;
 
 function wbSubRecord(const aSignature : TwbSignature;
@@ -25036,21 +24944,6 @@ begin
     Result := '';
 end;
 
-function wbFindRecordDef(const aSignature : TwbSignature;
-                           out aRecordDef : PwbMainRecordDef)
-                                          : Boolean;
-begin
-  Result := _CurrentGameDef.FindRecordDef(aSignature, aRecordDef);
-end;
-
-function wbFindRecordDef(const aSignature : AnsiString;
-                           out aRecordDef : PwbMainRecordDef)
-                                          : Boolean;
-begin
-  Result := (Length(aSignature) = 4) and
-    wbFindRecordDef(PwbSignature(@aSignature[1])^, aRecordDef);
-end;
-
 function _wbRecordDefMap: TStringList;
 begin
   Result := _CurrentGameDef.RecordDefMap;
@@ -26594,11 +26487,6 @@ begin
     else
       SetLength(ikKeys, Succ(aIndex));
   ikKeys[aIndex] := aValue;
-end;
-
-procedure wbInitRecords;
-begin
-  _CurrentGameDef.InitRecords;
 end;
 
 function wbGetUnknownIntString(aInt: Int64): string;

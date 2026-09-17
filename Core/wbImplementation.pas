@@ -52,7 +52,6 @@ function wbFile(const aFileName: string; aLoadOrder: Integer = -1; const aCompar
 function wbNewFile(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean): IwbFile; overload;
 function wbNewFile(const aFileName: string; aLoadOrder: Integer; aTemplate: PwbModuleInfo): IwbFile; overload;
 
-function wbCreateGameContext(const aGameDef: IwbGameDef): IwbGameContext;
 procedure wbFileForceClosed;
 
 function StartsWith(const s, t: string): Boolean;
@@ -375,7 +374,9 @@ type
     function GetContainingSubRecord: IwbSubRecord; virtual;
     function GetFile: IwbFile; virtual;
     function GameDefObj: TwbGameDef; virtual;
+    function ContextObj: TwbGameContext; virtual;
     function GetGameDefObj: TwbGameDef;
+    function GetContextObj: TwbGameContext;
     function GetReferenceFile: IwbFile; virtual;
     function GetSortOrder: Integer;
     procedure BuildRef; virtual;
@@ -521,6 +522,7 @@ type
     ['{8D9AC0D3-3961-4320-A036-EB4771B081CD}']
 
     function GameDefObj: TwbGameDef;
+    function ContextObj: TwbGameContext;
     function ReleaseElements: TDynElementInternals;
     procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer);
     procedure CreatedEmpty;
@@ -785,7 +787,7 @@ type
     function GetFile: IwbFile; override;
     function GameDefObj: TwbGameDef; override;
     function GetContext: IwbGameContext;
-    function ContextObj: TwbGameContext;
+    function ContextObj: TwbGameContext; override;
     function GetSaveTables: IwbSaveTables;
     procedure SetSaveTables(const aValue: IwbSaveTables);
     function GetReferenceFile: IwbFile; override;
@@ -968,9 +970,9 @@ type
 
     procedure UpdateModuleMasters;
 
-    constructor Create(const aFileName: string; aLoadOrder: Integer; const aCompareTo: string; aStates: TwbFileStates; const aData: TBytes);
-    constructor CreateNew(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean); overload;
-    constructor CreateNew(const aFileName: string; aLoadOrder: Integer; aTemplate: PwbModuleInfo); overload;
+    constructor Create(const aContext: TwbGameContext; const aFileName: string; aLoadOrder: Integer; const aCompareTo: string; aStates: TwbFileStates; const aData: TBytes);
+    constructor CreateNew(const aContext: TwbGameContext; const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean); overload;
+    constructor CreateNew(const aContext: TwbGameContext; const aFileName: string; aLoadOrder: Integer; aTemplate: PwbModuleInfo); overload;
   public
     destructor Destroy; override;
   end;
@@ -978,9 +980,19 @@ type
   TwbFileSource = class(TwbFile)
   protected
     procedure Scan; override;
-    constructor CreateNew(const aFileName: string; aLoadOrder: Integer);
+    constructor CreateNew(const aContext: TwbGameContext; const aFileName: string; aLoadOrder: Integer);
     procedure GetMasters(aMasters: TStrings); override;
     procedure GetPluginNames(const aHeader: IwbFileHeader; aNames: TStrings);
+  end;
+
+  TwbLoadingGameContext = class(TwbGameContext)
+  public
+    function LoadFile(const aFileName: string; aLoadOrder: Integer = -1; const aCompareTo: string = ''; aStates: TwbFileStates = []; const aData: TBytes = nil): IwbFile; override;
+    function NewFile(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean): IwbFile; overload; override;
+    function NewFile(const aFileName: string; aLoadOrder: Integer; aTemplate: PwbModuleInfo): IwbFile; overload;
+    function MastersForFile(const aFileName: string; aMasters: TStrings; aIsESM: PBoolean = nil; aIsLight: PBoolean = nil; aIsLocalized: PBoolean = nil; aIsUpdate: PBoolean = nil; aIsMedium: PBoolean = nil; aIsBluePrint: PBoolean = nil): Boolean; overload; override;
+    function MastersForFile(const aFileName: string; out aMasters: TDynStrings; aIsESM: PBoolean = nil; aIsLight: PBoolean = nil; aIsLocalized: PBoolean = nil; aIsUpdate: PBoolean = nil; aIsMedium: PBoolean = nil; aIsBluePrint: PBoolean = nil): Boolean; overload; override;
+    procedure ForceClosedFiles; override;
   end;
 
   TwbDataContainerFlag = (
@@ -1204,6 +1216,7 @@ type
   protected
     mrDef               : IwbMainRecordDef;
     mrGameDefObj        : TwbGameDef;
+    mrContextObj        : TwbGameContext;
     mrLoadOrderFormID   : TwbFormID;
     mrFixedFormID       : TwbFormID;
     mrMaster            : Pointer{IwbMainRecord};
@@ -1334,6 +1347,7 @@ type
     function GetMainRecordDef: IwbMainRecordDef;
     function GetElementType: TwbElementType; override;
     function GameDefObj: TwbGameDef; override;
+    function ContextObj: TwbGameContext; override;
     function GetFormID: TwbFormID; inline;
     function GetFixedFormID: TwbFormID; inline;
     function DoGetFixedFormID: TwbFormID;
@@ -2289,9 +2303,9 @@ begin
     IwbFile(Pointer(List.Objects[Index2])).LoadOrder);
 end;
 
-function GetLoadedFileByName(const aName: string): IwbFile;
+function GetLoadedFileByName(const aContext: TwbGameContext; const aName: string): IwbFile;
 begin
-  for var lFile in _CurrentContext.Files do
+  for var lFile in aContext.Files do
     if SameText(lFile.FileName, aName) then
       Exit(lFile);
 end;
@@ -2334,8 +2348,8 @@ begin
   if aAutoLoadOrder then
     i := High(Integer);
 
-  _File := wbFile(s + t, i, '', States);
-  if not (wbToolMode in [tmDump, tmExport]) and (wbRequireLoadOrder and (_File.LoadOrder < 0)) then
+  _File := flContextObj.LoadFile(s + t, i, '', States);
+  if not (wbToolMode in [tmDump, tmExport]) and (flContextObj.Settings.RequireLoadOrder and (_File.LoadOrder < 0)) then
     raise Exception.Create('"' + GetFileName + '" requires master "' + aFileName + '" to be loaded before it.')
   else
     AddMaster(_File);
@@ -2361,11 +2375,11 @@ begin
   if Assigned(Result) then
     Exit;
 
-  if not wbGroupOrder.Find(Signature, Dummy) then
+  if not flContextObj.GameDefObj.GroupOrder.Find(Signature, Dummy) then
     Exit;
-  if GroupToSkip.Find(Signature, Dummy) then
+  if flContextObj.GroupToSkip.Find(Signature, Dummy) then
     Exit;
-  if RecordToSkip.Find(Signature, Dummy) then
+  if flContextObj.RecordToSkip.Find(Signature, Dummy) then
     Exit;
 
   Result := TwbGroupRecord.Create(Self, Signature);
@@ -2400,7 +2414,7 @@ begin
   if GroupRecord.GroupType <> 0 then
     raise Exception.Create('Only top level group records can be added to files');
   Signature := TwbSignature(GroupRecord.GroupLabel);
-  if not wbGroupOrder.Find(Signature, Dummy) then
+  if not flContextObj.GameDefObj.GroupOrder.Find(Signature, Dummy) then
     raise Exception.Create(Signature + 'is not a valid group label');
   Result := GetGroupBySignature(Signature);
   if not Assigned(Result) then begin
@@ -2551,13 +2565,13 @@ begin
     for i := 0  to Pred(aMasters.Count) do
       if not HasMaster(aMasters[i]) then
       begin
-        var lFile := GetLoadedFileByName(aMasters[i]);
+        var lFile := GetLoadedFileByName(flContextObj, aMasters[i]);
         if not Assigned(lFile) then
           raise Exception.CreateFmt('[AddMAddMastersIfMissingasters] Requested file to add is not loaded: "%s"', [aMasters[i]]);
 
         // add masters of masters
         // only for games that need it
-        if wbEnforceAllMasters then
+        if flContextObj.Settings.EnforceAllMasters then
         begin
           var lFileMasters := lFile.AllMasters;
           for j := low(lFileMasters) to High(lFileMasters) do
@@ -2637,7 +2651,7 @@ var
 
     if wbBeginInternalEdit(True) then try
       for i := 0 to Pred(lMasters.Count) do begin
-        var lFile := GetLoadedFileByName(lMasters[i]);
+        var lFile := GetLoadedFileByName(flContextObj, lMasters[i]);
         if not Assigned(lFile) then
           raise Exception.CreateFmt('[AddMasters] Requested file to add is not loaded: "%s"', [lMasters[i]]);
 
@@ -2700,7 +2714,7 @@ begin;
       for i := 0 to Pred(aMasters.Count) do begin
         s := Trim(aMasters[i]);
         t := ExtractFileExt(s);
-        if SameText(t, '.esp') and (not wbAllowESPMasters) then
+        if SameText(t, '.esp') and (not flContextObj.Settings.AllowESPMasters) then
           raise Exception.CreateFmt('[AddMasters] You cannot add a .esp as a master in %s.', [wbGameName]);
         if SameText(t, '.esm') or SameText(t, '.esp') or (flContextObj.GameDefObj.IsLightSupported and SameText(t, '.esl')) then
           lMasters.Add(s);
@@ -2744,7 +2758,7 @@ var
   EndTime       : TDateTime;
 begin
   Result := blrNone;
-  if not wbDontCache and (not (fsRefsBuild in flStates)) and ((not (esModified in eStates) or (esInternalModified in eStates))) then begin
+  if not flContextObj.Settings.DontCache and (not (fsRefsBuild in flStates)) and ((not (esModified in eStates) or (esInternalModified in eStates))) then begin
     CacheFileName := ExtractFileName(flFileName);
     if CacheFileName.EndsWith(csDotGhost, True) then
       SetLength(CacheFileName, Length(CacheFileName) - Length(csDotGhost));
@@ -2760,7 +2774,7 @@ begin
       '_' + flContextObj.Settings.Language;
 
     CacheFileName := CacheFileName + wbRefCacheExt;
-    if not wbDontCacheLoad and FileExists(CacheFileName) then begin
+    if not flContextObj.Settings.DontCacheLoad and FileExists(CacheFileName) then begin
       Include(flStates, fsRefsBuild);
       MemoryStream := TMemoryStream.Create;
       try
@@ -2796,7 +2810,7 @@ begin
         end;
         EndTime := Now;
         Result := blrBuilt;
-        if not wbDontCacheSave then begin
+        if not flContextObj.Settings.DontCacheSave then begin
           flRecordsCount := Length(flRecords);
           if (flRecordsCount > wbCacheRecordsThreshold) or (EndTime - StartTime > wbCacheTimeThreshold) then try
             MemoryStream := TMemoryStream.Create;
@@ -3137,7 +3151,7 @@ begin
       KeepMasters.Sorted := True;
       KeepMasters.Duplicates := dupIgnore;
       try
-        if wbEnforceAllMasters then
+        if flContextObj.Settings.EnforceAllMasters then
           for i := Low(flMasters) to High(flMasters) do
           begin
             if not UsedMasters[i] then
@@ -3274,12 +3288,12 @@ begin
   UpdateModuleMasters;
 end;
 
-constructor TwbFile.Create(const aFileName: string; aLoadOrder: Integer; const aCompareTo: string; aStates: TwbFileStates; const aData: TBytes);
+constructor TwbFile.Create(const aContext: TwbGameContext; const aFileName: string; aLoadOrder: Integer; const aCompareTo: string; aStates: TwbFileStates; const aData: TBytes);
 var
   s: string;
 begin
-  flContext := wbCurrentContext;
-  flContextObj := _CurrentContext;
+  flContextObj := aContext;
+  flContext := aContext;
   flData := aData;
   flStates := aStates * [fsIsTemporary, fsIsHardcoded, fsOnlyHeader, fsIsDeltaPatch];
   flLoadOrderFileID := TwbFileID.Invalid;
@@ -3297,10 +3311,10 @@ begin
   flFileName := aFileName;
   flFileNameOnDisk := flFileName;
 
-  if wbDontSave or (flStates * [fsIsHardcoded, fsOnlyHeader] <> []) then
+  if flContextObj.Settings.DontSave or (flStates * [fsIsHardcoded, fsOnlyHeader] <> []) then
     Include(flStates, fsMemoryMapped)
   else begin
-    if (not wbAllowDirectSave) or (fsIsGameMaster in flStates) then
+    if (not flContextObj.Settings.AllowDirectSave) or (fsIsGameMaster in flStates) then
       Include(flStates, fsMemoryMapped)
     else begin
       flModule := wbModuleByName(GetFileName);
@@ -3312,7 +3326,7 @@ begin
     end;
 
     if (fsMemoryMapped in flStates) and
-       (wbAllowDirectSaveFor.IndexOf(GetFileName) >= 0) then
+       (flContextObj.AllowDirectSaveFor.IndexOf(GetFileName) >= 0) then
       Exclude(flStates, fsMemoryMapped);
   end;
 
@@ -3383,12 +3397,13 @@ begin
   end;
 end;
 
-constructor TwbFile.CreateNew(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean);
+constructor TwbFile.CreateNew(const aContext: TwbGameContext; const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean);
 var
   Header : IwbMainRecord;
 begin
-  flContext := wbCurrentContext;
-  flContextObj := _CurrentContext;
+  flContextObj := aContext;
+  flContext := aContext;
+
   var lGameDef := flContextObj.GameDefObj;
   Assert(not (aIsLight and aIsMedium));
 
@@ -3409,10 +3424,10 @@ begin
   if not Assigned(flModule) then
     flModule := TwbModuleInfo.AddNewModule(GetFileName, False);
 
-  Header := TwbMainRecord.Create(Self, wbHeaderSignature, TwbFormID.Null);
-  Header.RecordBySignature['HEDR'].Elements[0].NativeValue := wbHEDRVersion;
+  Header := TwbMainRecord.Create(Self, flContextObj.GameDefObj.HeaderSignature, TwbFormID.Null);
+  Header.RecordBySignature['HEDR'].Elements[0].NativeValue := flContextObj.GameDefObj.HEDRVersion;
   if gcHeaderNextObjectID in lGameDef.Capabilities then
-    Header.RecordBySignature['HEDR'].Elements[2].NativeValue := wbHEDRNextObjectID;
+    Header.RecordBySignature['HEDR'].Elements[2].NativeValue := flContextObj.GameDefObj.HEDRNextObjectID;
 
   if aIsLight then begin
     Header.IsLight := True;
@@ -3429,13 +3444,13 @@ begin
   flIndicesActive := True;
 
   if flLoadOrder >= 0 then begin
-    if lGameDef.IsLightSupported or wbPseudoLight or lGameDef.IsMediumSupported or wbPseudoMedium or wbPseudoUpdate then begin
-      if Header.IsLight and not wbIgnoreLight then
+    if lGameDef.IsLightSupported or flContextObj.Settings.PseudoLight or lGameDef.IsMediumSupported or flContextObj.Settings.PseudoMedium or flContextObj.Settings.PseudoUpdate then begin
+      if Header.IsLight and not flContextObj.Settings.IgnoreLight then
         flLoadOrderFileID := TwbFileID.CreateLight(flContextObj.AllocateLightSlot)
-      else if Header.IsMedium and not wbIgnoreMedium then
+      else if Header.IsMedium and not flContextObj.Settings.IgnoreMedium then
         flLoadOrderFileID := TwbFileID.CreateMedium(flContextObj.AllocateMediumSlot)
       else begin
-        if (lGameDef.IsUpdateSupported or wbPseudoUpdate) and Header.IsUpdate and not wbIgnoreUpdate then
+        if (lGameDef.IsUpdateSupported or flContextObj.Settings.PseudoUpdate) and Header.IsUpdate and not flContextObj.Settings.IgnoreUpdate then
           flLoadOrderFileID := TwbFileID.Invalid
         else
           flLoadOrderFileID := TwbFileID.CreateFull(flContextObj.AllocateFullSlot);
@@ -3458,13 +3473,14 @@ begin
   BuildOrLoadRef(False);
 end;
 
-constructor TwbFile.CreateNew(const aFileName: string; aLoadOrder: Integer; aTemplate: PwbModuleInfo);
+constructor TwbFile.CreateNew(const aContext: TwbGameContext; const aFileName: string; aLoadOrder: Integer; aTemplate: PwbModuleInfo);
 var
   Header : IwbMainRecord;
   i      : Integer;
 begin
-  flContext := wbCurrentContext;
-  flContextObj := _CurrentContext;
+  flContextObj := aContext;
+  flContext := aContext;
+
   var lGameDef := flContextObj.GameDefObj;
   flLoadOrderFileID := TwbFileID.Invalid;
   Include(flStates, fsIsNew);
@@ -3480,10 +3496,10 @@ begin
   if not Assigned(flModule) then
     flModule := TwbModuleInfo.AddNewModule(GetFileName, False);
 
-  Header := TwbMainRecord.Create(Self, wbHeaderSignature, TwbFormID.Null);
-  Header.RecordBySignature['HEDR'].Elements[0].NativeValue := wbHEDRVersion;
+  Header := TwbMainRecord.Create(Self, flContextObj.GameDefObj.HeaderSignature, TwbFormID.Null);
+  Header.RecordBySignature['HEDR'].Elements[0].NativeValue := flContextObj.GameDefObj.HEDRVersion;
   if gcHeaderNextObjectID in lGameDef.Capabilities then
-    Header.RecordBySignature['HEDR'].Elements[2].NativeValue := wbHEDRNextObjectID;
+    Header.RecordBySignature['HEDR'].Elements[2].NativeValue := flContextObj.GameDefObj.HEDRNextObjectID;
 
   if (mfHasUpdateFlag in aTemplate.miFlags) and lGameDef.IsUpdateSupported then begin
     Header.IsUpdate := True;
@@ -3521,13 +3537,13 @@ begin
   flIndicesActive := True;
 
   if flLoadOrder >= 0 then begin
-    if lGameDef.IsLightSupported or wbPseudoLight or lGameDef.IsMediumSupported or wbPseudoMedium or wbPseudoUpdate then begin
-      if Header.IsLight and not wbIgnoreLight then
+    if lGameDef.IsLightSupported or flContextObj.Settings.PseudoLight or lGameDef.IsMediumSupported or flContextObj.Settings.PseudoMedium or flContextObj.Settings.PseudoUpdate then begin
+      if Header.IsLight and not flContextObj.Settings.IgnoreLight then
         flLoadOrderFileID := TwbFileID.CreateLight(flContextObj.AllocateLightSlot)
-      else if Header.IsMedium and not wbIgnoreMedium then
+      else if Header.IsMedium and not flContextObj.Settings.IgnoreMedium then
         flLoadOrderFileID := TwbFileID.CreateMedium(flContextObj.AllocateMediumSlot)
       else begin
-        if (lGameDef.IsUpdateSupported or wbPseudoUpdate) and Header.IsUpdate and not wbIgnoreUpdate then
+        if (lGameDef.IsUpdateSupported or flContextObj.Settings.PseudoUpdate) and Header.IsUpdate and not flContextObj.Settings.IgnoreUpdate then
           flLoadOrderFileID := TwbFileID.Invalid
         else
           flLoadOrderFileID := TwbFileID.CreateFull(flContextObj.AllocateFullSlot);
@@ -4035,13 +4051,13 @@ begin
     Sorted := True;
     Duplicates := dupIgnore;
 
-    AddStrings(wbGroupOrder);
+    AddStrings(flContextObj.GameDefObj.GroupOrder);
 
-    for i := 0 to Pred(GroupToSkip.Count) do
-      if Find(GroupToSkip[i], j) then
+    for i := 0 to Pred(flContextObj.GroupToSkip.Count) do
+      if Find(flContextObj.GroupToSkip[i], j) then
         Delete(j);
-    for i := 0 to Pred(RecordToSkip.Count) do
-      if Find(RecordToSkip[i], j) then
+    for i := 0 to Pred(flContextObj.RecordToSkip.Count) do
+      if Find(flContextObj.RecordToSkip[i], j) then
         Delete(j);
     for i := Succ(Low(cntElements)) to High(cntElements) do
       if Supports(cntElements[i], IwbGroupRecord, GroupRecord) then
@@ -4052,7 +4068,7 @@ begin
     Sorted := False;
 
     for i := Pred(Count) downto 0 do
-      if wbFindRecordDef(AnsiString(Strings[i]), RecordDef) and not (dfInternalEditOnly in RecordDef.DefFlags) then
+      if GameDefObj.FindRecordDef(AnsiString(Strings[i]), RecordDef) and not (dfInternalEditOnly in RecordDef.DefFlags) then
         Strings[i] := Strings[i] + ' - ' + RecordDef.Name
       else
         Delete(i);
@@ -4348,7 +4364,7 @@ begin
 
   if (Length(cntElements) > 0) and
      (Supports(cntElements[0], IwbMainRecord, Result)) and
-     (Result.Signature = wbHeaderSignature) then begin
+     (Result.Signature = flContextObj.GameDefObj.HeaderSignature) then begin
     {Result already set}
   end else
     Result := nil;
@@ -4399,13 +4415,13 @@ begin
   Result :=
     wbIsInternalEdit or
     (
-      wbEditAllowed and
+      flContextObj.Settings.EditAllowed and
       ((not (fsIsGameMaster in flStates)) or wbAllowEditGameMaster) and
       not (fsIsHardcoded in flStates) and
       ((not (fsIsCompareLoad in flStates)) or (fsIsDeltaPatch in flStates))
     );
 
-  if flContextObj.GameDefObj.IsStarfield and not wbRedPill then
+  if flContextObj.GameDefObj.IsStarfield and not flContextObj.Settings.RedPill then
     if [fsIsGameMaster, fsIsHardcoded, fsIsOfficial] * flStates <> [] then
       Exit(False);
 end;
@@ -4414,7 +4430,7 @@ function TwbFile.GetIsMedium: Boolean;
 var
   Header         : IwbMainRecord;
 begin
-  if wbPseudoMedium then
+  if flContextObj.Settings.PseudoMedium then
     Exit(fsPseudoMedium in flStates);
 
   if not flContextObj.GameDefObj.IsMediumSupported or GetIsNotPlugin then
@@ -4487,7 +4503,7 @@ function TwbFile.GetIsLight: Boolean;
 var
   Header         : IwbMainRecord;
 begin
-  if wbPseudoLight then
+  if flContextObj.Settings.PseudoLight then
     Exit(fsPseudoLight in flStates);
 
   if not flContextObj.GameDefObj.IsLightSupported or GetIsNotPlugin then
@@ -4520,7 +4536,7 @@ function TwbFile.GetIsUpdate: Boolean;
 var
   Header         : IwbMainRecord;
 begin
-  if wbPseudoUpdate then
+  if flContextObj.Settings.PseudoUpdate then
     Exit(fsPseudoUpdate in flStates);
 
   if not flContextObj.GameDefObj.IsUpdateSupported or GetIsNotPlugin then
@@ -4601,7 +4617,7 @@ begin
     i := V;
     Result := i;
   end else
-    Result := wbHEDRNextObjectID;
+    Result := flContextObj.GameDefObj.HEDRNextObjectID;
 end;
 
 procedure TwbFile.SetNextObjectID(aObjectID: Cardinal);
@@ -4821,8 +4837,8 @@ begin
     if (GetElementCount <> 1) or not Supports(GetElement(0), IwbMainRecord, Header) then
       raise Exception.CreateFmt('Unexpected error reading file "%s"', [flFileName]);
 
-    if Header.Signature <> wbHeaderSignature then
-      raise Exception.CreateFmt('Expected header signature ' + wbHeaderSignature + ', found %s in file "%s"', [String(Header.Signature), flFileName]);
+    if Header.Signature <> flContextObj.GameDefObj.HeaderSignature then
+      raise Exception.CreateFmt('Expected header signature ' + flContextObj.GameDefObj.HeaderSignature + ', found %s in file "%s"', [String(Header.Signature), flFileName]);
 
     MasterFiles := Header.ElementByName['Master Files'] as IwbContainerElementRef;
     if Assigned(MasterFiles) then
@@ -4830,8 +4846,8 @@ begin
         Rec := (MasterFiles[i] as IwbContainer).RecordBySignature['MAST'];
         if not Assigned(Rec) then
           raise Exception.CreateFmt('Unexpected error reading master list for file "%s"', [flFileName]);
-        if not wbStripEmptyMasters or (Trim(Rec.EditValue) <> '') then
-          if not wbStripMasters or (wbStripMasters and wbStripMastersFileNames.Find(Rec.EditValue, j) = False) then
+        if not flContextObj.Settings.StripEmptyMasters or (Trim(Rec.EditValue) <> '') then
+          if not flContextObj.Settings.StripMasters or (flContextObj.Settings.StripMasters and flContextObj.StripMastersFileNames.Find(Rec.EditValue, j) = False) then
             aMasters.Add(Rec.EditValue);
       end;
   end else
@@ -5034,7 +5050,7 @@ end;
 procedure TwbFile.IncGeneration;
 begin
   Inc(_FileGeneration);
-  _CurrentContext.IncGlobalGeneration;
+  flContextObj.IncGlobalGeneration;
   flGeneration := _FileGeneration;
 end;
 
@@ -5084,7 +5100,7 @@ begin
 
   if Assigned(aElement) then
     case aElement.ElementType of
-      etMainRecord: Result := (aElement as IwbMainRecord).Signature <> wbHeaderSignature; {can't remove the file header}
+      etMainRecord: Result := (aElement as IwbMainRecord).Signature <> flContextObj.GameDefObj.HeaderSignature; {can't remove the file header}
       etGroupRecord: Result := True;
     else
       Assert(False);
@@ -5218,7 +5234,7 @@ begin
     raise Exception.Create('File ' + GetFileName + ' has invalid record ' + cntElements[0].Name + ' as file header.');
 
   FileHeader := cntElements[0] as IwbMainRecord;
-  if FileHeader.Signature <> wbHeaderSignature then
+  if FileHeader.Signature <> flContextObj.GameDefObj.HeaderSignature then
     raise Exception.Create('File ' + GetFileName + ' has invalid record ' + cntElements[0].Name + ' with invalid signature as file header.');
 
   HEDR := FileHeader.RecordBySignature['HEDR'];
@@ -5317,7 +5333,7 @@ begin
       raise Exception.Create('File ' + GetFileName + ' has invalid record ' + cntElements[0].Name + ' as file header.');
 
     FileHeader := cntElements[0] as IwbMainRecord;
-    if FileHeader.Signature <> wbHeaderSignature then
+    if FileHeader.Signature <> flContextObj.GameDefObj.HeaderSignature then
       raise Exception.Create('File ' + GetFileName + ' has invalid record ' + cntElements[0].Name + ' with invalid signature as file header.');
 
     if (FileHeader.Flags._Flags and $10 <> 0) and not wbHasAddedOptimizedSupport then
@@ -5335,7 +5351,7 @@ begin
       SetIsLight(True);
     end;
 
-    if not wbAllowESPMastersOnSave then
+    if not flContextObj.Settings.AllowESPMastersOnSave then
       for i := Low(flModule.miMasters) to High(flModule.miMasters) do
         if flModule.miMasters[i].miExtension = meESP then
           raise Exception.CreateFmt('%s modules must never have .esp masters.', [wbGameName]);
@@ -5369,7 +5385,7 @@ begin
 
     inherited;
 
-    SetLength(Groups, wbGroupOrder.Count);
+    SetLength(Groups, flContextObj.GameDefObj.GroupOrder.Count);
     for i := Succ(Low(cntElements)) to High(cntElements) do begin
       if not Supports(cntElements[i], IwbGroupRecord, GroupRecord) then
         raise Exception.Create('File ' + GetFileName + ' contains invalid top level record: ' + cntElements[i].Name);
@@ -5388,7 +5404,7 @@ begin
         for j := 0 to Pred(GroupRecord.ElementCount) do
           if Supports(GroupRecord.Elements[j], IwbMainRecord, Current) then begin
             Current.ElementCount;
-            if wbWriteOffsetData then
+            if flContextObj.Settings.WriteOffsetData then
               if Supports(Current, IwbMainRecordInternal, MainRecordInternal) then
                 MainRecordInternal.PrepareOffsetData;
           end;
@@ -5431,7 +5447,7 @@ begin
               if Assigned(ONAMs) then
                 ONAMs.BeginUpdate;
               try
-                if wbAlwaysSaveOnam or wbAlwaysSaveOnamForce or FileHeader.IsESM or (Assigned(flModule) and (mfHasESMExtension in flModule.miFlags)) then
+                if flContextObj.Settings.AlwaysSaveOnam or flContextObj.Settings.AlwaysSaveOnamForce or FileHeader.IsESM or (Assigned(flModule) and (mfHasESMExtension in flModule.miFlags)) then
                   while j <= High(flRecords) do begin
                     Current := flRecords[j];
                     FormID := Current.FixedFormID;
@@ -5465,8 +5481,8 @@ begin
                          (Signature = 'INFO')
                        ))
                     then begin
-                      if (not wbMasterUpdateFilterONAM) or Current.IsWinningOverride then begin
-                        if wbMasterUpdateFixPersistence and not Current.IsPersistent and not Current.IsMaster then begin
+                      if (not flContextObj.Settings.MasterUpdateFilterONAM) or Current.IsWinningOverride then begin
+                        if flContextObj.Settings.MasterUpdateFixPersistence and not Current.IsPersistent and not Current.IsMaster then begin
                           Master := Current.Master;
                           if Assigned(Master) then begin
                             if Master.IsPersistent then begin
@@ -5524,7 +5540,7 @@ begin
       end;
     end;
 
-    if wbClampFormID or (fsIsDeltaPatch in flStates) then begin
+    if flContextObj.Settings.ClampFormID or (fsIsDeltaPatch in flStates) then begin
       if Supports(FileHeader.ElementByName['Master Files'], IwbContainerElementRef, MasterFiles) then begin
         k := MasterFiles.ElementCount;
         if fsIsDeltaPatch in flStates then
@@ -5536,7 +5552,7 @@ begin
     end;
 
     if wbComplexFileFileID then begin
-      if not wbRedPill then begin
+      if not flContextObj.Settings.RedPill then begin
         for var lMasterIdx := 0 to Pred(GetMasterCount(True)) do begin
           var lMaster := GetMaster(lMasterIdx, True);
           if lMaster.GetIsUpdateDirect or (PwbModuleInfo(lMaster.ModuleInfo).miFlags * [mfHasUpdateFlag] <> []) then
@@ -5794,12 +5810,12 @@ var
     if flLoadOrder >= 0 then begin
       flContextObj.NextLoadOrder := Max(flContextObj.NextLoadOrder, Succ(flLoadOrder));
       var lGameDef := flContextObj.GameDefObj;
-      if lGameDef.IsLightSupported or wbPseudoLight or lGameDef.IsMediumSupported or wbPseudoMedium or lGameDef.IsUpdateSupported or wbPseudoUpdate then begin
-        if (lGameDef.IsUpdateSupported or wbPseudoUpdate) and ((fsPseudoUpdate in flStates) or ((Header.IsUpdate) and not wbIgnoreUpdate)) then
+      if lGameDef.IsLightSupported or flContextObj.Settings.PseudoLight or lGameDef.IsMediumSupported or flContextObj.Settings.PseudoMedium or lGameDef.IsUpdateSupported or flContextObj.Settings.PseudoUpdate then begin
+        if (lGameDef.IsUpdateSupported or flContextObj.Settings.PseudoUpdate) and ((fsPseudoUpdate in flStates) or ((Header.IsUpdate) and not flContextObj.Settings.IgnoreUpdate)) then
           flLoadOrderFileID := TwbFileID.Invalid
-        else if (fsPseudoLight in flStates) or ((Header.IsLight or flFileName.EndsWith(csDotEsl, True)) and not wbIgnoreLight) then
+        else if (fsPseudoLight in flStates) or ((Header.IsLight or flFileName.EndsWith(csDotEsl, True)) and not flContextObj.Settings.IgnoreLight) then
           flLoadOrderFileID := TwbFileID.CreateLight(flContextObj.AllocateLightSlot)
-        else if (fsPseudoMedium in flStates) or (Header.IsMedium and not wbIgnoreMedium) then
+        else if (fsPseudoMedium in flStates) or (Header.IsMedium and not flContextObj.Settings.IgnoreMedium) then
           flLoadOrderFileID := TwbFileID.CreateMedium(flContextObj.AllocateMediumSlot)
         else
           flLoadOrderFileID := TwbFileID.CreateFull(flContextObj.AllocateFullSlot);
@@ -5861,8 +5877,8 @@ begin
     if (GetElementCount <> 1) or not Supports(GetElement(0), IwbMainRecord, Header) then
       raise Exception.CreateFmt('Unexpected error reading file "%s"', [flFileName]);
 
-    if Header.Signature <> wbHeaderSignature then
-      raise Exception.CreateFmt('Expected header signature %s, found %s in file "%s"', [String(wbHeaderSignature), String(Header.Signature), flFileName]);
+    if Header.Signature <> flContextObj.GameDefObj.HeaderSignature then
+      raise Exception.CreateFmt('Expected header signature %s, found %s in file "%s"', [String(flContextObj.GameDefObj.HeaderSignature), String(Header.Signature), flFileName]);
 
     if fsOnlyHeader in flStates then
       Exit;
@@ -5888,8 +5904,8 @@ begin
         Rec := (MasterFiles[i] as IwbContainer).RecordBySignature['MAST'];
         if not Assigned(Rec) then
           raise Exception.CreateFmt('Unexpected error reading master list for file "%s"', [flFileName]);
-        if not wbStripEmptyMasters or (Trim(Rec.EditValue) <> '') then
-          if not wbStripMasters or (wbStripMasters and wbStripMastersFileNames.Find(Rec.EditValue, j) = False) then
+        if not flContextObj.Settings.StripEmptyMasters or (Trim(Rec.EditValue) <> '') then
+          if not flContextObj.Settings.StripMasters or (flContextObj.Settings.StripMasters and flContextObj.StripMastersFileNames.Find(Rec.EditValue, j) = False) then
             AddMaster(Rec.EditValue, False, flLoadOrder = High(Integer));
       end;
 
@@ -5954,31 +5970,31 @@ begin
       AddMaster(flCompareTo);
     end;
 
-    if wbPseudoLight then
+    if flContextObj.Settings.PseudoLight then
       Include(flStates, fsLightCompatible);
-    if wbPseudoMedium then
+    if flContextObj.Settings.PseudoMedium then
       Include(flStates, fsMediumCompatible);
-    if wbPseudoUpdate then
+    if flContextObj.Settings.PseudoUpdate then
       Include(flStates, fsUpdateCompatible);
 
     if Header.IsUpdate then begin
-      if wbPseudoUpdate then
+      if flContextObj.Settings.PseudoUpdate then
         Include(flStates, fsPseudoUpdate);
       AssignSlot;
     end else if Header.IsLight then begin
-      if not wbPseudoUpdate then begin
-        if wbPseudoLight then
+      if not flContextObj.Settings.PseudoUpdate then begin
+        if flContextObj.Settings.PseudoLight then
           Include(flStates, fsPseudoLight);
         AssignSlot;
       end;
     end else if Header.IsMedium then begin
-      if not (wbPseudoUpdate or wbPseudoLight) then begin
-        if wbPseudoMedium then
+      if not (flContextObj.Settings.PseudoUpdate or flContextObj.Settings.PseudoLight) then begin
+        if flContextObj.Settings.PseudoMedium then
           Include(flStates, fsPseudoMedium);
         AssignSlot;
       end;
     end else
-      if not (wbPseudoLight or wbPseudoMedium or wbPseudoUpdate) then
+      if not (flContextObj.Settings.PseudoLight or flContextObj.Settings.PseudoMedium or flContextObj.Settings.PseudoUpdate) then
         AssignSlot;
 
 
@@ -6105,17 +6121,17 @@ begin
     if flRecordsCount < Length(flRecords) then
       SetLength(flRecords, flRecordsCount);
 
-    if wbPseudoUpdate then
+    if flContextObj.Settings.PseudoUpdate then
       if fsUpdateCompatible in flStates then
         Include(flStates, fsPseudoUpdate);
 
     if not (fsPseudoUpdate in flStates) then begin
-      if wbPseudoLight then
+      if flContextObj.Settings.PseudoLight then
         if fsLightCompatible in flStates then
           Include(flStates, fsPseudoLight);
 
       if not (fsPseudoLight in flStates) then
-        if wbPseudoMedium then
+        if flContextObj.Settings.PseudoMedium then
           if fsMediumCompatible in flStates then
             Include(flStates, fsPseudoMedium);
     end;
@@ -6139,7 +6155,7 @@ begin
   if lGameDef.IsSkyrim or lGameDef.IsFallout3 or lGameDef.IsFallout4 or lGameDef.IsFallout76 or lGameDef.IsStarfield then begin
     IsInternal := not GetIsEditable and wbBeginInternalEdit(True);
     try
-      SetLength(Groups, wbGroupOrder.Count);
+      SetLength(Groups, flContextObj.GameDefObj.GroupOrder.Count);
       for i := High(cntElements) downto Succ(Low(cntElements)) do begin
         if not Supports(cntElements[i], IwbGroupRecord, GroupRecord) then begin
           flProgress('Error: File contains invalid top level record: ' + cntElements[i].Name);
@@ -6848,7 +6864,7 @@ begin
   Result := nil;
 
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be assigned.');
 
     Def := GetDef;
@@ -7013,7 +7029,7 @@ begin
   Result := False;
 
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       Exit;
 
     Def := GetDef;
@@ -8136,7 +8152,7 @@ var
   i: Integer;
   SelfRef : IwbContainerElementRef;
 begin
-  if wbDelayLoadRecords then
+  if ContextObj.Settings.DelayLoadRecords then
     if not (esModified in eStates) then
       Exit;
 
@@ -8965,7 +8981,7 @@ var
   Dummy: Integer;
 begin
   inherited Create(aContainer, aBasePtr, aEndPtr, aPrevMainRecord);
-  recSkipped := recSkipped or RecordToSkip.Find(GetSignature, Dummy);
+  recSkipped := recSkipped or ContextObj.RecordToSkip.Find(GetSignature, Dummy);
   InformPrevMainRecord(aPrevMainRecord);
   ScanData;
   if aBasePtr <> dcDataEndPtr then begin
@@ -9082,7 +9098,7 @@ begin
   Result := nil;
 
   if not wbIsInternalEdit then
-    if not wbEditAllowed or not GetIsEditable then
+    if not ContextObj.Settings.EditAllowed or not GetIsEditable then
       raise Exception.Create(GetName + ' can not be edited');
 
   if GetIsDeleted then
@@ -9174,7 +9190,7 @@ begin
           Assign(i, nil, False);
           Result := GetElementBySortOrder(i + GetAdditionalElementCount);
 
-          if wbSortSubRecords and (Length(cntElements) > 1) then
+          if ContextObj.Settings.SortSubRecords and (Length(cntElements) > 1) then
             wbMergeSortPtr(@cntElements[0], Length(cntElements), CompareSubRecords);
         end;
 
@@ -9188,7 +9204,7 @@ var
   SelfRef   : IwbContainerElementRef;
 begin
   if not wbIsInternalEdit then
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be assigned.');
 
   if GetIsDeleted then begin
@@ -9238,7 +9254,7 @@ begin
       Result := GetElementBySortOrder(aElement.SortOrder + GetAdditionalElementCount);
       Assert(Assigned(Result));
 
-      if wbSortSubRecords and (Length(cntElements) > 1) then
+      if ContextObj.Settings.SortSubRecords and (Length(cntElements) > 1) then
         wbMergeSortPtr(@cntElements[0], Length(cntElements), CompareSubRecords);
     end else
       Result.Assign(wbAssignThis, aElement, not aDeepCopy);
@@ -9277,7 +9293,7 @@ begin
     Exit;
   end;
 {$IFDEF USE_PARALLEL_BUILD_REFS}
-  if wbBuildingRefsParallel then
+  if ContextObj.BuildingRefsParallel then
     _ResizeLock.Enter;
   try
 {$ENDIF}
@@ -9295,7 +9311,7 @@ begin
     Include(mrStates, mrsReferencedByUnsorted);
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   finally
-    if wbBuildingRefsParallel then
+    if ContextObj.BuildingRefsParallel then
       _ResizeLock.Leave;
   end;
 {$ENDIF}
@@ -9329,10 +9345,11 @@ var
   DataContainer : IwbDataContainer;
   NeedUpdate    : Boolean;
 begin
+  var lContext := ContextObj;
   Result := nil;
 
   if not wbIsInternalEdit then
-    if not wbEditAllowed then
+    if not lContext.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be assigned.');
 
   if GetIsDeleted then
@@ -9364,11 +9381,11 @@ begin
             lPartialShouldExit := mrDef.KnownSubRecordSignatures[ksrEditorID] <> lHasSignature.Signature;
         end;
 
-        if lPartialShouldExit and (wbFillINOM or wbFillINOA) and (GetSignature = 'DIAL') then begin
+        if lPartialShouldExit and (lContext.Settings.FillINOM or lContext.Settings.FillINOA) and (GetSignature = 'DIAL') then begin
           var lDIALMember := mrDef.Members[aIndex];
           if Assigned(lDIALMember) then begin
-            if (wbFillINOM and (lDIALMember.DefaultSignature = 'INOM')) or
-               (wbFillINOA and (lDIALMember.DefaultSignature = 'INOA'))
+            if (lContext.Settings.FillINOM and (lDIALMember.DefaultSignature = 'INOM')) or
+               (lContext.Settings.FillINOA and (lDIALMember.DefaultSignature = 'INOA'))
             then
               lPartialShouldExit := False;
           end;
@@ -9413,7 +9430,7 @@ begin
         end;
 
         if Supports(Self.GetContainer, IwbGroupRecord, GroupRecord) then
-          if wbCreateContainedIn and (GroupRecord.GroupType in [1, 4..10]) then
+          if lContext.Settings.CreateContainedIn and (GroupRecord.GroupType in [1, 4..10]) then
             with TwbContainedInElement.Create(Self) do begin
               _AddRef; _Release;
             end;
@@ -9511,7 +9528,7 @@ begin
       wbEndKeepAlive;
     end;
 
-    if wbSortSubRecords and (Length(cntElements) > 1) then
+    if lContext.Settings.SortSubRecords and (Length(cntElements) > 1) then
       wbMergeSortPtr(@cntElements[0], Length(cntElements), CompareSubRecords);
 
   end else
@@ -9920,7 +9937,7 @@ begin
   Result := False;
 
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       Exit;
     if dfInternalEditOnly in mrDef.DefFlags then
       Exit;
@@ -10370,7 +10387,7 @@ begin
     GetFlagsPtr.SetCompressed(False);
 
     if Supports(Self.GetContainer, IwbGroupRecord, GroupRecord) then
-      if wbCreateContainedIn and (GroupRecord.GroupType in [1, 4..10]) then
+      if ContextObj.Settings.CreateContainedIn and (GroupRecord.GroupType in [1, 4..10]) then
         with TwbContainedInElement.Create(Self) do begin
           _AddRef; _Release;
         end;
@@ -10455,6 +10472,7 @@ var
   {$ENDIF}
 
 begin
+  var lContext := ContextObj;
   RequiredRecords := [];
   PresentRecords := [];
 
@@ -10472,7 +10490,7 @@ begin
 
   if not (mrsQuickInit in mrStates) then begin
     if Supports(Self.GetContainer, IwbGroupRecord, GroupRecord) then
-      if wbCreateContainedIn and (GroupRecord.GroupType in [1, 4..10]) then
+      if lContext.Settings.CreateContainedIn and (GroupRecord.GroupType in [1, 4..10]) then
         with TwbContainedInElement.Create(Self) do begin
           _AddRef; _Release;
         end;
@@ -10482,7 +10500,7 @@ begin
     if Assigned(mrDef) then
       RecordHeaderStruct := mrDef.RecordHeaderStruct as IwbStructDef;
     if not Assigned(RecordHeaderStruct) then
-      RecordHeaderStruct := wbMainRecordHeader as IwbStructDef;
+      RecordHeaderStruct := GameDefObj.MainRecordHeader as IwbStructDef;
 
     CurrentPtr := dcBasePtr;
     with TwbRecordHeaderStruct.Create(Self, CurrentPtr, PByte(CurrentPtr) + GameDefObj.SizeOfMainRecordStruct, RecordHeaderStruct, '') do begin
@@ -10516,7 +10534,7 @@ begin
       Element := TwbRecord.CreateForPtr(CurrentPtr, dcDataEndPtr, Self, nil);
       if Supports(Element, IwbSubRecord, CurrentRec) then begin
         var lSignature := CurrentRec.Signature;
-        if wbIgnoreRecords.Find(lSignature, Dummy) or mrDef.ShouldIgnore(lSignature) or SubRecordToSkip.Find(lSignature, Dummy) then
+        if GameDefObj.IgnoreRecords.Find(lSignature, Dummy) or mrDef.ShouldIgnore(lSignature) or lContext.SubRecordToSkip.Find(lSignature, Dummy) then
           CurrentRec.Skipped := True;
         {$IFDEF DBGSUBREC}
         if lSubRecordCount >= Length(lSubRecords) then
@@ -10685,10 +10703,10 @@ begin
 {$ENDIF}
     end;
 
-  if wbSortSubRecords and (mrDef.AllowUnordered or (esModified in eStates)) and (Length(cntElements) > 1) then
+  if lContext.Settings.SortSubRecords and (mrDef.AllowUnordered or (esModified in eStates)) and (Length(cntElements) > 1) then
     wbMergeSortPtr(@cntElements[0], Length(cntElements), CompareSubRecords);
 
-  if (not wbWriteOffsetData) and (GetSignature = 'WRLD') then begin
+  if (not lContext.Settings.WriteOffsetData) and (GetSignature = 'WRLD') then begin
     if Supports(GetRecordBySignature('OFST'), IwbSubRecord, CurrentRec) then begin
       if wbBeginInternalEdit(True) then try
         RemoveElement('OFST');
@@ -10754,13 +10772,13 @@ begin
 
   Include(cntStates, csInitOnce);
 
-  if {$IFDEF USE_PARALLEL_BUILD_REFS}not wbBuildingRefsParallel and{$ENDIF} wbCanSortINFO and wbSortINFO then
+  if {$IFDEF USE_PARALLEL_BUILD_REFS}not lContext.BuildingRefsParallel and{$ENDIF} lContext.Settings.CanSortINFO and lContext.Settings.SortINFO then
     if not (GetIsDeleted or GetIsPartialForm) and wbBeginInternalEdit(False) then try
-      if wbFillPNAM and (GetSignature = 'INFO') and not Assigned(GetRecordBySignature('PNAM')) then begin
+      if lContext.Settings.FillPNAM and (GetSignature = 'INFO') and not Assigned(GetRecordBySignature('PNAM')) then begin
         if Supports(IwbContainer(eContainer), IwbGroupRecordInternal, GroupRecordInternal) then
           GroupRecordInternal.Sort(True);
       end else if GetSignature = 'DIAL' then
-        if (wbFillINOM and not Assigned(GetRecordBySignature('INOM'))) or (wbFillINOA and not Assigned(GetRecordBySignature('INOA'))) then begin
+        if (lContext.Settings.FillINOM and not Assigned(GetRecordBySignature('INOM'))) or (lContext.Settings.FillINOA and not Assigned(GetRecordBySignature('INOA'))) then begin
           if Supports(GetChildGroup, IwbGroupRecordInternal, GroupRecordInternal) then
             GroupRecordInternal.Sort(True);
         end;
@@ -10777,7 +10795,7 @@ begin
 
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   //Assert(not wbBuildingRefsParallel);
-  if wbBuildingRefsParallel then
+  if ContextObj.BuildingRefsParallel then
     _ResizeLock.Enter;
   try
 {$ENDIF}
@@ -10803,7 +10821,7 @@ begin
   Index := L;
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   finally
-    if wbBuildingRefsParallel then
+    if ContextObj.BuildingRefsParallel then
       _ResizeLock.Leave;
   end;
 {$ENDIF}
@@ -10890,7 +10908,7 @@ var
   GroupRecord: IwbGroupRecord;
 begin
   Result := 1;
-  if wbCreateContainedIn and Supports(Self.GetContainer, IwbGroupRecord, GroupRecord) then
+  if ContextObj.Settings.CreateContainedIn and Supports(Self.GetContainer, IwbGroupRecord, GroupRecord) then
     if GroupRecord.GroupType in [1, 4..10] then
       Inc(Result);
 end;
@@ -10937,8 +10955,9 @@ begin
   end;
 
   j := 0;
+  var lGameDef := GameDefObj;
   for i := Low(Result) to High(Result) do
-    if wbFindRecordDef(AnsiString(Result[i]), RecordDef) then begin
+    if lGameDef.FindRecordDef(AnsiString(Result[i]), RecordDef) then begin
       Result[j] := Result[i] + ' - ' + RecordDef.Name;
       Inc(j);
     end;
@@ -11501,6 +11520,13 @@ begin
     Result := inherited GameDefObj;
 end;
 
+function TwbMainRecord.ContextObj: TwbGameContext;
+begin
+  Result := mrContextObj;
+  if not Assigned(Result) then
+    Result := inherited ContextObj;
+end;
+
 function TwbMainRecord.GetFixedFormID: TwbFormID;
 begin
   Result := mrFixedFormID;
@@ -11523,13 +11549,8 @@ begin
   if not (gcFormIDInRecordHeader in GameDefObj.Capabilities) then begin
     if not Assigned(mrDef) then
       Result := TwbFormID.Null
-    else if not mrDef.GetFormID(Self, Result) then begin
-      var lContext := _CurrentContext;
-      var lFile := GetFile;
-      if Assigned(lFile) then
-        lContext := (lFile as IwbFileInternal).ContextObj;
-      Result := lContext.FormIDFromIdentity(mrDef.GetFormIDBase, mrDef.GetFormIDNameBase, mrDef.GetIdentity(Self));
-    end;
+    else if not mrDef.GetFormID(Self, Result) then
+      Result := ContextObj.FormIDFromIdentity(mrDef.GetFormIDBase, mrDef.GetFormIDNameBase, mrDef.GetIdentity(Self));
   end else
     Result := mrStruct.mrsFormID(True)^;
 end;
@@ -11719,7 +11740,7 @@ var
   MODL     : IwbContainerElementRef;
   s        : String;
 begin
-  if not (mrsHasMeshChecked in mrStates) and (wbContainerHandler <> nil) then begin
+  if not (mrsHasMeshChecked in mrStates) and (ContextObj.ContainerHandler <> nil) then begin
     Include(mrStates, mrsHasMeshChecked);
     if GetSignature = 'TREE' then begin
       Include(mrStates, mrsHasMesh);
@@ -11730,7 +11751,7 @@ begin
           s := Trim(StringReplace(MODL.EditValue, '/', '\', [rfReplaceAll]));
           if s <> '' then begin
             s := 'meshes\' + s;//
-            if Length(wbContainerHandler.OpenResource(s)) > 0 then
+            if Length(ContextObj.ContainerHandler.OpenResource(s)) > 0 then
               Include(mrStates, mrsHasMesh);
           end;
         end;
@@ -11878,7 +11899,8 @@ var
   MODL     : IwbContainerElementRef;
   s        : String;
 begin
-  if not (mrsHasVWDMeshChecked in mrStates) and (wbContainerHandler <> nil) then begin
+  var lContext := ContextObj;
+  if not (mrsHasVWDMeshChecked in mrStates) and (lContext.ContainerHandler <> nil) then begin
     Include(mrStates, mrsHasVWDMeshChecked);
     if GetSignature = 'TREE' then begin
       SelfRef := Self as IwbContainerElementRef;
@@ -11887,7 +11909,7 @@ begin
           s := Trim(StringReplace(MODL.EditValue, '/', '\', [rfReplaceAll]));
           if s <> '' then begin
             s := 'textures\trees\billboards' + ChangeFileExt(s, '.dds');
-            if Length(wbContainerHandler.OpenResource(s)) > 0 then
+            if Length(lContext.ContainerHandler.OpenResource(s)) > 0 then
               Include(mrStates, mrsHasVWDMesh);
           end;
         end;
@@ -11898,7 +11920,7 @@ begin
           s := Trim(StringReplace(MODL.EditValue, '/', '\', [rfReplaceAll]));
           if s <> '' then begin
             s := 'meshes\' + ChangeFileExt(s, '_far.nif');
-            if Length(wbContainerHandler.OpenResource(s)) > 0 then
+            if Length(lContext.ContainerHandler.OpenResource(s)) > 0 then
               Include(mrStates, mrsHasVWDMesh);
           end;
         end;
@@ -12407,7 +12429,7 @@ begin
 
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   //Assert(not wbBuildingRefsParallel);
-  if wbBuildingRefsParallel then
+  if ContextObj.BuildingRefsParallel then
     _ResizeLock.Enter;
   try
 {$ENDIF}
@@ -12419,7 +12441,7 @@ begin
     Result := mrReferencedBy[aIndex];
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   finally
-    if wbBuildingRefsParallel then
+    if ContextObj.BuildingRefsParallel then
       _ResizeLock.Leave;
   end;
 {$ENDIF}
@@ -12432,14 +12454,14 @@ begin
 
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   //Assert(not wbBuildingRefsParallel);
-  if wbBuildingRefsParallel then
+  if ContextObj.BuildingRefsParallel then
     _ResizeLock.Enter;
   try
 {$ENDIF}
   Result := mrReferencedByCount;
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   finally
-    if wbBuildingRefsParallel then
+    if ContextObj.BuildingRefsParallel then
       _ResizeLock.Leave;
   end;
 {$ENDIF}
@@ -12665,6 +12687,7 @@ var
   p         : PwbMainRecordStruct;
 begin
   mrGameDefObj := inherited GameDefObj;
+  mrContextObj := inherited ContextObj;
   if Assigned(dcEndPtr) then
     if (gcReferencesEmbeddedInCell in mrGameDefObj.Capabilities) and ((PwbSignature(dcBasePtr)^ = 'FRMR') or (PwbSignature(dcBasePtr)^ = 'CNDT')) then begin
       Assert(not (mrsBasePtrAllocated in mrStates));
@@ -12683,7 +12706,7 @@ begin
     end;
 
   if not Assigned(mrDef) then begin
-    if wbFindRecordDef(PwbSignature(dcBasePtr)^, RecordDef) then
+    if mrGameDefObj.FindRecordDef(PwbSignature(dcBasePtr)^, RecordDef) then
       mrDef := RecordDef^
     else begin
       if wbHasProgressCallback then
@@ -13106,7 +13129,7 @@ begin
     GetFlagsPtr.SetCompressed(False);
 
     if Supports(Self.GetContainer, IwbGroupRecord, GroupRecord) then
-      if wbCreateContainedIn and (GroupRecord.GroupType in [1, 4..10]) then
+      if ContextObj.Settings.CreateContainedIn and (GroupRecord.GroupType in [1, 4..10]) then
         with TwbContainedInElement.Create(Self) do begin
           _AddRef; _Release;
         end;
@@ -13566,7 +13589,7 @@ var
 begin
   Exclude(mrStates, mrsOFSTReserved);
 
-  if not wbWriteOffsetData then
+  if not ContextObj.Settings.WriteOffsetData then
     Exit;
   if GetSignature <> 'WRLD' then
     Exit;
@@ -13772,7 +13795,7 @@ var
   begin
     KAR := wbCreateKeepAliveRoot;
 
-    if GetSignature = wbHeaderSignature then begin
+    if GetSignature = GameDefObj.HeaderSignature then begin
       if not Supports(GetContainer, IwbFile, _File) then
         raise Exception.Create('File Header record "' + GetFullPath + '" must be contained directly in the file.');
       if not GetFormID.IsNull then
@@ -14230,7 +14253,7 @@ begin
   end;
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   //Assert(not wbBuildingRefsParallel);
-  if wbBuildingRefsParallel then
+  if ContextObj.BuildingRefsParallel then
     _ResizeLock.Enter;
   try
 {$ENDIF}
@@ -14251,7 +14274,7 @@ begin
   end;
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   finally
-    if wbBuildingRefsParallel then
+    if ContextObj.BuildingRefsParallel then
       _ResizeLock.Leave;
   end;
 {$ENDIF}
@@ -14301,7 +14324,7 @@ begin
       mrConflictAll := caUnknown;
       mrConflictThis := ctUnknown;
       Inc(eGeneration);
-      _CurrentContext.IncGlobalGeneration;
+      ContextObj.IncGlobalGeneration;
     end;
     if Assigned(mrMaster) then
       IwbElement(mrMaster).ResetConflict
@@ -14398,7 +14421,7 @@ procedure TwbMainRecord.ScanData;
 var
   SelfRef : IwbContainerElementRef;
 begin
-  if (not wbDelayLoadRecords) or ((gcReferencesEmbeddedInCell in GameDefObj.Capabilities) and ((GetSignature = 'CELL') or (GetSignature = 'REFR')) ) then begin
+  if (not ContextObj.Settings.DelayLoadRecords) or ((gcReferencesEmbeddedInCell in GameDefObj.Capabilities) and ((GetSignature = 'CELL') or (GetSignature = 'REFR')) ) then begin
     SelfRef := Self as IwbContainerElementRef;
     DoInit(True);
   end;
@@ -14475,7 +14498,7 @@ end;
 procedure TwbMainRecord.SetEditValue(const aValue: string);
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be edited.');
     if dfInternalEditOnly in mrDef.DefFlags then
       Exit;
@@ -14522,7 +14545,7 @@ begin
       GetFlagsPtr.SetDeleted(False);
 
       if Supports(Self.GetContainer, IwbGroupRecord, GroupRecord) then
-        if wbCreateContainedIn and (GroupRecord.GroupType in [1, 4..10]) then
+        if ContextObj.Settings.CreateContainedIn and (GroupRecord.GroupType in [1, 4..10]) then
           with TwbContainedInElement.Create(Self) do begin
             _AddRef; _Release;
           end;
@@ -14663,7 +14686,7 @@ begin
       GetFlagsPtr.SetPartialForm(False);
 
       if Supports(Self.GetContainer, IwbGroupRecord, GroupRecord) then
-        if wbCreateContainedIn and (GroupRecord.GroupType in [1, 4..10]) then
+        if ContextObj.Settings.CreateContainedIn and (GroupRecord.GroupType in [1, 4..10]) then
           with TwbContainedInElement.Create(Self) do begin
             _AddRef; _Release;
           end;
@@ -14851,7 +14874,7 @@ end;
 procedure TwbMainRecord.SetNativeValue(const aValue: Variant);
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be edited.');
     if dfInternalEditOnly in mrDef.DefFlags then
       Exit;
@@ -14961,7 +14984,7 @@ procedure TwbMainRecord.SortReferencedBy;
 begin
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   //Assert(not wbBuildingRefsParallel);
-  if wbBuildingRefsParallel then
+  if ContextObj.BuildingRefsParallel then
     _ResizeLock.Enter;
   try
 {$ENDIF}
@@ -14970,7 +14993,7 @@ begin
     wbMergeSortPtr(@mrReferencedBy[0], mrReferencedByCount, CompareReferencedBy);
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   finally
-    if wbBuildingRefsParallel then
+    if ContextObj.BuildingRefsParallel then
       _ResizeLock.Leave;
   end;
 {$ENDIF}
@@ -15358,8 +15381,8 @@ var
 
       Stream.WriteBuffer(mrs, lSizeOfMainRecordStruct );
 
-      if wbForceNewHeader then begin
-        var lNewHeaderAddon := wbNewHeaderAddon;
+      if ContextObj.Settings.ForceNewHeader then begin
+        var lNewHeaderAddon := ContextObj.Settings.NewHeaderAddon;
         Stream.WriteBuffer(lNewHeaderAddon, SizeOf(lNewHeaderAddon) );
       end;
 
@@ -15382,7 +15405,7 @@ var
         NeedReset := False;
       end;
 
-      if wbForceNewHeader then
+      if ContextObj.Settings.ForceNewHeader then
         DataSize := Stream.Size - lSizeOfMainRecordStruct - SizeOf(Cardinal)
       else
         DataSize := Stream.Size - lSizeOfMainRecordStruct;
@@ -15485,7 +15508,7 @@ end;
 procedure TwbMainRecord.YouAreTheMaster(const aOverrides, aReferencedBy: TDynMainRecords; aReferencedByCount: Integer);
 begin
 {$IFDEF USE_PARALLEL_BUILD_REFS}
-  Assert(not wbBuildingRefsParallel);
+  Assert(not ContextObj.BuildingRefsParallel);
 {$ENDIF}
 
   Assert(Length(aOverrides) > 0);
@@ -15524,7 +15547,7 @@ end;
 procedure TwbMainRecord.YouAreTheMaster(const aOldMaster: IwbMainRecord; const aOverrides, aReferencedBy: TDynMainRecords; aReferencedByCount: Integer);
 begin
 {$IFDEF USE_PARALLEL_BUILD_REFS}
-  Assert(not wbBuildingRefsParallel);
+  Assert(not ContextObj.BuildingRefsParallel);
 {$ENDIF}
 
   if Assigned(mrMaster) and Assigned(aOldMaster) and aOldMaster.Equals(IwbMainRecord(mrMaster)) then
@@ -15575,7 +15598,7 @@ end;
 procedure TwbMainRecord.YouGotAMaster(const aMaster: IwbMainRecord);
 begin
 {$IFDEF USE_PARALLEL_BUILD_REFS}
-  Assert(not wbBuildingRefsParallel);
+  Assert(not ContextObj.BuildingRefsParallel);
 {$ENDIF}
 
   var lSelfRef := Self as IwbMainRecord;
@@ -15691,7 +15714,7 @@ var
   ValueDef   : IwbValueDef;
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be modified.');
   end;
 
@@ -15798,7 +15821,7 @@ begin
   Result := nil;
 
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be assigned.');
   end;
 
@@ -16048,7 +16071,7 @@ begin
   Result := False;
 
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       Exit;
     if Assigned(srDef) and (dfInternalEditOnly in srDef.DefFlags) then
       Exit;
@@ -16378,7 +16401,7 @@ function TwbSubRecord.GetAlignable: Boolean;
 var
   SelfRef  : IwbContainerElementRef;
 begin
-  if wbCompareRawData then
+  if ContextObj.Settings.CompareRawData then
     Exit(False);
 
   SelfRef := Self as IwbContainerElementRef;
@@ -16595,7 +16618,7 @@ var
   EmptyDef : IwbEmptyDef;
   SelfRef  : IwbContainerElementRef;
 begin
-  if wbCompareRawData then
+  if ContextObj.Settings.CompareRawData then
     Exit(False);
 
   SelfRef := Self as IwbContainerElementRef;
@@ -16906,7 +16929,7 @@ end;
 
 procedure TwbSubRecord.PrepareSave;
 begin
-  if wbDelayLoadRecords then
+  if ContextObj.Settings.DelayLoadRecords then
     if not (esModified in eStates) then
       Exit;
 
@@ -16997,7 +17020,7 @@ var
   OldValue, NewValue: Variant;
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be edited.');
   end;
 
@@ -17039,7 +17062,7 @@ var
   OldLinksTo: IwbElement;
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be edited.');
   end;
 
@@ -17088,7 +17111,7 @@ var
   SelfRef : IwbContainerElementRef;
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be edited.');
   end;
 
@@ -18224,7 +18247,7 @@ var
 begin
   Result := True;
   if not wbIsInternalEdit then
-    if (grStruct.grsGroupType = 0) and wbFindRecordDef(PwbSignature(@grStruct.grsLabel)^, RecordDef) then
+    if (grStruct.grsGroupType = 0) and GameDefObj.FindRecordDef(PwbSignature(@grStruct.grsLabel)^, RecordDef) then
       if dfInternalEditOnly in RecordDef.DefFlags then
         Exit(False);
 end;
@@ -18401,8 +18424,9 @@ begin
           Result.Add('REFR');
   end;
   j := 0;
+  var lGameDef := GameDefObj;
   for i := Low(Result) to High(Result) do
-    if wbFindRecordDef(AnsiString(Result[i]), RecordDef) then begin
+    if lGameDef.FindRecordDef(AnsiString(Result[i]), RecordDef) then begin
       Result[j] := Result[i] + ' - ' + RecordDef.Name;
       Inc(j);
     end;
@@ -18546,7 +18570,7 @@ begin
   case grStruct.grsGroupType of
     0: begin
       Result := PwbSignature(@grStruct.grsLabel)^;
-      if wbFindRecordDef(AnsiString(Result), RecordDef) then
+      if GameDefObj.FindRecordDef(AnsiString(Result), RecordDef) then
         Result := RecordDef.GetName;
     end;
     1: Result := 'World Children of ' + IntToHex(GetGroupLabel, 8);
@@ -18612,7 +18636,7 @@ begin
     dcEndPtr := dcDataEndPtr;
     if not recSkipped then
       if grStruct.grsGroupType = 0 then
-        recSkipped := GroupToSkip.Find(PwbSignature(@grStruct.grsLabel)^, Dummy);
+        recSkipped := ContextObj.GroupToSkip.Find(PwbSignature(@grStruct.grsLabel)^, Dummy);
   end;
 end;
 
@@ -18719,7 +18743,7 @@ begin
     Exit;
   inherited;
   // Let's try to sort only when the group membership change and not when one of its member change.
-  if ((grStruct.grsGroupType = 7) and wbSortINFO) or (Assigned(aContainer) and (IwbContainerInternal(aContainer).ElementID = GetElementID)) then
+  if ((grStruct.grsGroupType = 7) and ContextObj.Settings.SortINFO) or (Assigned(aContainer) and (IwbContainerInternal(aContainer).ElementID = GetElementID)) then
     Exclude(grStates, gsSorted);
 end;
 
@@ -18785,8 +18809,9 @@ var
 begin
   case grStruct.grsGroupType of
     0: begin
-      SetSortOrder(wbGetGroupOrder(PwbSignature(@grStruct.grsLabel)^));
-      SetMemoryOrder(wbGetGroupOrder(PwbSignature(@grStruct.grsLabel)^));
+      var lGroupOrder := GameDefObj.GetGroupOrder(PwbSignature(@grStruct.grsLabel)^);
+      SetSortOrder(lGroupOrder);
+      SetMemoryOrder(lGroupOrder);
     end;
   end;
 
@@ -19189,7 +19214,7 @@ var
               if Supports(Group.Elements[j], IwbMainRecordEntry, InsertRecord) then
                  DoInsertRecord(InsertRecord, nil);
         TargetRecord := IwbMainRecordEntry(mreHeader.mrehTail);
-        var KeepList := (wbFillINOM and aOnlyMasters) or (wbFillINOA and not aOnlyMasters);
+        var KeepList := (ContextObj.Settings.FillINOM and aOnlyMasters) or (ContextObj.Settings.FillINOA and not aOnlyMasters);
         while Assigned(TargetRecord) do begin
           if KeepList then
             MainRecords.Add(TargetRecord);
@@ -19198,7 +19223,7 @@ var
             TargetRecord.RemoveEntry
           else
             if aOnlyMasters then
-              if wbFillPNAM and (not TargetRecord.IsDeleted) then
+              if ContextObj.Settings.FillPNAM and (not TargetRecord.IsDeleted) then
                 if wbBeginInternalEdit then try
                   if not TargetRecord.ElementExists['PNAM'] then begin
                     {>>> No QSTI in Skyrim, using DIAL\QNAM <<<}
@@ -19296,7 +19321,7 @@ var
 
 begin
 {$IFDEF USE_PARALLEL_BUILD_REFS}
-  if wbBuildingRefsParallel then
+  if ContextObj.BuildingRefsParallel then
     _ResizeLock.Enter;
   try
 {$ENDIF}
@@ -19325,9 +19350,9 @@ begin
     ChildrenOf := GetChildrenOf;
     // there is no PNAM in Fallout 4, looks like INFOs are no longer linked lists
 
-    if {$IFDEF USE_PARALLEL_BUILD_REFS}not wbBuildingRefsParallel and{$ENDIF} wbCanSortINFO and (grStruct.grsGroupType = 7) then begin
+    if {$IFDEF USE_PARALLEL_BUILD_REFS}not ContextObj.BuildingRefsParallel and{$ENDIF} ContextObj.Settings.CanSortINFO and (grStruct.grsGroupType = 7) then begin
 
-      if not wbSortINFO then
+      if not ContextObj.Settings.SortINFO then
         Exit;
 
       if not wbDisplayLoadOrderFormID then
@@ -19340,7 +19365,7 @@ begin
           ShouldLog := (ChildrenOf.LoadOrderFormID.ToCardinal = $00039F6C) and (ChildrenOf._File.LoadOrderFileID = TwbFileID.Create(4, 0));
           {$ENDIF}
 
-          if wbFillINOA then
+          if ContextObj.Settings.FillINOA then
             ProcessDIAL(False);
 
           {$IFDEF USE_CODESITE}
@@ -19373,7 +19398,7 @@ begin
 
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   finally
-    if wbBuildingRefsParallel then
+    if ContextObj.BuildingRefsParallel then
       _ResizeLock.Leave;
   end;
 {$ENDIF}
@@ -19397,11 +19422,12 @@ var
   DataSize          : Cardinal;
   grs               : TwbGroupRecordStruct;
 begin
+  var lContext := ContextObj;
   CurrentPosition := aStream.Position;
   grs := grStruct^;
   aStream.WriteBuffer(grs, GameDefObj.SizeOfMainRecordStruct );
-  if wbForceNewHeader then begin
-    var lNewHeaderAddon := wbNewHeaderAddon;
+  if lContext.Settings.ForceNewHeader then begin
+    var lNewHeaderAddon := lContext.Settings.NewHeaderAddon;
     aStream.WriteBuffer(lNewHeaderAddon, SizeOf(lNewHeaderAddon) );
   end;
 
@@ -19449,7 +19475,7 @@ begin
     aStream.Position := NewPosition;
 
   end else
-    if wbForceNewHeader then
+    if lContext.Settings.ForceNewHeader then
       Assert(CurrentPosition + grStruct.grsGroupSize + SizeOf(Cardinal) = aStream.Position)
     else
       Assert(CurrentPosition + grStruct.grsGroupSize = aStream.Position);
@@ -19616,7 +19642,7 @@ var
   TargetValueDef: IwbValueDef;
 begin
   if not wbIsInternalEdit then
-    if (not wbEditAllowed) {or (not GetIsEditable)} then
+    if (not ContextObj.Settings.EditAllowed) {or (not GetIsEditable)} then
       raise Exception.Create(GetName + ' can not be assigned');
 
   TargetValueDef := GetValueDef;
@@ -19733,7 +19759,7 @@ begin
     Exit;
 
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       Exit;
   end;
 
@@ -20093,7 +20119,7 @@ begin
   if Assigned(Def) then
     Result := Def.ConflictPriority[Self];
 
-  if wbTranslationMode then
+  if ContextObj.Settings.TranslationMode then
     if not (dfTranslatable in Def.DefFlags) then
       Result := cpIgnore;
 
@@ -20163,7 +20189,7 @@ end;
 
 function TwbElement.GetDisplaySortKey(aExtended: Boolean): string;
 begin
-  if wbCompareRawData then
+  if ContextObj.Settings.CompareRawData then
     Result := GetRawDataAsString
   else
     Result := GetSortKey(aExtended);
@@ -20236,9 +20262,22 @@ begin
     Result := _CurrentGameDef;
 end;
 
+function TwbElement.ContextObj: TwbGameContext;
+begin
+  if Assigned(eContainer) then
+    Result := IwbContainerInternal(eContainer).ContextObj
+  else
+    Result := _CurrentContext;
+end;
+
 function TwbElement.GetGameDefObj: TwbGameDef;
 begin
   Result := GameDefObj;
+end;
+
+function TwbElement.GetContextObj: TwbGameContext;
+begin
+  Result := ContextObj;
 end;
 
 function TwbElement.GetFound: Boolean;
@@ -20356,11 +20395,12 @@ end;
 
 function TwbElement.GetLinksTo: IwbElement;
 begin
-  if eLinksToGeneration = _CurrentContext.GlobalGeneration then
+  var lGeneration := ContextObj.GlobalGeneration;
+  if eLinksToGeneration = lGeneration then
     Result := eCachedLinksTo
   else begin
     Result := InternalGetLinksTo;
-    eLinksToGeneration := _CurrentContext.GlobalGeneration;
+    eLinksToGeneration := lGeneration;
     eCachedLinksTo := Result;
   end;
 end;
@@ -21008,7 +21048,7 @@ begin
     eExtendedSortKey := '';
 
     Inc(eGeneration);
-    _CurrentContext.IncGlobalGeneration;
+    ContextObj.IncGlobalGeneration;
 
     if eUpdateCount > 0 then
       Include(eStates, esModifiedUpdated)
@@ -21239,7 +21279,7 @@ var
   i         : Integer;
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be assigned.');
   end;
 
@@ -21297,7 +21337,7 @@ begin
   Result := nil;
 
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be assigned.');
   end;
 
@@ -21387,7 +21427,7 @@ begin
   end;
 
   arcSorted := False;
-  if wbSortSubRecords and arcDef.Sorted[IwbContainer(eContainer)] then begin
+  if ContextObj.Settings.SortSubRecords and arcDef.Sorted[IwbContainer(eContainer)] then begin
     if Length(cntElements) > 1 then
       wbMergeSortPtr(@cntElements[0], Length(cntElements), CompareSortKeys);
     arcSorted := True;
@@ -21435,7 +21475,7 @@ function TwbSubRecordArray.CanAssignInternal(aIndex: Integer; const aElement: Iw
 begin
   Result := False;
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       Exit;
     if dfInternalEditOnly in arcDef.DefFlags then
       Exit;
@@ -21590,7 +21630,7 @@ begin
   end;
 
   arcSorted := False;
-  if wbSortSubRecords and arcDef.Sorted[aContainer] then begin
+  if ContextObj.Settings.SortSubRecords and arcDef.Sorted[aContainer] then begin
     arcSorted := True;
     arcSortInvalid := True;
   end;
@@ -21605,7 +21645,7 @@ end;
 
 function TwbSubRecordArray.GetAlignable: Boolean;
 begin
-  if wbCompareRawData then
+  if ContextObj.Settings.CompareRawData then
     Exit(False);
 
   if GetSorted then
@@ -21684,7 +21724,7 @@ end;
 
 function TwbSubRecordArray.GetSorted: Boolean;
 begin
-  if wbCompareRawData then
+  if ContextObj.Settings.CompareRawData then
     Exit(False);
 
   Result := arcSorted;
@@ -21857,7 +21897,7 @@ var
   SelfRef   : IwbContainerElementRef;
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be assigned.');
   end;
 
@@ -21875,7 +21915,7 @@ begin
     Result := GetElementBySortOrder(aElement.SortOrder + GetAdditionalElementCount);
     Assert(Assigned(Result));
 
-    if wbSortSubRecords and (Length(cntElements) > 1) then
+    if ContextObj.Settings.SortSubRecords and (Length(cntElements) > 1) then
       wbMergeSortPtr(@cntElements[0], Length(cntElements), CompareSubRecords);
   end else
     Result.Assign(wbAssignThis, aElement, not aDeepCopy);
@@ -21926,7 +21966,7 @@ begin
   Result := nil;
 
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be assigned.');
   end;
 
@@ -22051,7 +22091,7 @@ begin
     end;
   end;
 
-  if wbSortSubRecords and (Length(cntElements) > 1) then
+  if ContextObj.Settings.SortSubRecords and (Length(cntElements) > 1) then
     wbMergeSortPtr(@cntElements[0], Length(cntElements), CompareSubRecords);
 end;
 
@@ -22059,7 +22099,7 @@ function TwbSubRecordStruct.CanAssignInternal(aIndex: Integer; const aElement: I
 begin
   Result := False;
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       Exit;
     if dfInternalEditOnly in srcDef.DefFlags then
       Exit;
@@ -22558,7 +22598,7 @@ var
 begin
   ElementSize := -1;
   ArrayDef := aValueDef as IwbArrayDef;
-  Result := wbSortSubRecords and ArrayDef.Sorted;
+  Result := aContainer.ContextObj.Settings.SortSubRecords and ArrayDef.Sorted;
   if not ArrayDef.CanAddTo then
     aContainer.SetElementState(esNotSuitableToAddTo);
 
@@ -22691,7 +22731,7 @@ procedure TwbArray.UpdateSortedAfterCopy;
 begin
   if arrSortedInCopy and (wbCopyIsRunning = 0) then begin
     arrSortedInCopy := False;
-    arrSorted := wbSortSubRecords and (vbValueDef as IwbArrayDef).Sorted;
+    arrSorted := ContextObj.Settings.SortSubRecords and (vbValueDef as IwbArrayDef).Sorted;
     arrSortInvalid := arrSorted;
   end;
 end;
@@ -22710,7 +22750,7 @@ var
   ValueDef  : IwbValueDef;
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be modified.');
   end;
 
@@ -22771,7 +22811,7 @@ begin
   Result := nil;
 
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be assigned.');
   end;
 
@@ -22885,7 +22925,7 @@ var
 begin
   Result := False;
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       Exit;
     if Assigned(vbValueDef) and (dfInternalEditOnly in vbValueDef.DefFlags) then
       Exit;
@@ -23034,7 +23074,7 @@ end;
 
 function TwbArray.GetAlignable: Boolean;
 begin
-  if wbCompareRawData then
+  if ContextObj.Settings.CompareRawData then
     Exit(False);
 
   if GetSorted then
@@ -23078,7 +23118,7 @@ end;
 
 function TwbArray.GetSorted: Boolean;
 begin
-  if wbCompareRawData then
+  if ContextObj.Settings.CompareRawData then
     Exit(False);
 
   UpdateSortedAfterCopy;
@@ -23373,7 +23413,7 @@ begin
   if Assigned(aResolvedDef) then // I had one case. Most likely due to an error in wbXXXXDefinitions
     case aResolvedDef.DefType of
       dtArray: begin
-        if wbSortSubRecords and Supports(aResolvedDef, IwbArrayDef, ArrayDef) and ArrayDef.Sorted then
+        if aContainer.ContextObj.Settings.SortSubRecords and Supports(aResolvedDef, IwbArrayDef, ArrayDef) and ArrayDef.Sorted then
           Result := ufSortedArray
         else
           Result := ufArray;
@@ -23610,7 +23650,7 @@ begin
 
   if Assigned(aResolvedDef) then
   begin
-    if wbFlagsAsArray then
+    if aContainer.ContextObj.Settings.FlagsAsArray then
       if Supports(aResolvedDef, IwbIntegerDef, IntegerDef) then
         if Supports(IntegerDef.Formater[aElement], IwbFlagsDef, FlagsDef) then begin
           if Assigned(aBasePtr) and (FlagsDef.FlagCount > 0) then begin
@@ -23832,7 +23872,7 @@ function TwbValue.GetSorted: Boolean;
 var
   EmptyDef: IwbEmptyDef;
 begin
-  if wbCompareRawData then
+  if ContextObj.Settings.CompareRawData then
     Exit(False);
 
   Result := vIsFlags or (Supports(Resolve(vbValueDef, GetDataBasePtr, GetDataEndPtr, Self), IwbEmptyDef, EmptyDef) and EmptyDef.Sorted);
@@ -23892,7 +23932,7 @@ var
   OldValue, NewValue: Variant;
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be edited.');
   end;
 
@@ -23925,7 +23965,7 @@ var
   OldValue, NewValue: Variant;
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be edited.');
   end;
 
@@ -23950,20 +23990,25 @@ begin
   end;
 end;
 
-procedure wbFileForceClosed;
+procedure TwbLoadingGameContext.ForceClosedFiles;
 begin
-  for var lFile in _CurrentContext.Files do begin
+  for var lFile in Files do begin
     (lFile as IwbFileInternal).ForceClosed;
     wbProgressCallback;
   end;
-  _CurrentContext.ForceClosed;
+  ForceClosed;
 end;
 
-function wbFile(const aFileName: string; aLoadOrder: Integer = -1; const aCompareTo: string = ''; aStates: TwbFileStates = []; const aData: TBytes = nil): IwbFile;
+procedure wbFileForceClosed;
+begin
+  _CurrentContext.ForceClosedFiles;
+end;
+
+function TwbLoadingGameContext.LoadFile(const aFileName: string; aLoadOrder: Integer; const aCompareTo: string; aStates: TwbFileStates; const aData: TBytes): IwbFile;
 var
   FileName: string;
 begin
-  wbInitRecords;
+  GameDefObj.InitRecords;
 
   FileName := wbExpandFileName(aFileName);
   {if ExtractFilePath(aFileName) = '' then
@@ -23971,24 +24016,29 @@ begin
   else
     FileName := ExpandFileName(aFileName);}
 
-  Result := _CurrentContext.FileByName(FileName);
+  Result := FileByName(FileName);
   if not Assigned(Result) then begin
     if not wbIsModule(FileName) then
-      Result := TwbFileSource.Create(FileName, aLoadOrder, aCompareTo, aStates + [fsAddToMap], aData)
+      Result := TwbFileSource.Create(Self, FileName, aLoadOrder, aCompareTo, aStates + [fsAddToMap], aData)
     else
-      Result := TwbFile.Create(FileName, aLoadOrder, aCompareTo, aStates + [fsAddToMap], aData);
+      Result := TwbFile.Create(Self, FileName, aLoadOrder, aCompareTo, aStates + [fsAddToMap], aData);
   end;
 end;
 
-function wbMastersForFile(const aFileName    : string;
-                                aMasters     : TStrings;
-                                aIsESM       : PBoolean;
-                                aIsLight     : PBoolean;
-                                aIsLocalized : PBoolean;
-                                aIsUpdate    : PBoolean;
-                                aIsMedium    : PBoolean;
-                                aIsBlueprint : PBoolean)
-                                             : Boolean;
+function wbFile(const aFileName: string; aLoadOrder: Integer = -1; const aCompareTo: string = ''; aStates: TwbFileStates = []; const aData: TBytes = nil): IwbFile;
+begin
+  Result := _CurrentContext.LoadFile(aFileName, aLoadOrder, aCompareTo, aStates, aData);
+end;
+
+function TwbLoadingGameContext.MastersForFile(const aFileName    : string;
+                                                    aMasters     : TStrings;
+                                                    aIsESM       : PBoolean;
+                                                    aIsLight     : PBoolean;
+                                                    aIsLocalized : PBoolean;
+                                                    aIsUpdate    : PBoolean;
+                                                    aIsMedium    : PBoolean;
+                                                    aIsBlueprint : PBoolean)
+                                                                 : Boolean;
 var
   FileName : string;
   lFile    : IwbFile;
@@ -24011,13 +24061,13 @@ begin
   try
     FileName := wbExpandFileName(aFileName);
     try
-      lFile := _CurrentContext.FileByName(FileName);
+      lFile := FileByName(FileName);
       if Assigned(lFile) then
         _File := lFile as IwbFileInternal
       else if not wbIsModule(FileName) then
-        _File := TwbFileSource.Create(FileName, -1, '', [fsOnlyHeader], nil)
+        _File := TwbFileSource.Create(Self, FileName, -1, '', [fsOnlyHeader], nil)
       else
-        _File := TwbFile.Create(FileName, -1, '', [fsOnlyHeader], nil);
+        _File := TwbFile.Create(Self, FileName, -1, '', [fsOnlyHeader], nil);
 
       if Assigned(aMasters) then
         _File.GetMasters(aMasters);
@@ -24043,6 +24093,40 @@ begin
   end;
 end;
 
+function TwbLoadingGameContext.MastersForFile(const aFileName    : string;
+                                                out aMasters     : TDynStrings;
+                                                    aIsESM       : PBoolean;
+                                                    aIsLight     : PBoolean;
+                                                    aIsLocalized : PBoolean;
+                                                    aIsUpdate    : PBoolean;
+                                                    aIsMedium    : PBoolean;
+                                                    aIsBlueprint : PBoolean)
+                                                                 : Boolean;
+begin
+  aMasters := nil;
+  var sl := TStringList.Create;
+  try
+    Result := MastersForFile(aFileName, sl, aIsESM, aIsLight, aIsLocalized, aIsUpdate, aIsMedium, aIsBlueprint);
+    if Result then
+      aMasters := sl.ToStringArray;
+  finally
+    sl.Free;
+  end;
+end;
+
+function wbMastersForFile(const aFileName    : string;
+                                aMasters     : TStrings;
+                                aIsESM       : PBoolean;
+                                aIsLight     : PBoolean;
+                                aIsLocalized : PBoolean;
+                                aIsUpdate    : PBoolean;
+                                aIsMedium    : PBoolean;
+                                aIsBlueprint : PBoolean)
+                                             : Boolean;
+begin
+  Result := _CurrentContext.MastersForFile(aFileName, aMasters, aIsESM, aIsLight, aIsLocalized, aIsUpdate, aIsMedium, aIsBlueprint);
+end;
+
 function wbMastersForFile(const aFileName    : string;
                             out aMasters     : TDynStrings;
                                 aIsESM       : PBoolean;
@@ -24053,49 +24137,51 @@ function wbMastersForFile(const aFileName    : string;
                                 aIsBlueprint : PBoolean)
                                              : Boolean;
 begin
-  aMasters := nil;
-  var sl := TStringList.Create;
-  try
-    Result := wbMastersForFile(aFileName, sl, aIsESM, aIsLight, aIsLocalized, aIsUpdate, aIsMedium, aIsBlueprint);
-    if Result then
-      aMasters := sl.ToStringArray;
-  finally
-    sl.Free;
-  end;
+  Result := _CurrentContext.MastersForFile(aFileName, aMasters, aIsESM, aIsLight, aIsLocalized, aIsUpdate, aIsMedium, aIsBlueprint);
 end;
 
-function wbNewFile(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean): IwbFile;
+function TwbLoadingGameContext.NewFile(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean): IwbFile;
 var
   FileName: string;
 begin
   Assert( not (aIsLight and aIsMedium) );
-  Assert( (not aIsLight) or _CurrentContext.GameDefObj.IsLightSupported or wbPseudoLight);
-  Assert( (not aIsMedium) or _CurrentContext.GameDefObj.IsMediumSupported or wbPseudoMedium);
+  Assert( (not aIsLight) or GameDefObj.IsLightSupported or Settings.PseudoLight);
+  Assert( (not aIsMedium) or GameDefObj.IsMediumSupported or Settings.PseudoMedium);
 
-  wbInitRecords;
+  GameDefObj.InitRecords;
 
   FileName := wbExpandFileName(aFileName);
-  if Assigned(_CurrentContext.FileByName(FileName)) then
+  if Assigned(FileByName(FileName)) then
     raise Exception.Create(FileName + ' exists already')
   else begin
-    Result := TwbFile.CreateNew(FileName, aLoadOrder, aIsLight, aIsMedium);
-    _CurrentContext.AddFile(Result, FileName);
+    Result := TwbFile.CreateNew(Self, FileName, aLoadOrder, aIsLight, aIsMedium);
+    AddFile(Result, FileName);
   end;
 end;
 
-function wbNewFile(const aFileName: string; aLoadOrder: Integer; aTemplate: PwbModuleInfo): IwbFile;
+function TwbLoadingGameContext.NewFile(const aFileName: string; aLoadOrder: Integer; aTemplate: PwbModuleInfo): IwbFile;
 var
   FileName: string;
 begin
-  wbInitRecords;
+  GameDefObj.InitRecords;
 
   FileName := wbExpandFileName(aFileName);
-  if Assigned(_CurrentContext.FileByName(FileName)) then
+  if Assigned(FileByName(FileName)) then
     raise Exception.Create(FileName + ' exists already')
   else begin
-    Result := TwbFile.CreateNew(FileName, aLoadOrder, aTemplate);
-    _CurrentContext.AddFile(Result, FileName);
+    Result := TwbFile.CreateNew(Self, FileName, aLoadOrder, aTemplate);
+    AddFile(Result, FileName);
   end;
+end;
+
+function wbNewFile(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean): IwbFile;
+begin
+  Result := _CurrentContext.NewFile(aFileName, aLoadOrder, aIsLight, aIsMedium);
+end;
+
+function wbNewFile(const aFileName: string; aLoadOrder: Integer; aTemplate: PwbModuleInfo): IwbFile;
+begin
+  Result := (_CurrentContext as TwbLoadingGameContext).NewFile(aFileName, aLoadOrder, aTemplate);
 end;
 
 function wbFindWinningMainRecordByEditorID(const aSignature: TwbSignature; const aEditorID: string): IwbMainRecord;
@@ -24157,7 +24243,7 @@ function TwbFlag.GetConflictPriority: TwbConflictPriority;
 var
   MainRecord: IwbMainRecord;
 begin
-  if wbTranslationMode then
+  if ContextObj.Settings.TranslationMode then
     Result := cpIgnore
   else if GetFlagsDef.FlagIgnoreConflict[fIndex] then
     Result := cpIgnore
@@ -24350,7 +24436,7 @@ var
   c: Char;
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be edited.');
   end;
 
@@ -24373,7 +24459,7 @@ var
   c: Char;
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be edited.');
   end;
 
@@ -24430,7 +24516,7 @@ var
   OldValue, NewValue: Variant;
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be edited.');
   end;
 
@@ -24507,7 +24593,7 @@ begin
   if Assigned(Def) then
     Result := Def.ConflictPriority[Self];
 
-  if wbTranslationMode then
+  if ContextObj.Settings.TranslationMode then
     if not (dfTranslatable in Def.DefFlags) then
       Result := cpIgnore;
 
@@ -25254,7 +25340,7 @@ var
   OldValue, NewValue: Variant;
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be edited.');
   end;
 
@@ -25280,7 +25366,7 @@ var
   OldLinksTo: IwbElement;
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be edited.');
   end;
 
@@ -25308,7 +25394,7 @@ var
   OldValue, NewValue: Variant;
 begin
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be edited.');
   end;
 
@@ -25362,7 +25448,7 @@ begin
   Result := nil;
 
   if not wbIsInternalEdit then begin
-    if not wbEditAllowed then
+    if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be assigned.');
   end;
 
@@ -25418,7 +25504,7 @@ begin
         MainRecordInternal.MakeHeaderWriteable;
 
         if Flags.IsESM then
-          if MainRecordInternal.Signature <> wbHeaderSignature then
+          if MainRecordInternal.Signature <> GameDefObj.HeaderSignature then
             Flags.SetESM(False);
 
         if Flags.IsDeleted <> MainRecordInternal.GetFlagsPtr.IsDeleted then begin
@@ -25902,10 +25988,10 @@ const
 
 { TwbFileSource }
 
-constructor TwbFileSource.CreateNew(const aFileName: string; aLoadOrder: Integer);
+constructor TwbFileSource.CreateNew(const aContext: TwbGameContext; const aFileName: string; aLoadOrder: Integer);
 begin
-  flContext := wbCurrentContext;
-  flContextObj := _CurrentContext;
+  flContextObj := aContext;
+  flContext := aContext;
   Include(flStates, fsIsNew);
   flLoadOrder := aLoadOrder;
   flFileName := aFileName;
@@ -25922,15 +26008,15 @@ begin
   if (GetElementCount <> 1) or not Supports(GetElement(0), IwbFileHeader, Header) then
     raise Exception.CreateFmt('Unexpected error reading file "%s"', [flFileName]);
 
-  if Header.FileMagic <> wbFileMagic then
+  if Header.FileMagic <> flContextObj.GameDefObj.FileMagic then
     raise Exception.CreateFmt('Expected File Magic %s, found %s in file "%s"',
-      [wbFileMagic, String(Header.FileMagic), flFileName]);
+      [flContextObj.GameDefObj.FileMagic, String(Header.FileMagic), flFileName]);
 
   Names := TStringList.Create;
   try
     GetPluginNames(Header, Names);
     for i := 0 to Pred(Names.Count) do begin
-      fPath := wbDataPath + Names[i];
+      fPath := flContextObj.Settings.DataPath + Names[i];
       if FileExists(fPath) then
         aMasters.Add(Names[i]);
     end;
@@ -25952,12 +26038,12 @@ begin
     Exit;
   end;
 
-  if Pos('Absolute:', wbFilePlugins)=1 then begin
-    modPtr := PByte(flView) + StrToInt(Copy(wbFilePlugins, 10, Length(wbFilePlugins)));
+  if Pos('Absolute:', flContextObj.GameDefObj.FilePlugins)=1 then begin
+    modPtr := PByte(flView) + StrToInt(Copy(flContextObj.GameDefObj.FilePlugins, 10, Length(flContextObj.GameDefObj.FilePlugins)));
     mods := TwbArray.Create(nil, modPtr, flEndPtr, wbArray('Modules', wbLenString('PluginName', 2), -4), '', False);
     Supports(mods, IwbContainerElementRef, MasterFiles);
   end else
-    MasterFiles := aHeader.ElementByName[wbFilePlugins] as IwbContainerElementRef;
+    MasterFiles := aHeader.ElementByName[flContextObj.GameDefObj.FilePlugins] as IwbContainerElementRef;
 
   if Assigned(MasterFiles) then
     for i := 0 to Pred(MasterFiles.ElementCount) do
@@ -26023,7 +26109,7 @@ begin
   SelfRef := Self as IwbContainerElementRef;
   flProgress('Start processing');
 
-  if wbFileHeader = nil then
+  if flContextObj.GameDefObj.FileHeader = nil then
     raise Exception.CreateFmt('Expected a module, found "%s"', [flFileName]);
 
   flLoadOrderFileID := TwbFileID.CreateFull($FF);
@@ -26031,14 +26117,14 @@ begin
   flBaseOffset := NativeUInt(flView);
 
   CurrentPtr := flView;
-  TwbFileHeader.Create(Self, CurrentPtr, flEndPtr, wbFileHeader, '', False);
+  TwbFileHeader.Create(Self, CurrentPtr, flEndPtr, flContextObj.GameDefObj.FileHeader, '', False);
 
   if (GetElementCount <> 1) or not Supports(GetElement(0), IwbFileHeader, Header) then
     raise Exception.CreateFmt('Unexpected error reading file "%s"', [flFileName]);
 
-  if Header.FileMagic <> wbFileMagic then
+  if Header.FileMagic <> flContextObj.GameDefObj.FileMagic then
     raise Exception.CreateFmt('Expected header Magic %s, found %s in file "%s"',
-      [wbFileMagic, String(Header.FileMagic), flFileName]);
+      [flContextObj.GameDefObj.FileMagic, String(Header.FileMagic), flFileName]);
 
   if fsOnlyHeader in flStates then
     Exit;
@@ -26047,11 +26133,11 @@ begin
   try
     GetPluginNames(Header, Names);
     for i := 0 to Pred(Names.Count) do begin
-      fPath := wbDataPath + Names[i];
+      fPath := flContextObj.Settings.DataPath + Names[i];
       if FileExists(fPath) then
         AddMaster(fPath, False, True)
-      else if wbUseFalsePlugins then begin
-        fPath := wbDataPath + wbAppName + TheEmptyPlugin; // place holder to keep save indexes
+      else if flContextObj.Settings.UseFalsePlugins then begin
+        fPath := flContextObj.Settings.DataPath + wbAppName + TheEmptyPlugin; // place holder to keep save indexes
         if not FileExists(fPath) then
           fPath := ExtractFilePath(wbProgramPath) + wbAppName + TheEmptyPlugin; // place holder to keep save indexes
         if FileExists(fPath) then
@@ -26068,14 +26154,14 @@ begin
     AddMaster(flCompareTo);
   end;
 
-  if wbExtractInfo <> nil then
-    ExtractInfo := wbExtractInfo^
+  if flContextObj.GameDefObj.ExtractInfo <> nil then
+    ExtractInfo := flContextObj.GameDefObj.ExtractInfo^
   else
     ExtractInfo := [];
 
-  for i := 0 to Pred(wbFileChapters.MemberCount) do begin
+  for i := 0 to Pred(flContextObj.GameDefObj.FileChapters.MemberCount) do begin
 
-    ValueDef := wbFileChapters.Members[i];
+    ValueDef := flContextObj.GameDefObj.FileChapters.Members[i];
     if ValueDef.DefType = dtResolvable then
       ValueDef := Resolve(ValueDef, currentPtr, flEndPtr, Self);
     if dfUnionStaticResolve in ValueDef.DefFlags then
@@ -26127,7 +26213,7 @@ begin
   if Assigned(aValueDef) then
     Assert(Supports(aValueDef, IwbStructCDef));
   inherited;
-  cChapterSkipped := cChapterSkipped or ChaptersToSkip.Find(aValueDef.Name, Dummy);
+  cChapterSkipped := cChapterSkipped or ContextObj.ChaptersToSkip.Find(aValueDef.Name, Dummy);
 end;
 
 function TwbChapter.GetChapterName: String;
@@ -26347,13 +26433,8 @@ begin
   Result := TwbMultipleElements.Create(aElements);
 end;
 
-function wbCreateGameContext(const aGameDef: IwbGameDef): IwbGameContext;
-begin
-  Result := TwbGameContext.Create(aGameDef);
-  wbMakeCurrentContext(Result);
-end;
-
 initialization
+  wbGameContextClass := TwbLoadingGameContext;
   _MastersGeneration := 1;
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   _ResizeLock.Initialize;
