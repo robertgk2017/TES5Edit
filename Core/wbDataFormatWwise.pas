@@ -30,9 +30,9 @@ type
                            var aList     : TStringList);
   end;
 
-function wbSoundBankCache: IwbSoundBankArray;
+function wbSoundBankCache(aContext: TwbGameContext): IwbSoundBankArray;
 
-procedure wbBuildSoundBankCache(const aLoadOrder: TStringList);
+procedure wbBuildSoundBankCache(const aContext: TwbGameContext; const aLoadOrder: TStringList);
 
 implementation
 
@@ -44,7 +44,6 @@ uses
 
   JsonDataObjects,
 
-  wbGameDefGlobals,
   wbHash;
 
 type
@@ -146,6 +145,7 @@ type
     var FSoundBanks: TArray<TwbSoundBank>;
     var FOwned: TObjectDictionary<TwbWwiseObject, Boolean>;
     var FPending: TList<TwbPendingNode>;
+    var FContainerHandler: IwbContainerHandler;
 
     procedure BuildIndexFile(const aFileName, aModuleName: string);
     procedure BuildIndexFiles(const aFileNames: TStringList; const aModuleName: string = '');
@@ -155,7 +155,7 @@ type
   public
     {---TwbSoundBankArray---}
     constructor Create; overload;
-    constructor Create(const aLoadOrder: TStringList); overload;
+    constructor Create(const aContainerHandler: IwbContainerHandler; const aLoadOrder: TStringList); overload;
 
     destructor Destroy; override;
 
@@ -167,15 +167,15 @@ type
 var
   _EmptySoundBankCache: IwbSoundBankArray;
 
-function wbSoundBankCache: IwbSoundBankArray;
+function wbSoundBankCache(aContext: TwbGameContext): IwbSoundBankArray;
 begin
-  if not Supports(_CurrentContext.SoundBankCache, IwbSoundBankArray, Result) then
+  if not Supports(aContext.SoundBankCache, IwbSoundBankArray, Result) then
     Result := _EmptySoundBankCache;
 end;
 
-procedure wbBuildSoundBankCache(const aLoadOrder: TStringList);
+procedure wbBuildSoundBankCache(const aContext: TwbGameContext; const aLoadOrder: TStringList);
 begin
-  _CurrentContext.SoundBankCache := TwbSoundBankArray.Create(aLoadOrder);
+  aContext.SoundBankCache := TwbSoundBankArray.Create(aContext.ContainerHandler, aLoadOrder);
 end;
 
 { TwbSwitchGroup }
@@ -592,7 +592,7 @@ end;
 
 procedure TwbSoundBankArray.BuildIndexFile(const aFileName, aModuleName: string);
 begin
-  var lFile := wbContainerHandler.OpenResourceData('', aFileName);
+  var lFile := FContainerHandler.OpenResourceData('', aFileName);
 
   if Length(lFile) > 0 then
   begin
@@ -714,10 +714,11 @@ begin
   end;
 end;
 
-constructor TwbSoundBankArray.Create(const aLoadOrder: TStringList);
+constructor TwbSoundBankArray.Create(const aContainerHandler: IwbContainerHandler; const aLoadOrder: TStringList);
 begin
   Create;
 
+  FContainerHandler := aContainerHandler;
   BuildIndex(aLoadOrder);
 end;
 

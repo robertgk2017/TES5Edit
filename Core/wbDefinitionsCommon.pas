@@ -201,7 +201,8 @@ function wbPackagePSDTMonthValueToInt(const aString: string; const aElement: Iwb
 function wbEdgeToStr(aEdge: Integer; aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 function wbVertexToStr(aVertex: Integer; aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 
-function wbAliasToStr                (aInt: Int64; const aQuestRef: IwbElement; aType: TwbCallbackType): string;
+function wbAliasToStr                (aInt: Int64; const aQuestRef: IwbElement; aType: TwbCallbackType): string; overload;
+function wbAliasToStr                (aInt: Int64; const aQuestRef, aElement: IwbElement; aType: TwbCallbackType): string; overload;
 function wbClmtMoonsPhaseLength      (aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 function wbClmtTime                  (aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 function wbConditionAliasToStr       (aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
@@ -841,7 +842,7 @@ begin
 
     var lPosition : TwbVector;
     if Assigned(lCell) and lCell.IsPersistent and aMainRecord.GetPosition(lPosition) then begin
-      var lGrid := wbPositionToGridCell(lPosition);
+      var lGrid := aMainRecord.GameDefObj.PositionToGridCell(lPosition);
       Result := Result + ' at ' + IntToStr(lGrid.X) + ',' + IntToStr(lGrid.Y);
     end;
 
@@ -882,7 +883,7 @@ begin
   if not Assigned(aElement) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if aElement.NativeValue > 10000 then
       aElement.NativeValue := 10000;
     if aElement.NativeValue < 100 then
@@ -897,7 +898,7 @@ begin
   if not Assigned(aElement) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if aElement.NativeValue > 3 then
       aElement.NativeValue := 0;
   finally
@@ -910,7 +911,7 @@ begin
   if not Assigned(aElement) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     var lArray : IwbContainerElementRef;
     if not Supports(aElement, IwbContainerElementRef, lArray) then
       Exit;
@@ -939,7 +940,7 @@ begin
   if not Assigned(lContainer) then
     Exit;
 
-  if wbBeginInternalEdit then
+  if aElement.ContextObj.BeginInternalEdit then
   try
     lContainer.BeginUpdate;
 
@@ -973,7 +974,7 @@ begin
   if not Assigned(lContainer) then
     Exit;
 
-  if wbBeginInternalEdit then
+  if aElement.ContextObj.BeginInternalEdit then
   try
     lContainer.BeginUpdate;
 
@@ -1037,7 +1038,7 @@ begin
   if not Assigned(aElement) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     var lMainRecord := aElement.ContainingMainRecord;
     if not Assigned(lMainRecord) then
       Exit;
@@ -1058,7 +1059,7 @@ begin
   if not Assigned(MainRecord) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     var lMonth := aElement.Container.ElementByName['Month'];
     var lMonthVal :Integer := lMonth.NativeValue;
     if MainRecord.Version < 122 then
@@ -1086,7 +1087,7 @@ begin
   if not Assigned(aElement) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if aElement.NativeValue > 1 then
       aElement.NativeValue := 1;
   finally
@@ -1099,7 +1100,7 @@ begin
   if not Assigned(aElement) then
     Exit;
 
-  if wbBeginInternalEdit then
+  if aElement.ContextObj.BeginInternalEdit then
   try
     if aElement.NativeValue = 0 then
       aElement.NativeValue := 1;
@@ -1113,7 +1114,7 @@ begin
   if not Assigned(aElement) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     var lMainRecord : IwbMainRecord;
     if not Supports(aElement, IwbMainRecord, lMainRecord) then
       Exit;
@@ -1156,7 +1157,7 @@ begin
   if not Assigned(aElement) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if (aElement.NativeValue and $1) = 0 then
       aElement.NativeValue := 0;
     if (aElement.NativeValue and $1) = 1 then
@@ -1171,7 +1172,7 @@ begin
   if not Assigned(aElement) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     var lContainerElementRef : IwbContainerElementRef;
     if not Supports(aElement, IwbContainerElementRef, lContainerElementRef) then
       Exit;
@@ -1203,7 +1204,7 @@ begin
   if not Assigned(aElement) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if aElement.NativeValue <> 3 then
       aElement.NativeValue := 3;
   finally
@@ -1216,7 +1217,7 @@ begin
   if not Assigned(aElement) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if aElement.NativeValue <> 0 then
       aElement.NativeValue := 0;
   finally
@@ -1226,7 +1227,7 @@ end;
 
 procedure wbSOUNAfterLoad(const aElement: IwbElement);
 begin
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if not Assigned(aElement) then
       Exit;
 
@@ -1266,7 +1267,7 @@ begin
 
   wbWorldAfterSet(aElement, 0, 1);
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     var lMainRecord : IwbMainRecord;
     if not Supports(aElement, IwbMainRecord, lMainRecord) then
       Exit;
@@ -1296,7 +1297,7 @@ begin
   if VarSameValue(aOldValue, aNewValue) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if aElement.Name = 'Level Mult' then begin
       if aNewValue > 10000 then
         aElement.NativeValue := 10000;
@@ -1317,7 +1318,7 @@ begin
   if VarSameValue(aOldValue, aNewValue) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     wbUpdateSameParentUnions(aElement, aOldValue, aNewValue);
 
     var lNativeValue := aElement.NativeValue;
@@ -1341,7 +1342,7 @@ begin
   if VarSameValue(aOldValue, aNewValue) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     var lContainerElementRef : IwbContainerElementRef;
     if not Supports(aElement, IwbContainerElementRef, lContainerElementRef) then
       Exit;
@@ -1370,7 +1371,7 @@ begin
   if VarSameValue(aOldValue, aNewValue) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if aNewValue <> 2 then
       aElement.Container.ElementNativeValues['Reference'] := 0;
   finally
@@ -1386,7 +1387,7 @@ begin
   if VarSameValue(aOldValue, aNewValue) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if Assigned(aElement.ContainingMainRecord.ElementBySignature[QNAM]) then
       aElement.ContainingMainRecord.ElementBySignature[QNAM].Remove;
   finally
@@ -1402,7 +1403,7 @@ begin
   if VarSameValue(aOldValue, aNewValue) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if Assigned(aElement.ContainingMainRecord.ElementBySignature[PNAM]) then
       aElement.ContainingMainRecord.ElementBySignature[PNAM].Remove;
   finally
@@ -1418,7 +1419,7 @@ begin
   if VarSameValue(aOldValue, aNewValue) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     var lMainRecord := aElement.ContainingMainRecord;
     if not Assigned(lMainRecord) then
       Exit;
@@ -1440,7 +1441,7 @@ begin
   if VarSameValue(aOldValue, aNewValue) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     var lContainer := aElement.Container;
     var lValue := lContainer.ElementBySignature[CNAM];
 
@@ -1469,7 +1470,7 @@ begin
   if not Assigned(MainRecord) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     var lMonth := aElement.Container.ElementByName['Month'];
     var lMonthVal :Integer := lMonth.NativeValue;
     if MainRecord.Version < 122 then
@@ -1500,7 +1501,7 @@ begin
   if VarSameValue(aOldValue, aNewValue) then
     Exit;
 
-  if wbBeginInternalEdit then
+  if aElement.ContextObj.BeginInternalEdit then
   try
     if aElement.NativeValue = 0 then
       aElement.NativeValue := 1;
@@ -1517,7 +1518,7 @@ begin
   if VarSameValue(aOldValue, aNewValue) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     var lContainerElementRef : IwbContainerElementRef;
     if not Supports(aElement.Container, IwbContainerElementRef, lContainerElementRef) then
       Exit;
@@ -1546,7 +1547,7 @@ begin
   if not Assigned(aElement) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if aElement.NativeValue > 255 then
       aElement.NativeValue := 255;
   finally
@@ -1609,7 +1610,7 @@ begin
   if VarSameValue(aOldValue, aNewValue) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     var lContainerElementRef : IwbContainerElementRef;
     if not Supports(aElement.Container, IwbContainerElementRef, lContainerElementRef) then
       Exit;
@@ -1630,7 +1631,7 @@ begin
   if VarSameValue(aOldValue, aNewValue) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     var lContainerElementRef : IwbContainerElementRef;
     if not Supports(aElement, IwbContainerElementRef, lContainerElementRef) then
       Exit;
@@ -1711,7 +1712,7 @@ begin
   if not Assigned(lContainer) then
     Exit;
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     var lSounds := lContainer.ElementByPath['Sound Mappings'];
     if Assigned(lSounds) then
       lSounds.Remove;
@@ -2091,7 +2092,7 @@ begin
   var lFlagsValue := lFlags.NativeValue;
       {Shadow Spotlight}              {Shadow Hemisphere}
   if (((lFlagsValue and $400) = 0) and ((lFlagsValue and $800) = 0)) then
-    if ((not wbCS) or ((lFlagsValue and $4000) = 0)) then
+    if (not (gcCommunityShaders in aElement.GameDefObj.Capabilities)) or ((lFlagsValue and $4000) = 0) then
       Result := True;
 end;
 
@@ -2143,7 +2144,7 @@ begin
   var lFlagsValue := lFlags.NativeValue;
      {Shadow Spotlight}
   if (lFlagsValue and $400) = 0 then
-    if ((not wbCS) or ((lFlagsValue and $4000) = 0)) then
+    if (not (gcCommunityShaders in aElement.GameDefObj.Capabilities)) or ((lFlagsValue and $4000) = 0) then
       Result := True;
 end;
 
@@ -3259,6 +3260,11 @@ end;
 {>>> To String Callback Functions <<<} //31
 
 function wbAliasToStr(aInt: Int64; const aQuestRef: IwbElement; aType: TwbCallbackType): string;
+begin
+  Result := wbAliasToStr(aInt, aQuestRef, aQuestRef, aType);
+end;
+
+function wbAliasToStr(aInt: Int64; const aQuestRef, aElement: IwbElement; aType: TwbCallbackType): string;
 var
   MainRecord : IwbMainRecord;
   EditInfos  : TStringList;
@@ -3266,7 +3272,7 @@ var
   Alias      : IwbContainerElementRef;
 begin
   Result := '';
-  var lGameDef := wbGameDefOf(aQuestRef);
+  var lGameDef := wbGameDefOf(aElement);
   case aType of
     ctToEditValue, ctToStr, ctToSummary:
       if aInt = -1 then
@@ -3452,11 +3458,11 @@ begin
 
     var lSig := lMainRecord.Signature;
     if lSig = QUST then
-      Result := wbAliasToStr(aInt, lMainRecord, aType)
+      Result := wbAliasToStr(aInt, lMainRecord, aElement, aType)
     else if lSig = SCEN then
-      Result := wbAliasToStr(aInt, lMainRecord.ElementBySignature['PNAM'], aType)
+      Result := wbAliasToStr(aInt, lMainRecord.ElementBySignature['PNAM'], aElement, aType)
     else if (lSig = PACK) or (wbGameDefOf(aElement).IsFallout76 and (lSig = TERM)) then
-      Result := wbAliasToStr(aInt, lMainRecord.ElementBySignature['QNAM'], aType)
+      Result := wbAliasToStr(aInt, lMainRecord.ElementBySignature['QNAM'], aElement, aType)
     else if lSig = INFO then begin
       // get DIAL for INFO
       var lTopicElement := lMainRecord.ElementByName['Topic'];
@@ -3468,7 +3474,7 @@ begin
       var lTopic := lTopicRecord.HighestOverrideVisibleForFile[aElement._File];
       if not Assigned(lTopic) then
         Exit;
-      Result := wbAliasToStr(aInt, lTopic.ElementBySignature['QNAM'], aType);
+      Result := wbAliasToStr(aInt, lTopic.ElementBySignature['QNAM'], aElement, aType);
     end;
   end else begin
     case aType of
@@ -3710,8 +3716,11 @@ end;
 function wbFileHashCallback(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 begin
   Result := '';
-  if _CurrentContext.LoaderDone and (aType in [ctToStr, ctToSummary, ctToSortKey] ) then
-    Result := _CurrentContext.ContainerHandler.ResolveFileHash(aInt);
+  if Assigned(aElement) and (aType in [ctToStr, ctToSummary, ctToSortKey] ) then begin
+    var lContext := aElement.ContextObj;
+    if lContext.LoaderDone then
+      Result := lContext.ContainerHandler.ResolveFileHash(aInt);
+  end;
 
   if Result = '' then
     case aType of
@@ -3730,8 +3739,11 @@ end;
 function wbFolderHashCallback(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
 begin
   Result := '';
-  if _CurrentContext.LoaderDone and (aType in [ctToStr, ctToSummary, ctToSortKey] ) then
-    Result := _CurrentContext.ContainerHandler.ResolveFolderHash(aInt);
+  if Assigned(aElement) and (aType in [ctToStr, ctToSummary, ctToSortKey] ) then begin
+    var lContext := aElement.ContextObj;
+    if lContext.LoaderDone then
+      Result := lContext.ContainerHandler.ResolveFolderHash(aInt);
+  end;
 
   if Result = '' then
     case aType of
@@ -3777,7 +3789,7 @@ begin
     if not Assigned(lTopic) then
       Exit;
 
-    Result := wbAliasToStr(aInt, lTopic.ElementBySignature['QNAM'] , aType);
+    Result := wbAliasToStr(aInt, lTopic.ElementBySignature['QNAM'], aElement, aType);
   end else begin
     case aType of
       ctToSortKey: Result := IntToHex64(aInt, 8);
@@ -4200,7 +4212,7 @@ begin
     if not Assigned(lMainRecord) then
       Exit;
 
-    Result := wbAliasToStr(aInt, lMainRecord.ElementBySignature['QNAM'], aType);
+    Result := wbAliasToStr(aInt, lMainRecord.ElementBySignature['QNAM'], aElement, aType);
   end else begin
     case aType of
       ctToStr, ctToSummary, ctToEditValue: Result := aInt.ToString;
@@ -4231,7 +4243,7 @@ begin
     if not Assigned(lMainRecord) then
       Exit;
 
-    Result := wbAliasToStr(aInt, lMainRecord, aType);
+    Result := wbAliasToStr(aInt, lMainRecord, aElement, aType);
   end else begin
     case aType of
       ctToStr, ctToSummary, ctToEditValue: Result := aInt.ToString;
@@ -4251,7 +4263,7 @@ begin
     if not Supports(aElement.Container, IwbContainerElementRef, lCER) then
       Exit;
 
-    Result := wbAliasToStr(aInt, lCER.ElementBySignature['ALEQ'] , aType);
+    Result := wbAliasToStr(aInt, lCER.ElementBySignature['ALEQ'], aElement, aType);
   end else begin
     case aType of
       ctToSortKey: Result := IntToHex64(aInt, 8);
@@ -4337,7 +4349,7 @@ begin
     if not Assigned(lMainRecord) then
       Exit;
 
-    Result := wbAliasToStr(aInt, lMainRecord.ElementBySignature['PNAM'] , aType);
+    Result := wbAliasToStr(aInt, lMainRecord.ElementBySignature['PNAM'], aElement, aType);
   end else begin
     case aType of
       ctToSortKey: Result := IntToHex64(aInt, 8);
@@ -4357,7 +4369,7 @@ begin
     if not Assigned(lCER) then
       Exit;
 
-    Result := wbAliasToStr(aInt, lCER.ElementByName['FormID'], aType);
+    Result := wbAliasToStr(aInt, lCER.ElementByName['FormID'], aElement, aType);
   end else begin
     case aType of
       ctToStr, ctToSummary, ctToEditValue: Result := aInt.ToString;
@@ -4943,7 +4955,7 @@ begin
   if not Assigned(aElement) then
     Exit;
 
-  if not _CurrentContext.Settings.BuildRefs then
+  if not aElement.ContextObj.Settings.BuildRefs then
     Exit;
 
   var lMainRecord := aElement.ContainingMainRecord;
@@ -5030,7 +5042,7 @@ begin
     var lPosition: TwbVector;
     lMainRecord.GetPosition(lPosition);
 
-    var lGridCell := wbPositionToGridCell(lPosition);
+    var lGridCell := lMainRecord.GameDefObj.PositionToGridCell(lPosition);
 
     lCellRecord := lWorldRecord.ChildByGridCell[lGridCell];
 
@@ -5441,7 +5453,7 @@ var
   lCandidate        : TGUID;
   lFile             : IwbFile;
 begin
-  Result := wbSoundBankCache.TryLookupDisplay(wntSwitchGroup, aDisplay, aGUID);
+  Result := wbSoundBankCache(aElement.ContextObj).TryLookupDisplay(wntSwitchGroup, aDisplay, aGUID);
   if Result then
     Exit;
 
@@ -5460,11 +5472,11 @@ begin
       lMasters.Add(lFile.FileName);
     end;
 
-    wbSoundBankCache.GetStrings(wntSwitchGroup, lMasters, lGroups);
+    wbSoundBankCache(aElement.ContextObj).GetStrings(wntSwitchGroup, lMasters, lGroups);
 
     lMatches := 0;
     for var I := 0 to Pred(lGroups.Count) do
-      if StartsText(lName + ' [', lGroups[I]) and wbSoundBankCache.TryLookupDisplay(wntSwitchGroup, lGroups[I], lCandidate) then
+      if StartsText(lName + ' [', lGroups[I]) and wbSoundBankCache(aElement.ContextObj).TryLookupDisplay(wntSwitchGroup, lGroups[I], lCandidate) then
       begin
         Inc(lMatches);
         aGUID := lCandidate;
@@ -5528,7 +5540,7 @@ begin
         Exit;
 
       var lName, lFilename: string;
-      if wbSoundBankCache.TryLookupGUID(lNodeType, StringToGUID(aValue), lName, lFilename) then
+      if wbSoundBankCache(aElement.ContextObj).TryLookupGUID(lNodeType, StringToGUID(aValue), lName, lFilename) then
         if lName <> '' then
           aValue := Format('%s [%s]', [lName, lFilename]);
     end;
@@ -5543,7 +5555,7 @@ begin
         Exit;
       end;
 
-      if wbSoundBankCache.TryLookupDisplay(lNodeType, aValue, lGUID) then
+      if wbSoundBankCache(aElement.ContextObj).TryLookupDisplay(lNodeType, aValue, lGUID) then
       begin
         aValue := lGUID.ToString;
         Exit;
@@ -5584,7 +5596,7 @@ begin
 
           if lString2 <> '' then
             if wbWwiseSwitchGroupByDisplay(aElement, lString2, lGUID) then
-              wbSoundBankCache.GetChildStrings(lGUID, wntSwitch, lList1);
+              wbSoundBankCache(aElement.ContextObj).GetChildStrings(lGUID, wntSwitch, lList1);
         end
         else
         begin
@@ -5596,7 +5608,7 @@ begin
               lList2.Add(lFile.FileName);
             end;
 
-            wbSoundBankCache.GetStrings(lNodeType, lList2, lList1);
+            wbSoundBankCache(aElement.ContextObj).GetStrings(lNodeType, lList2, lList1);
           finally
             lList2.Free;
           end;
@@ -5606,7 +5618,7 @@ begin
         begin
           if StartsText(lString1 + ' [', lList1[lIndex]) then
           begin
-            if wbSoundBankCache.TryLookupDisplay(lNodeType, lList1[lIndex], lGUID) then
+            if wbSoundBankCache(aElement.ContextObj).TryLookupDisplay(lNodeType, lList1[lIndex], lGUID) then
             begin
               aValue := lGUID.ToString;
               Exit;
@@ -5635,7 +5647,7 @@ begin
 
           if Assigned(lElement) and (lElement.EditValue <> '') then
             if wbWwiseSwitchGroupByDisplay(aElement, lElement.EditValue, lGUID) then
-              wbSoundBankCache.GetChildStrings(lGUID, wntSwitch, lList1);
+              wbSoundBankCache(aElement.ContextObj).GetChildStrings(lGUID, wntSwitch, lList1);
         end
         else
         begin
@@ -5647,7 +5659,7 @@ begin
               lList2.Add(lFile.FileName);
             end;
 
-            wbSoundBankCache.GetStrings(lNodeType, lList2, lList1);
+            wbSoundBankCache(aElement.ContextObj).GetStrings(lNodeType, lList2, lList1);
           finally
             lList2.Free;
           end;

@@ -13,6 +13,7 @@ unit wbLoadOrder;
 interface
 
 uses
+  System.Classes,
   System.SysUtils,
 
   wbHash,
@@ -110,7 +111,6 @@ type
     function Description: string;
     function ToString(aInclDesc: Boolean): string;
     function _File: IwbFile;
-    class function AddNewModule(const aFileName: string; aTemplate: Boolean): PwbModuleInfo; static;
 
     function GetModuleType: TwbModuleType;
 
@@ -124,41 +124,10 @@ type
     procedure ExcludeAll(aFlag: TwbModuleFlag);
     procedure IncludeAll(aFlag: TwbModuleFlag);
     procedure ActivateMasters;
-    function SimulateLoad: TwbModuleInfos;
-    procedure DisableSimulatedLoad;
     function FilteredByFlag(aFlag: TwbModuleFlag; aHasFlag: Boolean = True): TwbModuleInfos;
     function FilteredBy(const aFunc: TFunc<PwbModuleInfo, Boolean>): TwbModuleInfos;
   end;
 
-procedure wbLoadModules;
-function wbModuleByName(const aName: string): PwbModuleInfo;
-function wbModulesByLoadOrder(aIncludeTemplates: Boolean = False): TwbModuleInfos;
-
-implementation
-
-uses
-  System.Classes,
-  System.IOUtils,
-  System.Types,
-
-  wbGameDefGlobals,
-  wbHelpers,
-  wbImplementation,
-  wbSort;
-
-function TwbModuleExtensionHelper.ToString: string;
-begin
-  case Self of
-    meESM: Result := csDotEsm;
-    meESL: Result := csDotEsl;
-    meESP: Result := csDotEsp;
-    meESU: Result := csDotEsu;
-  else
-    Result := '';
-  end;
-end;
-
-type
   TwbDynModuleInfos = array of TwbModuleInfo;
 
   TwbModuleList = class
@@ -182,19 +151,44 @@ type
     function ModuleByName(const aName: string): PwbModuleInfo;
     function ModulesByLoadOrder(aIncludeTemplates: Boolean): TwbModuleInfos;
     function AddNewModule(const aFileName: string; aTemplate: Boolean): PwbModuleInfo;
+    function SimulateLoad(const aModules: TwbModuleInfos): TwbModuleInfos;
     procedure ResetSimulatedLoad;
     procedure DisableSimulatedLoad;
   end;
 
+function wbModuleListOf(const aContext: TwbGameContext): TwbModuleList;
+
+implementation
+
+uses
+  System.IOUtils,
+  System.Types,
+
+  wbHelpers,
+  wbImplementation,
+  wbSort;
+
+function TwbModuleExtensionHelper.ToString: string;
+begin
+  case Self of
+    meESM: Result := csDotEsm;
+    meESL: Result := csDotEsl;
+    meESP: Result := csDotEsp;
+    meESU: Result := csDotEsu;
+  else
+    Result := '';
+  end;
+end;
+
 var
   _InvalidModule     : TwbModuleInfo = (miFlags: [mfInvalid]);
 
-function wbCurrentModuleList: TwbModuleList;
+function wbModuleListOf(const aContext: TwbGameContext): TwbModuleList;
 begin
-  Result := TwbModuleList(_CurrentContext.ModuleList);
+  Result := TwbModuleList(aContext.ModuleList);
   if not Assigned(Result) then begin
-    Result := TwbModuleList.Create(_CurrentContext);
-    _CurrentContext.ModuleList := Result;
+    Result := TwbModuleList.Create(aContext);
+    aContext.ModuleList := Result;
   end;
 end;
 
@@ -239,11 +233,6 @@ begin
     Result := Pointer(mlModulesByName.Objects[i])
   else
     Result := @_InvalidModule;
-end;
-
-function wbModuleByName(const aName: string): PwbModuleInfo;
-begin
-  Result := wbCurrentModuleList.ModuleByName(aName);
 end;
 
 function _ModulesLoadOrderCompare(Item1, Item2: Pointer): Integer;
@@ -725,16 +714,6 @@ begin
   end;
 end;
 
-procedure wbLoadModules;
-begin
-  wbCurrentModuleList.LoadModules;
-end;
-
-function wbModulesByLoadOrder(aIncludeTemplates: Boolean = False):  TwbModuleInfos;
-begin
-  Result := wbCurrentModuleList.ModulesByLoadOrder(aIncludeTemplates);
-end;
-
 { TwbModuleInfo }
 
 procedure TwbModuleInfo.Activate(aActivateMasters: Boolean);
@@ -753,11 +732,6 @@ begin
       with miMasters[i]^ do
         if not (mfActive in miFlags) then
           Activate(aRecursive);
-end;
-
-class function TwbModuleInfo.AddNewModule(const aFileName: string; aTemplate: Boolean): PwbModuleInfo;
-begin
-  Result := wbCurrentModuleList.AddNewModule(aFileName, aTemplate);
 end;
 
 function TwbModuleList.AddNewModule(const aFileName: string; aTemplate: Boolean): PwbModuleInfo;
@@ -840,7 +814,7 @@ begin
     aCRC32 := _File.CRC32
   else begin
     if miCRC32 = 0 then
-      miCRC32 := TwbHash.CRC32(wbDataPath + miOriginalName);
+      miCRC32 := TwbHash.CRC32(miContext.Settings.DataPath + miOriginalName);
     aCRC32 := miCRC32;
   end;
   Result := aCRC32.IsValid;
@@ -861,7 +835,7 @@ begin
   if Assigned(miFile) then
     Exit(_File.CRC32 = aCRC32);
   if miCRC32 = 0 then
-    miCRC32 := TwbHash.CRC32(wbDataPath + miOriginalName);
+    miCRC32 := TwbHash.CRC32(miContext.Settings.DataPath + miOriginalName);
   Result := aCRC32 = miCRC32;
 end;
 
@@ -897,7 +871,7 @@ begin
     Result := Result + '[GameMaster]'
   else if miOfficialIndex = Succ(Low(Integer)) then
     Result := Result + '[Hardcoded]'
-  else if miOfficialIndex = wbCurrentModuleList.mlUpdateIndex then
+  else if miOfficialIndex = wbModuleListOf(miContext).mlUpdateIndex then
     Result := Result + '[Update]'
   else if miOfficialIndex < High(Integer) then
     Result := Result + '[DLC:'+miOfficialIndex.ToString+']';
@@ -972,11 +946,6 @@ begin
   ResetSimulatedLoad;
 end;
 
-procedure TwbModuleInfosHelper.DisableSimulatedLoad;
-begin
-  wbCurrentModuleList.DisableSimulatedLoad;
-end;
-
 procedure TwbModuleInfosHelper.ExcludeAll(aFlag: TwbModuleFlag);
 var
   i: Integer;
@@ -1023,9 +992,8 @@ begin
       Include(miFlags, aFlag);
 end;
 
-function TwbModuleInfosHelper.SimulateLoad: TwbModuleInfos;
+function TwbModuleList.SimulateLoad(const aModules: TwbModuleInfos): TwbModuleInfos;
 var
-  lList             : TwbModuleList;
   NewLoadOrder      : TwbModuleInfos;
   NewLoadOrderCount : Integer;
 
@@ -1049,24 +1017,25 @@ var
         miLoadOrder := NewLoadOrderCount;
         NewLoadOrder[NewLoadOrderCount] := aModule;
         Inc(NewLoadOrderCount);
-        if not (wbPseudoLight or wbPseudoUpdate) then
-          if (mfHasUpdateFlag in miFlags) and not wbIgnoreUpdate then begin
+        var lLayout := mlContext.SlotLayout;
+        if not (mlContext.Settings.PseudoLight or mlContext.Settings.PseudoUpdate) then
+          if (mfHasUpdateFlag in miFlags) and not mlContext.Settings.IgnoreUpdate then begin
             miFileID := TwbFileID.Invalid;
-          end else if (mfHasLightFlag in miFlags) and not wbIgnoreLight then begin
-            if lList.mlNextLightSlot > TwbFileID.MaxLightSlot then
+          end else if (mfHasLightFlag in miFlags) and not mlContext.Settings.IgnoreLight then begin
+            if mlNextLightSlot > TwbFileID.MaxLightSlot(lLayout) then
               raise Exception.Create('Too many light modules');
-            miFileID := TwbFileID.CreateLight(lList.mlNextLightSlot);
-            Inc(lList.mlNextLightSlot);
-          end else if (mfHasMediumFlag in miFlags) and not wbIgnoreMedium then begin
-            if lList.mlNextMediumSlot > TwbFileID.MaxMediumSlot then
+            miFileID := TwbFileID.CreateLight(mlNextLightSlot, lLayout);
+            Inc(mlNextLightSlot);
+          end else if (mfHasMediumFlag in miFlags) and not mlContext.Settings.IgnoreMedium then begin
+            if mlNextMediumSlot > TwbFileID.MaxMediumSlot(lLayout) then
               raise Exception.Create('Too many heavy modules');
-            miFileID := TwbFileID.CreateMedium(lList.mlNextMediumSlot);
-            Inc(lList.mlNextMediumSlot);
+            miFileID := TwbFileID.CreateMedium(mlNextMediumSlot, lLayout);
+            Inc(mlNextMediumSlot);
           end else begin
-            if lList.mlNextFullSlot > TwbFileID.MaxFullSlot then
+            if mlNextFullSlot > TwbFileID.MaxFullSlot(lLayout) then
               raise Exception.Create('Too many full modules');
-            miFileID := TwbFileID.CreateFull(lList.mlNextFullSlot);
-            Inc(lList.mlNextFullSlot);
+            miFileID := TwbFileID.CreateFull(mlNextFullSlot);
+            Inc(mlNextFullSlot);
           end;
       finally
         Exclude(miFlags, mfLoading);
@@ -1075,17 +1044,16 @@ var
   end;
 
 begin
-  lList := wbCurrentModuleList;
-  if lList.mlSimulatedLoadDisabled then
+  if mlSimulatedLoadDisabled then
     raise Exception.Create('Simulated Load has been disabled');
 
-  lList.ResetSimulatedLoad;
-  SetLength(NewLoadOrder, Length(lList.mlModules));
+  ResetSimulatedLoad;
+  SetLength(NewLoadOrder, Length(mlModules));
   NewLoadOrderCount := 0;
-  for var lSelfIdx := Low(Self) to High(Self) do
-    with Self[lSelfIdx]^ do
+  for var lModuleIdx := Low(aModules) to High(aModules) do
+    with aModules[lModuleIdx]^ do
       if miFlags * [mfActive, mfForceLoad] <> [] then
-        Load(Self[lSelfIdx]);
+        Load(aModules[lModuleIdx]);
   SetLength(NewLoadOrder, NewLoadOrderCount);
 
   var lActiveCount := 0;

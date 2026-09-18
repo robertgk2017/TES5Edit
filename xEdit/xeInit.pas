@@ -14,9 +14,12 @@ unit xeInit;
 interface
 
 uses
-  System.Classes;
+  System.Classes,
+  wbInterface;
 
 var
+  xeContextRef             : IwbGameContext;
+  xeContext                : TwbGameContext;
   xeScriptToRun            : string;
   xeSettingsFileName       : string;
   xePluginToUse            : string;          // Passed a specific plugin as parameter
@@ -104,9 +107,7 @@ uses
   wbDefinitionsTES5,
   wbDefinitionsTES5Saves,
   wbHelpers,
-  wbGameDefGlobals,
   wbImplementation,
-  wbInterface,
   wbSteamVDFParser,
 
   xeGameSelectForm,
@@ -190,15 +191,15 @@ begin
   if FileExists(xeSettingsFileName) then try
     Settings := TMemIniFile.Create(xeSettingsFileName);
     try
-      wbCurrentContext.LoadBSAs := Settings.ReadBool('Options', 'LoadBSAs', wbLoadBSAs);
+      xeContext.Settings.LoadBSAs := Settings.ReadBool('Options', 'LoadBSAs', xeContext.Settings.LoadBSAs);
       wbSimpleRecords := Settings.ReadBool('Options', 'SimpleRecords', wbSimpleRecords);
       wbDecodeTextureHashes := Settings.ReadBool('Options', 'DecodeTextureHashes2', wbDecodeTextureHashes); {changed name to enforce new default value}
       wbShowFlagEnumValue := Settings.ReadBool('Options', 'ShowFlagEnumValue', wbShowFlagEnumValue);
       wbTrackAllEditorID := Settings.ReadBool('Options', 'TrackAllEditorID', wbTrackAllEditorID);
-      wbCurrentContext.AllowDirectSave := Settings.ReadBool('Options', 'AllowDirectSave', wbAllowDirectSave);
-      wbCurrentContext.SortINFO := Settings.ReadBool('Options', 'SortINFO', wbSortINFO);
-      wbCurrentContext.FillPNAM := Settings.ReadBool('Options', 'FillPNAM', wbFillPNAM);
-      wbCurrentContext.WriteOffsetData := Settings.ReadBool('Options', 'WriteOffsetData2', wbWriteOffsetData); {changed name to enforce new default value}
+      xeContext.Settings.AllowDirectSave := Settings.ReadBool('Options', 'AllowDirectSave', xeContext.Settings.AllowDirectSave);
+      xeContext.Settings.SortINFO := Settings.ReadBool('Options', 'SortINFO', xeContext.Settings.SortINFO);
+      xeContext.Settings.FillPNAM := Settings.ReadBool('Options', 'FillPNAM', xeContext.Settings.FillPNAM);
+      xeContext.Settings.WriteOffsetData := Settings.ReadBool('Options', 'WriteOffsetData2', xeContext.Settings.WriteOffsetData); {changed name to enforce new default value}
       wbCollapseRecordHeader := Settings.ReadBool('Options', 'CollapseRecordHeader', wbCollapseRecordHeader);
       wbCollapseObjectBounds := Settings.ReadBool('Options', 'CollapseObjectBounds', wbCollapseObjectBounds);
       wbCollapseModels := Settings.ReadBool('Options', 'CollapseModels', wbCollapseModels);
@@ -268,7 +269,7 @@ begin
         Settings.ReadSection('cpoverride', sl);
         for i := 0 to Pred(sl.Count) do try
           s := sl[i];
-          wbAddLEncodingIfMissing(s, Settings.ReadString('cpoverride', s, ''), False);
+          xeContext.AddLEncodingIfMissing(s, Settings.ReadString('cpoverride', s, ''), False);
         except
           on E:Exception do
             ShowMessage('Could not add code page override "'+sl[i]+'" from wbSettingsFileName: ['+E.ClassName+'] ' + E.Message);
@@ -391,21 +392,21 @@ var
   HookDll : HMODULE;
   Init    : function(logLevel: Integer; profileName: LPCWSTR): BOOL; cdecl;
 begin
-  if not wbShouldLoadMOHookFile then
+  if not xeContext.Settings.ShouldLoadMOHookFile then
     Exit(True);
   Result := False;
-  if not FileExists(wbMOHookFile) then
+  if not FileExists(xeContext.Settings.MOHookFile) then
     Exit;
 
-  HookDll := SafeLoadLibrary(wbMOHookFile, SEM_NOOPENFILEERRORBOX);
+  HookDll := SafeLoadLibrary(xeContext.Settings.MOHookFile, SEM_NOOPENFILEERRORBOX);
   if HookDll <> 0 then begin
     Pointer(@Init) := GetProcAddress(HookDll, 'Init');
     if Assigned(Pointer(@Init)) then
-      Result := Init(0, PWideChar(UnicodeString(wbMOProfile)));
+      Result := Init(0, PWideChar(UnicodeString(xeContext.Settings.MOProfile)));
   end;
 end;
 
-procedure DoInitPath(const ParamIndex: Integer);
+procedure DoInitPath(const ParamIndex: Integer; var aSettings: TwbGameContextSettings);
 const
   sBethRegKey             = '\SOFTWARE\Bethesda Softworks\';
   sUninstallRegKey        = '\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\';
@@ -417,18 +418,19 @@ var
   IniFile : TMemIniFile;
   lDataPath, lOutputPath, lMyGamesTheGamePath, lTheGameIniFileName, lCustomIniFileName, lSavePath, lBackupPath, lCachePath: string;
 begin
-  wbCurrentContext.ModGroupFileName := wbProgramPath + wbAppName + wbToolName + '.modgroups';
+  var lIsOblivionR := wbGameMode = gmTES4R;
+  aSettings.ModGroupFileName := wbProgramPath + wbAppName + wbToolName + '.modgroups';
   isEpicNV := false;
 
   if not wbFindCmdLineParam('S', s) then
     s := wbProgramPath + 'Edit Scripts\';
-  wbCurrentContext.ScriptsPath := s;
+  aSettings.ScriptsPath := s;
 
   if not wbFindCmdLineParam('T', s) then
     s := IncludeTrailingPathDelimiter(TPath.GetTempPath + wbAppName + 'Edit')
   else
     xeRemoveTempPath := not DirectoryExists(s);
-  wbCurrentContext.TempPath := s;
+  aSettings.TempPath := s;
 
   if not wbFindCmdLineParam('D', lDataPath) then begin
     lDataPath := CheckAppPath;
@@ -464,8 +466,8 @@ begin
         if not OpenKey(regPath, False) then begin
           s := 'Fatal: Could not open registry key: ' + regPath;
           ShowMessage(Format('%s'#13#10'This can happen after %s updates, run the game''s launcher to restore registry settings', [s, client]));
-          wbCurrentContext.DontSave := True;
-          wbCurrentContext.DataPath := lDataPath;
+          aSettings.DontSave := True;
+          aSettings.DataPath := lDataPath;
           Exit;
         end;
       end;
@@ -483,7 +485,7 @@ begin
       if (lDataPath = '') then begin
         s := Format('Fatal: Could not determine %s installation path, no "%s" registry key', [wbGameName2, regKey]);
         ShowMessage(Format('%s'#13#10'This can happen after %s updates, run the game''s launcher to restore registry settings', [s, client]));
-        wbCurrentContext.DontSave := True;
+        aSettings.DontSave := True;
       end;
     finally
       Free;
@@ -491,14 +493,14 @@ begin
 
     if lDataPath <> '' then
     begin
-      if wbIsOblivionR then
+      if lIsOblivionR then
         lDataPath := IncludeTrailingPathDelimiter(lDataPath) + 'OblivionRemastered\Content\Dev\ObvData\Data\'
       else
         lDataPath := IncludeTrailingPathDelimiter(lDataPath) + DataName[wbGameMode = gmTES3] + '\';
     end;
   end else
     lDataPath := IncludeTrailingPathDelimiter(lDataPath);
-  wbCurrentContext.DataPath := lDataPath;
+  aSettings.DataPath := lDataPath;
 
   lOutputPath := lDataPath;
 
@@ -509,15 +511,15 @@ begin
     else
       //assume absolute path
       lOutputPath := IncludeTrailingPathDelimiter(s);
-  wbCurrentContext.OutputPath := lOutputPath;
+  aSettings.OutputPath := lOutputPath;
 
-  wbCurrentContext.MOHookFile := lDataPath + '..\Mod Organizer\hook.dll';
+  aSettings.MOHookFile := lDataPath + '..\Mod Organizer\hook.dll';
 
   if not wbFindCmdLineParam('M', lMyGamesTheGamePath) then begin
     xeMyProfileName := GetCSIDLShellFolder(CSIDL_PERSONAL);
     if xeMyProfileName = '' then begin
       ShowMessage('Fatal: Could not determine my documents folder');
-      wbCurrentContext.MyGamesTheGamePath := lMyGamesTheGamePath;
+      aSettings.MyGamesTheGamePath := lMyGamesTheGamePath;
       Exit;
     end;
 
@@ -543,7 +545,7 @@ begin
     // VR games don't create ini file in My Games by default, use the one in the game folder
     if (wbGameMode in [gmTES5VR, gmFO4VR, gmSF1]) and not FileExists(lTheGameIniFileName) then
       lTheGameIniFileName := ExtractFilePath(ExcludeTrailingPathDelimiter(lDataPath)) + '\' + ExtractFileName(lTheGameIniFileName)
-    else if wbIsOblivionR and not FileExists(lTheGameIniFileName) then
+    else if lIsOblivionR and not FileExists(lTheGameIniFileName) then
       lTheGameIniFileName := ExtractFilePath(ExcludeTrailingPathDelimiter(lDataPath)) + 'Oblivion.ini';
   end;
 
@@ -578,16 +580,16 @@ begin
     end;
 
     // Oblivion Remastered has a hard coded path and ignores ini settings
-    if wbIsOblivionR then
+    if lIsOblivionR then
       s := 'Saved\SaveGames\';
 
     lSavePath := PathRelativeToFull(lMyGamesTheGamePath, s);
   end;
   lSavePath := IncludeTrailingPathDelimiter(lSavePath);
-  wbCurrentContext.MyGamesTheGamePath := lMyGamesTheGamePath;
-  wbCurrentContext.TheGameIniFileName := lTheGameIniFileName;
-  wbCurrentContext.CustomIniFileName := lCustomIniFileName;
-  wbCurrentContext.SavePath := lSavePath;
+  aSettings.MyGamesTheGamePath := lMyGamesTheGamePath;
+  aSettings.TheGameIniFileName := lTheGameIniFileName;
+  aSettings.CustomIniFileName := lCustomIniFileName;
+  aSettings.SavePath := lSavePath;
 
   xeParamIndex := ParamIndex;
   var lPluginsFileName: string;
@@ -606,43 +608,43 @@ begin
         lPluginsFileName := lPluginsFileName + wbGameName + '\Plugins.txt'
       else if (wbGameMode = gmFNV) and isEpicNV then
         lPluginsFileName := lPluginsFileName + wbGameName + '_Epic' + '\Plugins.txt'
-      else if wbIsOblivionR then
-        lPluginsFileName :=  IncludeTrailingPathDelimiter(wbDataPath) + 'Plugins.txt'
+      else if lIsOblivionR then
+        lPluginsFileName :=  IncludeTrailingPathDelimiter(aSettings.DataPath) + 'Plugins.txt'
       else
         lPluginsFileName := lPluginsFileName + wbGameName2 + '\Plugins.txt';
     end;
   if ExtractFilePath(lPluginsFileName) = '' then
     lPluginsFileName := ExpandFileName(lPluginsFileName);
-  wbCurrentContext.PluginsFileName := lPluginsFileName;
+  aSettings.PluginsFileName := lPluginsFileName;
 
   // settings in the ini file next to app, or in the same folder with plugins.txt
   xeSettingsFileName := wbProgramPath + wbAppName + wbToolName + '.ini';
   if not FileExists(xeSettingsFileName) then
   begin
-    if wbIsOblivionR then
+    if lIsOblivionR then
       xeSettingsFileName := GetCSIDLShellFolder(CSIDL_LOCAL_APPDATA) + wbGameName2 + '\Plugins.'+LowerCase(wbAppName)+'viewsettings'
     else
-      xeSettingsFileName := ChangeFileExt(wbPluginsFileName, '.'+LowerCase(wbAppName)+'viewsettings');
+      xeSettingsFileName := ChangeFileExt(aSettings.PluginsFileName, '.'+LowerCase(wbAppName)+'viewsettings');
   end;
 
   lBackupPath := '';
-  if not (wbDontSave or wbFindCmdLineParam('B', lBackupPath)) then
+  if not (aSettings.DontSave or wbFindCmdLineParam('B', lBackupPath)) then
     lBackupPath := lDataPath + wbAppName + 'Edit Backups\';
-  wbCurrentContext.BackupPath := lBackupPath;
+  aSettings.BackupPath := lBackupPath;
 
   lCachePath := '';
-  if not (wbDontCache or wbFindCmdLineParam('C', lCachePath)) then
+  if not (aSettings.DontCache or wbFindCmdLineParam('C', lCachePath)) then
     if lDataPath <> '' then
       lCachePath := lDataPath + wbAppName + 'Edit Cache\';
   if lCachePath = '' then
-    wbCurrentContext.DontCache := True;
-  if not wbDontCache then
+    aSettings.DontCache := True;
+  if not aSettings.DontCache then
     if not DirectoryExists(lCachePath) then
       if not ForceDirectories(lCachePath) then
-        wbCurrentContext.DontCache := True;
-  if wbDontCache then
+        aSettings.DontCache := True;
+  if aSettings.DontCache then
     lCachePath := '';
-  wbCurrentContext.CachePath := lCachePath;
+  aSettings.CachePath := lCachePath;
 
   wbFindCmdLineParam('R', xeLogFile);
 end;
@@ -768,16 +770,20 @@ var
   ToolSources: TwbSetOfSource;
   i: Integer;
   ExeName: string;
+  lInputs: TwbGameDefInputs;
+  lSettings: TwbGameContextSettings;
 begin
   ExeName := ChangeFileExt(ExtractFileName(ParamStr(0)), '').ToLowerInvariant;
+  lInputs := Default(TwbGameDefInputs);
+  lSettings := TwbGameContextSettings.Defaults;
 
   if not wbIsAeroEnabled then
     wbThemesSupported := False;
 
   Result        := True;
   wbReportMode  := False;
-  wbCurrentContext.EditAllowed := True;
-  wbCurrentContext.DontSave := False;
+  lSettings.EditAllowed := True;
+  lSettings.DontSave := False;
   wbDevMode     := FindCmdLineSwitch('devmode');
 
   CheckForcedMode;
@@ -786,7 +792,7 @@ begin
   if isMode('Saves') then begin
     wbToolSource := tsSaves;
     wbSourceName := 'Saves';
-    wbCurrentContext.UseFalsePlugins := True;
+    lSettings.UseFalsePlugins := True;
   end else begin // defaults to plugin
     wbToolSource := tsPlugins;
     wbSourceName := 'Plugins';
@@ -795,8 +801,8 @@ begin
   if isMode('View') then begin
     wbToolMode    := tmView;
     wbToolName    := 'View';
-    wbCurrentContext.EditAllowed := False;
-    wbCurrentContext.DontSave := True;
+    lSettings.EditAllowed := False;
+    lSettings.DontSave := True;
   end else if isMode('MasterUpdate') then begin
     wbToolMode    := tmMasterUpdate;
     wbToolName    := 'MasterUpdate';
@@ -809,8 +815,8 @@ begin
   end else if isMode('LODGen') then begin
     wbToolMode    := tmLODgen;
     wbToolName    := 'LODGen';
-    wbCurrentContext.EditAllowed := False;
-    wbCurrentContext.DontSave := True;
+    lSettings.EditAllowed := False;
+    lSettings.DontSave := True;
   end else if isMode('Script') then begin
     wbToolMode    := tmScript;
     wbToolName    := 'Script';
@@ -846,7 +852,7 @@ begin
   if not (wbToolMode in [tmView, tmEdit]) then
     wbPrettyFormID := False;
 
-  wbCurrentContext.Language := 'English';
+  lSettings.Language := 'English';
 
   wbGameExeName        := '';
   if isMode('FNV') then begin
@@ -960,7 +966,7 @@ begin
     wbGameMode         := gmFO4;
     wbAppName          := 'FO4';
     wbGameName         := 'Fallout4';
-    wbCurrentContext.Language := 'En';
+    lSettings.Language := 'En';
     wbGameSteamID      := '377160';
     ToolModes          := wbAlwaysMode;
     ToolSources        := [tsPlugins, tsSaves];
@@ -973,7 +979,7 @@ begin
     wbGameExeName      := 'Fallout4VR';
     wbGameName2        := 'Fallout4VR';
     wbGameNameReg      := 'Fallout 4 VR';
-    wbCurrentContext.Language := 'En';
+    lSettings.Language := 'En';
     wbGameSteamID      := '611660';
     ToolModes          := wbAlwaysMode;
     ToolSources        := [tsPlugins];
@@ -986,7 +992,7 @@ begin
     wbGameName2        := 'Fallout 76';
     wbGameNameReg      := 'Steam App 1151340';
     wbGameMasterEsm    := 'SeventySix.esm';
-    wbCurrentContext.Language := 'En';
+    lSettings.Language := 'En';
     wbGameSteamID      := '1151340';
     ToolModes          := wbAlwaysMode;
     ToolSources        := [tsPlugins];
@@ -997,7 +1003,7 @@ begin
     wbAppName          := 'SF1';
     wbGameName         := 'Starfield';
     wbGameNameReg      := 'Steam App 1716740';
-    wbCurrentContext.Language := 'En';
+    lSettings.Language := 'En';
     wbGameSteamID      := '1716740';
     ToolModes          := wbAlwaysMode - [tmESMify, tmESPify, tmLODgen];
     ToolSources        := [tsPlugins];
@@ -1008,7 +1014,7 @@ begin
       and FindCmdLineSwitch('GiveMeTheRedPill')
     then begin
       VersionString.Title := 'ItJustWorks[TM] Edition';
-      wbCurrentContext.RedPill := True;
+      lSettings.RedPill := True;
       wbStarfieldIsABugInfestedHellhole := False; //you wish... but lets pretend
     end;
   end
@@ -1024,8 +1030,8 @@ begin
   wbGameExeName := wbGameExeName + csDotExe;
 
   if wbGameMode in [gmFO3, gmFNV] then begin
-    wbCurrentContext.UDRSetZ := False;
-    wbCurrentContext.UDRSetZValue := -15000;
+    lSettings.UDRSetZ := False;
+    lSettings.UDRSetZValue := -15000;
   end;
 
   if not (wbToolMode in ToolModes) then begin
@@ -1053,106 +1059,106 @@ begin
     wbGameMasterEsm := wbGameName + csDotEsm;
 
   if FindCmdLineSwitch('DontCache') then
-    wbCurrentContext.DontCache := True;
-  if wbDontCache or FindCmdLineSwitch('DontCacheLoad') then
-    wbCurrentContext.DontCacheLoad := True;
-  if wbDontCache or FindCmdLineSwitch('DontCacheSave') then
-    wbCurrentContext.DontCacheSave := True;
-  if wbDontCacheLoad and wbDontCacheSave then
-    wbCurrentContext.DontCache := True;
+    lSettings.DontCache := True;
+  if lSettings.DontCache or FindCmdLineSwitch('DontCacheLoad') then
+    lSettings.DontCacheLoad := True;
+  if lSettings.DontCache or FindCmdLineSwitch('DontCacheSave') then
+    lSettings.DontCacheSave := True;
+  if lSettings.DontCacheLoad and lSettings.DontCacheSave then
+    lSettings.DontCache := True;
 
-  DoInitPath(xeParamIndex);
+  DoInitPath(xeParamIndex, lSettings);
 
   // specific Game settings
   case wbGameMode of
     gmFNV: begin
       wbVWDInTemporary        := True;
-      wbCurrentContext.LoadBSAs := False;
-      wbCurrentContext.CanSortINFO := True;
-      wbCurrentContext.AllowESPMasters := True;
-      wbCurrentContext.AllowESPMastersOnSave := True;
-      wbHNVSE                 := FileExists(wbDataPath + 'NVSE\Plugins\Hnvse.dll');
+      lSettings.LoadBSAs := False;
+      lSettings.CanSortINFO := True;
+      lSettings.AllowESPMasters := True;
+      lSettings.AllowESPMastersOnSave := True;
+      lInputs.HNVSE           := FileExists(lSettings.DataPath + 'NVSE\Plugins\Hnvse.dll');
     end;
     gmFO3: begin
       wbVWDInTemporary      := True;
-      wbCurrentContext.LoadBSAs := False;
-      wbCurrentContext.CanSortINFO := True;
-      wbCurrentContext.AllowESPMasters := True;
-      wbCurrentContext.AllowESPMastersOnSave := True;
+      lSettings.LoadBSAs := False;
+      lSettings.CanSortINFO := True;
+      lSettings.AllowESPMasters := True;
+      lSettings.AllowESPMastersOnSave := True;
     end;
     gmTES3: begin
-      wbCurrentContext.LoadBSAs := False;
-      wbAllowInternalEdit   := false;
-      wbCurrentContext.DontCache := True;
-      wbCurrentContext.DontCacheLoad := True;
-      wbCurrentContext.DontCacheSave := True;
-      wbCurrentContext.BuildRefs := False;
+      lSettings.LoadBSAs := False;
+      lSettings.AllowInternalEdit := false;
+      lSettings.DontCache := True;
+      lSettings.DontCacheLoad := True;
+      lSettings.DontCacheSave := True;
+      lSettings.BuildRefs := False;
       wbVWDInTemporary      := True;
-      wbCurrentContext.CreateContainedIn := False;
-      wbCurrentContext.AllowESPMasters := True;
-      wbCurrentContext.AllowESPMastersOnSave := True;
+      lSettings.CreateContainedIn := False;
+      lSettings.AllowESPMasters := True;
+      lSettings.AllowESPMastersOnSave := True;
     end;
     gmTES4: begin
-      if (not FileExists(wbDataPath + 'Oblivion.esm')) and FileExists(wbDataPath + 'Nehrim.esm') then begin
+      if (not FileExists(lSettings.DataPath + 'Oblivion.esm')) and FileExists(lSettings.DataPath + 'Nehrim.esm') then begin
         wbAppName           := 'Nehrim';
         wbGameMasterEsm     := 'Nehrim.esm';
       end;
-      wbCurrentContext.LoadBSAs := True;
-      wbAllowInternalEdit   := false;
-      wbCurrentContext.CanSortINFO := True;
-      wbCurrentContext.AllowESPMasters := True;
-      wbCurrentContext.AllowESPMastersOnSave := True;
+      lSettings.LoadBSAs := True;
+      lSettings.AllowInternalEdit := false;
+      lSettings.CanSortINFO := True;
+      lSettings.AllowESPMasters := True;
+      lSettings.AllowESPMastersOnSave := True;
     end;
     gmTES4R: begin
-      wbCurrentContext.LoadBSAs := False;
-      wbAllowInternalEdit   := False;
-      wbCurrentContext.CanSortINFO := True;
-      wbCurrentContext.AllowESPMasters := True;
-      wbCurrentContext.AllowESPMastersOnSave := True;
+      lSettings.LoadBSAs := False;
+      lSettings.AllowInternalEdit := False;
+      lSettings.CanSortINFO := True;
+      lSettings.AllowESPMasters := True;
+      lSettings.AllowESPMastersOnSave := True;
     end;
     gmTES5, gmEnderal, gmTES5VR, gmSSE, gmEnderalSE: begin
       wbVWDInTemporary      := True;
-      wbCurrentContext.LoadBSAs := True;  // localization won't work otherwise
+      lSettings.LoadBSAs := True;  // localization won't work otherwise
       wbHideIgnored         := False; // to show Form Version
-      wbCurrentContext.CanSortINFO := True;
-      wbVRESL               := (wbGameMode in [gmTES5VR]) and FileExists(wbDataPath + 'SKSE\Plugins\skyrimvresl.dll');
-      wbHasAddedLightSupport := wbVRESL;
-      wbHasAddedUpdateSupport := wbVRESL;
-      wbCS                  := wbIsSkyrimSE and FileExists(wbDataPath + 'SKSE\Plugins\CommunityShaders.dll');
-      wbCurrentContext.AllowESPMasters := True;
-      wbCurrentContext.AllowESPMastersOnSave := True;
+      lSettings.CanSortINFO := True;
+      var lVRESL := (wbGameMode in [gmTES5VR]) and FileExists(lSettings.DataPath + 'SKSE\Plugins\skyrimvresl.dll');
+      lInputs.LightSupport := lVRESL;
+      lInputs.UpdateSupport := lVRESL;
+      lInputs.CS := (wbGameMode in [gmTES5VR, gmSSE, gmEnderalSE]) and FileExists(lSettings.DataPath + 'SKSE\Plugins\CommunityShaders.dll');
+      lSettings.AllowESPMasters := True;
+      lSettings.AllowESPMastersOnSave := True;
     end;
     gmFO4, gmFO4VR: begin
       wbVWDInTemporary      := True;
       wbVWDAsQuestChildren  := True;
-      wbCurrentContext.LoadBSAs := True;  // localization won't work otherwise
+      lSettings.LoadBSAs := True;  // localization won't work otherwise
       wbHideIgnored         := False; // to show Form Version
-      wbCurrentContext.AlwaysSaveOnam := True;
-      wbCurrentContext.AlwaysSaveOnamForce := True;
-      wbVRESL               := (wbGameMode in [gmFO4VR]) and (FileExists(wbDataPath + 'F4SE\Plugins\falloutvresl.dll') or
-                                                              FileExists(wbDataPath + 'F4SE\Plugins\Daytripper4.dll'));
-      wbHasAddedLightSupport := wbVRESL;
-      wbHasAddedUpdateSupport := wbVRESL;
-      wbCurrentContext.AllowESPMasters := True;
-      wbCurrentContext.AllowESPMastersOnSave := True;
+      lSettings.AlwaysSaveOnam := True;
+      lSettings.AlwaysSaveOnamForce := True;
+      var lVRESL := (wbGameMode in [gmFO4VR]) and (FileExists(lSettings.DataPath + 'F4SE\Plugins\falloutvresl.dll') or
+                                                    FileExists(lSettings.DataPath + 'F4SE\Plugins\Daytripper4.dll'));
+      lInputs.LightSupport := lVRESL;
+      lInputs.UpdateSupport := lVRESL;
+      lSettings.AllowESPMasters := True;
+      lSettings.AllowESPMastersOnSave := True;
     end;
     gmFO76: begin
       wbVWDInTemporary      := True;
       wbVWDAsQuestChildren  := True;
-      wbCurrentContext.LoadBSAs := True;  // localization won't work otherwise
+      lSettings.LoadBSAs := True;  // localization won't work otherwise
       wbHideIgnored         := False; // to show Form Version
-      wbCurrentContext.AlwaysSaveOnam := True;
-      wbCurrentContext.AlwaysSaveOnamForce := True;
+      lSettings.AlwaysSaveOnam := True;
+      lSettings.AlwaysSaveOnamForce := True;
     end;
     gmSF1: begin
       wbComplexFileFileID   := True;
-      wbCurrentContext.EnforceAllMasters := True;
+      lSettings.EnforceAllMasters := True;
       wbVWDInTemporary      := True;
       wbVWDAsQuestChildren  := True;
-      wbCurrentContext.LoadBSAs := True;  // localization won't work otherwise
+      lSettings.LoadBSAs := True;  // localization won't work otherwise
       wbHideIgnored         := False; // to show Form Version
-      wbCurrentContext.AlwaysSaveOnam := True;
-      wbCurrentContext.AlwaysSaveOnamForce := True;
+      lSettings.AlwaysSaveOnam := True;
+      lSettings.AlwaysSaveOnamForce := True;
       wbDecodeTextureHashes := True;
     end;
   else
@@ -1160,50 +1166,55 @@ begin
     Exit(False);
   end;
 
-  wbCurrentContext.SortINFO := wbCanSortINFO;
+  xeContextRef := wbCreateGameContext(wbCreateGameDef(wbGameMode, wbToolSource, lInputs));
+  xeContext := xeContextRef as TwbGameContext;
+  lSettings.CreationClubContentFileName := xeContext.Settings.CreationClubContentFileName;
+  xeContext.Settings := lSettings;
+
+  xeContext.Settings.SortINFO := xeContext.Settings.CanSortINFO;
 
   if not ReadSettings then
     Exit(False);
 
-  if wbGameMode = gmSF1 then
+  if xeContext.GameDefObj.GameMode = gmSF1 then
     wbDecodeTextureHashes := True;
 
-  if wbCanSortINFO then begin
+  if xeContext.Settings.CanSortINFO then begin
     if FindCmdLineSwitch('sortinfo') then
-      wbCurrentContext.SortINFO := True;
+      xeContext.Settings.SortINFO := True;
 
     if FindCmdLineSwitch('nosortinfo') then
-      wbCurrentContext.SortINFO := False;
+      xeContext.Settings.SortINFO := False;
 
     if FindCmdLineSwitch('FillPNAM') then
-      wbCurrentContext.FillPNAM := True;
+      xeContext.Settings.FillPNAM := True;
 
     if FindCmdLineSwitch('NoFillPNAM') then
-      wbCurrentContext.FillPNAM := False;
+      xeContext.Settings.FillPNAM := False;
   end;
 
   // Was gmTES5, but is now gmEnderal
-  if wbGameMode <= gmEnderal then
-    wbAddDefaultLEncodingsIfMissing(False)
+  if xeContext.GameDefObj.GameMode <= gmEnderal then
+    xeContext.AddDefaultLEncodingsIfMissing(False)
   else begin
     wbLEncodingDefault[False] := TEncoding.UTF8;
-    case wbGameMode of
+    case xeContext.GameDefObj.GameMode of
     gmSSE, gmTES5VR, gmEnderalSE:
-      wbAddLEncodingIfMissing('english', '1252', False);
+      xeContext.AddLEncodingIfMissing('english', '1252', False);
     else {FO4, FO76}
-      wbAddLEncodingIfMissing('en', '1252', False);
+      xeContext.AddLEncodingIfMissing('en', '1252', False);
     end;
   end;
 
-  wbAddDefaultLEncodingsIfMissing(True);
+  xeContext.AddDefaultLEncodingsIfMissing(True);
 
   if wbFindCmdLineParam('AllowDirectSaves', s) then begin
-    wbAllowDirectSaveFor.AddStrings(s.Split([',']).ForEach(Trim).RemoveEmpty);
-    if wbAllowDirectSaveFor.Count < 1 then
-      wbCurrentContext.AllowDirectSave := True;
+    xeContext.AllowDirectSaveFor.AddStrings(s.Split([',']).ForEach(Trim).RemoveEmpty);
+    if xeContext.AllowDirectSaveFor.Count < 1 then
+      xeContext.Settings.AllowDirectSave := True;
   end else
     if FindCmdLineSwitch('AllowDirectSaves') then
-      wbCurrentContext.AllowDirectSave := True;
+      xeContext.Settings.AllowDirectSave := True;
 
   if FindCmdLineSwitch('IKnowWhatImDoing') then
   begin
@@ -1219,20 +1230,20 @@ begin
       wbAllowEditHEDRVersion := True;
 
     if FindCmdLineSwitch('StripEmptyMasters') then
-      wbCurrentContext.StripEmptyMasters := True;
+      xeContext.Settings.StripEmptyMasters := True;
 
     if wbFindCmdLineParam('StripMasters', s) then
     begin
-      wbCurrentContext.StripMasters := True;
+      xeContext.Settings.StripMasters := True;
 
-      wbStripMastersFileNames.AddStrings(s.Split([',']).ForEach(Trim).RemoveEmpty);
+      xeContext.StripMastersFileNames.AddStrings(s.Split([',']).ForEach(Trim).RemoveEmpty);
 
-      if wbStripMastersFileNames.Count < 1 then
-        wbCurrentContext.StripMasters := False;
+      if xeContext.StripMastersFileNames.Count < 1 then
+        xeContext.Settings.StripMasters := False;
     end;
 
     if FindCmdLineSwitch('AllowESPMaster') then
-      wbCurrentContext.AllowESPMasters := True;
+      xeContext.Settings.AllowESPMasters := True;
   end;
 
   if wbToolMode in [tmEdit, tmScript] then begin
@@ -1306,15 +1317,15 @@ begin
 
     if (FindCmdLineSwitch('quickclean') or FindCmdLineSwitch('qc')
       or ExeName.Contains('quickclean') or ExeName.Contains('qc')) and (wbToolSource in [tsPlugins]) then begin
-      if wbCanSortINFO then
-        wbCurrentContext.FillPNAM := True;
+      if xeContext.Settings.CanSortINFO then
+        xeContext.Settings.FillPNAM := True;
       xeQuickClean := True;
     end;
 
     if (FindCmdLineSwitch('quickautoclean') or FindCmdLineSwitch('qac')
       or ExeName.Contains('quickautoclean') or ExeName.Contains('qac')) and (wbToolSource in [tsPlugins]) then begin
-      if wbCanSortINFO then
-        wbCurrentContext.FillPNAM := True;
+      if xeContext.Settings.CanSortINFO then
+        xeContext.Settings.FillPNAM := True;
       xeQuickClean := True;
       xeQuickCleanAutoSave := xeQuickClean;
     end;
@@ -1324,28 +1335,28 @@ begin
     wbHideLargeSubrecords := False;
 
   if xeQuickClean then
-    wbCurrentContext.WriteOffsetData := True;
+    xeContext.Settings.WriteOffsetData := True;
 
   if xeQuickClean then begin
     wbIKnowWhatImDoing := True;
-    wbCurrentContext.FillINOM := False;
-    wbCurrentContext.FillINOA := False;
+    xeContext.Settings.FillINOM := False;
+    xeContext.Settings.FillINOA := False;
   end;
 
   if FindCmdLineSwitch('fixup') then
-    wbAllowInternalEdit := True
+    xeContext.Settings.AllowInternalEdit := True
   else if FindCmdLineSwitch('nofixup') then
-    wbAllowInternalEdit := False;
+    xeContext.Settings.AllowInternalEdit := False;
 
   if FindCmdLineSwitch('skipbsa') then
-    wbCurrentContext.LoadBSAs := False
+    xeContext.Settings.LoadBSAs := False
   else if FindCmdLineSwitch('forcebsa') then
-    wbCurrentContext.LoadBSAs := True;
+    xeContext.Settings.LoadBSAs := True;
 
   if FindCmdLineSwitch('skipInternalEditing') then
-    wbAllowInternalEdit := False
+    xeContext.Settings.AllowInternalEdit := False
   else if FindCmdLineSwitch('forceInternalEditing') then
-    wbAllowInternalEdit := True;
+    xeContext.Settings.AllowInternalEdit := True;
 
   if FindCmdLineSwitch('showfixup') then
     wbShowInternalEdit := True
@@ -1353,17 +1364,17 @@ begin
     wbShowInternalEdit := False;
 
   if xeQuickClean then begin
-    wbCurrentContext.FixupPGRD := True;
-    wbAllowInternalEdit := True;
+    xeContext.Settings.FixupPGRD := True;
+    xeContext.Settings.AllowInternalEdit := True;
     wbSimpleRecords := False;
   end;
 
   if wbFindCmdLineParam('l', s) then begin
-    wbCurrentContext.Language := s;
+    xeContext.Settings.Language := s;
   end else begin
-    if FileExists(wbTheGameIniFileName) then begin
-      with TMemIniFile.Create(wbTheGameIniFileName) do try
-        case wbGameMode of
+    if FileExists(xeContext.Settings.TheGameIniFileName) then begin
+      with TMemIniFile.Create(xeContext.Settings.TheGameIniFileName) do try
+        case xeContext.GameDefObj.GameMode of
           gmTES4: case ReadInteger('Controls', 'iLanguage', 0) of
             1: s := 'German';
             2: s := 'French';
@@ -1380,9 +1391,9 @@ begin
       end;
     end;
 
-    if FileExists(wbCustomIniFileName) then begin
-       with TMemIniFile.Create(wbCustomIniFileName) do try
-        case wbGameMode of
+    if FileExists(xeContext.Settings.CustomIniFileName) then begin
+       with TMemIniFile.Create(xeContext.Settings.CustomIniFileName) do try
+        case xeContext.GameDefObj.GameMode of
           gmTES4: begin
             if ValueExists('Controls', 'iLanguage') then
               case ReadInteger('Controls', 'iLanguage', 0) of
@@ -1403,19 +1414,17 @@ begin
       end;
     end;
 
-    if (s <> '') and not SameText(s, wbLanguage) then
-      wbCurrentContext.Language := s;
+    if (s <> '') and not SameText(s, xeContext.Settings.Language) then
+      xeContext.Settings.Language := s;
   end;
 
-  wbCurrentContext.EncodingTrans := wbEncodingForLanguage(wbLanguage, False);
+  xeContext.Settings.EncodingTrans := xeContext.EncodingForLanguage(xeContext.Settings.Language, False);
 
   if wbFindCmdLineParam('cp-general', s) then
-    wbCurrentContext.Encoding :=  wbMBCSEncoding(s);
+    xeContext.Settings.Encoding :=  wbMBCSEncoding(s);
 
   if wbFindCmdLineParam('cp', s) or wbFindCmdLineParam('cp-trans', s) then
-    wbCurrentContext.EncodingTrans :=  wbMBCSEncoding(s);
-
-  wbCreateGameContext(wbCreateGameDef(wbGameMode, wbToolSource));
+    xeContext.Settings.EncodingTrans :=  wbMBCSEncoding(s);
 
   if FindCmdLineSwitch('reportinjected') then
     wbReportInjected := True;
@@ -1440,37 +1449,37 @@ begin
 
 
   if FindCmdLineSwitch('IgnoreESL') or FindCmdLineSwitch('IgnoreLight') or FindCmdLineSwitch('IgnoreSmall') then
-    wbCurrentContext.IgnoreLight := True
+    xeContext.Settings.IgnoreLight := True
   else
     if FindCmdLineSwitch('PseudoESL') or FindCmdLineSwitch('PseudoLight') or FindCmdLineSwitch('PseudoSmall') then
-      wbCurrentContext.PseudoLight := True;
+      xeContext.Settings.PseudoLight := True;
 
   if FindCmdLineSwitch('IgnoreMedium') then
-    wbCurrentContext.IgnoreMedium := True
+    xeContext.Settings.IgnoreMedium := True
   else
     if FindCmdLineSwitch('PseudoMedium') then
-      wbCurrentContext.PseudoMedium := True;
+      xeContext.Settings.PseudoMedium := True;
 
   if FindCmdLineSwitch('IgnoreUpdate') then
-    wbCurrentContext.IgnoreUpdate := True
+    xeContext.Settings.IgnoreUpdate := True
   else
     if FindCmdLineSwitch('PseudoUpdate') then
-      wbCurrentContext.PseudoUpdate := True;
+      xeContext.Settings.PseudoUpdate := True;
 
   if wbComplexFileFileID then begin
-    wbCurrentContext.IgnoreLight := False;
-    wbCurrentContext.PseudoLight := False;
-    wbCurrentContext.IgnoreMedium := False;
-    wbCurrentContext.PseudoMedium := False;
-    wbCurrentContext.IgnoreUpdate := False;
-    wbCurrentContext.PseudoUpdate := False;
+    xeContext.Settings.IgnoreLight := False;
+    xeContext.Settings.PseudoLight := False;
+    xeContext.Settings.IgnoreMedium := False;
+    xeContext.Settings.PseudoMedium := False;
+    xeContext.Settings.IgnoreUpdate := False;
+    xeContext.Settings.PseudoUpdate := False;
   end;
 
   if FindCmdLineSwitch('SimpleFormIDs') then
     wbPrettyFormID := False;
 
   if FindCmdLineSwitch('EnforceAllMasters') then
-    wbCurrentContext.EnforceAllMasters := True;
+    xeContext.Settings.EnforceAllMasters := True;
 
   if wbFindCmdLineParam('quickedit', xePluginToUse) then begin
     if not (wbToolMode = tmEdit) then
@@ -1507,7 +1516,7 @@ begin
   end;
 
   if wbToolMode in wbPluginModes then // look for the file name
-    if not xeFindNextValidCmdLineModule(xeParamIndex, xePluginToUse, wbDataPath) then begin
+    if not xeFindNextValidCmdLineModule(xeParamIndex, xePluginToUse, xeContext.Settings.DataPath) then begin
       ShowMessage(wbToolName+' mode requires a valid plugin name!');
       Exit(False);
     end;
@@ -1516,39 +1525,39 @@ begin
   case wbToolMode of
     tmLODgen: begin
       wbIKnowWhatImDoing       := True;
-      wbAllowInternalEdit      := False;
+      xeContext.Settings.AllowInternalEdit := False;
       wbShowInternalEdit       := False;
-      wbCurrentContext.LoadBSAs := True;
-      wbCurrentContext.BuildRefs := False;
+      xeContext.Settings.LoadBSAs := True;
+      xeContext.Settings.BuildRefs := False;
     end;
     tmScript: begin
       wbIKnowWhatImDoing       := True;
-      wbCurrentContext.LoadBSAs := True;
-      wbCurrentContext.BuildRefs := True;
+      xeContext.Settings.LoadBSAs := True;
+      xeContext.Settings.BuildRefs := True;
     end;
     tmOnamUpdate, tmMasterUpdate, tmESMify: begin
       wbIKnowWhatImDoing       := True;
-      wbAllowInternalEdit      := False;
+      xeContext.Settings.AllowInternalEdit := False;
       wbShowInternalEdit       := False;
-      wbCurrentContext.LoadBSAs := False;
-      wbCurrentContext.BuildRefs := False;
-      wbCurrentContext.MasterUpdateFilterONAM := wbToolMode in [tmESMify];
+      xeContext.Settings.LoadBSAs := False;
+      xeContext.Settings.BuildRefs := False;
+      xeContext.Settings.MasterUpdateFilterONAM := wbToolMode in [tmESMify];
       if wbToolMode = tmOnamUpdate then begin
-        wbCurrentContext.AlwaysSaveOnam := True;
-        wbCurrentContext.AlwaysSaveOnamForce := True;
+        xeContext.Settings.AlwaysSaveOnam := True;
+        xeContext.Settings.AlwaysSaveOnamForce := True;
       end;
     end;
     tmMasterRestore, tmESPify, tmCheckForDR, tmCheckForITM, tmCheckForErrors: begin
       wbIKnowWhatImDoing       := True;
-      wbAllowInternalEdit      := False;
+      xeContext.Settings.AllowInternalEdit := False;
       wbShowInternalEdit       := False;
-      wbCurrentContext.LoadBSAs := False;
-      wbCurrentContext.BuildRefs := False;
+      xeContext.Settings.LoadBSAs := False;
+      xeContext.Settings.BuildRefs := False;
     end;
     tmTranslate: begin
-      if wbGameMode >= gmTES5 then
-        wbCurrentContext.LoadBSAs := True; //needed for localization
-      wbCurrentContext.TranslationMode := True;
+      if xeContext.GameDefObj.GameMode >= gmTES5 then
+        xeContext.Settings.LoadBSAs := True; //needed for localization
+      xeContext.Settings.TranslationMode := True;
       wbHideUnused             := True;
       wbHideIgnored            := True;
       wbHideNeverShow          := True;
@@ -1556,17 +1565,17 @@ begin
   end;
 
   if FindCmdLineSwitch('alwayssaveonam') then
-    wbCurrentContext.AlwaysSaveOnam := True;
+    xeContext.Settings.AlwaysSaveOnam := True;
 
   if FindCmdLineSwitch('filteronam') then
-    wbCurrentContext.MasterUpdateFilterONAM := True
+    xeContext.Settings.MasterUpdateFilterONAM := True
   else if FindCmdLineSwitch('noFilteronam') then
-    wbCurrentContext.MasterUpdateFilterONAM := False;
+    xeContext.Settings.MasterUpdateFilterONAM := False;
 
   if FindCmdLineSwitch('FixPersistence') then
-    wbCurrentContext.MasterUpdateFixPersistence := True
+    xeContext.Settings.MasterUpdateFixPersistence := True
   else if FindCmdLineSwitch('NoFixPersistence') then
-    wbCurrentContext.MasterUpdateFixPersistence := False;
+    xeContext.Settings.MasterUpdateFixPersistence := False;
 
   if xeVeryQuickShowConflicts then
     wbSubMode := 'Very Quick Show Conflicts'
@@ -1600,14 +1609,14 @@ begin
     wbApplicationTitle := wbApplicationTitle + ' [Auto Exit]';
 
   if FindCmdLineSwitch('nobuildrefs') then
-    wbCurrentContext.BuildRefs := False;
+    xeContext.Settings.BuildRefs := False;
 
   if FindCmdLineSwitch('fixuppgrd') then
-    wbCurrentContext.FixupPGRD := True;
+    xeContext.Settings.FixupPGRD := True;
 
   var lMOProfile: string;
-  wbCurrentContext.ShouldLoadMOHookFile := wbFindCmdLineParam('moprofile', lMOProfile);
-  wbCurrentContext.MOProfile := lMOProfile;
+  xeContext.Settings.ShouldLoadMOHookFile := wbFindCmdLineParam('moprofile', lMOProfile);
+  xeContext.Settings.MOProfile := lMOProfile;
 
   if FindCmdLineSwitch('moreunknown') then
     wbMoreInfoForUnknown := True;
@@ -1617,7 +1626,7 @@ begin
       wbAssociateWithExtension('.' + wbAppName + 'pas', wbAppName + 'Script', wbAppName + wbToolName + ' script');
   except end;
 
-  case wbGameMode of
+  case xeContext.GameDefObj.GameMode of
     gmTES3, gmTES4, gmTES4R,  gmTES5, gmEnderal, gmSSE, gmTES5VR, gmEnderalSE:
       xeIconResource := 'xTESICON';
     gmFO3, gmFNV, gmFO4, gmFO4VR, gmFO76:

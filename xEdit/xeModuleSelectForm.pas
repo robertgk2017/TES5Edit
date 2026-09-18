@@ -140,7 +140,7 @@ uses
 
   Winapi.Windows,
 
-  wbGameDefGlobals,
+  xeInit,
   wbInterface,
 
   xeMainForm;
@@ -430,6 +430,7 @@ end;
 
 procedure TfrmModuleSelect.FormCreate(Sender: TObject);
 begin
+  var lGameDef := xeContext.GameDefObj;
   xeApplyFontAndScale(Self);
   //vstModules.Header.Height := vstModules.DefaultNodeHeight + 4;
 
@@ -440,18 +441,18 @@ begin
     end;
 
   with vstModules.Header.Columns[3] do begin
-    if not wbIsLightSupported then
+    if not lGameDef.IsLightSupported then
       Options := Options - [coVisible]
     else
       Text := wbLightName;
   end;
-  if not wbIsMediumSupported then
+  if not lGameDef.IsMediumSupported then
     with vstModules.Header.Columns[7] do
       Options := Options - [coVisible];
-  if not wbIsUpdateSupported then
+  if not lGameDef.IsUpdateSupported then
     with vstModules.Header.Columns[6] do
       Options := Options - [coVisible];
-  if wbPseudoLight or wbPseudoMedium or wbPseudoUpdate then
+  if xeContext.Settings.PseudoLight or xeContext.Settings.PseudoMedium or xeContext.Settings.PseudoUpdate then
     with vstModules.Header.Columns[5] do
       Options := Options - [coVisible];
 
@@ -718,7 +719,7 @@ function TfrmModuleSelect.ShowModal: Integer;
 begin
   vstModules.Clear;
   if Length(AllModules) < 1 then
-    AllModules := wbModulesByLoadOrder.FilteredByFlag(mfValid).FilteredByFlag(FilterFlag);
+    AllModules := wbModuleListOf(xeContext).ModulesByLoadOrder(False).FilteredByFlag(mfValid).FilteredByFlag(FilterFlag);
   vstModules.ChildCount[nil] := Length(AllModules);
   vstModules.InitRecursive(nil, 100, False);
 
@@ -762,13 +763,13 @@ begin
         var lModule := AllModules[lModuleIdx];
         Exclude(lModule.miFlags, mfForceLoad);
 
-        if wbAlwaysLoadGameMaster and
+        if xeContext.Settings.AlwaysLoadGameMaster and
            (mfIsGameMaster in lModule.miFlags)
         then
           Include(lModule.miFlags, mfForceLoad);
       end;
 
-      SelectedModules := AllModules.SimulateLoad;
+      SelectedModules := wbModuleListOf(xeContext).SimulateLoad(AllModules);
       FilteredModules := SelectedModules.FilteredByFlag(SelectFlag).FilteredByFlag(FilterFlag);
     end else begin
       SelectedModules := AllModules.FilteredByFlag(SelectFlag).FilteredByFlag(FilterFlag);

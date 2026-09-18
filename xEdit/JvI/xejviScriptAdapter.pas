@@ -38,7 +38,7 @@ uses
   wbBSArchive,
   wbHelpers,
   wbInterface,
-  wbGameDefGlobals,
+  xeInit,
 
   xejviScriptAdapterContainer,
   xejviScriptAdapterDF,
@@ -87,7 +87,7 @@ end;
 procedure EnableSkyrimSaveFormat(var Value: Variant; Args: TJvInterpreterArgs);
 begin
   wbTestWrite := True;
-  wbCurrentContext.ForceNewHeader := True;
+  xeContext.Settings.ForceNewHeader := True;
 end;
 
 procedure GetRecordDefNames(var Value: Variant; Args: TJvInterpreterArgs);
@@ -95,13 +95,14 @@ var
   sl: TStrings;
   i: integer;
 begin
+  var lGameDef := xeContext.GameDefObj;
   sl := TStrings(V2O(Args.Values[0]));
 
   if not Assigned(sl) then
     Exit;
 
-  for i := Low(wbRecordDefs) to High(wbRecordDefs) do
-    with wbRecordDefs[i].rdeDef do
+  for i := Low(lGameDef.RecordDefs) to High(lGameDef.RecordDefs) do
+    with lGameDef.RecordDefs[i].rdeDef do
       sl.Add(DefaultSignature + ' - ' + GetName);
 end;
 

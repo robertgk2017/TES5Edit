@@ -160,10 +160,7 @@ var
   wbAlignArrayElements               : Boolean    = True;
   wbAlignArrayLimit                  : Integer    = 5000;
   wbCopyIsRunning                    : Integer    = 0;
-  wbHasAddedLightSupport             : Boolean    = False;
-  wbHasAddedMediumSupport            : Boolean    = False;
   wbHasAddedOptimizedSupport         : Boolean    = False;
-  wbHasAddedUpdateSupport            : Boolean    = False;
   wbAllowEditHEDRVersion             : Boolean    = False;
   wbAllowEditGameMaster              : Boolean    = False;
   wbAllowMasterFilesEdit             : Boolean    = False;          //must be set before DefineDefs
@@ -257,10 +254,6 @@ var
   wbComplexFileFileID                : Boolean    = False;
   wbAllowUnsafeScripts               : Boolean    = False;
 
-  wbCS                               : Boolean    = False;
-  wbVRESL                            : Boolean    = False;
-  wbHNVSE                            : Boolean    = False;
-
   wbAllowMakePartial                 : Boolean    = False;
 
   wbGlobalModifedGeneration          : UInt64;
@@ -274,7 +267,6 @@ var
 
 
 
-  wbAllowInternalEdit                : Boolean    = True;
   wbShowInternalEdit                 : Boolean    = False;
 
   wbReportMode                       : Boolean    = False;
@@ -686,6 +678,14 @@ type
   );
   TwbGameCapabilities = set of TwbGameCapability;
 
+  TwbGameDefInputs = record
+    LightSupport  : Boolean;
+    MediumSupport : Boolean;
+    UpdateSupport : Boolean;
+    CS            : Boolean;
+    HNVSE         : Boolean;
+  end;
+
   TwbToolMode   = (tmView, tmEdit, tmDump, tmExport, tmOnamUpdate, tmMasterUpdate, tmMasterRestore, tmLODgen, tmScript,
                     tmTranslate, tmESMify, tmESPify, tmSortAndCleanMasters,
                     tmCheckForErrors, tmCheckForITM, tmCheckForDR, tmGenerateSEQ);
@@ -879,6 +879,9 @@ type
     mtLight
   );
 
+  TwbSlotKind = (skLight, skMedium);
+  TwbSlotLayout = set of TwbSlotKind;
+
   TwbFileID = record
   private
     _LightSlot : SmallInt;
@@ -886,20 +889,20 @@ type
     _FullSlot  : SmallInt;
   public
     class function CreateFull(aFullSlot: SmallInt): TwbFileID; inline; static;
-    class function CreateMedium(aMediumSlot: SmallInt): TwbFileID; inline; static;
-    class function CreateLight(aLightSlot: SmallInt): TwbFileID; inline; static;
+    class function CreateMedium(aMediumSlot: SmallInt; aLayout: TwbSlotLayout): TwbFileID; inline; static;
+    class function CreateLight(aLightSlot: SmallInt; aLayout: TwbSlotLayout): TwbFileID; inline; static;
 
-    class function CreateFromFormID(aFormID: Cardinal): TwbFileID; inline; static;
+    class function CreateFromFormID(aFormID: Cardinal; aLayout: TwbSlotLayout): TwbFileID; inline; static;
 
     class function Null: TwbFileID; static; inline;
     class function Invalid: TwbFileID; static; inline;
 
-    class function MaxFullSlot: SmallInt; static;
-    class function MaxMediumSlot: SmallInt; static;
-    class function MaxLightSlot: SmallInt; static;
+    class function MaxFullSlot(aLayout: TwbSlotLayout): SmallInt; static;
+    class function MaxMediumSlot(aLayout: TwbSlotLayout): SmallInt; static;
+    class function MaxLightSlot(aLayout: TwbSlotLayout): SmallInt; static;
 
-    class function LightFullSlot: SmallInt; static; inline;
-    class function MediumFullSlot: SmallInt; static; inline;
+    class function LightFullSlot(aLayout: TwbSlotLayout): SmallInt; static; inline;
+    class function MediumFullSlot(aLayout: TwbSlotLayout): SmallInt; static; inline;
 
     class operator Equal(const A, B: TwbFileID): Boolean; inline;
     class operator NotEqual(const A, B: TwbFileID): Boolean; inline;
@@ -932,11 +935,11 @@ type
     //if this is not observed.
     _FormID: Cardinal;
 
-    function GetFileID: TwbFileID;
-    procedure SetFileID(const Value: TwbFileID);
+    function GetFileID(aLayout: TwbSlotLayout): TwbFileID;
+    procedure SetFileID(aLayout: TwbSlotLayout; const Value: TwbFileID);
 
-    function GetObjectID: Cardinal;
-    procedure SetObjectID(const Value: Cardinal); overload; inline;
+    function GetObjectID(aLayout: TwbSlotLayout): Cardinal;
+    procedure SetObjectID(aLayout: TwbSlotLayout; const Value: Cardinal); overload; inline;
   public
     class function FromCardinal(const aValue: Cardinal): TwbFormID; static; inline;
     class function FromStr(aValue: string): TwbFormID; static;
@@ -955,13 +958,14 @@ type
     class operator LessThan(const A, B: TwbFormID): Boolean; inline;
     class operator LessThanOrEqual(const A, B: TwbFormID): Boolean; inline;
 
-    class operator Inc(const A: TwbFormID): TwbFormID;
-    class operator Add(const A: TwbFormID; B: Int64): TwbFormID; inline;
-    class operator Subtract(const A: TwbFormID; B: Int64): TwbFormID; inline;
     class operator Subtract(const A: TwbFormID; const B: TwbFormID): Int64; inline;
 
-    function ChangeFileID(const aFileID: TwbFileID): TwbFormID; inline;
-    function ToString(aForDisplay: Boolean = False): string;
+    function Next(aLayout: TwbSlotLayout): TwbFormID;
+    function Offset(aLayout: TwbSlotLayout; aDelta: Int64): TwbFormID;
+
+    function ChangeFileID(aLayout: TwbSlotLayout; const aFileID: TwbFileID): TwbFormID; inline;
+    function ToString: string;
+    function ToDisplayString(aLayout: TwbSlotLayout): string;
 
     function IsNull   : Boolean; inline;
     function IsPlayer : Boolean; inline;
@@ -969,14 +973,14 @@ type
 
     function IsHardcoded: Boolean; inline;
 
-    procedure SetObjectID(const Value: Cardinal; aSilent: Boolean); overload;
+    procedure SetObjectID(aLayout: TwbSlotLayout; const Value: Cardinal; aSilent: Boolean); overload;
 
     property ToCardinal: Cardinal
       read _FormID;
-    property FileID: TwbFileID
+    property FileID[aLayout: TwbSlotLayout]: TwbFileID
       read GetFileID
       write SetFileID;
-    property ObjectID: Cardinal
+    property ObjectID[aLayout: TwbSlotLayout]: Cardinal
       read GetObjectID
       write SetObjectID;
   end;
@@ -1837,10 +1841,10 @@ type
     function IsVisibleWhenDistant: Boolean; inline;
     function IsDangerous: Boolean; inline;
     function IsCompressed: Boolean; inline;
-    function IsLight: Boolean; inline;
-    function IsMedium: Boolean; inline;
-    function IsBlueprint: Boolean; inline;
-    function IsUpdate: Boolean; inline;
+    function IsLight(aGameDef: TwbGameDef): Boolean;
+    function IsMedium(aGameDef: TwbGameDef): Boolean;
+    function IsBlueprint(aGameDef: TwbGameDef): Boolean;
+    function IsUpdate(aGameDef: TwbGameDef): Boolean;
     function CantWait: Boolean; inline;
     function HasLODtree: Boolean; inline;
 
@@ -1852,10 +1856,10 @@ type
     procedure SetCompressed(aValue: Boolean);
     procedure SetInitiallyDisabled(aValue: Boolean);
     procedure SetVisibleWhenDistant(aValue: Boolean);
-    procedure SetLight(aValue: Boolean);
-    procedure SetMedium(aValue: Boolean);
-    procedure SetBlueprint(aValue: Boolean);
-    procedure SetUpdate(aValue: Boolean);
+    procedure SetLight(aGameDef: TwbGameDef; aValue: Boolean);
+    procedure SetMedium(aGameDef: TwbGameDef; aValue: Boolean);
+    procedure SetBlueprint(aGameDef: TwbGameDef; aValue: Boolean);
+    procedure SetUpdate(aGameDef: TwbGameDef; aValue: Boolean);
   end;
 
   PwbMainRecordStructFlags3 = ^TwbMainRecordStructFlags3;
@@ -2220,7 +2224,7 @@ type
     TranslationMode    : Boolean;
     AlignArrayElements : Boolean;
     AlignArrayLimit    : Integer;
-    class function Current: TwbConflictConfig; static;
+    class function ForContext(aContext: TwbGameContext): TwbConflictConfig; static;
   end;
 
   TwbConflictPolicy = record
@@ -3314,13 +3318,6 @@ type
   IwbGameDef = interface(IwbInterface)
     ['{A42F48ED-EAF9-4F5A-9CEE-13E73B96E2DF}']
     function GetGameMode: TwbGameMode;
-    function GetGameName: string;
-    function GetGameExeName: string;
-    function GetGameMasterEsm: string;
-    function GetGameName2: string;
-    function GetGameNameReg: string;
-    function GetGameSteamID: string;
-    function GetAppName: string;
     function GetArchiveExtension: string;
     function GetCreationClubContentFileName: string;
     function GetDefaultLandTexture: string;
@@ -3346,20 +3343,6 @@ type
 
     property GameMode: TwbGameMode
       read GetGameMode;
-    property GameName: string
-      read GetGameName;
-    property GameExeName: string
-      read GetGameExeName;
-    property GameMasterEsm: string
-      read GetGameMasterEsm;
-    property GameName2: string
-      read GetGameName2;
-    property GameNameReg: string
-      read GetGameNameReg;
-    property GameSteamID: string
-      read GetGameSteamID;
-    property AppName: string
-      read GetAppName;
     property ArchiveExtension: string
       read GetArchiveExtension;
     property CreationClubContentFileName: string
@@ -3960,17 +3943,9 @@ type
     gdRecordDefHashMap : array[0..Pred(RecordDefHashMapSize)] of Integer;
     gdRecordDefMap     : TStringList;
     gdRecordsInit      : Boolean;
-    gdLive             : Boolean;
     gdGameMode         : TwbGameMode;
     gdToolSource       : TwbToolSource;
     gdCapabilities     : TwbGameCapabilities;
-    gdLiveKeyValid         : Boolean;
-    gdLiveKeyGameMode      : TwbGameMode;
-    gdLiveKeyLightSupport  : Boolean;
-    gdLiveKeyMediumSupport : Boolean;
-    gdLiveKeyUpdateSupport : Boolean;
-    gdLiveKeyCS            : Boolean;
-    gdLiveKeyHNVSE         : Boolean;
     gdDefaultFormVersion : Word;
     gdQuestFlagsSignature : TwbSignature;
     gdRaceFlagsSignature  : TwbSignature;
@@ -3983,13 +3958,6 @@ type
     procedure SetKnownSubRecordSignature(aKind: TwbKnownSubRecord; const aValue: TwbSignature);
 
     function GetGameMode: TwbGameMode;
-    function GetGameName: string;
-    function GetGameExeName: string;
-    function GetGameMasterEsm: string;
-    function GetGameName2: string;
-    function GetGameNameReg: string;
-    function GetGameSteamID: string;
-    function GetAppName: string;
     function GetArchiveExtension: string;
     function GetCreationClubContentFileName: string;
     function GetDefaultLandTexture: string;
@@ -4015,18 +3983,15 @@ type
   public
     constructor Create; overload;
     constructor Create(aGameMode: TwbGameMode; aToolSource: TwbToolSource); overload;
+    constructor Create(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs); overload;
     destructor Destroy; override;
 
-    property Live: Boolean
-      read gdLive;
-    property StoredGameMode: TwbGameMode
-      read gdGameMode;
     property ToolSource: TwbToolSource
       read gdToolSource;
     property GameMode: TwbGameMode
-      read GetGameMode;
+      read gdGameMode;
     property Capabilities: TwbGameCapabilities
-      read GetCapabilities;
+      read gdCapabilities;
     function IsCS(const aDef1, aDef2: string): string; overload;
     function IsHNVSE(const aDef1, aDef2: TwbConflictPriority): TwbConflictPriority; overload;
     function IsTES3(const aDef1, aDef2: string): string; overload;
@@ -4105,6 +4070,9 @@ type
     property CellSizeFactor: Single
       read gdCellSizeFactor
       write gdCellSizeFactor;
+    function PositionToGridCell(const aPosition: TwbVector): TwbGridCell;
+    function GridCellToCenterPosition(const aGridCell: TwbGridCell): TwbVector;
+    function IsInGridCell(const aPosition: TwbVector; const aGridCell: TwbGridCell): Boolean;
     property HeaderSignature: TwbSignature
       read gdHeaderSignature
       write gdHeaderSignature;
@@ -4250,6 +4218,7 @@ type
     CompareRawData        : Boolean;
     TranslationMode       : Boolean;
     EditAllowed           : Boolean;
+    AllowInternalEdit     : Boolean;
     DontSave              : Boolean;
     AllowDirectSave       : Boolean;
     StripMasters          : Boolean;
@@ -4502,10 +4471,13 @@ type
     function AllocateMediumSlot: Integer;
     procedure ForceClosed;
     procedure IncGlobalGeneration;
+    function BeginInternalEdit(aForce: Boolean = False): Boolean;
+    function SlotLayout: TwbSlotLayout;
     function FormIDFromIdentity(aFormIDBase, aFormIDNameBase: Byte; aIdentity: string): TwbFormID;
+    function ExpandFileName(const aFileName: string): string;
 
     function LoadFile(const aFileName: string; aLoadOrder: Integer = -1; const aCompareTo: string = ''; aStates: TwbFileStates = []; const aData: TBytes = nil): IwbFile; virtual; abstract;
-    function NewFile(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean): IwbFile; virtual; abstract;
+    function NewFile(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean): IwbFile; overload; virtual; abstract;
     function MastersForFile(const aFileName: string; aMasters: TStrings; aIsESM: PBoolean = nil; aIsLight: PBoolean = nil; aIsLocalized: PBoolean = nil; aIsUpdate: PBoolean = nil; aIsMedium: PBoolean = nil; aIsBluePrint: PBoolean = nil): Boolean; overload; virtual; abstract;
     function MastersForFile(const aFileName: string; out aMasters: TDynStrings; aIsESM: PBoolean = nil; aIsLight: PBoolean = nil; aIsLocalized: PBoolean = nil; aIsUpdate: PBoolean = nil; aIsMedium: PBoolean = nil; aIsBluePrint: PBoolean = nil): Boolean; overload; virtual; abstract;
     procedure ForceClosedFiles; virtual; abstract;
@@ -4514,8 +4486,13 @@ type
       read gcGlobalGeneration;
 
     function RecordByLoadOrderFormID(const aFormID: TwbFormID; const aSeenFromFile: IwbFile): IwbMainRecord;
+    function GameMasterRecordByFormID(const aFormID: TwbFormID): IwbMainRecord;
     function FindWinningMainRecordByEditorID(const aSignature: TwbSignature; const aEditorID: string): IwbMainRecord;
+    function FormIDOf(const aElement: IwbElement): TwbFormID;
+    function CellDetailsForWorldspace(const aWorldspace: IwbMainRecord; var aPersistent: Boolean; var aGridCell: TwbGridCell): Boolean;
 
+    property GameMasterFile: IwbFile
+      read GetGameMasterFile;
     property GameDefObj: TwbGameDef
       read gcGameDefObj;
     property Files: TwbFiles
@@ -4569,6 +4546,9 @@ type
     property LEncoding[aFallback: Boolean]: TStringList
       read GetLEncoding;
     function EncodingForLanguage(const aLanguage: string; aFallback: Boolean): TEncoding;
+    procedure AddLEncodingIfMissing(const aLanguage: string; aEncoding: TEncoding; aFallback: Boolean); overload;
+    procedure AddLEncodingIfMissing(const aLanguage: string; const aEncoding: string; aFallback: Boolean); overload;
+    procedure AddDefaultLEncodingsIfMissing(aFallback: Boolean);
   end;
 
   TwbGameContextClass = class of TwbGameContext;
@@ -5685,15 +5665,9 @@ function ConflictThisToColor(aConflictThis: TConflictThis): TColor;
 
 function wbFlagsList(const aFlags: array of const; aDeleted : Boolean = True; aUnknowns: Boolean = False): TDynStrings;
 function wbSparseFlags(const aFlags: array of const; aUnknowns: Boolean = False; aSize: Cardinal = 32): TDynStrings;
-function wbGetFormID(const aElement: IwbElement): TwbFormID;
-
-function wbGetCellDetailsForWorldspace(aWorldspace: IwbMainRecord; var aPersistent: Boolean; var aGridCell: TwbGridCell): Boolean;
-function wbPositionToGridCell(const aPosition: TwbVector): TwbGridCell;
 function wbSubBlockFromGridCell(const aGridCell: TwbGridCell): TwbGridCell;
 function wbBlockFromSubBlock(const aSubBlock: TwbGridCell): TwbGridCell;
 function wbGridCellToGroupLabel(const aGridCell: TwbGridCell): Cardinal;
-function wbIsInGridCell(const aPosition: TwbVector; const aGridCell: TwbGridCell): Boolean;
-function wbGridCellToCenterPosition(const aGridCell: TwbGridCell): TwbVector;
 
 var
   wbGameMode         : TwbGameMode;
@@ -5752,22 +5726,6 @@ var
 function wbDefToName(const aDef: IwbDef): string;
 function wbDefsToPath(const aDefs: TwbDefPath): string;
 
-function wbCurrentGameMode: TwbGameMode; inline;
-function wbIsMorrowind: Boolean; inline;
-function wbIsOblivion: Boolean; inline;
-function wbIsOblivionR: Boolean; inline;
-function wbIsFallout3: Boolean; inline;
-function wbIsFalloutNV: Boolean; inline;
-function wbIsSkyrim: Boolean; inline;
-function wbIsSkyrimSE: Boolean; inline;
-function wbIsFallout4: Boolean; inline;
-function wbIsFallout76: Boolean; inline;
-function wbIsStarfield: Boolean; inline;
-function wbIsLightSupported: Boolean; inline;
-function wbIsMediumSupported: Boolean; inline;
-function wbIsBlueprintSupported: Boolean; inline;
-function wbIsUpdateSupported: Boolean; inline;
-function wbCurrentCapabilities: TwbGameCapabilities;
 function wbGameDefOf(const aElement: IwbElement): TwbGameDef;
 
 type
@@ -5827,14 +5785,13 @@ type
 function wbNormalizeRadians(const aElement: IwbElement; aFloat: Extended): Extended;
 function wbNormalizeToRange(aMin, aMax: Extended): TwbFloatNormalizer;
 
-function wbBeginInternalEdit(aForce: Boolean = False): Boolean;
 procedure wbEndInternalEdit;
 function wbIsInternalEdit: Boolean;
 
 function StrToSignature(const s: string): TwbSignature;
 function IntToSignature(aInt: Cardinal): TwbSignature; inline;
 
-function FixupFormID(const aFormID: TwbFormID; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts; aAllowHardcodedRangeUse: Boolean): TwbFormID;
+function FixupFormID(const aFormID: TwbFormID; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts; aAllowHardcodedRangeUse: Boolean; aLayout: TwbSlotLayout): TwbFormID;
 
 threadvar
   _InternalEditCount: Integer;
@@ -5853,8 +5810,6 @@ var
 function wbReadInteger24(aBasePtr: pointer): Int64;
 function wbSaveTablesFor(const aElement: IwbElement): IwbSaveTables;
 function wbFaceGenCacheOf(const aElement: IwbElement): IwbFaceGenCache;
-
-function _wbRecordDefMap: TStringList;
 
 function wbProgressLock: Integer;
 function wbProgressUnlock: Integer;
@@ -5902,10 +5857,6 @@ var
 
   wbLEncodingDefault : array[Boolean] of TEncoding;
 
-procedure wbAddDefaultLEncodingsIfMissing(aFallback: Boolean);
-procedure wbAddLEncodingIfMissing(const aLanguage: string; aEncoding: TEncoding; aFallback: Boolean); overload;
-procedure wbAddLEncodingIfMissing(const aLanguage: string; const aEncoding: string; aFallback: Boolean); overload;
-function wbEncodingForLanguage(const aLanguage: string; aFallback: Boolean): TEncoding;
 
 function wbMBCSEncoding(aCP: Cardinal): TEncoding; overload;
 function wbMBCSEncoding(s: string): TEncoding; overload;
@@ -5926,19 +5877,12 @@ var
   wbFileBySortOrderComparer        : IComparer<IwbFile>;
   wbFileByReverseSortOrderComparer : IComparer<IwbFile>;
 
-  _CurrentGameDef  : TwbGameDef;
-  _CurrentContext  : TwbGameContext;
   wbGameContextClass : TwbGameContextClass;
 
 procedure wbRegisterGameDef(const aGameModes: TwbGameModes; aToolSource: TwbToolSource; aGameDefClass: TwbGameDefClass);
-function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource): IwbGameDef;
+function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource): IwbGameDef; overload;
+function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs): IwbGameDef; overload;
 function wbCreateGameContext(const aGameDef: IwbGameDef): IwbGameContext;
-
-function wbCurrentContext: IwbGameContext;
-procedure wbMakeCurrentContext(const aContext: IwbGameContext);
-
-function wbGetGameMasterFile: IwbFile; inline;
-function wbRecordByLoadOrderFormID(const aFormID: TwbFormID; const aSeenFromFile: IwbFile): IwbMainRecord; inline;
 
 implementation
 
@@ -5954,9 +5898,9 @@ uses
   wbLocalization,
   wbSort;
 
-class function TwbConflictConfig.Current: TwbConflictConfig;
+class function TwbConflictConfig.ForContext(aContext: TwbGameContext): TwbConflictConfig;
 begin
-  Result.TranslationMode := _CurrentContext.Settings.TranslationMode;
+  Result.TranslationMode := aContext.Settings.TranslationMode;
   Result.AlignArrayElements := wbAlignArrayElements;
   Result.AlignArrayLimit := wbAlignArrayLimit;
 end;
@@ -5965,25 +5909,6 @@ procedure TwbConflictNodeData.UpdateRefs;
 begin
   if Assigned(Element) and (Element.ElementType = etMainRecord) then
     (Element as IwbMainRecord).UpdateRefs;
-end;
-
-function wbGetGameMasterFile: IwbFile;
-begin
-  Result := _CurrentContext.GetGameMasterFile;
-end;
-
-function wbGameMasterRecordByFormID(const aFormID: TwbFormID): IwbMainRecord;
-begin
-  var lGameMaster := wbGetGameMasterFile;
-  if Assigned(lGameMaster) then
-    Result := lGameMaster.RecordByFormID[aFormID, True, False]
-  else
-    Result := nil;
-end;
-
-function wbRecordByLoadOrderFormID(const aFormID: TwbFormID; const aSeenFromFile: IwbFile): IwbMainRecord;
-begin
-  Result := _CurrentContext.RecordByLoadOrderFormID(aFormID, aSeenFromFile);
 end;
 
 type
@@ -6220,9 +6145,19 @@ begin
   Result := PwbSignature(@aInt)^;
 end;
 
-function wbBeginInternalEdit(aForce: Boolean): Boolean;
+function TwbGameContext.SlotLayout: TwbSlotLayout;
 begin
-  Result := _CurrentContext.Settings.EditAllowed or ((wbAllowInternalEdit or aForce) and not _BlockInternalEdit);
+  Result := [];
+  var lCapabilities := gcGameDefObj.Capabilities;
+  if Settings.PseudoLight or (gcLightPlugins in lCapabilities) then
+    Include(Result, skLight);
+  if Settings.PseudoMedium or (gcMediumPlugins in lCapabilities) then
+    Include(Result, skMedium);
+end;
+
+function TwbGameContext.BeginInternalEdit(aForce: Boolean): Boolean;
+begin
+  Result := Settings.EditAllowed or ((Settings.AllowInternalEdit or aForce) and not _BlockInternalEdit);
   if Result then
     Inc(_InternalEditCount);
 end;
@@ -6344,64 +6279,6 @@ begin
   Result := TwbNullWaitForm.Create;
 end;
 
-function wbCurrentGameMode: TwbGameMode; inline;
-begin
-  if _CurrentGameDef.Live then
-    Result := wbGameMode
-  else
-    Result := _CurrentGameDef.StoredGameMode;
-end;
-
-function wbIsMorrowind: Boolean; inline;
-begin
-  Result := _CurrentGameDef.IsMorrowind;
-end;
-
-function wbIsOblivion: Boolean; inline;
-begin
-  Result := _CurrentGameDef.IsOblivion;
-end;
-
-function wbIsOblivionR: Boolean; Inline;
-begin
-  Result := _CurrentGameDef.IsOblivionR;
-end;
-
-function wbIsFallout3: Boolean; inline;
-begin
-  Result := _CurrentGameDef.IsFallout3;
-end;
-
-function wbIsFalloutNV: Boolean; inline;
-begin
-  Result := _CurrentGameDef.IsFalloutNV;
-end;
-
-function wbIsSkyrim: Boolean; inline;
-begin
-  Result := _CurrentGameDef.IsSkyrim;
-end;
-
-function wbIsSkyrimSE: Boolean; inline;
-begin
-  Result := _CurrentGameDef.IsSkyrimSE;
-end;
-
-function wbIsFallout4: Boolean; inline;
-begin
-  Result := _CurrentGameDef.IsFallout4;
-end;
-
-function wbIsFallout76: Boolean; inline;
-begin
-  Result := _CurrentGameDef.IsFallout76;
-end;
-
-function wbIsStarfield: Boolean; inline;
-begin
-  Result := _CurrentGameDef.IsStarfield;
-end;
-
 function wbComputeCapabilities(aGameMode: TwbGameMode; aLightSupport, aMediumSupport, aUpdateSupport, aCS, aHNVSE: Boolean): TwbGameCapabilities;
 begin
   Result := [];
@@ -6493,44 +6370,22 @@ begin
     Include(Result, gcHNVSE);
 end;
 
-function wbCurrentCapabilities: TwbGameCapabilities;
-begin
-  Result := _CurrentGameDef.Capabilities;
-end;
-
-function wbIsLightSupported: Boolean; inline;
-begin
-  Result := gcLightPlugins in _CurrentGameDef.Capabilities;
-end;
-
-function wbIsMediumSupported: Boolean; inline;
-begin
-  Result := gcMediumPlugins in _CurrentGameDef.Capabilities;
-end;
-
-function wbIsBlueprintSupported: Boolean; inline;
-begin
-  Result := gcBlueprintPlugins in _CurrentGameDef.Capabilities;
-end;
-
-function wbIsUpdateSupported: Boolean; inline;
-begin
-  Result := gcUpdatePlugins in _CurrentGameDef.Capabilities;
-end;
-
 constructor TwbGameDef.Create(aGameMode: TwbGameMode; aToolSource: TwbToolSource);
 begin
+  Create(aGameMode, aToolSource, Default(TwbGameDefInputs));
+end;
+
+constructor TwbGameDef.Create(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs);
+begin
   Create;
-  gdLive := False;
   gdGameMode := aGameMode;
   gdToolSource := aToolSource;
-  gdCapabilities := wbComputeCapabilities(aGameMode, wbHasAddedLightSupport, wbHasAddedMediumSupport, wbHasAddedUpdateSupport, wbCS, wbHNVSE);
+  gdCapabilities := wbComputeCapabilities(aGameMode, aInputs.LightSupport, aInputs.MediumSupport, aInputs.UpdateSupport, aInputs.CS, aInputs.HNVSE);
 end;
 
 constructor TwbGameDef.Create;
 begin
   inherited Create;
-  gdLive := True;
   gdHEDRVersion := 1.0;
   gdHEDRNextObjectID := $800;
   gdCellSizeFactor := 4096.0;
@@ -6592,45 +6447,7 @@ end;
 
 function TwbGameDef.GetGameMode: TwbGameMode;
 begin
-  if gdLive then
-    Result := wbGameMode
-  else
-    Result := gdGameMode;
-end;
-
-function TwbGameDef.GetGameName: string;
-begin
-  Result := wbGameName;
-end;
-
-function TwbGameDef.GetGameExeName: string;
-begin
-  Result := wbGameExeName;
-end;
-
-function TwbGameDef.GetGameMasterEsm: string;
-begin
-  Result := wbGameMasterEsm;
-end;
-
-function TwbGameDef.GetGameName2: string;
-begin
-  Result := wbGameName2;
-end;
-
-function TwbGameDef.GetGameNameReg: string;
-begin
-  Result := wbGameNameReg;
-end;
-
-function TwbGameDef.GetGameSteamID: string;
-begin
-  Result := wbGameSteamID;
-end;
-
-function TwbGameDef.GetAppName: string;
-begin
-  Result := wbAppName;
+  Result := gdGameMode;
 end;
 
 function TwbGameDef.GetArchiveExtension: string;
@@ -6655,23 +6472,6 @@ end;
 
 function TwbGameDef.GetCapabilities: TwbGameCapabilities;
 begin
-  if gdLive then
-    if not gdLiveKeyValid or
-       (gdLiveKeyGameMode <> wbGameMode) or
-       (gdLiveKeyLightSupport <> wbHasAddedLightSupport) or
-       (gdLiveKeyMediumSupport <> wbHasAddedMediumSupport) or
-       (gdLiveKeyUpdateSupport <> wbHasAddedUpdateSupport) or
-       (gdLiveKeyCS <> wbCS) or
-       (gdLiveKeyHNVSE <> wbHNVSE) then begin
-      gdLiveKeyGameMode := wbGameMode;
-      gdLiveKeyLightSupport := wbHasAddedLightSupport;
-      gdLiveKeyMediumSupport := wbHasAddedMediumSupport;
-      gdLiveKeyUpdateSupport := wbHasAddedUpdateSupport;
-      gdLiveKeyCS := wbCS;
-      gdLiveKeyHNVSE := wbHNVSE;
-      gdCapabilities := wbComputeCapabilities(wbGameMode, wbHasAddedLightSupport, wbHasAddedMediumSupport, wbHasAddedUpdateSupport, wbCS, wbHNVSE);
-      gdLiveKeyValid := True;
-    end;
   Result := gdCapabilities;
 end;
 
@@ -7014,48 +6814,18 @@ end;
 
 var
   _GameDefClasses    : array[TwbGameMode, TwbToolSource] of TwbGameDefClass;
-  _CurrentGameDefRef : IwbGameDef;
-  _CurrentContextRef : IwbGameContext;
 
 function wbGameDefOf(const aElement: IwbElement): TwbGameDef;
 begin
   Result := nil;
   if Assigned(aElement) then
     Result := aElement.GameDefObj;
-  if not Assigned(Result) then
-    Result := _CurrentGameDef;
-end;
-
-procedure wbMakeCurrentGameDef(aGameDef: TwbGameDef);
-begin
-  _CurrentGameDef := aGameDef;
-  _CurrentGameDefRef := aGameDef;
-end;
-
-function wbCurrentContext: IwbGameContext;
-begin
-  Result := _CurrentContextRef;
-end;
-
-procedure wbMakeCurrentContext(const aContext: IwbGameContext);
-var
-  lPrevious: IwbGameContext;
-begin
-  lPrevious := _CurrentContextRef;
-  _CurrentContextRef := nil;
-  lPrevious := nil;
-  if Assigned(aContext) then
-    _CurrentContext := aContext as TwbGameContext
-  else
-    _CurrentContext := nil;
-  _CurrentContextRef := aContext;
 end;
 
 function wbCreateGameContext(const aGameDef: IwbGameDef): IwbGameContext;
 begin
   Assert(Assigned(wbGameContextClass));
   Result := wbGameContextClass.Create(aGameDef);
-  wbMakeCurrentContext(Result);
 end;
 
 { TwbGameContextSettings }
@@ -7066,6 +6836,7 @@ begin
   Result.AlwaysLoadGameMaster := True;
   Result.CreateContainedIn := True;
   Result.DelayLoadRecords := True;
+  Result.AllowInternalEdit := True;
   Result.Encoding := wbMBCSEncoding(1252);
   Result.EncodingTrans := Result.Encoding;
   Result.LoadBSAs := True;
@@ -7089,10 +6860,7 @@ end;
 constructor TwbGameContext.Create(const aGameDef: IwbGameDef);
 begin
   inherited Create;
-  if Assigned(_CurrentContext) then
-    Settings := _CurrentContext.Settings
-  else
-    Settings := TwbGameContextSettings.Defaults;
+  Settings := TwbGameContextSettings.Defaults;
   gcGameDef := aGameDef;
   gcGameDefObj := aGameDef as TwbGameDef;
   gcGlobalGeneration := 1;
@@ -7108,16 +6876,6 @@ begin
   gcStripMastersFileNames := CreateNameList;
   gcLEncoding[False] := CreateLEncodingList;
   gcLEncoding[True] := CreateLEncodingList;
-  if Assigned(_CurrentContext) then begin
-    gcRecordToSkip.Assign(_CurrentContext.RecordToSkip);
-    gcSubRecordToSkip.Assign(_CurrentContext.SubRecordToSkip);
-    gcGroupToSkip.Assign(_CurrentContext.GroupToSkip);
-    gcChaptersToSkip.Assign(_CurrentContext.ChaptersToSkip);
-    gcAllowDirectSaveFor.Assign(_CurrentContext.AllowDirectSaveFor);
-    gcStripMastersFileNames.Assign(_CurrentContext.StripMastersFileNames);
-    gcLEncoding[False].Assign(_CurrentContext.LEncoding[False]);
-    gcLEncoding[True].Assign(_CurrentContext.LEncoding[True]);
-  end;
   gcLocalizationHandler := TwbLocalizationHandler.Create(Self);
 end;
 
@@ -7630,6 +7388,14 @@ begin
   Inc(gcGlobalGeneration);
 end;
 
+function TwbGameContext.ExpandFileName(const aFileName: string): string;
+begin
+  if (ExtractFilePath(aFileName) = '') and not SameText(aFileName, wbGameExeName) then
+    Result := Settings.DataPath + ExtractFileName(aFileName)
+  else
+    Result := aFileName;
+end;
+
 function TwbGameContext.FormIDFromIdentity(aFormIDBase, aFormIDNameBase: Byte; aIdentity: string): TwbFormID;
 var
   i: Cardinal;
@@ -8043,6 +7809,30 @@ begin
   Settings.DelayLoadRecords := aValue;
 end;
 
+function TwbGameContext.GameMasterRecordByFormID(const aFormID: TwbFormID): IwbMainRecord;
+begin
+  var lGameMaster := GetGameMasterFile;
+  if Assigned(lGameMaster) then
+    Result := lGameMaster.RecordByFormID[aFormID, True, False]
+  else
+    Result := nil;
+end;
+
+function TwbGameContext.FormIDOf(const aElement: IwbElement): TwbFormID;
+begin
+  if Assigned(Settings.FormIDCallback) then
+    Result := Settings.FormIDCallback(aElement)
+  else
+    Result := TwbFormID.Null;
+end;
+
+function TwbGameContext.CellDetailsForWorldspace(const aWorldspace: IwbMainRecord; var aPersistent: Boolean; var aGridCell: TwbGridCell): Boolean;
+begin
+  Result :=
+    Assigned(Settings.CellDetailsForWorldspaceCallback) and
+    Settings.CellDetailsForWorldspaceCallback(aWorldspace, aPersistent, aGridCell);
+end;
+
 function TwbGameContext.GetGameMasterFile: IwbFile;
 begin
   for var lIdx := Low(gcFiles) to High(gcFiles) do
@@ -8074,7 +7864,7 @@ end;
 
 function TwbGameContext.AllocateFullSlot: Integer;
 begin
-  if gcNextFullSlot > TwbFileID.MaxFullSlot then
+  if gcNextFullSlot > TwbFileID.MaxFullSlot(SlotLayout) then
     raise Exception.Create('Too many full modules');
   Result := gcNextFullSlot;
   Inc(gcNextFullSlot);
@@ -8082,7 +7872,7 @@ end;
 
 function TwbGameContext.AllocateLightSlot: Integer;
 begin
-  if gcNextLightSlot > TwbFileID.MaxLightSlot then
+  if gcNextLightSlot > TwbFileID.MaxLightSlot(SlotLayout) then
     raise Exception.Create('Too many light modules');
   Result := gcNextLightSlot;
   Inc(gcNextLightSlot);
@@ -8090,7 +7880,7 @@ end;
 
 function TwbGameContext.AllocateMediumSlot: Integer;
 begin
-  if gcNextMediumSlot > TwbFileID.MaxMediumSlot then
+  if gcNextMediumSlot > TwbFileID.MaxMediumSlot(SlotLayout) then
     raise Exception.Create('Too many medium modules');
   Result := gcNextMediumSlot;
   Inc(gcNextMediumSlot);
@@ -8109,7 +7899,7 @@ end;
 function TwbGameContext.RecordByLoadOrderFormID(const aFormID: TwbFormID; const aSeenFromFile: IwbFile): IwbMainRecord;
 begin
   Result := nil;
-  var lFileID := aFormID.FileID;
+  var lFileID := aFormID.FileID[SlotLayout];
   for var i:= Low(gcFiles) to High(gcFiles) do
     if gcFiles[i].LoadOrderFileID = lFileID then begin
       Result := gcFiles[i].ContainedRecordByLoadOrderFormID[aFormID, True];
@@ -8147,14 +7937,18 @@ end;
 
 function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource): IwbGameDef;
 begin
+  Result := wbCreateGameDef(aGameMode, aToolSource, Default(TwbGameDefInputs));
+end;
+
+function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs): IwbGameDef;
+begin
   var lGameDefClass := _GameDefClasses[aGameMode, aToolSource];
   if not Assigned(lGameDefClass) then
     raise Exception.Create('No definitions are registered for ' +
       GetEnumName(TypeInfo(TwbGameMode), Ord(aGameMode)) + ' with ' +
       GetEnumName(TypeInfo(TwbToolSource), Ord(aToolSource)));
-  var lGameDef := lGameDefClass.Create(aGameMode, aToolSource);
+  var lGameDef := lGameDefClass.Create(aGameMode, aToolSource, aInputs);
   Result := lGameDef;
-  wbMakeCurrentGameDef(lGameDef);
   lGameDef.Define;
 end;
 
@@ -8196,17 +7990,17 @@ begin
   end;
 end;
 
-function wbIsInGridCell(const aPosition: TwbVector; const aGridCell: TwbGridCell): Boolean;
+function TwbGameDef.IsInGridCell(const aPosition: TwbVector; const aGridCell: TwbGridCell): Boolean;
 var
   GridCell : TwbGridCell;
 begin
-  GridCell := wbPositionToGridCell(aPosition);
+  GridCell := PositionToGridCell(aPosition);
   Result := (GridCell.x = aGridCell.x) and (GridCell.y = aGridCell.y);
 end;
 
-function wbPositionToGridCell(const aPosition: TwbVector): TwbGridCell;
+function TwbGameDef.PositionToGridCell(const aPosition: TwbVector): TwbGridCell;
 begin
-  var lCellSizeFactor := _CurrentGameDef.CellSizeFactor;
+  var lCellSizeFactor := gdCellSizeFactor;
   Result.x := Trunc(aPosition.x / lCellSizeFactor);
   if (aPosition.x < 0) and (Frac(aPosition.x / lCellSizeFactor) <> 0) then
     Dec(Result.x);
@@ -8216,9 +8010,9 @@ begin
     Dec(Result.y);
 end;
 
-function wbGridCellToCenterPosition(const aGridCell: TwbGridCell): TwbVector;
+function TwbGameDef.GridCellToCenterPosition(const aGridCell: TwbGridCell): TwbVector;
 begin
-  var lCellSizeFactor := _CurrentGameDef.CellSizeFactor;
+  var lCellSizeFactor := gdCellSizeFactor;
   Result.z := 0;
   if aGridCell.x >= 0 then
     Result.x := (Succ(aGridCell.x) * lCellSizeFactor) - (lCellSizeFactor/2)
@@ -8260,21 +8054,6 @@ begin
   xx := PWord(@x)^;
   yy := PWord(@y)^;
   Result := Cardinal(yy) or (Cardinal(xx) shl 16);
-end;
-
-function wbGetFormID(const aElement: IwbElement): TwbFormID;
-begin
-  if Assigned(_CurrentContext.Settings.FormIDCallback) then
-    Result := _CurrentContext.Settings.FormIDCallback(aElement)
-  else
-    Result := TwbFormID.Null;
-end;
-
-function wbGetCellDetailsForWorldspace(aWorldspace: IwbMainRecord; var aPersistent: Boolean; var aGridCell: TwbGridCell): Boolean;
-begin
-  Result :=
-    Assigned(_CurrentContext.Settings.CellDetailsForWorldspaceCallback) and
-    _CurrentContext.Settings.CellDetailsForWorldspaceCallback(aWorldspace, aPersistent, aGridCell);
 end;
 
 function ConflictAllToColor(aConflictAll: TConflictAll): TColor;
@@ -8388,6 +8167,8 @@ type
     procedure AfterConstruction; override;
 
     function defIsLocked: Boolean;
+    function defGameDefObj: TwbGameDef; virtual;
+    function defSlotLayout(const aElement: IwbElement): TwbSlotLayout;
 
     {---IInterface---}
     function QueryInterface(const IID: TGUID; out Obj): HResult; virtual; stdcall;
@@ -8574,6 +8355,8 @@ type
 
     procedure recBuildReferences;
   protected
+    function defGameDefObj: TwbGameDef; override;
+
     constructor Clone(const aSource: TwbDef); override;
     constructor Create(aGameDef         : TwbGameDef;
                        aPriority        : TwbConflictPriority;
@@ -12218,6 +12001,30 @@ begin
   Result := Assigned(defParent) or (dfTemplate in defFlags);
 end;
 
+function TwbDef.defSlotLayout(const aElement: IwbElement): TwbSlotLayout;
+begin
+  if Assigned(aElement) then
+    Exit(aElement.ContextObj.SlotLayout);
+
+  Result := [];
+  var lGameDef := defGameDefObj;
+  if Assigned(lGameDef) then begin
+    var lCapabilities := lGameDef.Capabilities;
+    if gcLightPlugins in lCapabilities then
+      Include(Result, skLight);
+    if gcMediumPlugins in lCapabilities then
+      Include(Result, skMedium);
+  end;
+end;
+
+function TwbDef.defGameDefObj: TwbGameDef;
+begin
+  if Assigned(defParent) then
+    Result := defParent.defGameDefObj
+  else
+    Result := nil;
+end;
+
 function TwbDef.Duplicate: TwbDef;
 begin
   Result := TwbDefClass(ClassType).Clone(Self);
@@ -13051,6 +12858,11 @@ end;
 function TwbMainRecordDef.GetQuickInitLimit: Integer;
 begin
   Result := recQuickInitLimit;
+end;
+
+function TwbMainRecordDef.defGameDefObj: TwbGameDef;
+begin
+  Result := recGameDef;
 end;
 
 function TwbMainRecordDef.GetRecordHeaderStruct: IwbStructDef;
@@ -14653,7 +14465,11 @@ end;
 
 function TwbSubRecordStructDef.GetRecordHeaderStruct: IwbStructDef;
 begin
-  Result := _CurrentGameDef.MainRecordHeader as IwbStructDef;
+  var lGameDef := defGameDefObj;
+  if Assigned(lGameDef) then
+    Result := lGameDef.MainRecordHeader as IwbStructDef
+  else
+    Result := nil;
 end;
 
 function TwbSubRecordStructDef.GetAssignTemplates(const aContainer: IwbContainerElementRef; aIndex: Integer): TwbDefs;
@@ -15058,7 +14874,11 @@ end;
 
 function TwbSubRecordUnionDef.GetRecordHeaderStruct: IwbStructDef;
 begin
-  Result := _CurrentGameDef.MainRecordHeader as IwbStructDef;
+  var lGameDef := defGameDefObj;
+  if Assigned(lGameDef) then
+    Result := lGameDef.MainRecordHeader as IwbStructDef
+  else
+    Result := nil;
 end;
 
 function TwbSubRecordUnionDef.GetSignatureCount: Integer;
@@ -19807,7 +19627,7 @@ begin
         var TargetFile := aTarget._File;
         if Assigned(TargetFile) then begin
           if dfUnmappedFormID in defFlags then begin
-            if FormID.FileID.FullSlot <> 0 then
+            if FormID.FileID[TargetFile.ContextObj.SlotLayout].FullSlot <> 0 then
               raise Exception.Create('Unmapped FormIDs must belong to File ID [00]');
             if TargetFile.FileStates * [fsIsGameMaster, fsIsHardcoded] = [] then
               if (TargetFile.MasterCount[True] < 1) or (TargetFile.Masters[0, True].FileStates * [fsIsGameMaster] = []) then
@@ -19865,16 +19685,17 @@ begin
         if (dfUnmappedFormID in defFlags) and not lFormID.IsNull then begin
           if lFile.FileStates * [fsIsGameMaster, fsIsHardcoded] = [] then
             if (lFile.MasterCount[True] < 1) or (lFile.Masters[0, True].FileStates * [fsIsGameMaster] = []) then
-              Exit('['+lFormID.ToString(False)+'] <Error: Unmapped FormIDs can only be different from 00000000 in modules which have the game master as their first master>');
+              Exit('['+lFormID.ToString+'] <Error: Unmapped FormIDs can only be different from 00000000 in modules which have the game master as their first master>');
         end;
 
-        if lFormID.ObjectID < $800 then
+        var lLayout := defSlotLayout(aElement);
+        if lFormID.ObjectID[lLayout] < $800 then
           if not lFile.AllowHardcodedRangeUse then
-            lFormID.FileID := TwbFileID.Null;
+            lFormID.FileID[lLayout] := TwbFileID.Null;
 
         var lMainRecord: IwbMainRecord;
         if lFormID.IsHardcoded then
-          lMainRecord := wbGameMasterRecordByFormID(lFormID)
+          lMainRecord := lFile.ContextObj.GameMasterRecordByFormID(lFormID)
         else
           lMainRecord := lFile.RecordByFormID[lFormID, True, aElement.MastersUpdated];
 
@@ -19893,12 +19714,12 @@ begin
   end;
 
   if dfUnmappedFormID in defFlags then begin
-    if lFormID.FileID.FullSlot <> 0 then
-      Exit('['+lFormID.ToString(False)+'] <Error: Unmapped FormIDs must belong to File ID [00]>');
+    if lFormID.FileID[defSlotLayout(aElement)].FullSlot <> 0 then
+      Exit('['+lFormID.ToString+'] <Error: Unmapped FormIDs must belong to File ID [00]>');
   end;
 
   if not lFormID.IsHardcoded then
-    Result := '['+lFormID.ToString(False)+'] <Error: Could not be resolved>';
+    Result := '['+lFormID.ToString+'] <Error: Could not be resolved>';
 end;
 
 function TwbFormIDDefFormater.CheckFlst(const aMainRecord: IwbMainRecord): Boolean;
@@ -20097,7 +19918,7 @@ begin
 
   if (Result <> 0) and (dfUnmappedFormID in defFlags) then begin
     var lFormID := TwbFormID.FromCardinal(Result);
-    if lFormID.FileID.FullSlot <> 0 then
+    if lFormID.FileID[defSlotLayout(aElement)].FullSlot <> 0 then
       raise Exception.Create('Unmapped FormIDs must belong to File ID [00]');
   end;
 
@@ -20152,7 +19973,7 @@ begin
     FormID := _File.LoadOrderFormIDtoFileFormID(FormID, aElement.MastersUpdated);
 
   if not FormID.IsNull and (dfUnmappedFormID in defFlags) then begin
-    if FormID.FileID.FullSlot <> 0 then
+    if FormID.FileID[defSlotLayout(aElement)].FullSlot <> 0 then
       raise Exception.Create('Unmapped FormIDs must belong to File ID [00]');
     if _File.FileStates * [fsIsGameMaster, fsIsHardcoded] = [] then
       if (_File.MasterCount[True] < 1) or (_File.Masters[0, True].FileStates * [fsIsGameMaster] = []) then
@@ -20347,14 +20168,15 @@ begin
           Process(_File.Masters[i, aElement.MastersUpdated], False);
         end;
         if not ProcessedGM then
-          Process(wbGetGameMasterFile, True);
+          Process(_File.ContextObj.GameMasterFile, True);
 
         Wait := nil;
         FilesProg := nil;
 
         if ACVAIsValid then begin
-          for i := 0 to Pred(_CurrentGameDef.ActorValueEnum.NameCount) do
-            Strings.Add(_CurrentGameDef.ActorValueEnum.Names[i] + ' [ACVA:' + IntToHex64(i, 8) + ']');
+          var lActorValueEnum := _File.GameDefObj.ActorValueEnum;
+          for i := 0 to Pred(lActorValueEnum.NameCount) do
+            Strings.Add(lActorValueEnum.Names[i] + ' [ACVA:' + IntToHex64(i, 8) + ']');
           Strings.Add(' None [ACVA:000000FF]');
           Strings.Add(' Invalid [ACVA:00000048]');
         end else begin
@@ -20444,21 +20266,22 @@ begin
     Exit;
 
   if dfUseLoadOrder in defFlags then begin
-    var lFile: IwbFile;
     if Assigned(aElement) then
-      lFile := aElement._File;
-    Result := wbRecordByLoadOrderFormID(TwbFormID.FromCardinal(aInt), lFile)
+      Result := aElement.ContextObj.RecordByLoadOrderFormID(TwbFormID.FromCardinal(aInt), aElement._File)
+    else
+      Result := nil;
   end else if Assigned(aElement) then begin
     var lFile := aElement._File;
     if Assigned(lFile) then try
       var lFormID := TwbFormID.FromCardinal(aInt);
 
-      if lFormID.ObjectID < $800 then
+      var lLayout := defSlotLayout(aElement);
+      if lFormID.ObjectID[lLayout] < $800 then
         if not lFile.AllowHardcodedRangeUse then
-          lFormID.FileID := TwbFileID.Null;
+          lFormID.FileID[lLayout] := TwbFileID.Null;
 
       if lFormID.IsHardcoded then
-        Result := wbGameMasterRecordByFormID(lFormID)
+        Result := lFile.ContextObj.GameMasterRecordByFormID(lFormID)
       else
         Result := lFile.RecordByFormID[lFormID, True, aElement.MastersUpdated];
     except end;
@@ -20475,22 +20298,21 @@ function TwbFormIDDefFormater.GetMainRecord(aInt: Int64; const aElement: IwbElem
 begin
   Result := nil;
   if dfUseLoadOrder in defFlags then begin
-    var lFile: IwbFile;
     if Assigned(aElement) then
-      lFile := aElement._File;
-    Result := wbRecordByLoadOrderFormID(TwbFormID.FromCardinal(aInt), lFile)
+      Result := aElement.ContextObj.RecordByLoadOrderFormID(TwbFormID.FromCardinal(aInt), aElement._File);
   end else begin
     if Assigned(aElement) then begin
       var lFile := aElement._File;
       if Assigned(lFile) then try
         var lFormID := TwbFormID.FromCardinal(aInt);
 
-        if lFormID.ObjectID < $800 then
+        var lLayout := defSlotLayout(aElement);
+        if lFormID.ObjectID[lLayout] < $800 then
           if not lFile.AllowHardcodedRangeUse then
-            lFormID.FileID := TwbFileID.Null;
+            lFormID.FileID[lLayout] := TwbFileID.Null;
 
         if lFormID.IsHardcoded then
-          Result := wbGameMasterRecordByFormID(lFormID)
+          Result := lFile.ContextObj.GameMasterRecordByFormID(lFormID)
         else
           Result := lFile.RecordByFormID[lFormID, True, aElement.MastersUpdated];
 
@@ -20514,7 +20336,7 @@ begin
   Result := True;
 end;
 
-function FixupFormID(const aFormID: TwbFormID; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts; aAllowHardcodedRangeUse: Boolean): TwbFormID;
+function FixupFormID(const aFormID: TwbFormID; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts; aAllowHardcodedRangeUse: Boolean; aLayout: TwbSlotLayout): TwbFormID;
 var
   FileID    : TwbFileID;
   i         : Integer;
@@ -20526,8 +20348,8 @@ var
   begin
     case aType of
       mtFull: Result := TwbFileID.CreateFull(aInt);
-      mtMedium: Result := TwbFileID.CreateMedium(aInt);
-      mtLight: Result := TwbFileID.CreateLight(aInt);
+      mtMedium: Result := TwbFileID.CreateMedium(aInt, aLayout);
+      mtLight: Result := TwbFileID.CreateLight(aInt, aLayout);
     end;
   end;
 
@@ -20537,16 +20359,16 @@ begin
   if Result.IsNull or Result.IsPlayer or Result.IsNone then
     Exit;
 
-  if Result.ObjectID < $800 then
+  if Result.ObjectID[aLayout] < $800 then
     if aAllowHardcodedRangeUse then begin
       if Result.IsHardcoded then
         Exit;
     end else begin
-      Result.FileID := TwbFileID.Null;
+      Result.FileID[aLayout] := TwbFileID.Null;
       Exit;
     end;
 
-  FileID := Result.FileID;
+  FileID := Result.FileID[aLayout];
 
   OldCount := aOldCount.Total;
   NewCount := aNewCount.Total;
@@ -20574,20 +20396,20 @@ begin
   if NewCount > OldCount then
     if Slot >= OldCount then begin
       FileID := CreateByType(FileID.GetModuleType, NewCount);
-      Result.FileID := FileID;
+      Result.FileID[aLayout] := FileID;
       Exit;
     end;
 
   for i := Low(aOld) to High(aOld) do
     if aOld[i] = FileID then begin
-      Result.FileID := aNew[i];
+      Result.FileID[aLayout] := aNew[i];
       Exit;
     end;
 
   if NewCount < OldCount then
     if Slot >= OldCount then begin
       FileID := CreateByType(FileID.GetModuleType, NewCount);
-      Result.FileID := FileID;
+      Result.FileID[aLayout] := FileID;
       Exit;
     end;
 end;
@@ -20608,7 +20430,7 @@ begin
   end;
 
   if aInt <> 0 then
-    Result := FixupFormID(TwbFormID.FromCardinal(aInt), aOld, aNew, aOldCount, aNewCount, lAllowHardcodedRangeUse).ToCardinal;
+    Result := FixupFormID(TwbFormID.FromCardinal(aInt), aOld, aNew, aOldCount, aNewCount, lAllowHardcodedRangeUse, defSlotLayout(aElement)).ToCardinal;
 end;
 
 procedure TwbFormIDDefFormater.Report(const aParents: TwbDefPath);
@@ -20683,7 +20505,7 @@ begin
 
     end;
 
-  Result := FormID.ToString(False);
+  Result := FormID.ToString;
 
   if Self is TwbFormIDCheckedST then with TwbFormIDCheckedST(Self) do begin
     j := -1;
@@ -20721,9 +20543,18 @@ begin
       MainRecord := FindRecordForAVCode(aInt, aElement);
       if Assigned(MainRecord) then
         Result := MainRecord.FullName
-      else
-        Result := _CurrentGameDef.ActorValueEnum.ToString(aInt, aElement, aForSummary);
-      Result := Result + ' [ACVA:' + FormID.ToString(False) + ']';
+      else begin
+        var lGameDef: TwbGameDef := nil;
+        if Assigned(aElement) then
+          lGameDef := aElement.GameDefObj;
+        if not Assigned(lGameDef) then
+          lGameDef := defGameDefObj;
+        if Assigned(lGameDef) then
+          Result := lGameDef.ActorValueEnum.ToString(aInt, aElement, aForSummary)
+        else
+          Result := '';
+      end;
+      Result := Result + ' [ACVA:' + FormID.ToString + ']';
     end;
     Exit;
   end;
@@ -20733,7 +20564,7 @@ begin
       if aForSummary then
         Result := 'TARGET'
       else
-        Result := 'TARGET - Target Reference ['+FormID.ToString(False)+']';
+        Result := 'TARGET - Target Reference ['+FormID.ToString+']';
       if wbReportMode and not (dfNoReport in defFlags) then
         if wbReportFormIDs then begin
           if not Assigned(FoundSignatures) then
@@ -20749,7 +20580,7 @@ begin
         else
           Result := 'NULL'
       end else
-        Result := 'NULL - Null Reference ['+FormID.ToString(False)+']';
+        Result := 'NULL - Null Reference ['+FormID.ToString+']';
       if wbReportMode and not (dfNoReport in defFlags) then
         if wbReportFormIDs then begin
           if not Assigned(FoundSignatures) then
@@ -20765,7 +20596,7 @@ begin
       if aForSummary then
         Result := 'FFFF'
       else
-        Result := 'FFFF - None Reference ['+FormID.ToString(False)+']';
+        Result := 'FFFF - None Reference ['+FormID.ToString+']';
     if wbReportMode and not (dfNoReport in defFlags) then
       if wbReportFormIDs then begin
         if not Assigned(FoundSignatures) then
@@ -20785,14 +20616,15 @@ begin
         if dfUseLoadOrder in defFlags then begin
           {stored FormID is already a LoadOrder FormID}
           FormID := TwbFormID.FromCardinal(aInt);
-          MainRecord := wbRecordByLoadOrderFormID(FormID, _File);
+          MainRecord := _File.ContextObj.RecordByLoadOrderFormID(FormID, _File);
         end else begin
-          if FormID.ObjectID < $800 then
+          var lLayout := defSlotLayout(aElement);
+          if FormID.ObjectID[lLayout] < $800 then
             if not _File.AllowHardcodedRangeUse then
-              FormID.FileID := TwbFileID.Null;
+              FormID.FileID[lLayout] := TwbFileID.Null;
 
           if FormID.IsHardcoded then
-            MainRecord := wbGameMasterRecordByFormID(FormID)
+            MainRecord := _File.ContextObj.GameMasterRecordByFormID(FormID)
           else begin
             MainRecord := _File.RecordByFormID[FormID, True, aElement.MastersUpdated];
             if wbDisplayLoadOrderFormID then
@@ -20804,11 +20636,11 @@ begin
         end;
 
         if dfUnmappedFormID in defFlags then begin
-          if FormID.FileID.FullSlot <> 0 then
-            Exit('['+FormID.ToString(False)+'] <Error: Unmapped FormIDs must belong to File ID [00]>');
+          if FormID.FileID[defSlotLayout(aElement)].FullSlot <> 0 then
+            Exit('['+FormID.ToString+'] <Error: Unmapped FormIDs must belong to File ID [00]>');
           if _File.FileStates * [fsIsGameMaster, fsIsHardcoded] = [] then
             if (_File.MasterCount[True] < 1) or (_File.Masters[0, True].FileStates * [fsIsGameMaster] = []) then
-              Exit('['+FormID.ToString(False)+'] <Error: Unmapped FormIDs can only be different from 00000000 in modules which have the game master as their first master>');
+              Exit('['+FormID.ToString+'] <Error: Unmapped FormIDs can only be different from 00000000 in modules which have the game master as their first master>');
         end;
 
         if Assigned(MainRecord) then begin
@@ -20845,7 +20677,7 @@ begin
         end;
       except
         on E: Exception do begin
-          Result := '['+FormID.ToString(False)+'] <Error: '+E.Message+'>';
+          Result := '['+FormID.ToString+'] <Error: '+E.Message+'>';
           if wbReportMode and not (dfNoReport in defFlags) then
             if wbReportFormIDs then begin
               if not Assigned(FoundSignatures) then
@@ -20862,7 +20694,7 @@ begin
   end;
 
   if FormID.IsHardcoded then begin
-    s := FormID.ToString(False);
+    s := FormID.ToString;
     Result := '['+s+'] <Warning: Could not be resolved, but is possibly hardcoded in the engine>';
     if wbReportMode and not (dfNoReport in defFlags) then
       if wbReportFormIDs then begin
@@ -20881,7 +20713,7 @@ begin
         end;
       end;
   end else begin
-    s := FormID.ToString(False);
+    s := FormID.ToString;
     Result := '['+s+'] <Error: Could not be resolved>';
     if wbReportMode and not (dfNoReport in defFlags) then
       if wbReportFormIDs then begin
@@ -21613,7 +21445,7 @@ begin
                 SetLength(LStringsAtOffSet, Succ(Offset));
 
               try
-                if wbLocalizationHandler.GetValue(aInt, aElement, s) then begin
+                if wbLocalizationHandler(aElement.ContextObj).GetValue(aInt, aElement, s) then begin
                   Inc(FoundLStringAtOffSet[Offset]);
 
                   if not Assigned(LStringsAtOffSet[Offset]) then
@@ -22375,12 +22207,13 @@ begin
     _File := aElement._File;
     if Assigned(_File) then begin
       try
-        if FormID.ObjectID < $800 then
+        var lLayout := defSlotLayout(aElement);
+        if FormID.ObjectID[lLayout] < $800 then
           if not _File.AllowHardcodedRangeUse then
-            FormID.FileID := TwbFileID.Null;
+            FormID.FileID[lLayout] := TwbFileID.Null;
 
         if FormID.IsHardcoded then
-          MainRecord := wbGameMasterRecordByFormID(FormID)
+          MainRecord := _File.ContextObj.GameMasterRecordByFormID(FormID)
         else begin
           MainRecord := _File.RecordByFormID[FormID, True, aElement.MastersUpdated];
           if wbDisplayLoadOrderFormID then
@@ -23371,36 +23204,36 @@ begin
   Result := (_Flags and $00000080) <> 0;
 end;
 
-function TwbMainRecordStructFlags.IsMedium: Boolean;
+function TwbMainRecordStructFlags.IsMedium(aGameDef: TwbGameDef): Boolean;
 begin
-  Result := wbIsMediumSupported and
+  Result := (gcMediumPlugins in aGameDef.Capabilities) and
     ((_Flags and $00000400) <> 0);
 end;
 
-function TwbMainRecordStructFlags.IsBlueprint: Boolean;
+function TwbMainRecordStructFlags.IsBlueprint(aGameDef: TwbGameDef): Boolean;
 begin
-  Result := wbIsBlueprintSupported and
+  Result := (gcBlueprintPlugins in aGameDef.Capabilities) and
     ((_Flags and $00000800) <> 0);
 end;
 
 
-function TwbMainRecordStructFlags.IsLight: Boolean;
+function TwbMainRecordStructFlags.IsLight(aGameDef: TwbGameDef): Boolean;
 begin
-  if wbIsStarfield then
-    Result := wbIsLightSupported and
+  if aGameDef.IsStarfield then
+    Result := (gcLightPlugins in aGameDef.Capabilities) and
       ((_Flags and $00000100) <> 0)
   else
-    Result := wbIsLightSupported and
+    Result := (gcLightPlugins in aGameDef.Capabilities) and
       ((_Flags and $00000200) <> 0);
 end;
 
-function TwbMainRecordStructFlags.IsUpdate: Boolean;
+function TwbMainRecordStructFlags.IsUpdate(aGameDef: TwbGameDef): Boolean;
 begin
-  Result := 
-        wbIsUpdateSupported 
+  Result :=
+        (gcUpdatePlugins in aGameDef.Capabilities)
     and (
-             (wbIsStarfield and ((_Flags and $00000200) <> 0)) 
-          or (wbVRESL       and ((_Flags and $00100000) <> 0))
+             (aGameDef.IsStarfield and ((_Flags and $00000200) <> 0))
+          or ((not aGameDef.IsStarfield) and ((_Flags and $00100000) <> 0))
         );
 end;
 
@@ -23450,34 +23283,34 @@ begin
     _Flags := _Flags and not $00000020;
 end;
 
-procedure TwbMainRecordStructFlags.SetMedium(aValue: Boolean);
+procedure TwbMainRecordStructFlags.SetMedium(aGameDef: TwbGameDef; aValue: Boolean);
 begin
-  if wbIsMediumSupported then
+  if gcMediumPlugins in aGameDef.Capabilities then
     if aValue then begin
       _Flags := _Flags or $00000400;
-      SetLight(False);
-      SetUpdate(False);
+      SetLight(aGameDef, False);
+      SetUpdate(aGameDef, False);
     end else
       _Flags := _Flags and not $00000400;
 end;
 
-procedure TwbMainRecordStructFlags.SetBlueprint(aValue: Boolean);
+procedure TwbMainRecordStructFlags.SetBlueprint(aGameDef: TwbGameDef; aValue: Boolean);
 begin
-  if wbIsBlueprintSupported then
+  if gcBlueprintPlugins in aGameDef.Capabilities then
     if aValue then
       _Flags := _Flags or $00000800
     else
       _Flags := _Flags and not $00000800;
 end;
 
-procedure TwbMainRecordStructFlags.SetLight(aValue: Boolean);
+procedure TwbMainRecordStructFlags.SetLight(aGameDef: TwbGameDef; aValue: Boolean);
 begin
-  if wbIsLightSupported then
-    if wbIsStarfield then begin
+  if gcLightPlugins in aGameDef.Capabilities then
+    if aGameDef.IsStarfield then begin
       if aValue then begin
         _Flags := _Flags or $00000100;
-        SetMedium(False);
-        SetUpdate(False);
+        SetMedium(aGameDef, False);
+        SetUpdate(aGameDef, False);
       end else
         _Flags := _Flags and not $00000100;
     end else
@@ -23487,20 +23320,20 @@ begin
         _Flags := _Flags and not $00000200;
 end;
 
-procedure TwbMainRecordStructFlags.SetUpdate(aValue: Boolean);
+procedure TwbMainRecordStructFlags.SetUpdate(aGameDef: TwbGameDef; aValue: Boolean);
 begin
-  if wbIsUpdateSupported then
+  if gcUpdatePlugins in aGameDef.Capabilities then
     if aValue then begin
-      if wbIsStarfield then
+      if aGameDef.IsStarfield then
         _Flags := _Flags or $00000200
-      else if wbVRESL then
+      else
         _Flags := _Flags or $00100000;
-      SetLight(False);
-      SetMedium(False);
+      SetLight(aGameDef, False);
+      SetMedium(aGameDef, False);
     end else
-      if wbIsStarfield then
+      if aGameDef.IsStarfield then
         _Flags := _Flags and not $00000200
-      else if wbVRESL then
+      else
         _Flags := _Flags and not $00100000;
 end;
 
@@ -23902,13 +23735,13 @@ begin
   end;
 
   if aElement._File.IsLocalized then
-    if wbLocalizationHandler.NoTranslate then begin
+    if wbLocalizationHandler(aElement.ContextObj).NoTranslate then begin
       // assign a string when delocalizing and NoTranslate is true
       inherited FromStringNative(aBasePtr, aEndPtr, aElement, aValue, aTransformType);
       aElement.Localized := tbFalse;
     end else begin
       // set localized string's value
-      ID := wbLocalizationHandler.SetValue(PCardinal(aBasePtr)^, aElement, aValue);
+      ID := wbLocalizationHandler(aElement.ContextObj).SetValue(PCardinal(aBasePtr)^, aElement, aValue);
       aElement.RequestStorageChange(aBasePtr, aEndPtr, SizeOf(Cardinal));
       PCardinal(aBasePtr)^ := ID;
       aElement.Localized := tbTrue;
@@ -23981,7 +23814,7 @@ begin
       else
         Result := '<Error: lstring ID is not Int32>'
     end else begin
-      Found := wbLocalizationHandler.GetValue(PCardinal(aBasePtr)^, aElement, Result);
+      Found := wbLocalizationHandler(aElement.ContextObj).GetValue(PCardinal(aBasePtr)^, aElement, Result);
       if aTransformType = ttCheck then
         if Found then
           Result := ''
@@ -24944,11 +24777,6 @@ begin
     Result := '';
 end;
 
-function _wbRecordDefMap: TStringList;
-begin
-  Result := _CurrentGameDef.RecordDefMap;
-end;
-
 {$IFDEF USE_CODESITE}
 threadvar
   wbCodeSiteLoggingCount: Integer;
@@ -25099,16 +24927,16 @@ end;
 
 { TwbFormID }
 
-class operator TwbFormID.Add(const A: TwbFormID; B: Int64): TwbFormID;
-begin
-  Result := A;
-  Result.ObjectID := Result.ObjectID + B;
-end;
-
-function TwbFormID.ChangeFileID(const aFileID: TwbFileID): TwbFormID;
+function TwbFormID.Offset(aLayout: TwbSlotLayout; aDelta: Int64): TwbFormID;
 begin
   Result := Self;
-  Result.FileID := aFileID;
+  Result.ObjectID[aLayout] := Result.ObjectID[aLayout] + aDelta;
+end;
+
+function TwbFormID.ChangeFileID(aLayout: TwbSlotLayout; const aFileID: TwbFileID): TwbFormID;
+begin
+  Result := Self;
+  Result.FileID[aLayout] := aFileID;
 end;
 
 class function TwbFormID.Compare(const A, B: TwbFormID): Integer;
@@ -25159,16 +24987,17 @@ begin
   Result := A._FormID = B._FormID;
 end;
 
-function TwbFormID.GetFileID: TwbFileID;
+function TwbFormID.GetFileID(aLayout: TwbSlotLayout): TwbFileID;
 begin
-  Result := TwbFileID.CreateFromFormID(_FormID);
+  Result := TwbFileID.CreateFromFormID(_FormID, aLayout);
 end;
 
-function TwbFormID.GetObjectID: Cardinal;
+function TwbFormID.GetObjectID(aLayout: TwbSlotLayout): Cardinal;
 begin
-  if FileID.IsLightSlot then
+  var lFileID := TwbFileID.CreateFromFormID(_FormID, aLayout);
+  if lFileID.IsLightSlot then
     Result := _FormID and $FFF
-  else if FileID.IsMediumSlot then
+  else if lFileID.IsMediumSlot then
     Result := _FormID and $FFFF
   else
     Result := _FormID and $FFFFFF;
@@ -25184,11 +25013,11 @@ begin
   Result := A._FormID >= B._FormID;
 end;
 
-class operator TwbFormID.Inc(const A: TwbFormID): TwbFormID;
+function TwbFormID.Next(aLayout: TwbSlotLayout): TwbFormID;
 var
   Mask: Cardinal;
 begin
-  var lFileID := a.FileID;
+  var lFileID := FileID[aLayout];
 
   if lFileID.IsLightSlot then
     Mask := $FFF
@@ -25197,7 +25026,7 @@ begin
   else
     Mask := $FFFFFF;
 
-  Result._FormID := (A._FormID and (not Mask)) or Max(Succ(A._FormID and Mask) and Mask, 2048);
+  Result._FormID := (_FormID and (not Mask)) or Max(Succ(_FormID and Mask) and Mask, 2048);
 end;
 
 function TwbFormID.IsHardcoded: Boolean;
@@ -25245,31 +25074,31 @@ begin
   Result := TwbFormID.FromCardinal(0);
 end;
 
-procedure TwbFormID.SetFileID(const Value: TwbFileID);
+procedure TwbFormID.SetFileID(aLayout: TwbSlotLayout; const Value: TwbFileID);
 begin
   var lFormID := _FormID;
   try
-    var lObjectID := ObjectID;
+    var lObjectID := ObjectID[aLayout];
 
     _FormID := Value.BaseFormID;
 
-    SetObjectID(lObjectID, True);
+    SetObjectID(aLayout, lObjectID, True);
   except
     _FormID := lFormID;
     raise;
   end;
 end;
 
-procedure TwbFormID.SetObjectID(const Value: Cardinal);
+procedure TwbFormID.SetObjectID(aLayout: TwbSlotLayout; const Value: Cardinal);
 begin
-  SetObjectID(Value, False);
+  SetObjectID(aLayout, Value, False);
 end;
 
-procedure TwbFormID.SetObjectID(const Value: Cardinal; aSilent: Boolean);
+procedure TwbFormID.SetObjectID(aLayout: TwbSlotLayout; const Value: Cardinal; aSilent: Boolean);
 var
   Mask: Cardinal;
 begin
-  var lFileID := FileID;
+  var lFileID := FileID[aLayout];
 
   if lFileID.IsLightSlot then
     Mask := $FFF
@@ -25290,20 +25119,19 @@ begin
   Result := A._FormID - B._FormID;
 end;
 
-class operator TwbFormID.Subtract(const A: TwbFormID; B: Int64): TwbFormID;
+function TwbFormID.ToString: string;
 begin
-  Result := A;
-  Result.ObjectID := Result.ObjectID - B;
+  Result := IntToHex64(_FormID, 8);
 end;
 
-function TwbFormID.ToString(aForDisplay: Boolean): string;
+function TwbFormID.ToDisplayString(aLayout: TwbSlotLayout): string;
 begin
   Result := IntToHex64(_FormID, 8);
 
-  if wbPrettyFormID and aForDisplay then begin
+  if wbPrettyFormID then begin
     Insert(' ', Result, 3);
 
-    var lFileID := FileID;
+    var lFileID := FileID[aLayout];
     if lFileID.IsLightSlot then
       Insert(' ', Result, 7)
     else if lFileID.IsMediumSlot then
@@ -25316,25 +25144,25 @@ end;
 function TwbFileID.BaseFormID: Cardinal;
 begin
   if IsLightSlot then
-    Result := (Cardinal(LightFullSlot) shl 24) or (Cardinal(_LightSlot) shl 12)
+    Result := (Cardinal($FE) shl 24) or (Cardinal(_LightSlot) shl 12)
   else if IsMediumSlot then
-    Result := (Cardinal(MediumFullSlot) shl 24) or (Cardinal(_MediumSlot) shl 16)
+    Result := (Cardinal($FD) shl 24) or (Cardinal(_MediumSlot) shl 16)
   else if IsFullSlot then
     Result := Cardinal(_FullSlot) shl 24
   else
     Result := $FFFFFFFF;
 end;
 
-class function TwbFileID.CreateFromFormID(aFormID: Cardinal): TwbFileID;
+class function TwbFileID.CreateFromFormID(aFormID: Cardinal; aLayout: TwbSlotLayout): TwbFileID;
 begin
   Result._FullSlot := aFormID shr 24;
 
-  if (Result._FullSlot = LightFullSlot) and (_CurrentContext.Settings.PseudoLight or wbIsLightSupported) then
+  if (skLight in aLayout) and (Result._FullSlot = $FE) then
     Result._LightSlot := (aFormID shr 12) and $FFF
   else
     Result._LightSlot := -1;
 
-  if (Result._FullSlot = MediumFullSlot) and (_CurrentContext.Settings.PseudoMedium or wbIsMediumSupported) then
+  if (skMedium in aLayout) and (Result._FullSlot = $FD) then
     Result._MediumSlot := (aFormID shr 16) and $FF
   else
     Result._MediumSlot := -1;
@@ -25349,21 +25177,21 @@ begin
   end;
 end;
 
-class function TwbFileID.CreateMedium(aMediumSlot: SmallInt): TwbFileID;
+class function TwbFileID.CreateMedium(aMediumSlot: SmallInt; aLayout: TwbSlotLayout): TwbFileID;
 begin
-  Assert(wbIsMediumSupported or _CurrentContext.Settings.PseudoMedium);
+  Assert(skMedium in aLayout);
   with Result do begin
-    _FullSlot := MediumFullSlot;
+    _FullSlot := $FD;
     _MediumSlot := aMediumSlot;
     _LightSlot := -1;
   end;
 end;
 
-class function TwbFileID.CreateLight(aLightSlot: SmallInt): TwbFileID;
+class function TwbFileID.CreateLight(aLightSlot: SmallInt; aLayout: TwbSlotLayout): TwbFileID;
 begin
-  Assert(wbIsLightSupported or _CurrentContext.Settings.PseudoLight);
+  Assert(skLight in aLayout);
   with Result do begin
-    _FullSlot := LightFullSlot;
+    _FullSlot := $FE;
     _MediumSlot := -1;
     _LightSlot := aLightSlot;
   end;
@@ -25386,9 +25214,9 @@ begin
     Result := mtFull;
 end;
 
-class function TwbFileID.MediumFullSlot: SmallInt;
+class function TwbFileID.MediumFullSlot(aLayout: TwbSlotLayout): SmallInt;
 begin
-  if _CurrentContext.Settings.PseudoMedium or wbIsMediumSupported then
+  if skMedium in aLayout then
     Result := $FD
   else
     Result := -1;
@@ -25404,35 +25232,35 @@ begin
   Result := (_LightSlot >= 0) or (_MediumSlot >= 0) or (_FullSlot >= 0);
 end;
 
-class function TwbFileID.LightFullSlot: SmallInt;
+class function TwbFileID.LightFullSlot(aLayout: TwbSlotLayout): SmallInt;
 begin
-  if _CurrentContext.Settings.PseudoLight or wbIsLightSupported then
+  if skLight in aLayout then
     Result := $FE
   else
     Result := -1;
 end;
 
-class function TwbFileID.MaxFullSlot: SmallInt;
+class function TwbFileID.MaxFullSlot(aLayout: TwbSlotLayout): SmallInt;
 begin
   Result := $FE;
-  if _CurrentContext.Settings.PseudoLight or wbIsLightSupported then begin
+  if skLight in aLayout then begin
     Dec(Result); //$FD
-    if _CurrentContext.Settings.PseudoMedium or wbIsMediumSupported then
+    if skMedium in aLayout then
       Dec(Result); //$FC
   end;
 end;
 
-class function TwbFileID.MaxMediumSlot: SmallInt;
+class function TwbFileID.MaxMediumSlot(aLayout: TwbSlotLayout): SmallInt;
 begin
- if _CurrentContext.Settings.PseudoMedium or wbIsMediumSupported then
+ if skMedium in aLayout then
    Result := $FF
  else
    Result := -1;
 end;
 
-class function TwbFileID.MaxLightSlot: SmallInt;
+class function TwbFileID.MaxLightSlot(aLayout: TwbSlotLayout): SmallInt;
 begin
- if _CurrentContext.Settings.PseudoLight or wbIsLightSupported then
+ if skLight in aLayout then
    Result := $FFF
  else
    Result := -1;
@@ -26056,11 +25884,17 @@ begin
       _File := aElement._File;
       if Assigned(_File) then
         Exit(_File.Encoding[dfTranslatable in defFlags]);
+      var lContext := aElement.ContextObj;
+      if Assigned(lContext) then
+        if dfTranslatable in defFlags then
+          Exit(lContext.Settings.EncodingTrans)
+        else
+          Exit(lContext.Settings.Encoding);
     end;
     if dfTranslatable in defFlags then
-      Result := _CurrentContext.Settings.EncodingTrans
+      Result := TwbGameContextSettings.Defaults.EncodingTrans
     else
-      Result := _CurrentContext.Settings.Encoding;
+      Result := TwbGameContextSettings.Defaults.Encoding;
   end;
 end;
 
@@ -26163,7 +25997,7 @@ begin
     bsdFormater := (aFormater as IwbDefInternal).SetParent(Self, False) as IwbStringDefFormater;
 end;
 
-procedure wbAddLEncodingIfMissing(const aLanguage: string; aEncoding: TEncoding; aFallback: Boolean); overload;
+procedure TwbGameContext.AddLEncodingIfMissing(const aLanguage: string; aEncoding: TEncoding; aFallback: Boolean);
 var
   i: Integer;
 begin
@@ -26171,11 +26005,11 @@ begin
     Exit;
   if not Assigned(aEncoding) then
     Exit;
-  if not _CurrentContext.LEncoding[aFallback].Find(aLanguage, i) then
-    _CurrentContext.LEncoding[aFallback].AddObject(aLanguage, aEncoding);
+  if not gcLEncoding[aFallback].Find(aLanguage, i) then
+    gcLEncoding[aFallback].AddObject(aLanguage, aEncoding);
 end;
 
-procedure wbAddLEncodingIfMissing(const aLanguage: string; const aEncoding: string; aFallback: Boolean); overload;
+procedure TwbGameContext.AddLEncodingIfMissing(const aLanguage: string; const aEncoding: string; aFallback: Boolean);
 var
   i: Integer;
 begin
@@ -26183,37 +26017,32 @@ begin
     Exit;
   if aEncoding = '' then
     Exit;
-  if not _CurrentContext.LEncoding[aFallback].Find(aLanguage, i) then try
-    _CurrentContext.LEncoding[aFallback].AddObject(aLanguage, wbMBCSEncoding(aEncoding));
+  if not gcLEncoding[aFallback].Find(aLanguage, i) then try
+    gcLEncoding[aFallback].AddObject(aLanguage, wbMBCSEncoding(aEncoding));
   except end;
 end;
 
-procedure wbAddDefaultLEncodingsIfMissing(aFallback: Boolean);
+procedure TwbGameContext.AddDefaultLEncodingsIfMissing(aFallback: Boolean);
 begin
-  wbAddLEncodingIfMissing('english', '1252', aFallback);
-  wbAddLEncodingIfMissing('french', '1252', aFallback);
-  wbAddLEncodingIfMissing('polish', '1250', aFallback);
-  wbAddLEncodingIfMissing('czech', '1250', aFallback);
-  wbAddLEncodingIfMissing('danish', '1252', aFallback);
-  wbAddLEncodingIfMissing('finnish', '1252', aFallback);
-  wbAddLEncodingIfMissing('german', '1252', aFallback);
-  wbAddLEncodingIfMissing('greek', '1253', aFallback);
-  wbAddLEncodingIfMissing('italian', '1252', aFallback);
-  wbAddLEncodingIfMissing('japanese', TEncoding.UTF8, aFallback);
-  wbAddLEncodingIfMissing('norwegian', '1252', aFallback);
-  wbAddLEncodingIfMissing('portuguese', '1252', aFallback);
-  wbAddLEncodingIfMissing('spanish', '1252', aFallback);
-  wbAddLEncodingIfMissing('swedish', '1252', aFallback);
-  wbAddLEncodingIfMissing('turkish', '1254', aFallback);
-  wbAddLEncodingIfMissing('russian', '1251', aFallback);
-  wbAddLEncodingIfMissing('chinese', TEncoding.UTF8, aFallback);
-  wbAddLEncodingIfMissing('hungarian', '1250', aFallback);
-  wbAddLEncodingIfMissing('arabic', '1256', aFallback);
-end;
-
-function wbEncodingForLanguage(const aLanguage: string; aFallback: Boolean): TEncoding;
-begin
-  Result := _CurrentContext.EncodingForLanguage(aLanguage, aFallback);
+  AddLEncodingIfMissing('english', '1252', aFallback);
+  AddLEncodingIfMissing('french', '1252', aFallback);
+  AddLEncodingIfMissing('polish', '1250', aFallback);
+  AddLEncodingIfMissing('czech', '1250', aFallback);
+  AddLEncodingIfMissing('danish', '1252', aFallback);
+  AddLEncodingIfMissing('finnish', '1252', aFallback);
+  AddLEncodingIfMissing('german', '1252', aFallback);
+  AddLEncodingIfMissing('greek', '1253', aFallback);
+  AddLEncodingIfMissing('italian', '1252', aFallback);
+  AddLEncodingIfMissing('japanese', TEncoding.UTF8, aFallback);
+  AddLEncodingIfMissing('norwegian', '1252', aFallback);
+  AddLEncodingIfMissing('portuguese', '1252', aFallback);
+  AddLEncodingIfMissing('spanish', '1252', aFallback);
+  AddLEncodingIfMissing('swedish', '1252', aFallback);
+  AddLEncodingIfMissing('turkish', '1254', aFallback);
+  AddLEncodingIfMissing('russian', '1251', aFallback);
+  AddLEncodingIfMissing('chinese', TEncoding.UTF8, aFallback);
+  AddLEncodingIfMissing('hungarian', '1250', aFallback);
+  AddLEncodingIfMissing('arabic', '1256', aFallback);
 end;
 
 var
@@ -26872,13 +26701,7 @@ initialization
   SetLength(wbSaveExtensions, 2);
   wbSaveExtensions[0] := csDotFos;
   wbSaveExtensions[1] := csDotEss;
-
-  wbMakeCurrentGameDef(TwbGameDef.Create);
-  wbMakeCurrentContext(TwbGameContext.Create(_CurrentGameDefRef));
 finalization
-  wbMakeCurrentContext(nil);
-  _CurrentGameDef := nil;
-  _CurrentGameDefRef := nil;
   FreeAndNil(_MBCSEncodings);
   FreeAndNil(_NamedIndices);
 end.

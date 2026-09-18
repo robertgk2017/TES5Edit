@@ -1010,13 +1010,13 @@ var
   Container : IwbContainer;
   Group     : IwbGroupRecord;
 begin
-  if not _CurrentContext.Settings.SortINFO then
+  if not Assigned(aElement) then
+    Exit;
+
+  if not aElement.ContextObj.Settings.SortINFO then
     Exit;
 
   if VarSameValue(aOldValue, aNewValue) then
-    Exit;
-
-  if not Assigned(aElement) then
     Exit;
 
   Container := aElement.Container;
@@ -1546,7 +1546,7 @@ var
 begin
   Exit; {>>> Looks like causes problems with Dawnguard.esm <<<}
 
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if not Supports(aElement, IwbMainRecord, MainRecord) then
       Exit;
 
@@ -1574,7 +1574,7 @@ procedure wbARMAAfterLoad(const aElement: IwbElement);
   MainRecord    : IwbMainRecord;}
 begin
   wbReplaceBODTwithBOD2(aElement);
-  {if wbBeginInternalEdit then try
+  {if aElement.ContextObj.BeginInternalEdit then try
     if not Supports(aElement, IwbMainRecord, MainRecord) then
       Exit;
     if MainRecord.ElementNativeValues['DNAM\Weight slider - Male'] = 0 then
@@ -1591,7 +1591,7 @@ var
   Container  : IwbContainerElementRef;
   MainRecord : IwbMainRecord;
 begin
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if not wbTryGetContainerWithValidMainRecord(aElement, Container, MainRecord) then
       Exit;
 
@@ -1618,7 +1618,7 @@ var
   MainRecord : IwbMainRecord;
   Flags      : Cardinal;
 begin
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if not Supports(aElement, IwbContainerElementRef, Container) then
       Exit;
 
@@ -1707,7 +1707,7 @@ var
   DataSubRec   : IwbSubrecord;
   Flags        : Byte;
 begin
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if not wbTryGetContainerWithValidMainRecord(aElement, Container, MainRecord) then
       Exit;
 
@@ -1752,7 +1752,7 @@ end;
 //  FullParticleBirthRatio : Extended;
 //  PersistantParticleCount : Extended;
 //begin
-//  if wbBeginInternalEdit then try
+//  if aElement.ContextObj.BeginInternalEdit then try
 //    if not Supports(aElement, IwbContainerElementRef, Container) then
 //      Exit;
 //
@@ -1793,7 +1793,7 @@ var
   ActorValue: Variant;
   MainRecord: IwbMainRecord;
 begin
-  if wbBeginInternalEdit then try
+  if aElement.ContextObj.BeginInternalEdit then try
     if not Supports(aElement, IwbContainerElementRef, Container) then
       Exit;
 
@@ -2061,10 +2061,10 @@ end;
 
 procedure wbLIGHDataFlagsAfterSet(const aElement: IwbElement; const aOldValue, aNewValue: Variant);
 begin
-  if not wbCS then
+  if not Assigned(aElement) then
     Exit;
 
-  if not Assigned(aElement) then
+  if not (gcCommunityShaders in aElement.GameDefObj.Capabilities) then
     Exit;
 
   if VarSameValue(aOldValue and $4000, aNewValue and $4000) then
@@ -2099,7 +2099,7 @@ begin
   if not Assigned(aElement) then
     Exit;
 
-  if not wbCS then
+  if not (gcCommunityShaders in aElement.GameDefObj.Capabilities) then
     Exit;
 
   var lMainRecord := aElement.ContainingMainRecord;

@@ -27,7 +27,6 @@ uses
   VirtualTrees,
 
   wbDataFormat,
-  wbGameDefGlobals,
   wbHelpers,
   wbInterface,
   wbLOD,
@@ -43,7 +42,7 @@ const
 
 procedure _wbGameMode(var Value: Variant; Args: TJvInterpreterArgs);
 begin
-  Value := wbGameMode;
+  Value := xeContext.GameDefObj.GameMode;
 end;
 
 procedure _wbGameName(var Value: Variant; Args: TJvInterpreterArgs);
@@ -68,7 +67,7 @@ end;
 
 procedure _wbLoadBSAs(var Value: Variant; Args: TJvInterpreterArgs);
 begin
-  Value := wbLoadBSAs;
+  Value := xeContext.Settings.LoadBSAs;
 end;
 
 procedure _wbSimpleRecords(var Value: Variant; Args: TJvInterpreterArgs);
@@ -88,7 +87,7 @@ end;
 
 procedure _wbRecordDefMap(var Value: Variant; Args: TJvInterpreterArgs);
 begin
-  Value := O2V(wbInterface._wbRecordDefMap);
+  Value := O2V(xeContext.GameDefObj.RecordDefMap);
 end;
 
 procedure _wbProgramPath(var Value: Variant; Args: TJvInterpreterArgs);
@@ -103,29 +102,29 @@ begin
   if frmMain.ScriptPath <> '' then
     Value := frmMain.ScriptPath
   else
-    Value := wbScriptsPath;
+    Value := xeContext.Settings.ScriptsPath;
 end;
 
 // mirrors the global, which stays the scripts root even while a script in a
 // subdirectory is running
 procedure _wbScriptsPath(var Value: Variant; Args: TJvInterpreterArgs);
 begin
-  Value := wbScriptsPath;
+  Value := xeContext.Settings.ScriptsPath;
 end;
 
 procedure _wbDataPath(var Value: Variant; Args: TJvInterpreterArgs);
 begin
-  Value := wbDataPath;
+  Value := xeContext.Settings.DataPath;
 end;
 
 procedure _wbTempPath(var Value: Variant; Args: TJvInterpreterArgs);
 begin
-  Value := wbTempPath;
+  Value := xeContext.Settings.TempPath;
 end;
 
 procedure _wbOutputPath(var Value: Variant; Args: TJvInterpreterArgs);
 begin
-  Value := wbOutputPath;
+  Value := xeContext.Settings.OutputPath;
 end;
 
 procedure _wbSettingsFileName(var Value: Variant; Args: TJvInterpreterArgs);
@@ -262,14 +261,15 @@ begin
       else
         JvInterpreterError(ieTypeMistmatch, -1);
 
+      var lLayout := xeContext.SlotLayout;
       if lFile.IsLight then
-        lFormID.ObjectID := lFormID.ObjectID and $FFF
+        lFormID.ObjectID[lLayout] := lFormID.ObjectID[lLayout] and $FFF
       else if lFile.IsMedium then
-        lFormID.ObjectID := lFormID.ObjectID and $FFFF
+        lFormID.ObjectID[lLayout] := lFormID.ObjectID[lLayout] and $FFFF
       else
-        lFormID.ObjectID := lFormID.ObjectID and $FFFFFF;
+        lFormID.ObjectID[lLayout] := lFormID.ObjectID[lLayout] and $FFFFFF;
 
-      lFormID.FileID := lFile.LoadOrderFileID;
+      lFormID.FileID[lLayout] := lFile.LoadOrderFileID;
 
       Value := lFile.RecordByFormID[lFormID, True, True];
     end
@@ -287,7 +287,7 @@ begin
     Value := Null;
     aFormID := TwbFormID.FromStr(string(Args.Values[0]));
     for i := Low(frmMain.Files) to High(frmMain.Files) do
-      if frmMain.Files[i].LoadOrderFileID = aFormID.FileID then begin
+      if frmMain.Files[i].LoadOrderFileID = aFormID.FileID[xeContext.SlotLayout] then begin
         Value := frmMain.Files[i].RecordByFormID[aFormID, True, True];
         Break;
       end;
@@ -468,7 +468,7 @@ begin
   Value := caUnknown;
   if Length(NodeDatas) > 0 then
     if Assigned(NodeDatas[0].Container) then
-      Value := frmMain.ConflictLevelForChildNodeDatas(NodeDatas, Args.Values[i+1], Args.Values[i+2], TwbConflictConfig.Current,
+      Value := frmMain.ConflictLevelForChildNodeDatas(NodeDatas, Args.Values[i+1], Args.Values[i+2], TwbConflictConfig.ForContext(xeContext),
         procedure(const aMessage: string) begin frmMain.PostAddMessage(aMessage); end)
     else
       Value := frmMain.ConflictLevelForNodeDatas(@NodeDatas[0], Length(NodeDatas), Args.Values[i+1], Args.Values[i+2]);
@@ -512,7 +512,7 @@ var
   MainRecord: IwbMainRecord;
 begin
   if Supports(IInterface(Args.Values[0]), IwbMainRecord, MainRecord) then begin
-    if wbGameMode = gmTES4 then
+    if xeContext.GameDefObj.GameMode = gmTES4 then
       wbGenerateLODTES4(MainRecord, frmMain.Settings);
   end else
     JvInterpreterError(ieDirectInvalidArgument, 0);
@@ -523,7 +523,7 @@ var
   MainRecord: IwbMainRecord;
 begin
   if Supports(IInterface(Args.Values[0]), IwbMainRecord, MainRecord) then begin
-    if wbIsSkyrim then
+    if xeContext.GameDefObj.IsSkyrim then
       wbGenerateLODTES5(MainRecord, [lodTrees], frmMain.Files, frmMain.Settings);
   end else
     JvInterpreterError(ieDirectInvalidArgument, 0);
@@ -534,7 +534,7 @@ var
   MainRecord: IwbMainRecord;
 begin
   if Supports(IInterface(Args.Values[0]), IwbMainRecord, MainRecord) then begin
-    if wbIsSkyrim then
+    if xeContext.GameDefObj.IsSkyrim then
       wbGenerateLODTES5(MainRecord, [lodObjects], frmMain.Files, frmMain.Settings);
   end else
     JvInterpreterError(ieDirectInvalidArgument, 0);
@@ -542,7 +542,7 @@ end;
 
 procedure _wbGetUVRangeTexturesList(var Value: Variant; Args: TJvInterpreterArgs);
 begin
-  wbGetUVRangeTexturesList(
+  wbGetUVRangeTexturesList(xeContext,
     TStrings(V2O(Args.Values[0])),  // TStrings list of meshes
     TStrings(V2O(Args.Values[1])),  // TStrings list of textures, output
     Single(Args.Values[2])          // UVRange
@@ -551,7 +551,7 @@ end;
 
 procedure _wbBuildAtlasFromTexturesList(var Value: Variant; Args: TJvInterpreterArgs);
 begin
-  wbBuildAtlasFromTexturesList(
+  wbBuildAtlasFromTexturesList(xeContext,
     TStrings(V2O(Args.Values[0])),  // TStrings list of textures
     Args.Values[1], // max texture size
     Args.Values[2], // max tile size
@@ -565,7 +565,7 @@ end;
 
 procedure _wbBuildAtlasFromAtlasMap(var Value: Variant; Args: TJvInterpreterArgs);
 begin
-  wbBuildAtlasFromAtlasMap(
+  wbBuildAtlasFromAtlasMap(xeContext,
     TStrings(V2O(Args.Values[0])),  // TStrings atlas map
     Args.Values[1],                // brightness
     Args.Values[2],                // GammaR

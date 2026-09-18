@@ -132,7 +132,7 @@ uses
   Winapi.Windows,
 
   wbInterface,
-  wbGameDefGlobals,
+  xeInit,
 
   xeMainForm;
 
@@ -141,6 +141,7 @@ var
   i : Integer;
   s : string;
 begin
+  var lGameDef := xeContext.GameDefObj;
   xeApplyFontAndScale(Self);
 
   clbConflictAll.Items.Add('Single Record');
@@ -161,8 +162,8 @@ begin
   clbConflictThis.Items.Add('Conflict winner');
   clbConflictThis.Items.Add('Conflict loser');
 
-  for i := Low(wbRecordDefs) to High(wbRecordDefs) do
-    with wbRecordDefs[i].rdeDef do begin
+  for i := Low(lGameDef.RecordDefs) to High(lGameDef.RecordDefs) do
+    with lGameDef.RecordDefs[i].rdeDef do begin
       s := DefaultSignature + ' - ' + GetName;
       clbRecordSignatures.Items.Add(s);
       if ReferenceSignatureCount > 0 then
