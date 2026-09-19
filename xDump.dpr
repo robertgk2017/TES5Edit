@@ -939,9 +939,11 @@ var
   b               : TBytes;
   lSettings       : TwbGameContextSettings;
   lInputs         : TwbGameDefInputs;
+  lDefineOptions  : TwbGameDefineOptions;
 begin
   lSettings := TwbGameContextSettings.Defaults;
   lInputs := Default(TwbGameDefInputs);
+  lDefineOptions := TwbGameDefineOptions.Defaults;
   {$IF CompilerVersion >= 24}
   FormatSettings.DecimalSeparator := '.';
   {$ELSE}
@@ -951,7 +953,7 @@ begin
   lSettings.DontSave := True;
   lSettings.AllowInternalEdit := False;
   wbMoreInfoForUnknown := False;
-  wbSimpleRecords := False;
+  lDefineOptions.SimpleRecords := False;
   wbHideUnused := False;
   StartTime := Now;
 
@@ -1044,7 +1046,7 @@ begin
       tms := [tmDump, tmExport];
 
       if FindCmdLineSwitch('sr') then
-        wbSimpleRecords := True;
+        lDefineOptions.SimpleRecords := True;
 
       lSettings.Language := 'English';
 
@@ -1150,7 +1152,7 @@ begin
       lInputs.GameExeName := wbGameExeName;
       lInputs.GameMasterEsm := wbGameMasterEsm;
       lInputs.AppName := wbAppName;
-      HostContextRef := wbCreateGameContext(wbCreateGameDef(wbGameMode, wbToolSource, lInputs));
+      HostContextRef := wbCreateGameContext(wbCreateGameDef(wbGameMode, wbToolSource, lInputs, lDefineOptions));
       HostContext := HostContextRef as TwbGameContext;
       lSettings.CreationClubContentFileName := HostContext.Settings.CreationClubContentFileName;
       HostContext.Settings := lSettings;

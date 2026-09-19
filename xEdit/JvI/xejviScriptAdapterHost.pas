@@ -72,12 +72,12 @@ end;
 
 procedure _wbSimpleRecords(var Value: Variant; Args: TJvInterpreterArgs);
 begin
-  Value := wbSimpleRecords;
+  Value := xeContext.GameDefObj.DefineOptions.SimpleRecords;
 end;
 
 procedure _wbDecodeTextureHashes(var Value: Variant; Args: TJvInterpreterArgs);
 begin
-  Value := wbDecodeTextureHashes;
+  Value := xeContext.GameDefObj.DefineOptions.DecodeTextureHashes;
 end;
 
 procedure _wbTrackAllEditorID(var Value: Variant; Args: TJvInterpreterArgs);
