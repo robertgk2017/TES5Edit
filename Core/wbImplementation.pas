@@ -271,6 +271,7 @@ type
 
     eExternalRefs      : Integer;
     eContainerRef      : IwbContainerElementRef;
+    eContextObj        : TwbGameContext;
 
     eUpdateCount       : Integer;
 
@@ -763,6 +764,7 @@ type
     procedure flProgress(const aStatus: string);
 
     function flSetContainsFixedFormID(const aFormID: TwbFormID): Boolean;
+    function flComplexFileFileID: Boolean; inline;
 
     function Reached: Boolean; override;
 
@@ -2309,6 +2311,11 @@ end;
 var
   _FileGeneration: Integer = 1;
 
+function TwbFile.flComplexFileFileID: Boolean;
+begin
+  Result := gcComplexFileFileID in flContextObj.GameDefObj.Capabilities;
+end;
+
 procedure TwbFile.AddMaster(const aFileName: string; IsTemporary: Boolean; aAutoLoadOrder: Boolean; aSilent: Boolean);
 var
   _File : IwbFile;
@@ -2477,7 +2484,7 @@ begin
     var lFileID := FormID.FileID[flContextObj.SlotLayout];
     if IsNewRecord(lFileID, True) and not (fsIsCompareLoad in flStates) and not (FormID.IsHardcoded and not (fsIsGameMaster in flStates))  then begin
 
-      if not wbComplexFileFileID then begin
+      if not flComplexFileFileID then begin
 
         if (FormID.ToCardinal and $00FFF000) <> 0 then begin
           Exclude(flStates, fsLightCompatible);
@@ -2650,14 +2657,14 @@ var
           raise Exception.CreateFmt('[AddMasters] Requested file to add is not loaded: "%s"', [lMasters[i]]);
 
         if lFile.IsBlueprint and flContextObj.GameDefObj.IsStarfield then
-          raise Exception.CreateFmt('[AddMasters] File [%s] not added. %s does not support blueprint files as masters to other modules.', [lMasters[i], wbGameName]);
+          raise Exception.CreateFmt('[AddMasters] File [%s] not added. %s does not support blueprint files as masters to other modules.', [lMasters[i], flContextObj.GameDefObj.GameName]);
 
         var lIsLightFile := lFile.IsLight;
         var lIsMediumFile := lFile.IsMedium;
         var lIsFullFile := lFile.GetIsFull;
 
-        if (((not wbComplexFileFileID) and (GetMasterCount(True) >= MaxMasterCount)) or
-            (wbComplexFileFileID and (
+        if (((not flComplexFileFileID) and (GetMasterCount(True) >= MaxMasterCount)) or
+            (flComplexFileFileID and (
               (lIsLightFile and (GetLightMasterCount(True) >= MaxLightMasterCount - 1)) or // -1 for safety in case module is converted later
               (lIsMediumFile and (GetMediumMasterCount(True) >= MaxMediumMasterCount - 1)) or
               (lIsFullFile and (GetFullMasterCount(True) >= MaxMasterCount))
@@ -2709,7 +2716,7 @@ begin;
         s := Trim(aMasters[i]);
         t := ExtractFileExt(s);
         if SameText(t, '.esp') and (not flContextObj.Settings.AllowESPMasters) then
-          raise Exception.CreateFmt('[AddMasters] You cannot add a .esp as a master in %s.', [wbGameName]);
+          raise Exception.CreateFmt('[AddMasters] You cannot add a .esp as a master in %s.', [flContextObj.GameDefObj.GameName]);
         if SameText(t, '.esm') or SameText(t, '.esp') or (flContextObj.GameDefObj.IsLightSupported and SameText(t, '.esl')) then
           lMasters.Add(s);
       end;
@@ -2721,8 +2728,8 @@ begin;
 
     if gcMasterSlotsInFormID in flContextObj.GameDefObj.Capabilities then
       if Length(flOldMasters) <> Length(flMasters) then begin
-        var lOldCount := TwbSlotCounts.Create(flOldMasters);
-        var lNewCount := TwbSlotCounts.Create(flMasters);
+        var lOldCount := TwbSlotCounts.Create(flOldMasters, flComplexFileFileID);
+        var lNewCount := TwbSlotCounts.Create(flMasters, flComplexFileFileID);
 
         MastersUpdated([], [], lOldCount, lNewCount);
         SortRecords;
@@ -3169,7 +3176,7 @@ begin
         for i := Low(flMasters) to High(flMasters) do
         begin
           if UsedMasters[i] or
-             SameText(flMasters[i].FileName, wbGameMasterESM) or
+             SameText(flMasters[i].FileName, flContextObj.GameDefObj.GameMasterEsm) or
              KeepMasters.Find(flMasters[i].FileName, k)
           then begin
 
@@ -3180,7 +3187,7 @@ begin
               SetLength(Old, Succ(Length(Old)));
               SetLength(New, Succ(Length(New)));
 
-              if wbComplexFileFileID then
+              if flComplexFileFileID then
                 case flMasters[i].GetModuleType of
                   mtFull:
                     begin
@@ -3265,8 +3272,8 @@ begin
 
         if gcMasterSlotsInFormID in flContextObj.GameDefObj.Capabilities then
         begin
-          var lOldCount := TwbSlotCounts.Create(flOldMasters);
-          var lNewCount := TwbSlotCounts.Create(flMasters);
+          var lOldCount := TwbSlotCounts.Create(flOldMasters, flComplexFileFileID);
+          var lNewCount := TwbSlotCounts.Create(flMasters, flComplexFileFileID);
 
           MastersUpdated(Old, New, lOldCount, lNewCount);
         end;
@@ -3293,10 +3300,10 @@ begin
   flLoadOrderFileID := TwbFileID.Invalid;
   if aCompareTo <> '' then begin
     Include(flStates, fsIsCompareLoad);
-    if SameText(ExtractFileName(aFileName), wbGameExeName) then
+    if SameText(ExtractFileName(aFileName), flContextObj.GameDefObj.GameExeName) then
       Include(flStates, fsIsHardcoded);
     flCompareTo := aContext.ExpandFileName(aCompareTo);
-  end else if SameText(ExtractFileName(aFileName), wbGameMasterEsm) then begin
+  end else if SameText(ExtractFileName(aFileName), flContextObj.GameDefObj.GameMasterEsm) then begin
     Include(flStates, fsIsGameMaster);
     Include(flStates, fsIsOfficial);
   end;
@@ -3580,7 +3587,7 @@ end;
 
 function TwbFile.FileFileIDtoLoadOrderFileID(const aFileID: TwbFileID; aNew: Boolean): TwbFileID;
 begin
-  if wbComplexFileFileID then case aFileID.ModuleType of
+  if flComplexFileFileID then case aFileID.ModuleType of
     mtLight:
       if aFileID.LightSlot < GetLightMasterCount(aNew) then
       Exit(GetLightMaster(aFileID.LightSlot, aNew).LoadOrderFileID);
@@ -4103,7 +4110,7 @@ function TwbFile.GetBaseName: string;
 begin
   Result := GetFileName;
   if fsIsHardcoded in flStates then
-    Result := wbGameExeName;
+    Result := flContextObj.GameDefObj.GameExeName;
 end;
 
 function TwbFile.GetCachedEditInfo(aIdent: Integer; var aEditInfo: TArray<string>): Boolean;
@@ -4133,7 +4140,7 @@ function TwbFile.GetContainedRecordByLoadOrderFormID(const aFormID: TwbFormID; a
 
   function LoadOrderToFile(const aFileID: TwbFileID): TwbFileID;
   begin
-    if wbComplexFileFileID then begin
+    if flComplexFileFileID then begin
       if aFileID = flLoadOrderFileID then
         Exit(GetFileFileID(False));
 
@@ -4274,7 +4281,7 @@ function TwbFile.GetFileFileID(aNewMasters : Boolean): TwbFileID;
 begin
   var SelfRef := Self as IwbContainerElementRef;
 
-  if wbComplexFileFileID then case GetModuleType of
+  if flComplexFileFileID then case GetModuleType of
     mtLight:
       Result := TwbFileID.CreateLight(GetLightMasterCount(aNewMasters), flContextObj.SlotLayout);
     mtMedium:
@@ -4633,7 +4640,7 @@ end;
 
 function TwbFile.GetIsNotPlugin: Boolean;
 begin
-  Result := not wbIsModule(flFileName);
+  Result := not wbIsModule(flFileName, flContextObj.GameDefObj.GameExeName);
 end;
 
 function TwbFile.GetIsRemovable: Boolean;
@@ -4692,7 +4699,7 @@ begin
   if aAllowSelf and IsNewRecord(aFileID, aNew) then
     Exit(Self);
 
-  if wbComplexFileFileID then case aFileID.ModuleType of
+  if flComplexFileFileID then case aFileID.ModuleType of
     mtLight:
       Exit(GetLightMaster(aFileID.LightSlot, True));
     mtMedium:
@@ -4705,7 +4712,7 @@ end;
 
 function TwbFile.GetMasterIndexForFileID(const aFileID: TwbFileID; aNew: Boolean): Integer;
 begin
-  if wbComplexFileFileID then begin
+  if flComplexFileFileID then begin
     var lFullIndex := -1;
     var lLightIndex := -1;
     var lMediumIndex := -1;
@@ -4757,7 +4764,7 @@ begin
   end;
 
   if not Assigned(lMaster) then begin
-    if wbComplexFileFileID then begin
+    if flComplexFileFileID then begin
       var lFileID := aFormID.FileID[lLayout];
 
       case lFileID.ModuleType of
@@ -4895,7 +4902,7 @@ function TwbFile.GetName: string;
 begin
   Result := GetFileName;
   if fsIsHardcoded in flStates then
-    Result := wbGameExeName;
+    Result := flContextObj.GameDefObj.GameExeName;
   Result := '[' + flLoadOrderFileID.ToString + '] ' + Result;
 end;
 
@@ -5112,7 +5119,7 @@ end;
 
 function TwbFile.IsNewRecord(const aFileID: TwbFileID; aNew: Boolean): Boolean;
 begin
-  if wbComplexFileFileID then case aFileID.ModuleType of 
+  if flComplexFileFileID then case aFileID.ModuleType of 
     mtLight:
       Result := aFileID.LightSlot >= GetLightMasterCount(aNew);
     mtMedium:
@@ -5127,7 +5134,7 @@ end;
 
 function TwbFile.LoadOrderFileIDtoFileFileID(const aFileID: TwbFileID; aNew: Boolean): TwbFileID;
 begin
-  if wbComplexFileFileID then begin
+  if flComplexFileFileID then begin
     if aFileID = flLoadOrderFileID then
       Exit(GetFileFileID(aNew));
 
@@ -5336,7 +5343,7 @@ begin
       raise Exception.Create('File ' + GetFileName + ' has invalid record ' + cntElements[0].Name + ' with invalid signature as file header.');
 
     if (FileHeader.Flags._Flags and $10 <> 0) and not wbHasAddedOptimizedSupport then
-      raise Exception.Create('Modules with the "Optimized" file flag set can not be saved in ' + wbAppName + wbToolName);
+      raise Exception.Create('Modules with the "Optimized" file flag set can not be saved in ' + flContextObj.GameDefObj.AppName + wbToolName);
 
     HEDR := FileHeader.RecordBySignature['HEDR'];
     if not Assigned(HEDR) then
@@ -5353,7 +5360,7 @@ begin
     if not flContextObj.Settings.AllowESPMastersOnSave then
       for i := Low(flModule.miMasters) to High(flModule.miMasters) do
         if flModule.miMasters[i].miExtension = meESP then
-          raise Exception.CreateFmt('%s modules must never have .esp masters.', [wbGameName]);
+          raise Exception.CreateFmt('%s modules must never have .esp masters.', [flContextObj.GameDefObj.GameName]);
 
     if lGameDef.IsStarfield then begin
       if GetIsUpdateDirect and (GetIsLightDirect or GetIsMediumDirect) then
@@ -5364,7 +5371,7 @@ begin
           raise Exception.Create('".esp" modules must not be small or medium.');
         if GetIsESM then
         begin
-          flProgress(Format('%s .esp files must not have ESM flag. Removing.', [wbGameName]));
+          flProgress(Format('%s .esp files must not have ESM flag. Removing.', [flContextObj.GameDefObj.GameName]));
           SetIsESM(False);
         end;
       end;
@@ -5379,7 +5386,7 @@ begin
         raise Exception.Create('Saving blueprint modules is not currently supported.');
 
       if HasBlueprintMaster then
-        raise Exception.CreateFmt('%s modules must never have any blueprint masters.', [wbGameName]);
+        raise Exception.CreateFmt('%s modules must never have any blueprint masters.', [flContextObj.GameDefObj.GameName]);
     end;
 
     inherited;
@@ -5551,25 +5558,25 @@ begin
         flRecords[i].ClampFormID(k);
     end;
 
-    if wbComplexFileFileID then begin
+    if flComplexFileFileID then begin
       if not flContextObj.Settings.RedPill then begin
         for var lMasterIdx := 0 to Pred(GetMasterCount(True)) do begin
           var lMaster := GetMaster(lMasterIdx, True);
           if lMaster.GetIsUpdateDirect or (PwbModuleInfo(lMaster.ModuleInfo).miFlags * [mfHasUpdateFlag] <> []) then
-            raise Exception.Create('Modules with Update flagged modules as masters can''t be saved in ' + wbAppName + wbToolName);
+            raise Exception.Create('Modules with Update flagged modules as masters can''t be saved in ' + flContextObj.GameDefObj.AppName + wbToolName);
         end;
 
         if FileHeader.IsLight <> (mfHasLightFlag in flModule.miFlags) then
-          raise Exception.Create('Small flag can''t be added or removed from existing files in ' + wbAppName + wbToolName);
+          raise Exception.Create('Small flag can''t be added or removed from existing files in ' + flContextObj.GameDefObj.AppName + wbToolName);
 
         if FileHeader.IsMedium <> (mfHasMediumFlag in flModule.miFlags) then
-          raise Exception.Create('Medium flag can''t be added or removed from existing files in ' + wbAppName + wbToolName);
+          raise Exception.Create('Medium flag can''t be added or removed from existing files in ' + flContextObj.GameDefObj.AppName + wbToolName);
 
         if FileHeader.IsUpdate <> (mfHasUpdateFlag in flModule.miFlags) then
-          raise Exception.Create('Update flag can''t be added or removed from existing files in ' + wbAppName + wbToolName);
+          raise Exception.Create('Update flag can''t be added or removed from existing files in ' + flContextObj.GameDefObj.AppName + wbToolName);
 
         if FileHeader.IsUpdate then
-          raise Exception.Create('Update flagged files can''t be saved in ' + wbAppName + wbToolName);
+          raise Exception.Create('Update flagged files can''t be saved in ' + flContextObj.GameDefObj.AppName + wbToolName);
       end;
     end else begin
       var lFileFileID := GetFileFileID(true);
@@ -5896,7 +5903,7 @@ begin
 
     if gcHardcodedFileIsFirstMaster in lGameDef.Capabilities then
       if flLoadOrder > 0 then
-        AddMaster(wbGameName + csDotExe, False, False);
+        AddMaster(flContextObj.GameDefObj.GameName + csDotExe, False, False);
 
     { add required masters BEFORE deciding on the slot }
     MasterFiles := Header.ElementByName['Master Files'] as IwbContainerElementRef;
@@ -6482,7 +6489,7 @@ begin
             SetLength(Old, Succ(Length(Old)));
             SetLength(New, Succ(Length(New)));
 
-            if not wbcomplexfileFileID then
+            if not flComplexFileFileID then
             begin
               Old[High(Old)] := TwbFileID.CreateFull(j);
               New[High(New)] := TwbFileID.CreateFull(i);
@@ -6523,8 +6530,8 @@ begin
             Assert(False);
           if gcMasterSlotsInFormID in flContextObj.GameDefObj.Capabilities then
           begin
-            var lOldCount := TwbSlotCounts.Create(flOldMasters);
-            var lNewCount := TwbSlotCounts.Create(flMasters);
+            var lOldCount := TwbSlotCounts.Create(flOldMasters, flComplexFileFileID);
+            var lNewCount := TwbSlotCounts.Create(flMasters, flComplexFileFileID);
 
             MastersUpdated(Old, New, lOldCount, lNewCount);
           end;
@@ -9168,7 +9175,7 @@ begin
     Result := Group.Add(aName, aSilent);
 
     Exit;
-  end else if wbVWDAsQuestChildren and (GetSignature = 'QUST') and
+  end else if (gcVWDAsQuestChildren in GameDefObj.Capabilities) and (GetSignature = 'QUST') and
      (
         SameText(s, 'DLBR') or
         SameText(s, 'DIAL') or
@@ -9635,6 +9642,7 @@ var
   LightFilesCount : Integer;
 
   SelfIntf      : IwbMainRecord;
+  lComplex      : Boolean;
 
   procedure ProcessRef(const aFormID: TwbFormID; aAdd: Boolean);
   begin
@@ -9642,7 +9650,7 @@ var
     var MainRecord: IwbMainRecord := nil;
     var lLayout := ContextObj.SlotLayout;
 
-    if wbComplexFileFileID then begin
+    if lComplex then begin
 
       var lFileID := aFormID.FileID[lLayout];
       var lFileIndex: Integer;
@@ -9748,6 +9756,7 @@ var
   SelfRef       : IwbContainerElementRef;
 begin
   Result := False;
+  lComplex := gcComplexFileFileID in GameDefObj.Capabilities;
 
   if dfExcludeFromBuildRef in mrDef.DefFlags then
     Exit;
@@ -9835,7 +9844,7 @@ begin
         Exit;
       end;
 
-    if wbComplexFileFileID then begin
+    if gcComplexFileFileID in GameDefObj.Capabilities then begin
       var lFileID := Result.FileID[lLayout];
       case lFileID.ModuleType of
         mtLight:
@@ -9926,7 +9935,7 @@ begin
       CELL: SearchForGroup := 6;
       DIAL: SearchForGroup := 7;
     else
-      if wbVWDAsQuestChildren and (GetSignature = 'QUST') then
+      if (gcVWDAsQuestChildren in GameDefObj.Capabilities) and (GetSignature = 'QUST') then
         SearchForGroup := 10
       else
         SearchForGroup := 0;
@@ -10197,7 +10206,7 @@ var
     if Supports(lContainer, IwbGroupRecordInternal, Group) then
       if Group.GroupType = 8 then
         BasePtr.mrsFlags(lFormIDInHeader).SetPersistent(True)
-      else if (Group.GroupType = 10) and not (wbVWDAsQuestChildren
+      else if (Group.GroupType = 10) and not ((gcVWDAsQuestChildren in lGameDef.Capabilities)
                  and Supports(Group.Container, IwbGroupRecord, Group2) and (TwbSignature(Group2.GroupLabel) = 'QUST')) then
         BasePtr.mrsFlags(lFormIDInHeader).SetVisibleWhenDistant(True);
 
@@ -10958,7 +10967,7 @@ begin
   end else if GetSignature = 'WRLD' then begin
     Result.Add('CELL');
     Result.Add('ROAD');
-  end else if wbVWDAsQuestChildren and (GetSignature = 'QUST') then begin
+  end else if (gcVWDAsQuestChildren in GameDefObj.Capabilities) and (GetSignature = 'QUST') then begin
     SetLength(Result, 3);
     Result[0] := 'DIAL';
     Result[1] := 'DLBR';
@@ -11314,7 +11323,7 @@ begin
         SearchForGroup := 6
       else if GetSignature = 'DIAL' then
         SearchForGroup := 7
-      else if wbVWDAsQuestChildren and (GetSignature = 'QUST') then
+      else if (gcVWDAsQuestChildren in GameDefObj.Capabilities) and (GetSignature = 'QUST') then
         SearchForGroup := 10;
 
       if SearchForGroup > 0 then
@@ -11513,8 +11522,9 @@ begin
   if MasterCount < 1 then
     Exit;
 
+  var lComplex := gcComplexFileFileID in GameDefObj.Capabilities;
   for var FormID in mrReferences do begin
-    if wbComplexFileFileID then begin
+    if lComplex then begin
       if _File.IsNewRecord(FormID, GetMastersUpdated) then
         Continue;
     end else begin
@@ -11697,7 +11707,7 @@ begin
   var lFormIDInHeader := gcFormIDInRecordHeader in GameDefObj.Capabilities;
   if not lFormIDInHeader then
     Exit;
-  if wbComplexFileFileID then
+  if gcComplexFileFileID in GameDefObj.Capabilities then
     Exit;
 
   if mrStruct.mrsFormID(lFormIDInHeader).FileID[ContextObj.SlotLayout].FullSlot > aIndex then begin
@@ -12888,7 +12898,7 @@ begin
       (Signature = 'NAVM') or
       (Signature = 'ROAD') or
       (Signature = 'LAND') or
-      (wbVWDAsQuestChildren and ((Signature = 'DLBR') or (Signature = 'DIAL') or (Signature = 'SCEN')));
+      ((gcVWDAsQuestChildren in GameDefObj.Capabilities) and ((Signature = 'DLBR') or (Signature = 'DIAL') or (Signature = 'SCEN')));
 end;
 
 procedure TwbMainRecord.LoadRefsFromStream(aStream: TStream; aLoadNames: Boolean);
@@ -12908,13 +12918,14 @@ var
   LightFilesCount : Integer;
 
   SelfIntf      : IwbMainRecord;
+  lComplex      : Boolean;
 
   procedure ProcessRef(const aFormID: TwbFormID);
   begin
     var MainRecord: IwbMainRecord := nil;
     var lLayout := ContextObj.SlotLayout;
 
-    if wbComplexFileFileID then begin
+    if lComplex then begin
 
       var lFileID := aFormID.FileID[lLayout];
       var lFileIndex: Integer;
@@ -13020,6 +13031,7 @@ var
   i: Integer;
 begin
   Assert(gcFormIDInRecordHeader in GameDefObj.Capabilities);
+  lComplex := gcComplexFileFileID in GameDefObj.Capabilities;
 
   Assert(Length(mrReferences)=0);
   aStream.Read(lFormID, SizeOf(TwbFormID));
@@ -13229,7 +13241,7 @@ var
         HeaderUpdated := False;
         OldFormID := GetFixedFormID;
         if not OldFormID.IsNull then begin
-          NewFormID := FixupFormID(OldFormID, aOld, aNew, aOldCount, aNewCount, lAllowHardcodedRangeUse, ContextObj.SlotLayout);
+          NewFormID := FixupFormID(OldFormID, aOld, aNew, aOldCount, aNewCount, lAllowHardcodedRangeUse, ContextObj.SlotLayout, gcComplexFileFileID in GameDefObj.Capabilities);
           if GetFormID <> NewFormID then begin
             MakeHeaderWriteable;
             mrStruct.mrsFormID(gcFormIDInRecordHeader in GameDefObj.Capabilities)^ := NewFormID;
@@ -13245,7 +13257,7 @@ var
 
           for i := Low(mrReferences) to High(mrReferences) do begin
             OldFormID := mrReferences[i];
-            NewFormID := FixupFormID(OldFormID, aOld, aNew, aOldCount, aNewCount, lAllowHardcodedRangeUse, ContextObj.SlotLayout);
+            NewFormID := FixupFormID(OldFormID, aOld, aNew, aOldCount, aNewCount, lAllowHardcodedRangeUse, ContextObj.SlotLayout, gcComplexFileFileID in GameDefObj.Capabilities);
             if OldFormID <> NewFormID then begin
               FoundOne := True;
               mrReferences[i] := NewFormID;
@@ -13839,7 +13851,7 @@ var
             raise Exception.Create('Record "' + GetFullPath + '" can not be contained in ' + GroupRecord.Name);
         end;
         8, 10: begin {Persistent and Visible when Distant/Quest Children}
-          if wbVWDAsQuestChildren and (GroupRecord.GroupType = 10) then begin
+          if (gcVWDAsQuestChildren in GameDefObj.Capabilities) and (GroupRecord.GroupType = 10) then begin
             if (GetSignature <> 'DLBR') and (GetSignature <> 'DIAL') and (GetSignature <> 'SCEN') then
               raise Exception.Create('Record "' + GetFullPath + '" can not be contained in ' + GroupRecord.Name);
           end else begin
@@ -13892,7 +13904,7 @@ var
           var lFlags := mrStruct.mrsFlags(gcFormIDInRecordHeader in GameDefObj.Capabilities);
           if lFlags.IsPersistent then
             raise Exception.Create('Record "' + GetFullPath + '" can not have it''s Persistent flag set to be contained in ' + GroupRecord.Name);
-          if lFlags.IsVisibleWhenDistant and not wbVWDInTemporary then
+          if lFlags.IsVisibleWhenDistant and not (gcVWDInTemporary in GameDefObj.Capabilities) then
             raise Exception.Create('Record "' + GetFullPath + '" can not have it''s Visible when Distant flag set to be contained in ' + GroupRecord.Name);
         end;
       end;
@@ -15044,7 +15056,7 @@ begin
 
   if GetIsPersistent then
     CorrectGroupType := 8
-  else if GetIsVisibleWhenDistant and not wbVWDInTemporary then
+  else if GetIsVisibleWhenDistant and not (gcVWDInTemporary in GameDefObj.Capabilities) then
     CorrectGroupType := 10
   else
     CorrectGroupType := 9;
@@ -17413,8 +17425,8 @@ begin
           (Signature <> 'ACRE') and
           (Signature <> 'ACHR') then
          Exit;
-   10: if (not wbVWDAsQuestChildren and (Signature <> 'REFR')) or
-          (wbVWDAsQuestChildren and
+   10: if (not (gcVWDAsQuestChildren in GameDefObj.Capabilities) and (Signature <> 'REFR')) or
+          ((gcVWDAsQuestChildren in GameDefObj.Capabilities) and
              not ((Signature = 'REFR') or (Signature = 'DLBR') or (Signature = 'DIAL') or (Signature = 'SCEN')))
        then
          Exit;
@@ -17608,7 +17620,7 @@ var
   i         : Integer;
 begin
   if esUnsaved in aElement.ElementStates then  // Let's not penalised too much loading time.
-    if ((TwbSignature(grStruct.grsLabel) = 'DIAL') or wbVWDAsQuestChildren) then  // Issue 86: https://code.google.com/p/skyrim-plugin-decoding-project/issues/detail?id=86
+    if ((TwbSignature(grStruct.grsLabel) = 'DIAL') or (gcVWDAsQuestChildren in GameDefObj.Capabilities)) then  // Issue 86: https://code.google.com/p/skyrim-plugin-decoding-project/issues/detail?id=86
       if Supports(aElement, IwbGroupRecord, DialGroup) then // The DIAL GRUP must immediatly follow corresponding DIAL MainRecord.
         if DialGroup.GroupType = 7 then // Let's hope nobody messes up the groupType
           if Supports(Self, IwbContainer, Container) then
@@ -17849,7 +17861,7 @@ begin
 
           Exit;
         end;
-      end else if wbVWDAsQuestChildren and (TwbSignature(grStruct.grsLabel) = 'QUST') then begin
+      end else if (gcVWDAsQuestChildren in GameDefObj.Capabilities) and (TwbSignature(grStruct.grsLabel) = 'QUST') then begin
         var lGroupRecord0Qust: IwbGroupRecord;
         if Supports(aElement, IwbGroupRecord, lGroupRecord0Qust) then begin
           if lGroupRecord0Qust.GroupType <> 10 then
@@ -18086,7 +18098,7 @@ begin
     end;
     8, 9, 10: begin
       var lGroupRecord8910: IwbGroupRecord;
-      if wbVWDAsQuestChildren and Supports(aElement, IwbGroupRecord, lGroupRecord8910) then begin
+      if (gcVWDAsQuestChildren in GameDefObj.Capabilities) and Supports(aElement, IwbGroupRecord, lGroupRecord8910) then begin
         if lGroupRecord8910.GroupType <> 7 then
           raise Exception.Create('Can''t add ' + lGroupRecord8910.Name + ' to top level group with signature ' + TwbSignature(grStruct.grsLabel));
         var lSourceMainRecord8910 := lGroupRecord8910.ChildrenOf;
@@ -18134,7 +18146,7 @@ begin
           // check any non reference record
           if not (
             // DIAL, DLBR and SCEN can be added to child group 10 (quest children)
-            (wbVWDAsQuestChildren and (grStruct.grsGroupType = 10) and ((lMainRecord8910.Signature = 'DLBR') or (lMainRecord8910.Signature = 'DIAL') or (lMainRecord8910.Signature = 'SCEN')))
+            ((gcVWDAsQuestChildren in GameDefObj.Capabilities) and (grStruct.grsGroupType = 10) and ((lMainRecord8910.Signature = 'DLBR') or (lMainRecord8910.Signature = 'DIAL') or (lMainRecord8910.Signature = 'SCEN')))
             or
             // PGRD, LAND and NAVM can be added to child group 9 (temporary)
             (grStruct.grsGroupType = 9) and ((lMainRecord8910.Signature = 'PGRD') or (lMainRecord8910.Signature = 'LAND') or (lMainRecord8910.Signature = 'NAVM'))
@@ -18254,7 +18266,7 @@ begin
     6, 8, 9: Assert(aMainRecord.Signature = 'CELL');
     10: Assert(
       (aMainRecord.Signature = 'CELL') or
-      (wbVWDAsQuestChildren and (aMainRecord.Signature = 'QUST'))
+      ((gcVWDAsQuestChildren in wbGameDefOf(aContainer).Capabilities) and (aMainRecord.Signature = 'QUST'))
     );
     7: Assert(aMainRecord.Signature = 'DIAL');
   end;
@@ -18452,7 +18464,7 @@ begin
            Result.Add('NAVM');
          end;
        end;
-    10: if wbVWDAsQuestChildren then begin
+    10: if (gcVWDAsQuestChildren in GameDefObj.Capabilities) then begin
           SetLength(Result, 3);
           Result[0] := 'DIAL';
           Result[1] := 'DLBR';
@@ -18584,7 +18596,7 @@ begin
     7: Result := Result + ' Topic Children of ';
     8: Result := Result + ' Cell Persistent Children of ';
     9: Result := Result + ' Cell Temporary Children of ';
-    10: if wbVWDAsQuestChildren then
+    10: if (gcVWDAsQuestChildren in GameDefObj.Capabilities) then
       Result := Result + ' Quest Children of '
     else
       Result := Result + ' Cell Visible Distant Children of ';
@@ -18620,7 +18632,7 @@ begin
     7: Result := 'Children of ' + IntToHex(GetGroupLabel, 8);
     8: Result := 'Persistent';
     9: Result := 'Temporary';
-    10: if wbVWDAsQuestChildren then
+    10: if (gcVWDAsQuestChildren in GameDefObj.Capabilities) then
       Result := 'Children of ' + IntToHex(GetGroupLabel, 8)
     else
       Result := 'Visible when Distant';
@@ -18752,7 +18764,7 @@ begin
             if Assigned(lFile) then
               lAllowHardcodedRangeUse := lFile.AllowHardcodedRangeUse;
 
-            NewFormID := FixupFormID(OldFormID, aOld, aNew, aOldCount, aNewCount, lAllowHardcodedRangeUse, ContextObj.SlotLayout);
+            NewFormID := FixupFormID(OldFormID, aOld, aNew, aOldCount, aNewCount, lAllowHardcodedRangeUse, ContextObj.SlotLayout, gcComplexFileFileID in GameDefObj.Capabilities);
             if grStruct.grsLabel <> NewFormID.ToCardinal then begin
               MakeHeaderWriteable;
               grStruct.grsLabel := NewFormID.ToCardinal;
@@ -20297,6 +20309,8 @@ function TwbElement.GameDefObj: TwbGameDef;
 begin
   if Assigned(eContainer) then
     Result := IwbContainerInternal(eContainer).GameDefObj
+  else if Assigned(eContextObj) then
+    Result := eContextObj.GameDefObj
   else
     Result := nil;
 end;
@@ -20306,7 +20320,7 @@ begin
   if Assigned(eContainer) then
     Result := IwbContainerInternal(eContainer).ContextObj
   else
-    Result := nil;
+    Result := eContextObj;
 end;
 
 function TwbElement.GetGameDefObj: TwbGameDef;
@@ -20981,10 +20995,14 @@ begin
   end else
     Assert(Assigned(eContainer));
 
-  if Assigned(aContainer) then
-    eContainer := Pointer(aContainer as IwbContainerInternal)
-  else
+  if Assigned(aContainer) then begin
+    eContextObj := nil;
+    eContainer := Pointer(aContainer as IwbContainerInternal);
+  end else begin
+    if eExternalRefs > 0 then
+      eContextObj := ContextObj;
     eContainer := nil;
+  end;
 
   if not Assigned(eContainer) then
     eContainerRef := nil
@@ -24086,7 +24104,7 @@ begin
 
   Result := FileByName(FileName);
   if not Assigned(Result) then begin
-    if not wbIsModule(FileName) then
+    if not wbIsModule(FileName, GameDefObj.GameExeName) then
       Result := TwbFileSource.Create(Self, FileName, aLoadOrder, aCompareTo, aStates + [fsAddToMap], aData)
     else
       Result := TwbFile.Create(Self, FileName, aLoadOrder, aCompareTo, aStates + [fsAddToMap], aData);
@@ -24127,7 +24145,7 @@ begin
       lFile := FileByName(FileName);
       if Assigned(lFile) then
         _File := lFile as IwbFileInternal
-      else if not wbIsModule(FileName) then
+      else if not wbIsModule(FileName, GameDefObj.GameExeName) then
         _File := TwbFileSource.Create(Self, FileName, -1, '', [fsOnlyHeader], nil)
       else
         _File := TwbFile.Create(Self, FileName, -1, '', [fsOnlyHeader], nil);
@@ -25725,7 +25743,8 @@ begin
     if not Supports(GroupRecord.Container, IwbGroupRecord, GroupRecord) then
       Exit;
 
-  if wbVWDAsQuestChildren then
+  var lVWDAsQuestChildren := gcVWDAsQuestChildren in GameDefObj.Capabilities;
+  if lVWDAsQuestChildren then
     Grp := [8..9]
   else
     Grp := [8..10];
@@ -25734,7 +25753,7 @@ begin
     if not Supports(GroupRecord.Container, IwbGroupRecord, GroupRecord) then
       Exit;
 
-  if wbVWDAsQuestChildren then
+  if lVWDAsQuestChildren then
     Grp := [1, 6, 7, 10]
   else
     Grp := [1, 6, 7];
@@ -25769,13 +25788,14 @@ begin
       Assert(False);
   // if group is persistent, temporary or vwd cell children, it should be in a group too
   // if vwd is treated as quest children, then exclude it from check
-  if wbVWDAsQuestChildren then Grp := [8..9] else Grp := [8..10];
+  var lVWDAsQuestChildren := gcVWDAsQuestChildren in wbGameDefOf(aMainRecord).Capabilities;
+  if lVWDAsQuestChildren then Grp := [8..9] else Grp := [8..10];
   if GroupRecord.GroupType in Grp then
     if not Supports(GroupRecord.Container, IwbGroupRecord, GroupRecord) then
       Assert(False);
 
   // the final list of parent groups, mainrecords in those will have ContainedIn element
-  if wbVWDAsQuestChildren then Grp := [1, 6, 7, 10] else Grp := [1, 6, 7];
+  if lVWDAsQuestChildren then Grp := [1, 6, 7, 10] else Grp := [1, 6, 7];
   Assert(GroupRecord.GroupType in Grp);
 
   Include(dcFlags, dcfDontMerge);
@@ -25895,7 +25915,7 @@ begin
         6: begin
              if MainRecord.IsPersistent then
                CorrectGroup := 8
-             else if MainRecord.IsVisibleWhenDistant and not wbVWDInTemporary then
+             else if MainRecord.IsVisibleWhenDistant and not (gcVWDInTemporary in GameDefObj.Capabilities) then
                CorrectGroup := 10
              else
                CorrectGroup := 9;
@@ -26137,9 +26157,9 @@ begin
       if FileExists(fPath) then
         AddMaster(fPath, False, True)
       else if flContextObj.Settings.UseFalsePlugins then begin
-        fPath := flContextObj.Settings.DataPath + wbAppName + TheEmptyPlugin; // place holder to keep save indexes
+        fPath := flContextObj.Settings.DataPath + flContextObj.GameDefObj.AppName + TheEmptyPlugin; // place holder to keep save indexes
         if not FileExists(fPath) then
-          fPath := ExtractFilePath(wbProgramPath) + wbAppName + TheEmptyPlugin; // place holder to keep save indexes
+          fPath := ExtractFilePath(wbProgramPath) + flContextObj.GameDefObj.AppName + TheEmptyPlugin; // place holder to keep save indexes
         if FileExists(fPath) then
           AddMaster(SelectTemporaryCopy(fPath, Names[i]), True, True);
       end;

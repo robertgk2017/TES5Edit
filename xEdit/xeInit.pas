@@ -115,7 +115,7 @@ uses
 
 function xeCheckForValidExtension(const aFilePath : string): Boolean;
 begin
-  Result := wbIsModule(aFilePath) or wbIsSave(aFilePath);
+  Result := wbIsModule(aFilePath, wbGameExeName) or wbIsSave(aFilePath);
 end;
 
 function xeFindNextValidCmdLineFileName(var aStartIndex  : Integer;
@@ -141,7 +141,7 @@ function xeFindNextValidCmdLineModule(var aStartIndex  : Integer;
 begin
   repeat
     Result := xeFindNextValidCmdLineFileName(aStartIndex, aValue, aDefaultPath);
-  until not Result or wbIsModule(aValue);
+  until not Result or wbIsModule(aValue, wbGameExeName);
   if Result  then
     if (AnsiCompareText(ExtractFilePath(ExpandFileName(aValue)), ExpandFileName(aDefaultPath)) = 0) then begin
       aValue := ExtractFileName(aValue);
@@ -1072,7 +1072,7 @@ begin
   // specific Game settings
   case wbGameMode of
     gmFNV: begin
-      wbVWDInTemporary        := True;
+      lInputs.VWDInTemporary  := True;
       lSettings.LoadBSAs := False;
       lSettings.CanSortINFO := True;
       lSettings.AllowESPMasters := True;
@@ -1080,7 +1080,7 @@ begin
       lInputs.HNVSE           := FileExists(lSettings.DataPath + 'NVSE\Plugins\Hnvse.dll');
     end;
     gmFO3: begin
-      wbVWDInTemporary      := True;
+      lInputs.VWDInTemporary := True;
       lSettings.LoadBSAs := False;
       lSettings.CanSortINFO := True;
       lSettings.AllowESPMasters := True;
@@ -1093,7 +1093,7 @@ begin
       lSettings.DontCacheLoad := True;
       lSettings.DontCacheSave := True;
       lSettings.BuildRefs := False;
-      wbVWDInTemporary      := True;
+      lInputs.VWDInTemporary := True;
       lSettings.CreateContainedIn := False;
       lSettings.AllowESPMasters := True;
       lSettings.AllowESPMastersOnSave := True;
@@ -1117,9 +1117,9 @@ begin
       lSettings.AllowESPMastersOnSave := True;
     end;
     gmTES5, gmEnderal, gmTES5VR, gmSSE, gmEnderalSE: begin
-      wbVWDInTemporary      := True;
+      lInputs.VWDInTemporary := True;
       lSettings.LoadBSAs := True;  // localization won't work otherwise
-      wbHideIgnored         := False; // to show Form Version
+      lSettings.HideIgnored := False; // to show Form Version
       lSettings.CanSortINFO := True;
       var lVRESL := (wbGameMode in [gmTES5VR]) and FileExists(lSettings.DataPath + 'SKSE\Plugins\skyrimvresl.dll');
       lInputs.LightSupport := lVRESL;
@@ -1129,10 +1129,10 @@ begin
       lSettings.AllowESPMastersOnSave := True;
     end;
     gmFO4, gmFO4VR: begin
-      wbVWDInTemporary      := True;
-      wbVWDAsQuestChildren  := True;
+      lInputs.VWDInTemporary := True;
+      lInputs.VWDAsQuestChildren := True;
       lSettings.LoadBSAs := True;  // localization won't work otherwise
-      wbHideIgnored         := False; // to show Form Version
+      lSettings.HideIgnored := False; // to show Form Version
       lSettings.AlwaysSaveOnam := True;
       lSettings.AlwaysSaveOnamForce := True;
       var lVRESL := (wbGameMode in [gmFO4VR]) and (FileExists(lSettings.DataPath + 'F4SE\Plugins\falloutvresl.dll') or
@@ -1143,20 +1143,20 @@ begin
       lSettings.AllowESPMastersOnSave := True;
     end;
     gmFO76: begin
-      wbVWDInTemporary      := True;
-      wbVWDAsQuestChildren  := True;
+      lInputs.VWDInTemporary := True;
+      lInputs.VWDAsQuestChildren := True;
       lSettings.LoadBSAs := True;  // localization won't work otherwise
-      wbHideIgnored         := False; // to show Form Version
+      lSettings.HideIgnored := False; // to show Form Version
       lSettings.AlwaysSaveOnam := True;
       lSettings.AlwaysSaveOnamForce := True;
     end;
     gmSF1: begin
-      wbComplexFileFileID   := True;
+      lInputs.ComplexFileFileID := True;
       lSettings.EnforceAllMasters := True;
-      wbVWDInTemporary      := True;
-      wbVWDAsQuestChildren  := True;
+      lInputs.VWDInTemporary := True;
+      lInputs.VWDAsQuestChildren := True;
       lSettings.LoadBSAs := True;  // localization won't work otherwise
-      wbHideIgnored         := False; // to show Form Version
+      lSettings.HideIgnored := False; // to show Form Version
       lSettings.AlwaysSaveOnam := True;
       lSettings.AlwaysSaveOnamForce := True;
       wbDecodeTextureHashes := True;
@@ -1166,7 +1166,11 @@ begin
     Exit(False);
   end;
 
-  xeContextRef := wbCreateGameContext(wbCreateGameDef(wbGameMode, wbToolSource, lInputs));
+  lInputs.GameName := wbGameName;
+  lInputs.GameExeName := wbGameExeName;
+  lInputs.GameMasterEsm := wbGameMasterEsm;
+  lInputs.AppName := wbAppName;
+  xeContextRef := wbCreateGameContext(wbCreateGameDef(wbGameMode, wbToolSource, lInputs, False));
   xeContext := xeContextRef as TwbGameContext;
   lSettings.CreationClubContentFileName := xeContext.Settings.CreationClubContentFileName;
   xeContext.Settings := lSettings;
@@ -1426,6 +1430,9 @@ begin
   if wbFindCmdLineParam('cp', s) or wbFindCmdLineParam('cp-trans', s) then
     xeContext.Settings.EncodingTrans :=  wbMBCSEncoding(s);
 
+  xeContext.GameDefObj.EnsureDefined;
+  xeContext.Settings.CreationClubContentFileName := xeContext.GameDefObj.CreationClubContentFileName;
+
   if FindCmdLineSwitch('reportinjected') then
     wbReportInjected := True;
   if FindCmdLineSwitch('noreportinjected') then
@@ -1466,7 +1473,7 @@ begin
     if FindCmdLineSwitch('PseudoUpdate') then
       xeContext.Settings.PseudoUpdate := True;
 
-  if wbComplexFileFileID then begin
+  if gcComplexFileFileID in xeContext.GameDefObj.Capabilities then begin
     xeContext.Settings.IgnoreLight := False;
     xeContext.Settings.PseudoLight := False;
     xeContext.Settings.IgnoreMedium := False;
@@ -1559,7 +1566,7 @@ begin
         xeContext.Settings.LoadBSAs := True; //needed for localization
       xeContext.Settings.TranslationMode := True;
       wbHideUnused             := True;
-      wbHideIgnored            := True;
+      xeContext.Settings.HideIgnored := True;
       wbHideNeverShow          := True;
     end;
   end;

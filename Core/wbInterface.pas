@@ -139,7 +139,6 @@ var
   wbDecodeTextureHashes              : Boolean    = True;
   wbIKnowWhatImDoing                 : Boolean    = False;
   wbHideUnused                       : Boolean    = True;
-  wbHideIgnored                      : Boolean    = True;
   wbHideNeverShow                    : Boolean    = True;
   wbHideLargeSubrecords              : Boolean    = True;
   wbShowFormVersion                  : Boolean    = False;
@@ -153,9 +152,7 @@ var
   wbMoreInfoForIndex                 : Boolean    = False;
   wdMakeUnknownElementsUnique        : Boolean    = False;
   wbTestWrite                        : Boolean    = False;
-  wbVWDInTemporary                   : Boolean    = False;
-  wbVWDAsQuestChildren               : Boolean    = False;
-  wbResolveAlias                     : Boolean    = True;
+  wbResolveAlias                    : Boolean    = True;
   wbActorTemplateHide                : Boolean    = True;
   wbAlignArrayElements               : Boolean    = True;
   wbAlignArrayLimit                  : Integer    = 5000;
@@ -251,7 +248,6 @@ var
   wbAlwaysFastAssign                 : Boolean    = False;
   wbShowRawData                      : Boolean    = False;
   wbDisableFormIDCheck               : Boolean    = False;
-  wbComplexFileFileID                : Boolean    = False;
   wbAllowUnsafeScripts               : Boolean    = False;
 
   wbAllowMakePartial                 : Boolean    = False;
@@ -674,16 +670,24 @@ type
     gcWorkbenchRecipes, gcNPCRelationships, gcQuestScenesAndDialogue, gcPartialCellsFromGameMasterOnly,
     gcPrecombinedMeshPerCell, gcWorldspaceRoads, gcConditionWrapsCTDA, gcBoolGameSettings,
     gcMasterFlagFromExtension, gcResourceKeyCRC32NoExtension, gcTextureDDXAlias, gcUpdateArchiveAlwaysLoaded,
-    gcWeatherExtendedColors, gcWeatherFogPower, gcWeatherFogMax, gcModelTextureFileHashList, gcCommunityShaders, gcHNVSE
+    gcWeatherExtendedColors, gcWeatherFogPower, gcWeatherFogMax, gcModelTextureFileHashList, gcCommunityShaders, gcHNVSE,
+    gcVWDInTemporary, gcVWDAsQuestChildren, gcComplexFileFileID
   );
   TwbGameCapabilities = set of TwbGameCapability;
 
   TwbGameDefInputs = record
-    LightSupport  : Boolean;
-    MediumSupport : Boolean;
-    UpdateSupport : Boolean;
-    CS            : Boolean;
-    HNVSE         : Boolean;
+    LightSupport       : Boolean;
+    MediumSupport      : Boolean;
+    UpdateSupport      : Boolean;
+    CS                 : Boolean;
+    HNVSE              : Boolean;
+    VWDInTemporary     : Boolean;
+    VWDAsQuestChildren : Boolean;
+    ComplexFileFileID  : Boolean;
+    GameName           : string;
+    GameExeName        : string;
+    GameMasterEsm      : string;
+    AppName            : string;
   end;
 
   TwbToolMode   = (tmView, tmEdit, tmDump, tmExport, tmOnamUpdate, tmMasterUpdate, tmMasterRestore, tmLODgen, tmScript,
@@ -994,7 +998,7 @@ type
     Medium : Byte;
 
     class operator Initialize(out aDest: TwbSlotCounts);
-    class function Create(const aMasters : TwbFiles): TwbSlotCounts; static;
+    class function Create(const aMasters : TwbFiles; aComplex: Boolean): TwbSlotCounts; static;
     function Total: SmallInt; inline;
   end;
 
@@ -3943,9 +3947,14 @@ type
     gdRecordDefHashMap : array[0..Pred(RecordDefHashMapSize)] of Integer;
     gdRecordDefMap     : TStringList;
     gdRecordsInit      : Boolean;
+    gdDefined          : Boolean;
     gdGameMode         : TwbGameMode;
     gdToolSource       : TwbToolSource;
     gdCapabilities     : TwbGameCapabilities;
+    gdGameName         : string;
+    gdGameExeName      : string;
+    gdGameMasterEsm    : string;
+    gdAppName          : string;
     gdDefaultFormVersion : Word;
     gdQuestFlagsSignature : TwbSignature;
     gdRaceFlagsSignature  : TwbSignature;
@@ -3986,12 +3995,22 @@ type
     constructor Create(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs); overload;
     destructor Destroy; override;
 
+    procedure EnsureDefined;
+
     property ToolSource: TwbToolSource
       read gdToolSource;
     property GameMode: TwbGameMode
       read gdGameMode;
     property Capabilities: TwbGameCapabilities
       read gdCapabilities;
+    property GameName: string
+      read gdGameName;
+    property GameExeName: string
+      read gdGameExeName;
+    property GameMasterEsm: string
+      read gdGameMasterEsm;
+    property AppName: string
+      read gdAppName;
     function IsCS(const aDef1, aDef2: string): string; overload;
     function IsHNVSE(const aDef1, aDef2: TwbConflictPriority): TwbConflictPriority; overload;
     function IsTES3(const aDef1, aDef2: string): string; overload;
@@ -4217,6 +4236,7 @@ type
     FlagsAsArray          : Boolean;
     CompareRawData        : Boolean;
     TranslationMode       : Boolean;
+    HideIgnored           : Boolean;
     EditAllowed           : Boolean;
     AllowInternalEdit     : Boolean;
     DontSave              : Boolean;
@@ -5644,7 +5664,7 @@ function wbFormaterUnion(      aDecider : TwbIntegerDefFormaterUnionDecider;
                          const aMembers : array of IwbIntegerDefFormater)
                                         : IwbIntegerDefFormaterUnion;
 
-function wbIsModule(const aFileName: string): Boolean;
+function wbIsModule(const aFileName, aGameExeName: string): Boolean;
 function wbIsSave(const aFileName: string): Boolean;
 
 function wbStr4ToString(aInt: Int64): string;
@@ -5791,7 +5811,7 @@ function wbIsInternalEdit: Boolean;
 function StrToSignature(const s: string): TwbSignature;
 function IntToSignature(aInt: Cardinal): TwbSignature; inline;
 
-function FixupFormID(const aFormID: TwbFormID; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts; aAllowHardcodedRangeUse: Boolean; aLayout: TwbSlotLayout): TwbFormID;
+function FixupFormID(const aFormID: TwbFormID; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts; aAllowHardcodedRangeUse: Boolean; aLayout: TwbSlotLayout; aComplex: Boolean): TwbFormID;
 
 threadvar
   _InternalEditCount: Integer;
@@ -5881,7 +5901,7 @@ var
 
 procedure wbRegisterGameDef(const aGameModes: TwbGameModes; aToolSource: TwbToolSource; aGameDefClass: TwbGameDefClass);
 function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource): IwbGameDef; overload;
-function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs): IwbGameDef; overload;
+function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs; aDefine: Boolean = True): IwbGameDef; overload;
 function wbCreateGameContext(const aGameDef: IwbGameDef): IwbGameContext;
 
 implementation
@@ -6279,16 +6299,16 @@ begin
   Result := TwbNullWaitForm.Create;
 end;
 
-function wbComputeCapabilities(aGameMode: TwbGameMode; aLightSupport, aMediumSupport, aUpdateSupport, aCS, aHNVSE: Boolean): TwbGameCapabilities;
+function wbComputeCapabilities(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs): TwbGameCapabilities;
 begin
   Result := [];
-  if (aGameMode in [gmSSE, gmEnderalSE, gmFO4, gmSF1]) or aLightSupport then
+  if (aGameMode in [gmSSE, gmEnderalSE, gmFO4, gmSF1]) or aInputs.LightSupport then
     Include(Result, gcLightPlugins);
-  if (aGameMode in [gmSF1]) or aMediumSupport then
+  if (aGameMode in [gmSF1]) or aInputs.MediumSupport then
     Include(Result, gcMediumPlugins);
   if aGameMode in [gmSF1] then
     Include(Result, gcBlueprintPlugins);
-  if (aGameMode in [gmSF1]) or aUpdateSupport then
+  if (aGameMode in [gmSF1]) or aInputs.UpdateSupport then
     Include(Result, gcUpdatePlugins);
   if aGameMode in [gmFO76, gmSF1] then
     Include(Result, gcCurveTableProperties);
@@ -6364,10 +6384,16 @@ begin
     Include(Result, gcWeatherFogMax);
   if aGameMode in [gmTES3, gmTES4, gmTES4R, gmFO3, gmFNV] then
     Include(Result, gcModelTextureFileHashList);
-  if aCS then
+  if aInputs.CS then
     Include(Result, gcCommunityShaders);
-  if aHNVSE then
+  if aInputs.HNVSE then
     Include(Result, gcHNVSE);
+  if aInputs.VWDInTemporary then
+    Include(Result, gcVWDInTemporary);
+  if aInputs.VWDAsQuestChildren then
+    Include(Result, gcVWDAsQuestChildren);
+  if aInputs.ComplexFileFileID then
+    Include(Result, gcComplexFileFileID);
 end;
 
 constructor TwbGameDef.Create(aGameMode: TwbGameMode; aToolSource: TwbToolSource);
@@ -6380,7 +6406,11 @@ begin
   Create;
   gdGameMode := aGameMode;
   gdToolSource := aToolSource;
-  gdCapabilities := wbComputeCapabilities(aGameMode, aInputs.LightSupport, aInputs.MediumSupport, aInputs.UpdateSupport, aInputs.CS, aInputs.HNVSE);
+  gdCapabilities := wbComputeCapabilities(aGameMode, aInputs);
+  gdGameName := aInputs.GameName;
+  gdGameExeName := aInputs.GameExeName;
+  gdGameMasterEsm := aInputs.GameMasterEsm;
+  gdAppName := aInputs.AppName;
 end;
 
 constructor TwbGameDef.Create;
@@ -6812,6 +6842,14 @@ procedure TwbGameDef.SwitchToCoSave;
 begin
 end;
 
+procedure TwbGameDef.EnsureDefined;
+begin
+  if gdDefined then
+    Exit;
+  gdDefined := True;
+  Define;
+end;
+
 var
   _GameDefClasses    : array[TwbGameMode, TwbToolSource] of TwbGameDefClass;
 
@@ -6837,6 +6875,7 @@ begin
   Result.CreateContainedIn := True;
   Result.DelayLoadRecords := True;
   Result.AllowInternalEdit := True;
+  Result.HideIgnored := True;
   Result.Encoding := wbMBCSEncoding(1252);
   Result.EncodingTrans := Result.Encoding;
   Result.LoadBSAs := True;
@@ -7390,7 +7429,7 @@ end;
 
 function TwbGameContext.ExpandFileName(const aFileName: string): string;
 begin
-  if (ExtractFilePath(aFileName) = '') and not SameText(aFileName, wbGameExeName) then
+  if (ExtractFilePath(aFileName) = '') and not SameText(aFileName, gcGameDefObj.GameExeName) then
     Result := Settings.DataPath + ExtractFileName(aFileName)
   else
     Result := aFileName;
@@ -7940,7 +7979,7 @@ begin
   Result := wbCreateGameDef(aGameMode, aToolSource, Default(TwbGameDefInputs));
 end;
 
-function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs): IwbGameDef;
+function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs; aDefine: Boolean = True): IwbGameDef;
 begin
   var lGameDefClass := _GameDefClasses[aGameMode, aToolSource];
   if not Assigned(lGameDefClass) then
@@ -7949,7 +7988,8 @@ begin
       GetEnumName(TypeInfo(TwbToolSource), Ord(aToolSource)));
   var lGameDef := lGameDefClass.Create(aGameMode, aToolSource, aInputs);
   Result := lGameDef;
-  lGameDef.Define;
+  if aDefine then
+    lGameDef.EnsureDefined;
 end;
 
 function wbDefToName(const aDef: IwbDef): string;
@@ -13191,6 +13231,10 @@ begin
     if Supports(aElement, IwbContainerElementRef, CER) then begin
       var MembersNoName := (dfSummaryMembersNoName in CER.Def.DefFlags);
       var MembersShowIgnore := (dfSummaryMembersShowIgnore in CER.Def.DefFlags);
+      if not MembersShowIgnore then begin
+        var lContext := CER.ContextObj;
+        MembersShowIgnore := Assigned(lContext) and not lContext.Settings.HideIgnored;
+      end;
       for var i := 0 to Pred(l) do begin
         var SortOrder := aKeys[i];
         if (SortOrder >= Low(aMembers)) and (SortOrder <= High(aMembers)) then begin
@@ -13204,7 +13248,7 @@ begin
             if Assigned(Member) and
                not Member.DontShow and
                Supports(Member.Def, IwbRecordMemberDef, RMD) and
-               (MembersShowIgnore or (dfSummaryShowIgnore in RMD.DefFlags) or not wbHideIgnored or (Member.ConflictPriority > cpIgnore))
+               (MembersShowIgnore or (dfSummaryShowIgnore in RMD.DefFlags) or (Member.ConflictPriority > cpIgnore))
             then begin
               var lMemberSummary := RMD.ToSummary(Succ(aDepth), Member, aLinksTo).Trim;
               if lMemberSummary <> '' then begin
@@ -17022,7 +17066,7 @@ var
           var MemberCER: IwbContainerElementRef;
           if Supports(Element, IwbContainerElementRef, MemberCER) and
              Supports(Element, IwbDataContainer, DC) and
-             (MembersShowIgnore or (dfSummaryShowIgnore in Element.Def.DefFlags) or not wbHideIgnored or (Element.ConflictPriority > cpIgnore)) and
+             (MembersShowIgnore or (dfSummaryShowIgnore in Element.Def.DefFlags) or (Element.ConflictPriority > cpIgnore)) and
              not Element.DontShow
           then begin
             var MemberDef := stMembers[SortMember];
@@ -17078,6 +17122,10 @@ begin
     DelayedName := '';
     MembersNoName := dfSummaryMembersNoName in defFlags;
     MembersShowIgnore := dfSummaryMembersShowIgnore in defFlags;
+    if not MembersShowIgnore then begin
+      var lContext := CER.ContextObj;
+      MembersShowIgnore := Assigned(lContext) and not lContext.Settings.HideIgnored;
+    end;
     if not (dfSummaryNoSortKey in defFlags) then begin
       Process(stSortKey);
       Process(stExSortKey);
@@ -20336,7 +20384,7 @@ begin
   Result := True;
 end;
 
-function FixupFormID(const aFormID: TwbFormID; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts; aAllowHardcodedRangeUse: Boolean; aLayout: TwbSlotLayout): TwbFormID;
+function FixupFormID(const aFormID: TwbFormID; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts; aAllowHardcodedRangeUse: Boolean; aLayout: TwbSlotLayout; aComplex: Boolean): TwbFormID;
 var
   FileID    : TwbFileID;
   i         : Integer;
@@ -20374,7 +20422,7 @@ begin
   NewCount := aNewCount.Total;
   Slot := FileID.FullSlot;
 
-  if wbComplexFileFileID then
+  if aComplex then
   case FileID.GetModuleType of
     mtFull: begin
       OldCount := aOldCount.Full;
@@ -20429,8 +20477,11 @@ begin
       lAllowHardcodedRangeUse := lFile.AllowHardcodedRangeUse;
   end;
 
-  if aInt <> 0 then
-    Result := FixupFormID(TwbFormID.FromCardinal(aInt), aOld, aNew, aOldCount, aNewCount, lAllowHardcodedRangeUse, defSlotLayout(aElement)).ToCardinal;
+  if aInt <> 0 then begin
+    var lGameDef := defGameDefObj;
+    var lComplex := Assigned(lGameDef) and (gcComplexFileFileID in lGameDef.Capabilities);
+    Result := FixupFormID(TwbFormID.FromCardinal(aInt), aOld, aNew, aOldCount, aNewCount, lAllowHardcodedRangeUse, defSlotLayout(aElement), lComplex).ToCardinal;
+  end;
 end;
 
 procedure TwbFormIDDefFormater.Report(const aParents: TwbDefPath);
@@ -24886,9 +24937,9 @@ begin
     ndToStr(Result, aBasePtr, aEndPtr, aElement, ctToStr);
 end;
 
-function wbIsModule(const aFileName: string): Boolean;
+function wbIsModule(const aFileName, aGameExeName: string): Boolean;
 begin
-  Result := SameText(aFileName, wbGameExeName);
+  Result := SameText(aFileName, aGameExeName);
   if not Result then
     for var i := Low(wbModuleExtensions) to High(wbModuleExtensions) do
       if aFileName.EndsWith(wbModuleExtensions[i], True) or aFileName.EndsWith(wbModuleExtensions[i] + csDotGhost, True) then
@@ -25318,9 +25369,9 @@ begin
   FillChar(aDest, SizeOf(aDest), 0);
 end;
 
-class function TwbSlotCounts.Create(const aMasters : TwbFiles): TwbSlotCounts;
+class function TwbSlotCounts.Create(const aMasters : TwbFiles; aComplex: Boolean): TwbSlotCounts;
 begin
-  if wbComplexFileFileID then
+  if aComplex then
   begin
     // need to build counts per type
     for var lMaster in aMasters do

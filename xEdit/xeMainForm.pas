@@ -1660,7 +1660,7 @@ begin
 
   if not (gcOrderFromPluginsTxt in xeContext.GameDefObj.Capabilities) then
     if OldDateTime <> 0 then
-      if wbIsModule(lTo) then try
+      if wbIsModule(lTo, xeContext.GameDefObj.GameExeName) then try
       TFile.SetLastWriteTime(lTo, OldDateTime);
     except
       s := 'Could not set last modified time of "' + lTo + '".';
@@ -3173,7 +3173,7 @@ begin
     CompareFile := FileName;
     Settings.WriteString('CompareTo', 'InitialDir', ExtractFilePath(CompareFile));
     Settings.UpdateFile;
-    if wbIsModule(CompareFile) then
+    if wbIsModule(CompareFile, xeContext.GameDefObj.GameExeName) then
       fPath := xeContext.Settings.DataPath
     else
       fPath := xeContext.Settings.SavePath;
@@ -3236,7 +3236,7 @@ begin
     Settings.WriteString('CreateDeltaPatch', 'InitialDir', ExtractFilePath(CompareFile));
     Settings.UpdateFile;
 
-    if not wbIsModule(CompareFile) then begin
+    if not wbIsModule(CompareFile, xeContext.GameDefObj.GameExeName) then begin
       ShowMessage('Delta patch can only be created for modules');
       Exit;
     end;
@@ -4668,7 +4668,7 @@ begin
   xeContext.Settings.RequireLoadOrder := not xeContext.Settings.UseFalsePlugins;
   ShowUnsavedHint := True;
   ParentedGroupRecordType := [1, 6, 7];
-  if wbVWDAsQuestChildren then
+  if gcVWDAsQuestChildren in xeContext.GameDefObj.Capabilities then
     Include(ParentedGroupRecordType, 10);
 
   vstNav.NodeDataSize := SizeOf(TNavNodeData);
@@ -5128,7 +5128,7 @@ begin
   ShowUnsavedHint := Settings.ReadBool('Options', 'ShowUnsavedHint', ShowUnsavedHint);
   if not xeContext.Settings.TranslationMode then begin
     wbHideUnused := Settings.ReadBool('Options', 'HideUnused', wbHideUnused);
-    wbHideIgnored := Settings.ReadBool('Options', 'HideIgnored', wbHideIgnored);
+    xeContext.Settings.HideIgnored := Settings.ReadBool('Options', 'HideIgnored', xeContext.Settings.HideIgnored);
     wbHideNeverShow := Settings.ReadBool('Options', 'HideNeverShow', wbHideNeverShow);
   end;
   wbActorTemplateHide := Settings.ReadBool('Options', 'ActorTemplateHide', wbActorTemplateHide);
@@ -6813,7 +6813,7 @@ begin
 
     case ConflictThis of
       ctUnknown: vstView.IsVisible[aNode] := not lDontShow and not xeContext.Settings.TranslationMode;
-      ctIgnored: vstView.IsVisible[aNode] := not wbHideIgnored;
+      ctIgnored: vstView.IsVisible[aNode] := not xeContext.Settings.HideIgnored;
       ctNotDefined: begin
           if aNode.Parent = vstView.RootNode then
             ChildNodeDatas := @ActiveRecords[0]
@@ -6878,7 +6878,7 @@ begin
             end;
           end;
 
-          vstView.IsVisible[aNode] := ((ConflictThis <> ctIgnored) or not wbHideIgnored) and not lDontShow;
+          vstView.IsVisible[aNode] := ((ConflictThis <> ctIgnored) or not xeContext.Settings.HideIgnored) and not lDontShow;
         end;
     else
       vstView.IsVisible[aNode] := not lDontShow;
@@ -13057,7 +13057,7 @@ begin
         if TopLevelGroups.Find('INFO', Dummy) then
           TopLevelGroups.Add('DIAL');
 
-      if wbVWDAsQuestChildren and not TopLevelGroups.Find('QUST', Dummy) then
+      if (gcVWDAsQuestChildren in xeContext.GameDefObj.Capabilities) and not TopLevelGroups.Find('QUST', Dummy) then
         if TopLevelGroups.Find('DIAL', Dummy) or
            TopLevelGroups.Find('DLBR', Dummy) or
            TopLevelGroups.Find('SCEN', Dummy) then
@@ -13918,7 +13918,7 @@ begin
       cbHideNeverShow.Visible := False;
     end else begin
       cbHideUnused.Checked := wbHideUnused;
-      cbHideIgnored.Checked := wbHideIgnored;
+      cbHideIgnored.Checked := xeContext.Settings.HideIgnored;
       cbHideNeverShow.Checked := wbHideNeverShow;
     end;
     cbActorTemplateHide.Checked := wbActorTemplateHide;
@@ -14017,7 +14017,7 @@ begin
     mmoMessages.Font := pnlFontMessages.Font;
     if not xeContext.Settings.TranslationMode then begin
       wbHideUnused := cbHideUnused.Checked;
-      wbHideIgnored := cbHideIgnored.Checked;
+      xeContext.Settings.HideIgnored := cbHideIgnored.Checked;
       wbHideNeverShow := cbHideNeverShow.Checked;
     end;
     wbActorTemplateHide := cbActorTemplateHide.Checked;
@@ -14113,7 +14113,7 @@ begin
     Settings.WriteBool('Options', 'ShowUnsavedHint', ShowUnsavedHint);
     if not xeContext.Settings.TranslationMode then begin
       Settings.WriteBool('Options', 'HideUnused', wbHideUnused);
-      Settings.WriteBool('Options', 'HideIgnored', wbHideIgnored);
+      Settings.WriteBool('Options', 'HideIgnored', xeContext.Settings.HideIgnored);
       Settings.WriteBool('Options', 'HideNeverShow', wbHideNeverShow);
     end;
     Settings.WriteBool('Options', 'ActorTemplateHide', wbActorTemplateHide);
@@ -18225,7 +18225,7 @@ begin
         if wbShowRawData then
           CellText := Element.RawDataAsString;
         if CellText = '' then
-          if (Element.ConflictPriority <> cpIgnore) or not wbHideIgnored then begin
+          if (Element.ConflictPriority <> cpIgnore) or not xeContext.Settings.HideIgnored then begin
             CellText := Element.Value;
             if (CellText = '') and not (vsExpanded in Node.States) then
               CellText := Element.Summary;
@@ -20377,7 +20377,7 @@ begin
         lHeader.Add('#   wbFillINOM           = ' + BoolToStr(xeContext.Settings.FillINOM, True));
         lHeader.Add('#   wbFillPNAM           = ' + BoolToStr(xeContext.Settings.FillPNAM, True));
         lHeader.Add('#   wbFlagsAsArray       = ' + BoolToStr(xeContext.Settings.FlagsAsArray, True));
-        lHeader.Add('#   wbHideIgnored        = ' + BoolToStr(wbHideIgnored, True));
+        lHeader.Add('#   wbHideIgnored        = ' + BoolToStr(xeContext.Settings.HideIgnored, True));
         lHeader.Add('#   wbHideLargeSubrecords = ' + BoolToStr(wbHideLargeSubrecords, True));
         lHeader.Add('#   wbHideNeverShow      = ' + BoolToStr(wbHideNeverShow, True));
         lHeader.Add('#   wbHideUnused         = ' + BoolToStr(wbHideUnused, True));
@@ -21922,7 +21922,7 @@ begin
 
           if gcHardcodedFileIsFirstMaster in lGameDef.Capabilities then
             if (lLoadListIdx = 0) and (ltMaster = '') and (ltLoadOrderOffset = 0) and (ltLoadList.Count > 0) and SameText(ltLoadList[0], wbGameMasterEsm) then begin
-              b := TwbHardcodedContainer.GetHardCodedDat;
+              b := TwbHardcodedContainer.GetHardCodedDat(xeContext.GameDefObj.GameName);
               if Length(b) > 0 then begin
                 t := wbGameExeName;
                 LoaderProgress('loading "' + t + '"...');
@@ -21942,7 +21942,7 @@ begin
             s := ltLoadList[lLoadListIdx]
           else begin
             s := ltDataPath + ltLoadList[lLoadListIdx];
-            if not wbIsModule(ltLoadList[lLoadListIdx]) then
+            if not wbIsModule(ltLoadList[lLoadListIdx], xeContext.GameDefObj.GameExeName) then
               if wbToolSource in [tsSaves] then
                 if not FileExists(s) then // Assume its a save in the save path
                   s := xeContext.Settings.SavePath + ltLoadList[lLoadListIdx];
@@ -21956,7 +21956,7 @@ begin
             Exit;
 
           if (lLoadListIdx = 0) and (ltMaster = '') and (ltLoadOrderOffset = 0) and (ltLoadList.Count > 0) and SameText(ltLoadList[0], wbGameMasterEsm) then begin
-            b := TwbHardcodedContainer.GetHardCodedDat;
+            b := TwbHardcodedContainer.GetHardCodedDat(xeContext.GameDefObj.GameName);
             if Length(b) > 0 then begin
               t := wbGameExeName;
               LoaderProgress('loading "' + t + '"...');
