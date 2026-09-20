@@ -6162,7 +6162,6 @@ begin
     end;
 
   wbDarkMode := wbIsDarkMode;
-  //_BlockInternalEdit := True;
   _wbProgressCallback := GeneralProgress;
   LastUpdate := GetTickCount64;
   UpdateTreeLineColor;
@@ -13884,46 +13883,8 @@ begin
     cbManualCleaningHide.Checked := wbManualCleaningHide;
     cbManualCleaningAllow.Checked := wbManualCleaningAllow;
     cbConvertIntFormID.Checked := xeContext.Settings.ConvertIntFormID;
-    cbCollapseRecordHeader.Checked := clpRecordHeader in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseObjectBounds.Checked := clpObjectBounds in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseModels.Checked := clpModels in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseFactions.Checked := clpFactions in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseFactionRelations.Checked := clpFactionRelations in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseItems.Checked := clpItems in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseLeveledItems.Checked := clpLeveledItems in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseEquipSlots.Checked := clpEquipSlots in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseObjectProperties.Checked := clpObjectProperties in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseScriptProperties.Checked := clpScriptProperties in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseConditions.Checked := clpConditions in xeContext.GameDefObj.DefineOptions.Collapse;
+    CollapseOptions := xeContext.GameDefObj.DefineOptions.Collapse;
     cbCollapseBenignArray.Checked := wbCollapseBenignArray;
-    cbCollapseRGBA.Checked := clpRGBA in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseVec3.Checked := clpVec3 in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapsePosRot.Checked := clpPosRot in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseFragments.Checked := clpFragments in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseScriptData.Checked := clpScriptData in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseFlags.Checked := clpFlags in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseSounds.Checked := clpSounds in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseNavmesh.Checked := clpNavmesh in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseKeywords.Checked := clpKeywords in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseAliases.Checked := clpAliases in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseRange.Checked := clpRange in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseARMABoneData.Checked := clpARMABoneData in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseRACEBoneData.Checked := clpRACEBoneData in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseHeadParts.Checked := clpHeadParts in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseBodyParts.Checked := clpBodyParts in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseModelInfo.Checked := clpModelInfo in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapsePlacement.Checked := clpPlacement in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseVertices.Checked := clpVertices in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseTransforms.Checked := clpTransforms in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseDestruction.Checked := clpDestruction in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseLocations.Checked := clpLocations in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseOther.Checked := clpOther in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapsePerk.Checked := clpPerk in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseFactionRanks.Checked := clpFactionRanks in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseOwnership.Checked := clpOwnership in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseBaseFormComponent.Checked := clpBaseFormComponent in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseRagdoll.Checked := clpRagdoll in xeContext.GameDefObj.DefineOptions.Collapse;
-    cbCollapseDirectionRotation.Checked := clpDirectionRotation in xeContext.GameDefObj.DefineOptions.Collapse;
     cbShrinkButtons.Checked := wbShrinkButtons;
     edColumnWidth.Text := IntToStr(ColumnWidth);
     edRowHeight.Text := IntToStr(RowHeight);
@@ -13981,46 +13942,8 @@ begin
     wbManualCleaningHide := cbManualCleaningHide.Checked;
     wbManualCleaningAllow := cbManualCleaningAllow.Checked;
     xeContext.Settings.ConvertIntFormID := cbConvertIntFormID.Checked;
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpRecordHeader, cbCollapseRecordHeader.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpObjectBounds, cbCollapseObjectBounds.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpModels, cbCollapseModels.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpFactions, cbCollapseFactions.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpFactionRelations, cbCollapseFactionRelations.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpItems, cbCollapseItems.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpLeveledItems, cbCollapseLeveledItems.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpEquipSlots, cbCollapseEquipSlots.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpObjectProperties, cbCollapseObjectProperties.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpScriptProperties, cbCollapseScriptProperties.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpConditions, cbCollapseConditions.Checked);
+    xeContext.GameDefObj.DefineOptions.Collapse := CollapseOptions;
     wbCollapseBenignArray := cbCollapseBenignArray.Checked;
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpRGBA, cbCollapseRGBA.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpVec3, cbCollapseVec3.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpPosRot, cbCollapsePosRot.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpFragments, cbCollapseFragments.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpScriptData, cbCollapseScriptData.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpFlags, cbCollapseFlags.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpSounds, cbCollapseSounds.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpNavmesh, cbCollapseNavmesh.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpKeywords, cbCollapseKeywords.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpAliases, cbCollapseAliases.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpRange, cbCollapseRange.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpARMABoneData, cbCollapseARMABoneData.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpRACEBoneData, cbCollapseRACEBoneData.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpHeadParts, cbCollapseHeadParts.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpBodyParts, cbCollapseBodyParts.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpModelInfo, cbCollapseModelInfo.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpPlacement, cbCollapsePlacement.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpVertices, cbCollapseVertices.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpTransforms, cbCollapseTransforms.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpDestruction, cbCollapseDestruction.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpLocations, cbCollapseLocations.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpOther, cbCollapseOther.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpPerk, cbCollapsePerk.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpFactionRanks, cbCollapseFactionRanks.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpOwnership, cbCollapseOwnership.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpBaseFormComponent, cbCollapseBaseFormComponent.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpRagdoll, cbCollapseRagdoll.Checked);
-    xeContext.GameDefObj.DefineOptions.SetCollapse(clpDirectionRotation, cbCollapseDirectionRotation.Checked);
     if (wbShrinkButtons <> cbShrinkButtons.Checked) then
       if cbShrinkButtons.Checked then ShrinkButtons else ExpandButtons;
     wbShrinkButtons := cbShrinkButtons.Checked;
@@ -21138,8 +21061,6 @@ begin
           Exit;
         end;
 
-        _BlockInternalEdit := False;
-
         if (wbToolMode in [tmLODgen, tmScript]) then begin
           if not wbForceTerminate then
             tmrGenerator.Enabled := True;
@@ -21700,9 +21621,9 @@ begin
               bsaCount := 0;
               if FileExists(xeContext.Settings.TheGameIniFileName) then begin
                 if FileExists(xeContext.Settings.CustomIniFileName) then
-                  bsaCount := FindBSAs(xeContext, xeContext.Settings.TheGameIniFileName, xeContext.Settings.CustomIniFileName, ltDataPath, lFoundArchives, lNotFoundArchives)
+                  bsaCount := xeContext.FindBSAs(xeContext.Settings.TheGameIniFileName, xeContext.Settings.CustomIniFileName, ltDataPath, lFoundArchives, lNotFoundArchives)
                 else
-                  bsaCount := FindBSAs(xeContext, xeContext.Settings.TheGameIniFileName, ltDataPath, lFoundArchives, lNotFoundArchives);
+                  bsaCount := xeContext.FindBSAs(xeContext.Settings.TheGameIniFileName, ltDataPath, lFoundArchives, lNotFoundArchives);
               end;
 
               if (bsaCount > 0) then begin
@@ -21737,7 +21658,7 @@ begin
               try
                 // all games except old Skyrim load BSA files with partial matching, Skyrim requires exact names match
                 // and can use a private ini to specify the bsa to use.
-                if HasBSAs(xeContext, ChangeFileExt(ltLoadList[lLoadListIdx], ''), ltDataPath,
+                if xeContext.HasBSAs(ChangeFileExt(ltLoadList[lLoadListIdx], ''), ltDataPath,
                     gcArchiveExactNameMatch in lGameDef.Capabilities, gcArchivePrivateIni in lGameDef.Capabilities, lFoundPluginArchives, lNotFoundPluginArchives)>0 then begin
                       for var lFoundPluginIdx := 0 to Pred(lFoundPluginArchives.Count) do
                         if xeContext.Settings.LoadBSAs then begin
@@ -21862,6 +21783,7 @@ begin
             var
               OnlyLoad : Boolean;
               _File    : IwbFile;
+              s        : string;
             begin
               wbStartTime := StartTime;
               _wbProgressCallback := LoaderProgress;

@@ -37,6 +37,9 @@ type
     function MastersForFile(const aFileName: string; aMasters: TStrings; aIsESM: PBoolean = nil; aIsLight: PBoolean = nil; aIsLocalized: PBoolean = nil; aIsUpdate: PBoolean = nil; aIsMedium: PBoolean = nil; aIsBluePrint: PBoolean = nil): Boolean; overload; override;
     function MastersForFile(const aFileName: string; out aMasters: TDynStrings; aIsESM: PBoolean = nil; aIsLight: PBoolean = nil; aIsLocalized: PBoolean = nil; aIsUpdate: PBoolean = nil; aIsMedium: PBoolean = nil; aIsBluePrint: PBoolean = nil): Boolean; overload; override;
     procedure ForceClosedFiles; override;
+    function FindBSAs(const IniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; overload; override;
+    function FindBSAs(const IniName, CustomIniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; overload; override;
+    function HasBSAs(ModName: string; const DataPath: String; Exact, modini: Boolean; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; override;
   end;
 
 function StartsWith(const s, t: string): Boolean;
@@ -58,6 +61,7 @@ implementation
 
 uses
   System.Generics.Collections,
+  System.IniFiles,
   System.Math,
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   System.SyncObjs,
@@ -2299,13 +2303,6 @@ begin
     IwbFile(Pointer(List.Objects[Index2])).LoadOrder);
 end;
 
-function GetLoadedFileByName(const aContext: TwbGameContext; const aName: string): IwbFile;
-begin
-  for var lFile in aContext.Files do
-    if SameText(lFile.FileName, aName) then
-      Exit(lFile);
-end;
-
 { TwbFile }
 
 var
@@ -2566,7 +2563,7 @@ begin
     for i := 0  to Pred(aMasters.Count) do
       if not HasMaster(aMasters[i]) then
       begin
-        var lFile := GetLoadedFileByName(flContextObj, aMasters[i]);
+        var lFile := flContextObj.FileByModuleName(aMasters[i]);
         if not Assigned(lFile) then
           raise Exception.CreateFmt('[AddMAddMastersIfMissingasters] Requested file to add is not loaded: "%s"', [aMasters[i]]);
 
@@ -2652,7 +2649,7 @@ var
 
     if flContextObj.BeginInternalEdit(True) then try
       for i := 0 to Pred(lMasters.Count) do begin
-        var lFile := GetLoadedFileByName(flContextObj, lMasters[i]);
+        var lFile := flContextObj.FileByModuleName(lMasters[i]);
         if not Assigned(lFile) then
           raise Exception.CreateFmt('[AddMasters] Requested file to add is not loaded: "%s"', [lMasters[i]]);
 
@@ -9827,7 +9824,8 @@ end;
 
 function TwbMainRecord.DoGetFixedFormID: TwbFormID;
 begin
-  if not (gcFormIDInRecordHeader in GameDefObj.Capabilities) then
+  var lCapabilities := GameDefObj.Capabilities;
+  if not (gcFormIDInRecordHeader in lCapabilities) then
     Result := GetFormID
   else
     Result := PwbMainRecordStruct(dcBasePtr).mrsFormID(True)^;
@@ -9844,7 +9842,7 @@ begin
         Exit;
       end;
 
-    if gcComplexFileFileID in GameDefObj.Capabilities then begin
+    if gcComplexFileFileID in lCapabilities then begin
       var lFileID := Result.FileID[lLayout];
       case lFileID.ModuleType of
         mtLight:
@@ -10190,7 +10188,7 @@ var
     Include(mrStates, mrsBasePtrAllocated);
     BasePtr.mrsSignature := aSignature;
     BasePtr.mrsDataSize := 0;
-    var lGameDef := wbGameDefOf(aContainer);
+    var lGameDef := aContainer.GameDefObj;
     var lFormIDInHeader := gcFormIDInRecordHeader in lGameDef.Capabilities;
     BasePtr.mrsFlags(lFormIDInHeader)._Flags := 0;
     if lFormIDInHeader then
@@ -10492,6 +10490,7 @@ var
 
 begin
   var lContext := ContextObj;
+  var lGameDef := GameDefObj;
   RequiredRecords := [];
   PresentRecords := [];
 
@@ -10519,10 +10518,10 @@ begin
     if Assigned(mrDef) then
       RecordHeaderStruct := mrDef.RecordHeaderStruct as IwbStructDef;
     if not Assigned(RecordHeaderStruct) then
-      RecordHeaderStruct := GameDefObj.MainRecordHeader as IwbStructDef;
+      RecordHeaderStruct := lGameDef.MainRecordHeader as IwbStructDef;
 
     CurrentPtr := dcBasePtr;
-    with TwbRecordHeaderStruct.Create(Self, CurrentPtr, PByte(CurrentPtr) + GameDefObj.SizeOfMainRecordStruct, RecordHeaderStruct, '') do begin
+    with TwbRecordHeaderStruct.Create(Self, CurrentPtr, PByte(CurrentPtr) + lGameDef.SizeOfMainRecordStruct, RecordHeaderStruct, '') do begin
       Include(dcFlags, dcfDontSave);
       SetSortOrder(-1);
       SetMemoryOrder(Low(Integer));
@@ -10530,7 +10529,7 @@ begin
     end;
   end;
 
-  var lCapabilities := GameDefObj.Capabilities;
+  var lCapabilities := lGameDef.Capabilities;
   IsTES3CELL := (gcReferencesEmbeddedInCell in lCapabilities) and (GetSignature = 'CELL');
   IsTES3REFR := (gcReferencesEmbeddedInCell in lCapabilities) and (GetSignature = 'REFR');
   FRMRCount := 0;
@@ -10553,7 +10552,7 @@ begin
       Element := TwbRecord.CreateForPtr(CurrentPtr, dcDataEndPtr, Self, nil);
       if Supports(Element, IwbSubRecord, CurrentRec) then begin
         var lSignature := CurrentRec.Signature;
-        if GameDefObj.IgnoreRecords.Find(lSignature, Dummy) or mrDef.ShouldIgnore(lSignature) or lContext.SubRecordToSkip.Find(lSignature, Dummy) then
+        if lGameDef.IgnoreRecords.Find(lSignature, Dummy) or mrDef.ShouldIgnore(lSignature) or lContext.SubRecordToSkip.Find(lSignature, Dummy) then
           CurrentRec.Skipped := True;
         {$IFDEF DBGSUBREC}
         if lSubRecordCount >= Length(lSubRecords) then
@@ -10748,7 +10747,7 @@ begin
 
   mrDef.AfterLoad(Self);
 
-  if not (mrStruct.mrsFlags(gcFormIDInRecordHeader in GameDefObj.Capabilities).IsDeleted or GetIsPartialForm) then begin
+  if not (mrStruct.mrsFlags(gcFormIDInRecordHeader in lCapabilities).IsDeleted or GetIsPartialForm) then begin
     for i := 0 to Pred(mrDef.MemberCount) do
       if mrDef.Members[i].Required then
         Include(RequiredRecords, i);
@@ -11404,10 +11403,7 @@ begin
       else
         if GetGridCell(GridCell) then
           Result := '<' + StrRight(GridCell.X.ToString, 3) + ', ' + StrRight(GridCell.Y.ToString, 3) + '>';
-    end else if (gcGridCellInLandAndPathgrid in GameDefObj.Capabilities) and (GetSignature = 'LAND') then begin
-      if GetGridCell(GridCell) then
-        Result := '<' + StrRight(GridCell.X.ToString, 3) + ', ' + StrRight(GridCell.Y.ToString, 3) + '>';
-    end else if (gcGridCellInLandAndPathgrid in GameDefObj.Capabilities) and (GetSignature = 'PGRD') then begin
+    end else if ((GetSignature = 'LAND') or (GetSignature = 'PGRD')) and (gcGridCellInLandAndPathgrid in GameDefObj.Capabilities) then begin
       if GetGridCell(GridCell) then
         Result := '<' + StrRight(GridCell.X.ToString, 3) + ', ' + StrRight(GridCell.Y.ToString, 3) + '>';
     end else if (GetSignature = 'INFO') then begin
@@ -11456,10 +11452,7 @@ begin
       else
         if GetGridCell(GridCell) then
           Result := GridCell.SortKey;
-    end else if (gcGridCellInLandAndPathgrid in GameDefObj.Capabilities) and (GetSignature = 'LAND') then begin
-      if GetGridCell(GridCell) then
-        Result := GridCell.SortKey;
-    end else if (gcGridCellInLandAndPathgrid in GameDefObj.Capabilities) and (GetSignature = 'PGRD') then
+    end else if ((GetSignature = 'LAND') or (GetSignature = 'PGRD')) and (gcGridCellInLandAndPathgrid in GameDefObj.Capabilities) then
       if GetGridCell(GridCell) then
         Result := GridCell.SortKey;
 
@@ -11704,10 +11697,11 @@ end;
 
 procedure TwbMainRecord.ClampFormID(aIndex: Byte);
 begin
-  var lFormIDInHeader := gcFormIDInRecordHeader in GameDefObj.Capabilities;
+  var lCapabilities := GameDefObj.Capabilities;
+  var lFormIDInHeader := gcFormIDInRecordHeader in lCapabilities;
   if not lFormIDInHeader then
     Exit;
-  if gcComplexFileFileID in GameDefObj.Capabilities then
+  if gcComplexFileFileID in lCapabilities then
     Exit;
 
   if mrStruct.mrsFormID(lFormIDInHeader).FileID[ContextObj.SlotLayout].FullSlot > aIndex then begin
@@ -13030,8 +13024,9 @@ var
   lFormID: TwbFormID;
   i: Integer;
 begin
-  Assert(gcFormIDInRecordHeader in GameDefObj.Capabilities);
-  lComplex := gcComplexFileFileID in GameDefObj.Capabilities;
+  var lCapabilities := GameDefObj.Capabilities;
+  Assert(gcFormIDInRecordHeader in lCapabilities);
+  lComplex := gcComplexFileFileID in lCapabilities;
 
   Assert(Length(mrReferences)=0);
   aStream.Read(lFormID, SizeOf(TwbFormID));
@@ -13238,13 +13233,17 @@ var
         if Assigned(lFile) then
           lAllowHardcodedRangeUse := lFile.AllowHardcodedRangeUse;
 
+        var lCapabilities := GameDefObj.Capabilities;
+        var lComplex := gcComplexFileFileID in lCapabilities;
+        var lLayout := ContextObj.SlotLayout;
+
         HeaderUpdated := False;
         OldFormID := GetFixedFormID;
         if not OldFormID.IsNull then begin
-          NewFormID := FixupFormID(OldFormID, aOld, aNew, aOldCount, aNewCount, lAllowHardcodedRangeUse, ContextObj.SlotLayout, gcComplexFileFileID in GameDefObj.Capabilities);
+          NewFormID := FixupFormID(OldFormID, aOld, aNew, aOldCount, aNewCount, lAllowHardcodedRangeUse, lLayout, lComplex);
           if GetFormID <> NewFormID then begin
             MakeHeaderWriteable;
-            mrStruct.mrsFormID(gcFormIDInRecordHeader in GameDefObj.Capabilities)^ := NewFormID;
+            mrStruct.mrsFormID(gcFormIDInRecordHeader in lCapabilities)^ := NewFormID;
             mrFixedFormID := TwbFormID.Null;
             mrLoadOrderFormID := TwbFormID.Null;
             Exclude(mrStates, mrsIsInjectedChecked);
@@ -13257,7 +13256,7 @@ var
 
           for i := Low(mrReferences) to High(mrReferences) do begin
             OldFormID := mrReferences[i];
-            NewFormID := FixupFormID(OldFormID, aOld, aNew, aOldCount, aNewCount, lAllowHardcodedRangeUse, ContextObj.SlotLayout, gcComplexFileFileID in GameDefObj.Capabilities);
+            NewFormID := FixupFormID(OldFormID, aOld, aNew, aOldCount, aNewCount, lAllowHardcodedRangeUse, lLayout, lComplex);
             if OldFormID <> NewFormID then begin
               FoundOne := True;
               mrReferences[i] := NewFormID;
@@ -13820,7 +13819,9 @@ var
   begin
     KAR := wbCreateKeepAliveRoot;
 
-    if GetSignature = GameDefObj.HeaderSignature then begin
+    var lGameDef := GameDefObj;
+    var lCapabilities := lGameDef.Capabilities;
+    if GetSignature = lGameDef.HeaderSignature then begin
       if not Supports(GetContainer, IwbFile, _File) then
         raise Exception.Create('File Header record "' + GetFullPath + '" must be contained directly in the file.');
       if not GetFormID.IsNull then
@@ -13851,7 +13852,7 @@ var
             raise Exception.Create('Record "' + GetFullPath + '" can not be contained in ' + GroupRecord.Name);
         end;
         8, 10: begin {Persistent and Visible when Distant/Quest Children}
-          if (gcVWDAsQuestChildren in GameDefObj.Capabilities) and (GroupRecord.GroupType = 10) then begin
+          if (gcVWDAsQuestChildren in lCapabilities) and (GroupRecord.GroupType = 10) then begin
             if (GetSignature <> 'DLBR') and (GetSignature <> 'DIAL') and (GetSignature <> 'SCEN') then
               raise Exception.Create('Record "' + GetFullPath + '" can not be contained in ' + GroupRecord.Name);
           end else begin
@@ -13871,11 +13872,11 @@ var
 
             case GroupRecord.GroupType of
               8: begin
-                if not mrStruct.mrsFlags(gcFormIDInRecordHeader in GameDefObj.Capabilities).IsPersistent then
+                if not mrStruct.mrsFlags(gcFormIDInRecordHeader in lCapabilities).IsPersistent then
                   raise Exception.Create('Record "' + GetFullPath + '" needs to have it''s Persistent flag set to be contained in ' + GroupRecord.Name);
               end;
               10: begin
-                var lFlags := mrStruct.mrsFlags(gcFormIDInRecordHeader in GameDefObj.Capabilities);
+                var lFlags := mrStruct.mrsFlags(gcFormIDInRecordHeader in lCapabilities);
                 if not lFlags.IsVisibleWhenDistant then
                   raise Exception.Create('Record "' + GetFullPath + '" needs to have it''s Visible when Distant flag set to be contained in ' + GroupRecord.Name);
                 if lFlags.IsPersistent then
@@ -13901,10 +13902,10 @@ var
              (GetSignature <> 'PHZD')     {>>> Skyrim <<<}
           then
             raise Exception.Create('Record "' + GetFullPath + '" can not be contained in ' + GroupRecord.Name);
-          var lFlags := mrStruct.mrsFlags(gcFormIDInRecordHeader in GameDefObj.Capabilities);
+          var lFlags := mrStruct.mrsFlags(gcFormIDInRecordHeader in lCapabilities);
           if lFlags.IsPersistent then
             raise Exception.Create('Record "' + GetFullPath + '" can not have it''s Persistent flag set to be contained in ' + GroupRecord.Name);
-          if lFlags.IsVisibleWhenDistant and not (gcVWDInTemporary in GameDefObj.Capabilities) then
+          if lFlags.IsVisibleWhenDistant and not (gcVWDInTemporary in lCapabilities) then
             raise Exception.Create('Record "' + GetFullPath + '" can not have it''s Visible when Distant flag set to be contained in ' + GroupRecord.Name);
         end;
       end;
@@ -18266,7 +18267,7 @@ begin
     6, 8, 9: Assert(aMainRecord.Signature = 'CELL');
     10: Assert(
       (aMainRecord.Signature = 'CELL') or
-      ((gcVWDAsQuestChildren in wbGameDefOf(aContainer).Capabilities) and (aMainRecord.Signature = 'QUST'))
+      ((gcVWDAsQuestChildren in aContainer.GameDefObj.Capabilities) and (aMainRecord.Signature = 'QUST'))
     );
     7: Assert(aMainRecord.Signature = 'DIAL');
   end;
@@ -23793,7 +23794,9 @@ begin
       t := '';
     if t = '' then
       t := aContainer.Def.Name;
-    if t.StartsWith('Unknown', True) and (not Assigned(aBasePtr) or (aBasePtr <> aEndPtr)) and not lSkip then
+    if t.StartsWith('Unknown', True) and (not Assigned(aBasePtr) or (aBasePtr <> aEndPtr)) and not lSkip then begin
+      var lGameDef := aContainer.GameDefObj;
+      var lIsSave := Assigned(lGameDef) and (lGameDef.ToolSource = tsSaves);
       for i := 0 to 3 do begin
         BasePtr := PByte(aBasePtr) + i;
         var lContainer: IwbContainer := TwbStruct.Create(aContainer, BasePtr, aEndPtr, wbStruct('Offset ' + IntToStr(i), []), '');
@@ -23831,13 +23834,14 @@ begin
         Element := TwbArray.Create(lContainer, BasePtr, aEndPtr, wbArray('AsLString', wbLString('AsLString')), '', True);
         BasePtr := PByte(aBasePtr) + i;
         Element := TwbArray.Create(lContainer, BasePtr, aEndPtr, wbArray('AsLenString', wbLenString('AsLenString')), '', True);
-        if wbToolSource in [tsSaves] then begin
+        if lIsSave then begin
           BasePtr := PByte(aBasePtr) + i;
           Element := TwbArray.Create(lContainer, BasePtr, aEndPtr, wbArray('AsRefID', wbRefID('RefID')), '', True);
           BasePtr := PByte(aBasePtr) + i;
           Element := TwbArray.Create(lContainer, BasePtr, aEndPtr, wbArray(' AsU6to30', wbInteger('AsU6to30', itU6to30)), '', True);
         end;
       end;
+    end;
   end;
 
   if assigned(aResolvedDef) then
@@ -24081,6 +24085,146 @@ begin
   end;
 end;
 
+function TwbLoadingGameContext.FindBSAs(const IniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer;
+var
+  i: Integer;
+  j: Integer;
+  s: String;
+  t: String;
+  lGameDef: TwbGameDef;
+begin
+  lGameDef := GameDefObj;
+  Result := 0;
+  j := 0;
+  if Assigned(bsaNames) then
+    j := bsaNames.Count;
+  if Assigned(bsaMissing) then
+    j := j + bsaMissing.Count;
+
+  if Assigned(bsaNames) then
+    // TIniFile uses GetPrivateProfileString() to read data, it is virtualized by MO
+    // TMemIniFile reads from string list directly, not supported by MO
+    with TIniFile.Create(iniName) do try
+      with TStringList.Create do try
+        if lGameDef.IsOblivion or lGameDef.IsFallout3 then begin
+          s := StringReplace(ReadString('Archive', 'sArchiveList', ''), ',' ,#10, [rfReplaceAll]);
+          // Update.bsa is hardcoded to load in FNV
+          if gcUpdateArchiveAlwaysLoaded in lGameDef.Capabilities then begin
+            if s <> '' then s := s + #10;
+            s := s + 'Update.bsa';
+          end;
+          Text := s;
+        end else if lGameDef.IsSkyrim then
+          Text := StringReplace(
+            ReadString('Archive', 'sResourceArchiveList', '') + ',' +
+            ReadString('Archive', 'sResourceArchiveList2', ''),
+            ',', #10, [rfReplaceAll]
+          )
+        else if lGameDef.IsFallout4 or lGameDef.IsFallout76 or lGameDef.IsStarfield then
+          Text := StringReplace(
+            ReadString('Archive', 'sResourceIndexFileList', '') + ',' +
+            ReadString('Archive', 'sResourceStartUpArchiveList', '') + ',' +
+            ReadString('Archive', 'sResourceArchiveList', '') + ',' +
+            ReadString('Archive', 'sResourceArchiveList2', ''),
+            ',', #10, [rfReplaceAll]
+          );
+        for i := 0 to Pred(Count) do begin
+          s := Trim(Strings[i]);
+          t := MakeDataFileName(s, DataPath);
+          if (Length(t)>0) then
+            if FileExists(t) then begin
+              if Self.ContainerHandler.ContainerExists(t) then
+                Continue;
+              bsaNames.Add(s);
+            end else
+              if Assigned(bsaMissing) then
+                bsaMissing.Add(s);
+        end;
+        Result := bsaNames.Count  + bsaMissing.Count - j; // How many were added
+      finally
+        Free;
+      end;
+    finally
+      Free;
+    end;
+end;
+
+function TwbLoadingGameContext.FindBSAs(const IniName, CustomIniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer;
+var
+  i: Integer;
+  j: Integer;
+  s: String;
+  t: String;
+  cIni, mIni: TIniFile;
+  lGameDef: TwbGameDef;
+begin
+  lGameDef := GameDefObj;
+  j := 0;
+  if Assigned(bsaNames) then
+    j := bsaNames.Count;
+  if Assigned(bsaMissing) then
+    j := j + bsaMissing.Count;
+
+  if Assigned(bsaNames) then
+    // TIniFile uses GetPrivateProfileString() to read data, it is virtualized by MO
+    // TMemIniFile reads from string list directly, not supported by MO
+    cIni := TIniFile.Create(CustomIniName);
+    try
+      if not cIni.SectionExists('Archive') then
+        Result := FindBSAs(IniName, DataPath, bsaNames, bsaMissing)
+      else begin
+        mIni := TIniFile.Create(IniName);
+        try
+          with TStringList.Create do try
+            if lGameDef.IsOblivion or lGameDef.IsFallout3 then begin
+              s := CheckAddFilesToString(mIni, cIni, 'Archive', 'sArchiveList');
+              // Update.bsa is hardcoded to load in FNV
+              if gcUpdateArchiveAlwaysLoaded in lGameDef.Capabilities then begin
+                if s <> '' then s := s + #10;
+                s := s + 'Update.bsa';
+              end;
+              Text := s;
+            end else if lGameDef.IsSkyrim then begin
+              s := CheckAddFilesToString(mIni, cIni, 'Archive', 'sResourceArchiveList');
+              if s <> '' then s := s + #10;
+              s := s + CheckAddFilesToString(mIni, cIni, 'Archive', 'sResourceArchiveList2');
+              Text := s;
+            end else if lGameDef.IsFallout4 or lGameDef.IsFallout76 or lGameDef.IsStarfield then begin
+              s := CheckAddFilesToString(mIni, cIni, 'Archive', 'sResourceIndexFileList');
+              if s <> '' then s := s + #10;
+              s := s + CheckAddFilesToString(mIni, cIni, 'Archive', 'sResourceStartUpArchiveList');
+              if s <> '' then s := s + #10;
+              s := s + CheckAddFilesToString(mIni, cIni, 'Archive', 'sResourceArchiveList');
+              if s <> '' then s := s + #10;
+              s := s + CheckAddFilesToString(mIni, cIni, 'Archive', 'sResourceArchiveList2');
+              Text := s;
+            end;
+
+            for i := 0 to Pred(Count) do begin
+              s := Trim(Strings[i]);
+              t := MakeDataFileName(s, DataPath);
+              if (Length(t)>0) then
+                if FileExists(t) then begin
+                  if Self.ContainerHandler.ContainerExists(t) then
+                    Continue;
+                  bsaNames.Add(s);
+                end else
+                  if Assigned(bsaMissing) then
+                    bsaMissing.Add(s);
+            end;
+            Result := bsaNames.Count  + bsaMissing.Count - j; // How many were added
+          finally
+            Free;
+          end;
+        finally
+          FreeAndNil(mIni);
+        end;
+      end;
+    finally
+      FreeAndNil(cIni);
+    end;
+end;
+
 procedure TwbLoadingGameContext.ForceClosedFiles;
 begin
   for var lFile in Files do begin
@@ -24088,6 +24232,45 @@ begin
     wbProgressCallback;
   end;
   ForceClosed;
+end;
+
+function TwbLoadingGameContext.HasBSAs(ModName: string; const DataPath: String; Exact, modini: Boolean; var bsaNames: TStringList; var bsaMissing: TStringList): Integer;
+var
+  j: Integer;
+  t: String;
+  F: TSearchRec;
+begin
+  Result := 0;
+
+  if modIni then
+    Result := Result + FindBSAs(DataPath+ChangeFileExt(ModName, '.ini'), DataPath, bsaNames, bsaMissing);
+
+  j := 0;
+  if Assigned(bsaNames) then
+    j := bsaNames.Count;
+  if Assigned(bsaMissing) then
+    j := j + bsaMissing.Count;
+  // All games prior to Skyrim load BSA files with partial matching, Skyrim requires exact name match and
+  //   can use a private ini to specify the bsa to use.
+  if not exact then
+    ModName := ModName + '*';
+  if FindFirst(DataPath + ModName + GameDefObj.ArchiveExtension, faAnyFile, F) = 0 then try
+    repeat
+      if ContainerHandler.ContainerExists(DataPath + F.Name) then
+        Continue;
+      t := MakeDataFileName(F.Name, DataPath);
+      if (Length(t)>0) and FileExists(t) then begin
+        if not ContainerHandler.ContainerExists(t) then
+          if Assigned(bsaNames) then
+            bsaNames.Add(F.Name);
+      end else
+        if Assigned(bsaMissing) then
+          bsaMissing.Add(F.Name);
+    until FindNext(F) <> 0;
+    Result := bsaNames.Count  + bsaMissing.Count - j;
+  finally
+    System.SysUtils.FindClose(F);
+  end;
 end;
 
 function TwbLoadingGameContext.LoadFile(const aFileName: string; aLoadOrder: Integer; const aCompareTo: string; aStates: TwbFileStates; const aData: TBytes): IwbFile;
@@ -25788,7 +25971,7 @@ begin
       Assert(False);
   // if group is persistent, temporary or vwd cell children, it should be in a group too
   // if vwd is treated as quest children, then exclude it from check
-  var lVWDAsQuestChildren := gcVWDAsQuestChildren in wbGameDefOf(aMainRecord).Capabilities;
+  var lVWDAsQuestChildren := gcVWDAsQuestChildren in aMainRecord.GameDefObj.Capabilities;
   if lVWDAsQuestChildren then Grp := [8..9] else Grp := [8..10];
   if GroupRecord.GroupType in Grp then
     if not Supports(GroupRecord.Container, IwbGroupRecord, GroupRecord) then
