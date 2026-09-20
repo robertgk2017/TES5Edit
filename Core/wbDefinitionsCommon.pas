@@ -8921,32 +8921,32 @@ begin
       aName := 'Textures';
 
     if not aGameDef.DefineOptions.DecodeTextureHashes then
-      Exit(wbByteArray(aSignature, aName, 0, cpIgnore).SetDontShow(wbNeverShow));
+      Exit(wbByteArray(aSignature, aName, 0, cpBenign).SetDontShow(wbNeverShow));
 
     var TextureFile := wbStruct('Texture', [
-      wbInteger('File Hash (PC)', itU64, wbFileHashCallback),
-      wbInteger('File Hash (Console)', itU64, wbFileHashCallback),
-      wbInteger('Folder Hash', itU64, wbFolderHashCallback)
-    ]).SetSummaryKey([2,0])
-      .SetSummaryDelimiter('')
-      .SetSummaryMemberPrefixSuffix(0, '', '')
-      .SetSummaryMemberPrefixSuffix(2, '', '\')
-      .IncludeFlag(dfSummaryMembersNoName)
-      .IncludeFlag(dfCollapsed, clpModelInfoTexture in aGameDef.DefineOptions.Collapse);
+      wbInteger('File Hash (PC)', itU64, wbFileHashCallback, nil, cpBenign),
+      wbInteger('File Hash (Console)', itU64, wbFileHashCallback, nil, cpBenign),
+      wbInteger('Folder Hash', itU64, wbFolderHashCallback, nil, cpBenign)
+    ], cpBenign).SetSummaryKey([2,0])
+                .SetSummaryDelimiter('')
+                .SetSummaryMemberPrefixSuffix(0, '', '')
+                .SetSummaryMemberPrefixSuffix(2, '', '\')
+                .IncludeFlag(dfSummaryMembersNoName)
+                .IncludeFlag(dfCollapsed, clpModelInfoTexture in aGameDef.DefineOptions.Collapse);
 
-    Result := wbArray(aSignature, aName, TextureFile).IncludeFlag(dfCollapsed, clpModelInfoTextures in aGameDef.DefineOptions.Collapse);
+    Result := wbArray(aSignature, aName, TextureFile, 0, cpBenign).IncludeFlag(dfCollapsed, clpModelInfoTextures in aGameDef.DefineOptions.Collapse);
   end else begin
     if aName = '' then
       aName := 'Model Information';
 
     if not aGameDef.DefineOptions.DecodeTextureHashes then
-      Exit(wbByteArray(aSignature, aName, 0, cpIgnore).SetDontShow(wbNeverShow));
+      Exit(wbByteArray(aSignature, aName, 0, cpBenign).SetDontShow(wbNeverShow));
 
     var CreateFileEntry := function(const aName: string): IwbValueDef begin
       Result := wbStruct(aName, [
-        wbInteger('File Hash', itU32, wbFileHashCallback),
-        wbString('Extension', 4),
-        wbInteger('Folder Hash', itU32, wbFolderHashCallback)
+        wbInteger('File Hash', itU32, wbFileHashCallback, nil, cpBenign),
+        wbString('Extension', 4, cpBenign),
+        wbInteger('Folder Hash', itU32, wbFolderHashCallback, nil, cpBenign)
       ]).SetSummaryKey([2,0,1])
         .SetSummaryDelimiter('')
         .SetSummaryMemberPrefixSuffix(0, '', '')
@@ -8962,23 +8962,23 @@ begin
       wbStruct('', [
         aGameDef.IsTES5(
           wbArray('Counters',
-            wbInteger('Counter', itU32, nil, nil, cpIgnore),
-          -1, ['Textures', 'Addon Nodes'], cpIgnore)
+            wbInteger('Counter', itU32, nil, nil, cpBenign),
+          -1, ['Textures', 'Addon Nodes'], cpBenign)
             .IncludeFlag(dfCollapsed, clpModelInfoHeader in aGameDef.DefineOptions.Collapse)
             .IncludeFlag(dfNotAlignable),
           wbArray('Counters',
-            wbIntegeR('Counter', itU32, nil, nil, cpIgnore),
-          -1, ['Textures', 'Addon Nodes', 'SRGB', 'Materials'], cpIgnore)
+            wbIntegeR('Counter', itU32, nil, nil, cpBenign),
+          -1, ['Textures', 'Addon Nodes', 'SRGB', 'Materials'], cpBenign)
             .IncludeFlag(dfCollapsed, clpModelInfoHeader in aGameDef.DefineOptions.Collapse)
             .IncludeFlag(dfNotAlignable)
         ),
-        wbArray('Textures', TextureFile)
+        wbArray('Textures', TextureFile, 0, cpBenign)
           .SetCountPath('Counters\[0]', True)
           .SetSummaryPassthroughMaxLength(80)
           .SetSummaryPassthroughMaxDepth(1)
           .IncludeFlag(dfCollapsed, clpModelInfoTextures in aGameDef.DefineOptions.Collapse),
         wbArray('Addon Nodes',
-          wbInteger('Addon Node', itU32)
+          wbInteger('Addon Node', itU32, nil, cpBenign)
             .SetLinksToCallback(function(const aElement: IwbElement): IwbElement
             begin
               Result := nil;
@@ -9002,13 +9002,13 @@ begin
          .IncludeFlag(dfCollapsed, clpModelInfoAddons in aGameDef.DefineOptions.Collapse),
         aGameDef.IsTES5(
           nil,
-          wbArray('Materials', MaterialFile)
+          wbArray('Materials', MaterialFile, 0, cpBenign)
             .SetCountPath('Counters\[3]', True)
             .SetSummaryPassthroughMaxLength(80)
             .SetSummaryPassthroughMaxDepth(1)
             .IncludeFlag(dfCollapsed, clpModelInfoMaterials in aGameDef.DefineOptions.Collapse))
-      ]).SetSummaryKey([1, 2, 3])
-        .IncludeFlag(dfSummaryMembersNoName);
+      ], cpBenign).SetSummaryKey([1, 2, 3])
+                  .IncludeFlag(dfSummaryMembersNoName);
 
     Result := wbUnion(aSignature, aName, wbModelInfoDecider, [
       wbStruct('', [
