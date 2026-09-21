@@ -31,6 +31,7 @@ var
 type
   TwbLoadingGameContext = class(TwbGameContext)
   public
+    procedure DetachFilesFromModules; override;
     function LoadFile(const aFileName: string; aLoadOrder: Integer = -1; const aCompareTo: string = ''; aStates: TwbFileStates = []; const aData: TBytes = nil): IwbFile; override;
     function NewFile(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean): IwbFile; overload; override;
     function NewFile(const aFileName: string; aLoadOrder: Integer; aTemplate: PwbModuleInfo): IwbFile; overload;
@@ -363,8 +364,10 @@ type
     function GetFile: IwbFile; virtual;
     function GameDefObj: TwbGameDef; virtual;
     function ContextObj: TwbGameContext; virtual;
+    function SaveContextObj: TwbSaveContext; virtual;
     function GetGameDefObj: TwbGameDef;
     function GetContextObj: TwbGameContext;
+    function GetSaveContextObj: TwbSaveContext;
     function GetReferenceFile: IwbFile; virtual;
     function GetSortOrder: Integer;
     procedure BuildRef; virtual;
@@ -511,6 +514,7 @@ type
 
     function GameDefObj: TwbGameDef;
     function ContextObj: TwbGameContext;
+    function SaveContextObj: TwbSaveContext;
     function ReleaseElements: TDynElementInternals;
     procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer);
     procedure CreatedEmpty;
@@ -688,6 +692,9 @@ type
     procedure RemoveInjectedMainRecord(const aRecord: IwbMainRecord);
     procedure ForceClosed;
     function ContextObj: TwbGameContext;
+    function SaveContextObj: TwbSaveContext;
+    procedure SetSaveContextObj(aSaveContext: TwbSaveContext);
+    procedure DetachModule;
     procedure GetMasters(aMasters: TStrings);
     procedure IncGeneration;
     function GetFileGeneration: Integer;
@@ -752,6 +759,7 @@ type
     flModule                 : PwbModuleInfo;
     [weak] flContext         : IwbGameContext;
     flContextObj             : TwbGameContext;
+    flSaveContextObj         : TwbSaveContext;
     flSaveTables             : IwbSaveTables;
 
     flCachedEditInfos        : TwbCachedEditInfos;
@@ -777,6 +785,9 @@ type
     function GameDefObj: TwbGameDef; override;
     function GetContext: IwbGameContext;
     function ContextObj: TwbGameContext; override;
+    function SaveContextObj: TwbSaveContext; override;
+    procedure SetSaveContextObj(aSaveContext: TwbSaveContext);
+    procedure DetachModule;
     function GetSaveTables: IwbSaveTables;
     procedure SetSaveTables(const aValue: IwbSaveTables);
     function GetReferenceFile: IwbFile; override;
@@ -968,12 +979,21 @@ type
 
   TwbFileSource = class(TwbFile)
   private
+    function flSaveDef: TwbSaveDef;
     function SelectTemporaryCopy(const aFileName, aCompareFile: string): string;
   protected
     procedure Scan; override;
     constructor CreateNew(const aContext: TwbGameContext; const aFileName: string; aLoadOrder: Integer);
     procedure GetMasters(aMasters: TStrings); override;
     procedure GetPluginNames(const aHeader: IwbFileHeader; aNames: TStrings);
+  public
+    constructor CreateSave(const aSaveContext: TwbSaveContext; const aFileName: string; aLoadOrder: Integer; const aCompareTo: string; aStates: TwbFileStates);
+  end;
+
+  TwbLoadingSaveContext = class(TwbSaveContext)
+  public
+    destructor Destroy; override;
+    function LoadSave(const aFileName: string; aLoadOrder: Integer; const aCompareTo: string = ''; aStates: TwbFileStates = []): IwbFile; override;
   end;
 
   TwbDataContainerFlag = (
@@ -1681,6 +1701,10 @@ type
                        const aSource     : IwbElement;
                        const aOnlySK     : Boolean;
                        const aNameSuffix : string); reintroduce; overload;
+    constructor CreateDetached(const aContext    : TwbGameContext;
+                                 var aBasePtr    : Pointer;
+                                     aEndPtr     : Pointer;
+                               const aValueDef   : IwbValueDef);
   end;
 
   TwbArray = class(TwbValueBase, IwbSortableContainer, IwbArray)
@@ -4255,6 +4279,21 @@ end;
 function TwbFile.ContextObj: TwbGameContext;
 begin
   Result := flContextObj;
+end;
+
+function TwbFile.SaveContextObj: TwbSaveContext;
+begin
+  Result := flSaveContextObj;
+end;
+
+procedure TwbFile.SetSaveContextObj(aSaveContext: TwbSaveContext);
+begin
+  flSaveContextObj := aSaveContext;
+end;
+
+procedure TwbFile.DetachModule;
+begin
+  flModule := nil;
 end;
 
 function TwbFile.GetSaveTables: IwbSaveTables;
@@ -10217,7 +10256,7 @@ var
             Supports(Group.Container, IwbGroupRecordInternal, Group);
           if Assigned(Group) then begin
             if (Group.GroupType = 0) and (TwbSignature(Group.GroupLabel) = 'CELL') then begin
-              s := '00' + IntToStr(aFormID.ObjectID[ContextObj.SlotLayout]);
+              s := '00' + IntToStr(aFormID.ObjectID[aContainer.ContextObj.SlotLayout]);
               Block := StrToInt(s[Length(s)]);
               SubBlock := StrToInt(s[Pred(Length(s))]);
 
@@ -20324,6 +20363,14 @@ begin
     Result := eContextObj;
 end;
 
+function TwbElement.SaveContextObj: TwbSaveContext;
+begin
+  if Assigned(eContainer) then
+    Result := IwbContainerInternal(eContainer).SaveContextObj
+  else
+    Result := nil;
+end;
+
 function TwbElement.GetGameDefObj: TwbGameDef;
 begin
   Result := GameDefObj;
@@ -20332,6 +20379,11 @@ end;
 function TwbElement.GetContextObj: TwbGameContext;
 begin
   Result := ContextObj;
+end;
+
+function TwbElement.GetSaveContextObj: TwbSaveContext;
+begin
+  Result := SaveContextObj;
 end;
 
 function TwbElement.GetFound: Boolean;
@@ -24273,6 +24325,13 @@ begin
   end;
 end;
 
+procedure TwbLoadingGameContext.DetachFilesFromModules;
+begin
+  for var lIdx := Low(gcFiles) to High(gcFiles) do
+    if Assigned(gcFiles[lIdx]) then
+      (gcFiles[lIdx] as IwbFileInternal).DetachModule;
+end;
+
 function TwbLoadingGameContext.LoadFile(const aFileName: string; aLoadOrder: Integer; const aCompareTo: string; aStates: TwbFileStates; const aData: TBytes): IwbFile;
 var
   FileName: string;
@@ -24410,6 +24469,33 @@ begin
     Result := TwbFile.CreateNew(Self, FileName, aLoadOrder, aTemplate);
     AddFile(Result, FileName);
   end;
+end;
+
+{ TwbLoadingSaveContext }
+
+destructor TwbLoadingSaveContext.Destroy;
+var
+  lFile: IwbFileInternal;
+begin
+  if Supports(scFile, IwbFileInternal, lFile) then begin
+    lFile.SetSaveContextObj(nil);
+    lFile := nil;
+  end;
+  inherited;
+end;
+
+function TwbLoadingSaveContext.LoadSave(const aFileName: string; aLoadOrder: Integer; const aCompareTo: string; aStates: TwbFileStates): IwbFile;
+begin
+  var lGameContext := GameContextObj;
+  lGameContext.GameDefObj.InitRecords;
+
+  var lFileName := lGameContext.ExpandFileName(aFileName);
+  Result := lGameContext.FileByName(lFileName);
+  if Assigned(Result) then
+    (Result as IwbFileInternal).SetSaveContextObj(Self)
+  else
+    Result := TwbFileSource.CreateSave(Self, lFileName, aLoadOrder, aCompareTo, aStates + [fsAddToMap]);
+  scFile := Result;
 end;
 
 function wbFormListToArray(const aFormList: IwbMainRecord; const aSignatures: string): TDynMainRecords;
@@ -25284,6 +25370,15 @@ begin
   vbValueDef := aValueDef;
   eNameSuffix := aNameSuffix;
   inherited Create(aContainer, aBasePtr, aEndPtr, nil);
+end;
+
+constructor TwbValueBase.CreateDetached(const aContext    : TwbGameContext;
+                                          var aBasePtr    : Pointer;
+                                              aEndPtr     : Pointer;
+                                        const aValueDef   : IwbValueDef);
+begin
+  eContextObj := aContext;
+  Create(nil, aBasePtr, aEndPtr, aValueDef, '');
 end;
 
 function TwbValueBase.CanContainFormIDs: Boolean;
@@ -26223,6 +26318,19 @@ begin
   flFileNameOnDisk := flFileName;
 end;
 
+constructor TwbFileSource.CreateSave(const aSaveContext: TwbSaveContext; const aFileName: string; aLoadOrder: Integer; const aCompareTo: string; aStates: TwbFileStates);
+begin
+  flSaveContextObj := aSaveContext;
+  inherited Create(aSaveContext.GameContextObj, aFileName, aLoadOrder, aCompareTo, aStates, nil);
+end;
+
+function TwbFileSource.flSaveDef: TwbSaveDef;
+begin
+  Result := flContextObj.GameDefObj.SaveDef;
+  if not Assigned(Result) or not Assigned(Result.FileHeader) then
+    raise Exception.CreateFmt('Expected a module, found "%s"', [flFileName]);
+end;
+
 procedure TwbFileSource.GetMasters(aMasters: TStrings);
 var
   Header : IwbFileHeader;
@@ -26233,9 +26341,10 @@ begin
   if (GetElementCount <> 1) or not Supports(GetElement(0), IwbFileHeader, Header) then
     raise Exception.CreateFmt('Unexpected error reading file "%s"', [flFileName]);
 
-  if Header.FileMagic <> flContextObj.GameDefObj.FileMagic then
+  var lSaveDef := flSaveDef;
+  if Header.FileMagic <> lSaveDef.FileMagic then
     raise Exception.CreateFmt('Expected File Magic %s, found %s in file "%s"',
-      [flContextObj.GameDefObj.FileMagic, String(Header.FileMagic), flFileName]);
+      [lSaveDef.FileMagic, String(Header.FileMagic), flFileName]);
 
   Names := TStringList.Create;
   try
@@ -26257,18 +26366,20 @@ var
   modPtr      : Pointer;
   mods        : TwbArray;
 begin
-  var lFilePluginNames := flContextObj.GameDefObj.FilePluginNames;
+  var lSaveDef := flSaveDef;
+  var lFilePluginNames := lSaveDef.FilePluginNames;
   if Assigned(lFilePluginNames) then begin
     lFilePluginNames(aHeader, aNames);
     Exit;
   end;
 
-  if Pos('Absolute:', flContextObj.GameDefObj.FilePlugins)=1 then begin
-    modPtr := PByte(flView) + StrToInt(Copy(flContextObj.GameDefObj.FilePlugins, 10, Length(flContextObj.GameDefObj.FilePlugins)));
-    mods := TwbArray.Create(nil, modPtr, flEndPtr, wbArray('Modules', wbLenString('PluginName', 2), -4), '', False);
+  var lFilePlugins := lSaveDef.FilePlugins;
+  if Pos('Absolute:', lFilePlugins)=1 then begin
+    modPtr := PByte(flView) + StrToInt(Copy(lFilePlugins, 10, Length(lFilePlugins)));
+    mods := TwbArray.CreateDetached(flContextObj, modPtr, flEndPtr, wbArray('Modules', wbLenString('PluginName', 2), -4));
     Supports(mods, IwbContainerElementRef, MasterFiles);
   end else
-    MasterFiles := aHeader.ElementByName[flContextObj.GameDefObj.FilePlugins] as IwbContainerElementRef;
+    MasterFiles := aHeader.ElementByName[lFilePlugins] as IwbContainerElementRef;
 
   if Assigned(MasterFiles) then
     for i := 0 to Pred(MasterFiles.ElementCount) do
@@ -26312,22 +26423,21 @@ begin
   SelfRef := Self as IwbContainerElementRef;
   flProgress('Start processing');
 
-  if flContextObj.GameDefObj.FileHeader = nil then
-    raise Exception.CreateFmt('Expected a module, found "%s"', [flFileName]);
+  var lSaveDef := flSaveDef;
 
   flLoadOrderFileID := TwbFileID.CreateFull($FF);
 
   flBaseOffset := NativeUInt(flView);
 
   CurrentPtr := flView;
-  TwbFileHeader.Create(Self, CurrentPtr, flEndPtr, flContextObj.GameDefObj.FileHeader, '', False);
+  TwbFileHeader.Create(Self, CurrentPtr, flEndPtr, lSaveDef.FileHeader, '', False);
 
   if (GetElementCount <> 1) or not Supports(GetElement(0), IwbFileHeader, Header) then
     raise Exception.CreateFmt('Unexpected error reading file "%s"', [flFileName]);
 
-  if Header.FileMagic <> flContextObj.GameDefObj.FileMagic then
+  if Header.FileMagic <> lSaveDef.FileMagic then
     raise Exception.CreateFmt('Expected header Magic %s, found %s in file "%s"',
-      [flContextObj.GameDefObj.FileMagic, String(Header.FileMagic), flFileName]);
+      [lSaveDef.FileMagic, String(Header.FileMagic), flFileName]);
 
   if fsOnlyHeader in flStates then
     Exit;
@@ -26357,14 +26467,15 @@ begin
     AddMaster(flCompareTo);
   end;
 
-  if flContextObj.GameDefObj.ExtractInfo <> nil then
-    ExtractInfo := flContextObj.GameDefObj.ExtractInfo^
+  if lSaveDef.ExtractInfo <> nil then
+    ExtractInfo := lSaveDef.ExtractInfo^
   else
     ExtractInfo := [];
 
-  for i := 0 to Pred(flContextObj.GameDefObj.FileChapters.MemberCount) do begin
+  var lFileChapters := lSaveDef.FileChapters;
+  for i := 0 to Pred(lFileChapters.MemberCount) do begin
 
-    ValueDef := flContextObj.GameDefObj.FileChapters.Members[i];
+    ValueDef := lFileChapters.Members[i];
     if ValueDef.DefType = dtResolvable then
       ValueDef := Resolve(ValueDef, currentPtr, flEndPtr, Self);
     if dfUnionStaticResolve in ValueDef.DefFlags then
@@ -26416,7 +26527,8 @@ begin
   if Assigned(aValueDef) then
     Assert(Supports(aValueDef, IwbStructCDef));
   inherited;
-  cChapterSkipped := cChapterSkipped or ContextObj.ChaptersToSkip.Find(aValueDef.Name, Dummy);
+  var lSaveContext := SaveContextObj;
+  cChapterSkipped := cChapterSkipped or (Assigned(lSaveContext) and lSaveContext.ChaptersToSkip.Find(aValueDef.Name, Dummy));
 end;
 
 function TwbChapter.GetChapterName: String;
@@ -26638,6 +26750,7 @@ end;
 
 initialization
   wbGameContextClass := TwbLoadingGameContext;
+  wbSaveContextClass := TwbLoadingSaveContext;
   _MastersGeneration := 1;
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   _ResizeLock.Initialize;

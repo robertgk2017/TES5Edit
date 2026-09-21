@@ -217,7 +217,8 @@ begin
         Result := aType - 1000 + 12 + 1;
     end;
     if (Result > 12) then Result := 0; //Others are not decoded yet
-    if (Container.ContextObj.ChaptersToSkip <> nil) and Container.ContextObj.ChaptersToSkip.Find(IntToStr(aType), aType)  then // "Required" time optimisation (can save "hours" if used on 1001)
+    var lSaveContext := Container.SaveContextObj;
+    if Assigned(lSaveContext) and lSaveContext.ChaptersToSkip.Find(IntToStr(aType), aType)  then // "Required" time optimisation (can save "hours" if used on 1001)
       Result := 0;
   end;
 end;
@@ -545,7 +546,8 @@ begin
     Result := 1 + Result;
     if (Result > 55) then
       Result := 0;
-    if (Container.ContextObj.ChaptersToSkip <> nil) and Container.ContextObj.ChaptersToSkip.Find(IntToStr(wbChangedFormOffset+Result), aType)  then // "Required" time optimisation (can save "hours" if used on 1001)
+    var lSaveContext := Container.SaveContextObj;
+    if Assigned(lSaveContext) and lSaveContext.ChaptersToSkip.Find(IntToStr(wbChangedFormOffset+Result), aType)  then // "Required" time optimisation (can save "hours" if used on 1001)
       Result := 0;
   end else
     Result := 0;
@@ -6819,7 +6821,7 @@ begin
     ,wbByteArray('Hidden: Screenshot Data', ScreenShotDataCounter)
     ,wbInteger('Form Version', itU8)
     ,wbInteger('PluginInfo Size', itU32)
-    ,wbArrayPT(FilePlugins, wbLenStringT('PluginName', -3), -4)
+    ,wbArrayPT(gdSaveDef.FilePlugins, wbLenStringT('PluginName', -3), -4)
     ,wbFileLocationTable
   ]);
 
@@ -6901,8 +6903,8 @@ begin
     wbCoSavePlugins
   ]);
 
-  FileChapters := wbSaveChapters;
-  FileHeader := wbSaveHeader;
+  gdSaveDef.FileChapters := wbSaveChapters;
+  gdSaveDef.FileHeader := wbSaveHeader;
   wbSaveHeader.TreeHead := True;
   wbCoSaveHeader.TreeHead := True;
 //  wbSaveHeader.TreeLeaf := True;
@@ -6915,9 +6917,11 @@ var
 
 procedure TwbGameDefFNVSaves.Define;
 begin
-  FileMagic := 'FO3SAVEGAME';
-  ExtractInfo := @ExtractInfoSave;
-  FilePlugins := 'Plugins';
+  if not Assigned(gdSaveDef) then
+    gdSaveDef := TwbSaveDef.Create;
+  gdSaveDef.FileMagic := 'FO3SAVEGAME';
+  gdSaveDef.ExtractInfo := @ExtractInfoSave;
+  gdSaveDef.FilePlugins := 'Plugins';
   inherited;
   DefineFNVSavesA;
   DefineFNVSavesS;
@@ -6925,11 +6929,11 @@ end;
 
 procedure TwbGameDefFNVSaves.SwitchToCoSave;
 begin
-  FileMagic := 'NVSE';
-  ExtractInfo := @ExtractInfoCoSave;
-  FilePlugins := 'Absolute:44';
-  FileChapters := wbCoSaveChapters;
-  FileHeader := wbCoSaveHeader;
+  gdSaveDef.FileMagic := 'NVSE';
+  gdSaveDef.ExtractInfo := @ExtractInfoCoSave;
+  gdSaveDef.FilePlugins := 'Absolute:44';
+  gdSaveDef.FileChapters := wbCoSaveChapters;
+  gdSaveDef.FileHeader := wbCoSaveHeader;
 end;
 
 initialization

@@ -842,6 +842,8 @@ type
   TwbGameDef = class;
   IwbGameContext = interface;
   TwbGameContext = class;
+  IwbSaveContext = interface;
+  TwbSaveContext = class;
   IwbFile = interface;
   IwbSaveTables = interface;
   IwbNamedDef = interface;
@@ -1106,6 +1108,7 @@ type
     function GetReferenceFile: IwbFile;
     function GetGameDefObj: TwbGameDef;
     function GetContextObj: TwbGameContext;
+    function GetSaveContextObj: TwbSaveContext;
     function GetSortOrder: Integer;
     procedure SetSortOrder(aSortOrder: Integer);
     function GetMemoryOrder: Integer;
@@ -1233,6 +1236,8 @@ type
       read GetGameDefObj;
     property ContextObj: TwbGameContext
       read GetContextObj;
+    property SaveContextObj: TwbSaveContext
+      read GetSaveContextObj;
     property InjectionSourceFiles: TwbFiles
       read GetInjectionSourceFiles;
 
@@ -3488,6 +3493,18 @@ type
 
   TwbFilePluginNames = reference to procedure(const aHeader: IwbContainer; aNames: TStrings);
 
+  TwbSaveDef = class
+  public
+    FileMagic       : TwbFileMagic;
+    FilePlugins     : string;
+    FileHeader      : IwbStructDef;
+    FileChapters    : IwbStructDef;
+    ExtractInfo     : PByteSet;
+    FilePluginNames : TwbFilePluginNames;
+
+    constructor Create;
+  end;
+
   PwbRecordDefEntry = ^TwbRecordDefEntry;
   TwbRecordDefEntry = record
     rdeSignature : TwbSignature;
@@ -3513,13 +3530,8 @@ type
     gdNexusModsUrl     : string;
     gdIgnoreRecords    : TStringList;
     gdGroupOrder       : TStringList;
-    gdFileMagic        : TwbFileMagic;
-    gdFilePlugins      : string;
     gdActorValueEnum   : IwbEnumDef;
-    gdFileHeader       : IwbStructDef;
-    gdFileChapters     : IwbStructDef;
-    gdExtractInfo      : PByteSet;
-    gdFilePluginNames  : TwbFilePluginNames;
+    gdSaveDef          : TwbSaveDef;
     gdOfficialDLC      : TArray<string>;
     gdCreationClubContentFileName : string;
     gdKnownSubRecordSignatures    : TwbKnownSubRecordSignatures;
@@ -3686,27 +3698,11 @@ type
       read gdIgnoreRecords;
     property GroupOrder: TStringList
       read gdGroupOrder;
-    property FileMagic: TwbFileMagic
-      read gdFileMagic
-      write gdFileMagic;
-    property FilePlugins: string
-      read gdFilePlugins
-      write gdFilePlugins;
     property ActorValueEnum: IwbEnumDef
       read gdActorValueEnum
       write gdActorValueEnum;
-    property FileHeader: IwbStructDef
-      read gdFileHeader
-      write gdFileHeader;
-    property FileChapters: IwbStructDef
-      read gdFileChapters
-      write gdFileChapters;
-    property ExtractInfo: PByteSet
-      read gdExtractInfo
-      write gdExtractInfo;
-    property FilePluginNames: TwbFilePluginNames
-      read gdFilePluginNames
-      write gdFilePluginNames;
+    property SaveDef: TwbSaveDef
+      read gdSaveDef;
     property OfficialDLC: TArray<string>
       read gdOfficialDLC
       write gdOfficialDLC;
@@ -3874,7 +3870,6 @@ type
     gcRecordToSkip    : TStringList;
     gcSubRecordToSkip : TStringList;
     gcGroupToSkip     : TStringList;
-    gcChaptersToSkip  : TStringList;
     gcAllowDirectSaveFor    : TStringList;
     gcStripMastersFileNames : TStringList;
     gcLEncoding       : array[Boolean] of TStringList;
@@ -3920,6 +3915,7 @@ type
     procedure ForceClosed;
     procedure IncGlobalGeneration;
     function BeginInternalEdit(aForce: Boolean = False): Boolean;
+    procedure DetachFilesFromModules; virtual;
     function SlotLayout: TwbSlotLayout;
     function FormIDFromIdentity(aFormIDBase, aFormIDNameBase: Byte; aIdentity: string): TwbFormID;
     function ExpandFileName(const aFileName: string): string;
@@ -3963,8 +3959,6 @@ type
       read gcSubRecordToSkip;
     property GroupToSkip: TStringList
       read gcGroupToSkip;
-    property ChaptersToSkip: TStringList
-      read gcChaptersToSkip;
     property AllowDirectSaveFor: TStringList
       read gcAllowDirectSaveFor;
     property StripMastersFileNames: TStringList
@@ -4003,6 +3997,32 @@ type
   end;
 
   TwbGameContextClass = class of TwbGameContext;
+
+  IwbSaveContext = interface(IwbInterface)
+    ['{5853FC05-06A7-4875-887E-BC04D9C6A52E}']
+  end;
+
+  TwbSaveContext = class(TInterfacedObject, IwbSaveContext)
+  protected
+    scGameContext    : IwbGameContext;
+    scGameContextObj : TwbGameContext;
+    scFile           : IwbFile;
+    scChaptersToSkip : TStringList;
+  public
+    constructor Create(const aGameContext: IwbGameContext);
+    destructor Destroy; override;
+
+    function LoadSave(const aFileName: string; aLoadOrder: Integer; const aCompareTo: string = ''; aStates: TwbFileStates = []): IwbFile; virtual; abstract;
+
+    property GameContextObj: TwbGameContext
+      read scGameContextObj;
+    property SaveFile: IwbFile
+      read scFile;
+    property ChaptersToSkip: TStringList
+      read scChaptersToSkip;
+  end;
+
+  TwbSaveContextClass = class of TwbSaveContext;
 
 const
   arcU32 = -1;
@@ -5326,12 +5346,14 @@ var
   wbFileByReverseSortOrderComparer : IComparer<IwbFile>;
 
   wbGameContextClass : TwbGameContextClass;
+  wbSaveContextClass : TwbSaveContextClass;
 
 procedure wbRegisterGameDef(const aGameModes: TwbGameModes; aToolSource: TwbToolSource; aGameDefClass: TwbGameDefClass);
 function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource): IwbGameDef; overload;
 function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs; aDefine: Boolean = True): IwbGameDef; overload;
 function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs; const aDefineOptions: TwbGameDefineOptions): IwbGameDef; overload;
 function wbCreateGameContext(const aGameDef: IwbGameDef): IwbGameContext;
+function wbCreateSaveContext(const aGameContext: IwbGameContext): IwbSaveContext;
 
 implementation
 
@@ -5842,6 +5864,12 @@ begin
   gdAppName := aInputs.AppName;
 end;
 
+constructor TwbSaveDef.Create;
+begin
+  inherited Create;
+  FilePlugins := 'Master Files';
+end;
+
 constructor TwbGameDef.Create;
 begin
   inherited Create;
@@ -5853,7 +5881,6 @@ begin
   gdIgnoreRecords := TStringList.Create;
   gdIgnoreRecords.Sorted := True;
   gdIgnoreRecords.Duplicates := dupIgnore;
-  gdFilePlugins := 'Master Files';
   gdDefaultFormVersion := 15;
   gdQuestFlagsSignature := 'DATA';
   gdRaceFlagsSignature := 'DATA';
@@ -5882,6 +5909,7 @@ end;
 
 destructor TwbGameDef.Destroy;
 begin
+  FreeAndNil(gdSaveDef);
   FreeAndNil(gdRecordDefMap);
   FreeAndNil(gdGroupOrder);
   FreeAndNil(gdIgnoreRecords);
@@ -6281,6 +6309,33 @@ begin
   Result := wbGameContextClass.Create(aGameDef);
 end;
 
+function wbCreateSaveContext(const aGameContext: IwbGameContext): IwbSaveContext;
+begin
+  Assert(Assigned(wbSaveContextClass));
+  Result := wbSaveContextClass.Create(aGameContext);
+end;
+
+{ TwbSaveContext }
+
+constructor TwbSaveContext.Create(const aGameContext: IwbGameContext);
+begin
+  inherited Create;
+  scGameContext := aGameContext;
+  scGameContextObj := aGameContext as TwbGameContext;
+  scChaptersToSkip := TwbFastStringList.Create;
+  scChaptersToSkip.Sorted := True;
+  scChaptersToSkip.Duplicates := dupIgnore;
+end;
+
+destructor TwbSaveContext.Destroy;
+begin
+  scFile := nil;
+  scGameContextObj := nil;
+  scGameContext := nil;
+  FreeAndNil(scChaptersToSkip);
+  inherited;
+end;
+
 { TwbGameDefineOptions }
 
 class function TwbGameDefineOptions.Defaults: TwbGameDefineOptions;
@@ -6349,7 +6404,6 @@ begin
   gcRecordToSkip := CreateSkipList;
   gcSubRecordToSkip := CreateSkipList;
   gcGroupToSkip := CreateSkipList;
-  gcChaptersToSkip := CreateSkipList;
   gcAllowDirectSaveFor := CreateNameList;
   gcStripMastersFileNames := CreateNameList;
   gcLEncoding[False] := CreateLEncodingList;
@@ -6367,17 +6421,21 @@ begin
   for var i := Low(gcIdentitys) to High(gcIdentitys) do
     FreeAndNil(gcIdentitys[i]);
   FreeAndNil(gcFilesMap);
+  DetachFilesFromModules;
   FreeAndNil(gcModuleList);
   FreeAndNil(gcModGroupList);
   FreeAndNil(gcRecordToSkip);
   FreeAndNil(gcSubRecordToSkip);
   FreeAndNil(gcGroupToSkip);
-  FreeAndNil(gcChaptersToSkip);
   FreeAndNil(gcAllowDirectSaveFor);
   FreeAndNil(gcStripMastersFileNames);
   FreeAndNil(gcLEncoding[True]);
   FreeAndNil(gcLEncoding[False]);
   inherited;
+end;
+
+procedure TwbGameContext.DetachFilesFromModules;
+begin
 end;
 
 function TwbGameContext.CreateSkipList: TStringList;
@@ -6595,6 +6653,7 @@ end;
 procedure TwbGameContext.ForceClosed;
 begin
   gcFaceGenCache := nil;
+  DetachFilesFromModules;
   gcFiles := nil;
   gcFilesMap.Clear;
   gcNextFullSlot := 0;

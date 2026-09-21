@@ -20,6 +20,8 @@ uses
 var
   xeContextRef             : IwbGameContext;
   xeContext                : TwbGameContext;
+  xeSaveContextRef         : IwbSaveContext;
+  xeSaveContext            : TwbSaveContext;
   xeScriptToRun            : string;
   xeSettingsFileName       : string;
   xePluginToUse            : string;          // Passed a specific plugin as parameter
@@ -58,6 +60,8 @@ var
   xeTestNavCopyMaster      : string = 'NavCopyA.esp';
   xeTestNavCopyPlugin      : string = 'NavCopyB.esp';
   xeTestNavCopyCount       : Integer = 12;
+  xeTestNavCopyNew         : Boolean;
+  xeTestNavCopySignature   : string = 'QUST';
 
   xeParamIndex             : Integer = 1;     // First unused parameter
   xeModulesToUse           : TStringList;
@@ -1113,6 +1117,11 @@ begin
   lSettings.CreationClubContentFileName := xeContext.Settings.CreationClubContentFileName;
   xeContext.Settings := lSettings;
 
+  if wbToolSource = tsSaves then begin
+    xeSaveContextRef := wbCreateSaveContext(xeContextRef);
+    xeSaveContext := xeSaveContextRef as TwbSaveContext;
+  end;
+
   xeContext.Settings.SortINFO := xeContext.Settings.CanSortINFO;
 
   if not ReadSettings then
@@ -1245,6 +1254,9 @@ begin
         xeTestNavCopyPlugin := lValue;
       if wbFindCmdLineParam('testnavcopycount', lValue) then
         xeTestNavCopyCount := StrToIntDef(lValue, xeTestNavCopyCount);
+      xeTestNavCopyNew := FindCmdLineSwitch('testnavcopynew');
+      if wbFindCmdLineParam('testnavcopysig', lValue) and (Length(lValue) = 4) then
+        xeTestNavCopySignature := lValue;
     end;
 
     if   FindCmdLineSwitch('autogamelink') or FindCmdLineSwitch('agl')

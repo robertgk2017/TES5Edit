@@ -20625,8 +20625,32 @@ begin
   if not Assigned(TestNavCopyFileA) or not Assigned(TestNavCopyFileB) then
     raise Exception.Create(xeTestNavCopyMaster + ' and ' + xeTestNavCopyPlugin + ' must both be loaded');
   TestNavCopyFileC := TestNavCopyFileB;
-  if not Supports(TestNavCopyFileA.GroupBySignature['QUST'], IwbContainerElementRef, lGroup) then
-    raise Exception.Create('no QUST group in ' + TestNavCopyFileA.FileName);
+  if xeTestNavCopyNew then begin
+    var lLayout := xeContext.SlotLayout;
+    for i := 0 to Pred(TestNavCopyFileB.RecordCount) do begin
+      if Length(TestNavCopyRecordsB) >= xeTestNavCopyCount then
+        Break;
+      lRecordB := TestNavCopyFileB.Records[i];
+      if not SameText(string(lRecordB.Signature), xeTestNavCopySignature) or
+         (lRecordB.LoadOrderFormID.FileID[lLayout] <> TestNavCopyFileB.LoadOrderFileID) then
+        Continue;
+      SetLength(TestNavCopyRecordsA, Succ(Length(TestNavCopyRecordsA)));
+      TestNavCopyRecordsA[High(TestNavCopyRecordsA)] := lRecordB;
+      SetLength(TestNavCopyRecordsB, Succ(Length(TestNavCopyRecordsB)));
+      TestNavCopyRecordsB[High(TestNavCopyRecordsB)] := lRecordB;
+      SetLength(TestNavCopyRecordsC, Succ(Length(TestNavCopyRecordsC)));
+      TestNavCopyRecordsC[High(TestNavCopyRecordsC)] := lRecordB;
+      AddMessage(Format('[Test Nav Copy] new record %s', [lRecordB.Name]));
+    end;
+    if Length(TestNavCopyRecordsB) < 1 then
+      raise Exception.Create('no new ' + xeTestNavCopySignature + ' record in ' + TestNavCopyFileB.FileName);
+    TestNavCopyShowPairs;
+    AddMessage(Format('[Test Nav Copy] %d new %s records of %s loaded from disk, to be copied as override into %s',
+      [Length(TestNavCopyRecordsB), xeTestNavCopySignature, TestNavCopyFileB.FileName, TestNavCopyFileA.FileName]));
+    Exit;
+  end;
+  if not Supports(TestNavCopyFileA.GroupBySignature[StrToSignature(xeTestNavCopySignature)], IwbContainerElementRef, lGroup) then
+    raise Exception.Create('no ' + xeTestNavCopySignature + ' group in ' + TestNavCopyFileA.FileName);
   for i := 0 to Pred(lGroup.ElementCount) do begin
     if Length(TestNavCopyRecordsA) >= xeTestNavCopyCount then
       Break;
@@ -20724,7 +20748,7 @@ var
 begin
   TestNavCopyPaintAll;
   TestNavCopyCollect('pre', False);
-  if TestNavCopyControlMisses > 0 then begin
+  if (TestNavCopyControlMisses > 0) and not xeTestNavCopyNew then begin
     AddMessage(Format('[Test Nav Copy] NO VERDICT: %d of %d overriding nodes did not show a conflict before the copy',
       [TestNavCopyControlMisses, Length(TestNavCopyRecordsC)]));
     CheckResult := 2;
@@ -20745,22 +20769,36 @@ begin
 
   SetLength(_PreviousCopyIntoSelectedModules, 1);
   _PreviousCopyIntoSelectedModules[0] := PwbModuleInfo(TestNavCopyFileA.ModuleInfo);
-  AddMessage(Format('[Test Nav Copy] copying the %d selected records of %s as override with overwriting into %s, painting every nav node at each progress call',
-    [Length(TestNavCopyRecordsC), TestNavCopyFileC.FileName, TestNavCopyFileA.FileName]));
+  var lItem := mniNavCopyAsOverrideWithOverwrite;
+  if xeTestNavCopyNew then
+    lItem := mniNavCopyAsOverride;
+  AddMessage(Format('[Test Nav Copy] copying the %d selected records of %s through "%s" into %s, painting every nav node at each progress call',
+    [Length(TestNavCopyRecordsC), TestNavCopyFileC.FileName, StripHotkey(lItem.Caption), TestNavCopyFileA.FileName]));
   if not xeTestNavCopyNoTouch then
     _wbProgressCallback := TestNavCopyProgress;
   try
-    mniNavCopyIntoClick(mniNavCopyAsOverrideWithOverwrite);
+    mniNavCopyIntoClick(lItem);
   finally
     _wbProgressCallback := GeneralProgress;
   end;
-  TestNavCopyCacheReport('after the copy returned');
 
   lModified := 0;
-  for i := Low(TestNavCopyRecordsA) to High(TestNavCopyRecordsA) do
-    if TestNavCopyRecordsA[i].ElementEditValues['FULL'] = TestNavCopyRecordsC[i].ElementEditValues['FULL'] then
-      Inc(lModified);
-  AddMessage(Format('[Test Nav Copy] copy returned; %d of %d records in %s now carry the FULL of their override', [lModified, Length(TestNavCopyRecordsA), TestNavCopyFileA.FileName]));
+  if xeTestNavCopyNew then begin
+    for i := Low(TestNavCopyRecordsC) to High(TestNavCopyRecordsC) do begin
+      var lCopy := TestNavCopyFileA.ContainedRecordByLoadOrderFormID[TestNavCopyRecordsC[i].LoadOrderFormID, False];
+      if Assigned(lCopy) then begin
+        TestNavCopyRecordsA[i] := lCopy;
+        Inc(lModified);
+      end;
+    end;
+    AddMessage(Format('[Test Nav Copy] copy returned; %d of %d records now exist in %s', [lModified, Length(TestNavCopyRecordsA), TestNavCopyFileA.FileName]));
+  end else begin
+    for i := Low(TestNavCopyRecordsA) to High(TestNavCopyRecordsA) do
+      if TestNavCopyRecordsA[i].ElementEditValues['FULL'] = TestNavCopyRecordsC[i].ElementEditValues['FULL'] then
+        Inc(lModified);
+    AddMessage(Format('[Test Nav Copy] copy returned; %d of %d records in %s now carry the FULL of their override', [lModified, Length(TestNavCopyRecordsA), TestNavCopyFileA.FileName]));
+  end;
+  TestNavCopyCacheReport('after the copy returned');
   if lModified < Length(TestNavCopyRecordsA) then begin
     AddMessage('[Test Nav Copy] NO VERDICT: the copy did not reach every record');
     CheckResult := 2;
@@ -21737,16 +21775,20 @@ begin
             end;
 
           LoaderProgress('loading "' + ltLoadList[lLoadListIdx] + '"...');
+          var lIsSave := Assigned(xeSaveContext) and
+            not wbIsModule(ltLoadList[lLoadListIdx], xeContext.GameDefObj.GameExeName);
           if FileExists(ltLoadList[lLoadListIdx]) then
             s := ltLoadList[lLoadListIdx]
           else begin
             s := ltDataPath + ltLoadList[lLoadListIdx];
-            if not wbIsModule(ltLoadList[lLoadListIdx], xeContext.GameDefObj.GameExeName) then
-              if wbToolSource in [tsSaves] then
-                if not FileExists(s) then // Assume its a save in the save path
-                  s := xeContext.Settings.SavePath + ltLoadList[lLoadListIdx];
+            if lIsSave then
+              if not FileExists(s) then // Assume its a save in the save path
+                s := xeContext.Settings.SavePath + ltLoadList[lLoadListIdx];
           end;
-          _File := xeContext.LoadFile(s, lLoadListIdx + ltLoadOrderOffset, ltMaster, ltStates);
+          if lIsSave then
+            _File := xeSaveContext.LoadSave(s, lLoadListIdx + ltLoadOrderOffset, ltMaster, ltStates)
+          else
+            _File := xeContext.LoadFile(s, lLoadListIdx + ltLoadOrderOffset, ltMaster, ltStates);
           SetLength(ltFiles, Succ(Length(ltFiles)));
           ltFiles[High(ltFiles)] := _File;
           frmMain.SendAddFile(_File);
