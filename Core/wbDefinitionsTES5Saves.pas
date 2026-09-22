@@ -10,52 +10,55 @@ unit wbDefinitionsTES5Saves;
 
 interface
 
-uses
-  System.Classes,
-
-  wbDefinitionsTES5,
-  wbInterface;
-
-type
-  TwbGameDefTES5Saves = class(TwbGameDefTES5)
-  protected
-    gdChangeTypes : IwbEnumDef;
-
-    function ChangedFormGetChapterTypeName(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): string;
-
-    procedure DefineTES5SavesS;
-    procedure SavePluginNames(const aHeader: IwbContainer; aNames: TStrings);
-    procedure DefineTES5SavesA;
-
-    procedure Define; override;
-    procedure SwitchToCoSave; override;
-  end;
-
 implementation
 
 uses
+  System.Classes,
   System.SysUtils,
 
   wbDefinitionsCommon,
   wbImplementation,
+  wbInterface,
   wbSaveInterface;
 
-var
-  wbSaveSexEnum      : IwbEnumDef;
-  wbPropTypeEnum     : IwbEnumDef;
-  wbExtraTypeEnum    : IwbEnumDef;
-  wbRecordFlagsFlags : IwbFlagsDef;
+type
+  TwbSaveDefTES5Base = class(TwbSaveDef)
+  protected
+    sdSaveSexEnum      : IwbEnumDef;
+    sdPropTypeEnum     : IwbEnumDef;
+    sdExtraTypeEnum    : IwbEnumDef;
+    sdRecordFlagsFlags : IwbFlagsDef;
+    sdQuestFlags       : IwbIntegerDef;
+    sdChangeTypes      : IwbEnumDef;
+    sdSaveChapters     : IwbStructDef;
+    sdCoSaveChapters   : IwbStructDef;
+    sdSaveHeader       : IwbStructDef;
+    sdCoSaveHeader     : IwbStructDef;
+    sdExtractInfo      : TByteSet;
 
-// forward type directives
-  wbQuestFlags     : IwbIntegerDef;
-  wbSaveChapters   : IwbStructDef;
-  wbCoSaveChapters : IwbStructDef;
-  wbSaveHeader     : IwbStructDef;
-  wbCoSaveHeader   : IwbStructDef;
+    function ChangedFormGetChapterTypeName(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): string;
 
-procedure TwbGameDefTES5Saves.DefineTES5SavesA;
+    procedure DefineTES5SavesA;
+    procedure DefineTES5SavesS;
+  public
+    procedure Define; override;
+  end;
+
+  TwbSaveDefTES5 = class(TwbSaveDefTES5Base)
+  protected
+    procedure SavePluginNames(const aHeader: IwbContainer; aNames, aLightNames: TStrings);
+  public
+    procedure Define; override;
+  end;
+
+  TwbCoSaveDefTES5 = class(TwbSaveDefTES5Base)
+  public
+    procedure Define; override;
+  end;
+
+procedure TwbSaveDefTES5Base.DefineTES5SavesA;
 begin
-  wbPropTypeEnum := wbEnum([
+  sdPropTypeEnum := wbEnum([
     {00} 'None',
     {01} 'Object',
     {02} 'String',
@@ -74,9 +77,9 @@ begin
     {15} 'Array of Bool'
   ]);
 
-  wbSaveSexEnum := wbEnum(['Male','Female']);
+  sdSaveSexEnum := wbEnum(['Male','Female']);
 
-  wbRecordFlagsFlags := wbFlags([
+  sdRecordFlagsFlags := wbFlags([
     {>>> 0x00000000 ACTI: Collision Geometry (default) <<<}
     {0x00000001}'ESM',
     {0x00000002}'Unknown 2',
@@ -147,7 +150,7 @@ begin
     {0x80000000}'MultiBound'
   ]);
 
-  wbQuestFlags := wbInteger('Flags', itU16, wbFlags([
+  sdQuestFlags := wbInteger('Flags', itU16, wbFlags([
     {0x0001} 'Start Game Enabled',
     {0x0002} 'Unknown 2',
     {0x0004} 'Unknown 3',
@@ -163,7 +166,7 @@ begin
     {0x1000} 'Unknown 13'
   ]));
 
-  wbExtraTypeEnum := wbEnum([
+  sdExtraTypeEnum := wbEnum([
     'Havok',
     'Cell3D',
     'CellWaterType',
@@ -402,16 +405,16 @@ begin
     end;
 end;
 
-procedure TwbGameDefTES5Saves.SavePluginNames(const aHeader: IwbContainer; aNames: TStrings);
+procedure TwbSaveDefTES5.SavePluginNames(const aHeader: IwbContainer; aNames, aLightNames: TStrings);
 
-  procedure AddNames(const aList: IwbElement);
+  procedure AddNames(const aList: IwbElement; aTarget: TStrings);
   var
     List : IwbContainerElementRef;
     i    : Integer;
   begin
     if Supports(aList, IwbContainerElementRef, List) then
       for i := 0 to Pred(List.ElementCount) do
-        aNames.Add(List[i].EditValue);
+        aTarget.Add(List[i].EditValue);
   end;
 
 var
@@ -421,10 +424,10 @@ var
 begin
   Content := SaveContent(aHeader);
   if not Assigned(Content) then Exit;
-  AddNames(Content.ElementByName[gdSaveDef.FilePlugins]);
+  AddNames(Content.ElementByName[FilePlugins], aNames);
   for i := 0 to Pred(Content.ElementCount) do
     if Supports(Content.Elements[i], IwbContainer, Union) and (Union.Name = '') then
-      AddNames(Union.ElementByName['Light plugins']);
+      AddNames(Union.ElementByName['Light plugins'], aLightNames);
 end;
 
 function SaveFormVersionDecider(aMinimum: Integer; aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
@@ -1558,13 +1561,13 @@ begin
     Result := wbChangedFormOffset + (Result and $3F);
 end;
 
-function TwbGameDefTES5Saves.ChangedFormGetChapterTypeName(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): string;
+function TwbSaveDefTES5Base.ChangedFormGetChapterTypeName(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): string;
 var
   aType : Integer;
 begin
   aType := ChangedFormGetChapterType(aBasePtr, aEndPtr, aElement);
-  if (aType>=wbChangedFormOffset) and (aType < wbChangedFormOffset+gdChangeTypes.NameCount) then
-    Result := gdChangeTypes.Names[aType-wbChangedFormOffset];
+  if (aType>=wbChangedFormOffset) and (aType < wbChangedFormOffset+sdChangeTypes.NameCount) then
+    Result := sdChangeTypes.Names[aType-wbChangedFormOffset];
   if (Pos(' ', Result)>0) and (Length(Result)>1) then
     Result := Copy(Result, Pos(' ', Result)+1, Length(Result));
   if (Pos(' ', Result)>0) and (Length(Result)>1) then
@@ -2383,9 +2386,6 @@ begin
   end;
 end;
 
-var
-  LastRegistrationStart : Integer = 0;
-
 function SKSEChaptersDecider(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
 var
   Element   : IwbElement;
@@ -2404,14 +2404,19 @@ begin
       else if EValue = 'LMOD' then Result := 2
       else if EValue = 'REGS' then Result := 3
       else if EValue = 'REGE' then Result := 4
-      else if EValue = 'MENR' then begin Result :=  5; LastRegistrationStart := Result; end
-      else if EValue = 'KEYR' then begin Result :=  6; LastRegistrationStart := Result; end
-      else if EValue = 'CTLR' then begin Result :=  7; LastRegistrationStart := Result; end
-      else if EValue = 'MCBR' then begin Result :=  8; LastRegistrationStart := Result; end
-      else if EValue = 'CHRR' then begin Result :=  9; LastRegistrationStart := Result; end
-      else if EValue = 'CAMR' then begin Result := 10; LastRegistrationStart := Result; end
-      else if EValue = 'AACT' then begin Result := 11; LastRegistrationStart := Result; end
+      else if EValue = 'MENR' then Result :=  5
+      else if EValue = 'KEYR' then Result :=  6
+      else if EValue = 'CTLR' then Result :=  7
+      else if EValue = 'MCBR' then Result :=  8
+      else if EValue = 'CHRR' then Result :=  9
+      else if EValue = 'CAMR' then Result := 10
+      else if EValue = 'AACT' then Result := 11
       else Result := 12;
+      if (Result >= 5) and (Result <= 11) then begin
+        var lSaveContext := aElement.SaveContextObj;
+        if Assigned(lSaveContext) then
+          lSaveContext.LastRegistrationStart := Result;
+      end;
     end;
   end;
 end;
@@ -2419,7 +2424,10 @@ end;
 function SKSERegKeyDecider(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
 begin
   Result := 0;
-  case LastRegistrationStart of
+  if not Assigned(aElement) then Exit;
+  var lSaveContext := aElement.SaveContextObj;
+  if not Assigned(lSaveContext) then Exit;
+  case lSaveContext.LastRegistrationStart of
     5, 7, 8 : Result := 1;  // String
     6, 11:    Result := 2;  // UInt32
     9, 10:    Result := 3;  // Null
@@ -2429,7 +2437,10 @@ end;
 function SKSERegDataDecider(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
 begin
   Result := 0;
-  case LastRegistrationStart of
+  if not Assigned(aElement) then Exit;
+  var lSaveContext := aElement.SaveContextObj;
+  if not Assigned(lSaveContext) then Exit;
+  case lSaveContext.LastRegistrationStart of
     8:
       Result := 1;  // String
     5, 6, 7, 9, 10, 11:
@@ -2437,7 +2448,7 @@ begin
   end;
 end;
 
-procedure TwbGameDefTES5Saves.DefineTES5SavesS;  // This is all based on current UESP, and HexDump, Triria TESSaveLib and the Runtime
+procedure TwbSaveDefTES5Base.DefineTES5SavesS;  // This is all based on current UESP, and HexDump, Triria TESSaveLib and the Runtime
 var
   wbHeader                   : IwbStructDef;
   wbSaveContent              : IwbStructDef;
@@ -2655,7 +2666,7 @@ begin
   ]);
 
   wbVariable := wbStruct('Variable', [
-    wbInteger('Type', itU8, wbPropTypeEnum),
+    wbInteger('Type', itU8, sdPropTypeEnum),
     wbUnion('Value', VariableDecider, [
       wbInteger('Int32', itS32),
       wbStruct('Object', [
@@ -2772,7 +2783,7 @@ begin
 
   wbArrayTableEntry := wbStruct('Array Entry Data', [  // UESP: arrayInfo
     wbInteger('Array Handle', itU32),
-    wbInteger('Array Type', itU8, wbPropTypeEnum),    // valid values : 0 to 5, 0B to 0F
+    wbInteger('Array Type', itU8, sdPropTypeEnum),    // valid values : 0 to 5, 0B to 0F
     wbUnion('Data', ArrayTableEntryOptionalStringDecider, [
       wbNull,
       wbNull,
@@ -3379,7 +3390,7 @@ begin
     ,wbByteArray('Unknown', DataQuartetRemainderCounter)
   ]);
 
-  gdChangeTypes := wbKey2Data6Enum([
+  sdChangeTypes := wbKey2Data6Enum([
     '00 (03D : REFR)',
     '01 (03E : ACHR)',
     '02 (03F : PMIS)',
@@ -5288,7 +5299,7 @@ begin
 
   wbUnionCHANGE_FORM_FLAGS := wbUnion('Flags', ChangedFlag00Decider, [wbNull,
     wbStruct('Change Form Flags', [
-      wbInteger('Mask Invert Flags', itU32, wbRecordFlagsFlags),
+      wbInteger('Mask Invert Flags', itU32, sdRecordFlagsFlags),
       wbInteger('Mask Set unk010', itU16)
     ])
   ]);
@@ -5375,7 +5386,7 @@ begin
 
   wbUnionCHANGE_TOPIC_SAIDONCE := wbUnion('Said Once', ChangedFlag31Decider, [wbNull, wbNull]);
 
-  wbUnionCHANGE_QUEST_FLAGS := wbUnion('Quest Flags', ChangedFlag01Decider, [wbNull, wbQuestFlags]);
+  wbUnionCHANGE_QUEST_FLAGS := wbUnion('Quest Flags', ChangedFlag01Decider, [wbNull, sdQuestFlags]);
 
   wbUnionCHANGE_QUEST_SCRIPT_DELAY := wbUnion('Quest Script Delay', ChangedFlag02Decider, [wbNull, wbInteger('Script Delay', itU32)]);
 
@@ -5519,7 +5530,7 @@ begin
 
   wbUnionCHANGE_NPC_SLEEP_OUTFIT := wbUnion('Sleep Outfit', ChangedFlag13Decider, [wbNull, wbRefID('Change Actor Sleep Outfit')]);
 
-  wbUnionCHANGE_NPC_GENDER := wbUnion('Gender', ChangedFlag24Decider, [wbNull, wbInteger('Change Actor Gender', itU8, wbSaveSexEnum)]);
+  wbUnionCHANGE_NPC_GENDER := wbUnion('Gender', ChangedFlag24Decider, [wbNull, wbInteger('Change Actor Gender', itU8, sdSaveSexEnum)]);
 
   wbUnionCHANGE_NPC_RACE := wbUnion('Race', ChangedFlag25Decider, [wbNull,
     wbStruct('Change Actor Race', [
@@ -5657,7 +5668,7 @@ begin
   ]);
 
   wbChangedExtraData := wbArray('Extras', wbStruct('Extra', [
-    wbInteger('Extra Type', itU8, wbExtraTypeEnum),
+    wbInteger('Extra Type', itU8, sdExtraTypeEnum),
     wbUnion('Extra Union', ChangedExtraUnionDecider, [
      wbByteArray('<ERROR BAD CODE ******************>'),
      wbStruct('Extra Unknown 12', [ // 00 Unknown12
@@ -6057,7 +6068,7 @@ begin
     [
       wbRefID('RefID'),
       wbChangeFlags,
-      wbInteger('Type', itU8, gdChangeTypes),
+      wbInteger('Type', itU8, sdChangeTypes),
       wbInteger('Version', itU8),
       wbUnion('Datas', ChangedFormDataLengthDecider, [
         wbStruct('CForm Data', [
@@ -6090,7 +6101,7 @@ begin
     wbLenString('Save Cell', 2),
     wbLenString('Save Duration', 2),
     wbLenString('Player Race Editor ID', 2),
-    wbInteger('Player Sex', itU16, wbSaveSexEnum),
+    wbInteger('Player Sex', itU16, sdSaveSexEnum),
     wbFloat('Player Current Experience'),
     wbFloat('Player LevelUp Experience'),
     wbByteArray('Save Time', 8),
@@ -6115,7 +6126,7 @@ begin
     wbByteArray('Unused', 15 * 4)
   ]); // SSE : still 100 bytes total, so should not have changed
 
-  wbSaveChapters := wbStruct('Save File Chapters', [
+  sdSaveChapters := wbStruct('Save File Chapters', [
      wbArray('Global Data 1', wbGlobalData, [], GlobalData1Counter)
     ,wbArray('Global Data 2', wbGlobalData, [], GlobalData2Counter)
     ,wbArray('Changed Forms', wbChangedForm, [], ChangedFormsCounter)
@@ -6131,13 +6142,13 @@ begin
   wbSaveContent := wbStruct('Content', [
      wbInteger('Form Version', itU8)
     ,wbInteger('PluginInfo Size', itU32)
-    ,wbArray(gdSaveDef.FilePlugins, wbLenString('PluginName',  2), -4)
+    ,wbArray(FilePlugins, wbLenString('PluginName',  2), -4)
     ,wbUnion('', SaveFormVersionGreaterThan77Decider, [wbNull, wbArray('Light plugins', wbLenString('LightPluginName', 2), -2)])
     ,wbFileLocationTable
-    ,wbSaveChapters
+    ,sdSaveChapters
   ]);
 
-  wbSaveHeader := wbStruct('Save File Header', [
+  sdSaveHeader := wbStruct('Save File Header', [
      wbString('Magic', 13)
     ,wbInteger('Header Size', itU32)
     ,wbHeader
@@ -6163,7 +6174,7 @@ begin
     ,wbArray('Remaining',  WbByteArray('Unknown', wbBytesToGroup), DumpCounter) // Lets you dump an arbitrary number of quartet, Setable from CommandLine -btd:n
   ]);
 
-  wbCoSaveHeader := wbStruct('CoSave File Header', [
+  sdCoSaveHeader := wbStruct('CoSave File Header', [
      wbString('Magic', 4)
     ,wbInteger('Version', itU32)
     ,wbInteger('SKSE Version', itU16)
@@ -6219,45 +6230,48 @@ begin
   wbCoSaveChunks.TreeBranch := True;
   wbCoSavePlugins := wbArray('Plugins', wbCoSavePlugin, wbCoSavePluginCounter);
 
-  wbCoSaveChapters := wbStruct('CoSave File Chapters', [
+  sdCoSaveChapters := wbStruct('CoSave File Chapters', [
     wbCoSavePlugins
   ]);
 
-  gdSaveDef.FileChapters := wbStruct('Save File Chapters', []);
-  gdSaveDef.FileHeader := wbSaveHeader;
-  wbSaveHeader.TreeHead := True;
-  wbCoSaveHeader.TreeHead := True;
-//  wbSaveHeader.TreeLeaf := True;
-//  wbCoSaveHeader.TreeLeaf := True;
+  sdSaveHeader.TreeHead := True;
+  sdCoSaveHeader.TreeHead := True;
+//  sdSaveHeader.TreeLeaf := True;
+//  sdCoSaveHeader.TreeLeaf := True;
 end;
 
-var
-  ExtractInfoSave:   TByteSet = [4, 5]; // SaveFileChapters that should be initialized before dumping to get more information
-  ExtractInfoCoSave: TByteSet = [];     // CoSaveFileChapters that should be initialized before dumping to get more information
-
-procedure TwbGameDefTES5Saves.Define;
+procedure TwbSaveDefTES5Base.Define;
 begin
-  if not Assigned(gdSaveDef) then
-    gdSaveDef := TwbSaveDef.Create;
-  gdSaveDef.FileMagic := 'TESV_SAVEGAME';
-  gdSaveDef.ExtractInfo := @ExtractInfoSave;
-  gdSaveDef.FilePlugins := 'Plugins';
-  gdSaveDef.FilePluginNames := SavePluginNames;
-  inherited;
+  FilePlugins := 'Plugins';
   DefineTES5SavesA;
   DefineTES5SavesS;
 end;
 
-procedure TwbGameDefTES5Saves.SwitchToCoSave;
+procedure TwbSaveDefTES5.Define;
 begin
-  gdSaveDef.FileMagic := 'SKSE';
-  gdSaveDef.ExtractInfo := @ExtractInfoCoSave;
-  gdSaveDef.FilePlugins := 'Absolute:44';
-  gdSaveDef.FilePluginNames := nil;
-  gdSaveDef.FileChapters := wbCoSaveChapters;
-  gdSaveDef.FileHeader := wbCoSaveHeader;
+  inherited;
+  FileExtension := '.ess';
+  FileMagic := 'TESV_SAVEGAME';
+  sdExtractInfo := [4, 5]; // SaveFileChapters that should be initialized before dumping to get more information
+  ExtractInfo := @sdExtractInfo;
+  FilePluginNames := SavePluginNames;
+  FileChapters := wbStruct('Save File Chapters', []);
+  FileHeader := sdSaveHeader;
+end;
+
+procedure TwbCoSaveDefTES5.Define;
+begin
+  inherited;
+  FileExtension := '.skse';
+  FileMagic := 'SKSE';
+  sdExtractInfo := [];
+  ExtractInfo := @sdExtractInfo;
+  FilePlugins := 'Absolute:44';
+  FilePluginNames := nil;
+  FileChapters := sdCoSaveChapters;
+  FileHeader := sdCoSaveHeader;
 end;
 
 initialization
-  wbRegisterGameDef([gmTES5, gmTES5VR, gmEnderal, gmSSE, gmEnderalSE], tsSaves, TwbGameDefTES5Saves);
+  wbRegisterSaveDefs([gmTES5, gmTES5VR, gmEnderal, gmSSE, gmEnderalSE], TwbSaveDefTES5, TwbCoSaveDefTES5);
 end.

@@ -227,7 +227,10 @@ var
 
   wbCheckExpectedBytes               : Boolean    = True;
 
-  wbRadiansToDegreesScale            : Extended   = 180/Pi;
+const
+  wbRadiansToDegreesScale            = 180/Pi;
+
+var
   wbAngleDigits                      : Integer    = 4;
 
   wbDumpOffset                       : Integer    = 0;              // 1= starting offset, 2 = Count, 3 = Offsets, size and count
@@ -729,9 +732,7 @@ type
   TwbToolMode   = (tmView, tmEdit, tmDump, tmExport, tmOnamUpdate, tmMasterUpdate, tmMasterRestore, tmLODgen, tmScript,
                     tmTranslate, tmESMify, tmESPify, tmSortAndCleanMasters,
                     tmCheckForErrors, tmCheckForITM, tmCheckForDR, tmGenerateSEQ);
-  TwbToolSource = (tsPlugins, tsSaves);
   TwbSetOfMode  = set of TwbToolMode;
-  TwbSetOfSource  = set of TwbToolSource;
 
   IwbDef = interface;
 
@@ -3365,7 +3366,6 @@ type
     function GetGameMode: TwbGameMode;
     function GetCapabilities: TwbGameCapabilities;
 
-    procedure SwitchToCoSave;
     function FindRecordDef(const aSignature: TwbSignature; out aRecordDef: PwbMainRecordDef): Boolean;
 
     property GameMode: TwbGameMode
@@ -3491,10 +3491,13 @@ type
     function EncodingForLanguage(const aLanguage: string; aFallback: Boolean): TEncoding;
   end;
 
-  TwbFilePluginNames = reference to procedure(const aHeader: IwbContainer; aNames: TStrings);
+  TwbFilePluginNames = reference to procedure(const aHeader: IwbContainer; aNames, aLightNames: TStrings);
 
   TwbSaveDef = class
+  protected
+    sdGameDef : TwbGameDef;
   public
+    FileExtension   : string;
     FileMagic       : TwbFileMagic;
     FilePlugins     : string;
     FileHeader      : IwbStructDef;
@@ -3502,8 +3505,14 @@ type
     ExtractInfo     : PByteSet;
     FilePluginNames : TwbFilePluginNames;
 
-    constructor Create;
+    constructor Create(aGameDef: TwbGameDef); virtual;
+    procedure Define; virtual;
+
+    property GameDef: TwbGameDef
+      read sdGameDef;
   end;
+
+  TwbSaveDefClass = class of TwbSaveDef;
 
   PwbRecordDefEntry = ^TwbRecordDefEntry;
   TwbRecordDefEntry = record
@@ -3532,6 +3541,9 @@ type
     gdGroupOrder       : TStringList;
     gdActorValueEnum   : IwbEnumDef;
     gdSaveDef          : TwbSaveDef;
+    gdCoSaveDef        : TwbSaveDef;
+    gdSaveDefsLock     : TObject;
+    gdSaveDefsCreated  : Boolean;
     gdOfficialDLC      : TArray<string>;
     gdCreationClubContentFileName : string;
     gdKnownSubRecordSignatures    : TwbKnownSubRecordSignatures;
@@ -3546,7 +3558,6 @@ type
     gdDefined          : Boolean;
     gdDefining         : Boolean;
     gdGameMode         : TwbGameMode;
-    gdToolSource       : TwbToolSource;
     gdCapabilities     : TwbGameCapabilities;
     gdGameName         : string;
     gdGameExeName      : string;
@@ -3580,21 +3591,21 @@ type
     function GetIsMediumSupported: Boolean;
     function GetIsBlueprintSupported: Boolean;
     function GetIsUpdateSupported: Boolean;
+    function GetSaveDef: TwbSaveDef;
+    function GetCoSaveDef: TwbSaveDef;
 
     procedure Define; virtual;
-    procedure SwitchToCoSave; virtual;
+    procedure CreateSaveDefs;
   public
     DefineOptions: TwbGameDefineOptions;
 
     constructor Create; overload;
-    constructor Create(aGameMode: TwbGameMode; aToolSource: TwbToolSource); overload;
-    constructor Create(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs); overload;
+    constructor Create(aGameMode: TwbGameMode); overload;
+    constructor Create(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs); overload;
     destructor Destroy; override;
 
     procedure EnsureDefined;
 
-    property ToolSource: TwbToolSource
-      read gdToolSource;
     property GameMode: TwbGameMode
       read gdGameMode;
     property Capabilities: TwbGameCapabilities
@@ -3702,7 +3713,10 @@ type
       read gdActorValueEnum
       write gdActorValueEnum;
     property SaveDef: TwbSaveDef
-      read gdSaveDef;
+      read GetSaveDef;
+    property CoSaveDef: TwbSaveDef
+      read GetCoSaveDef;
+    function SaveDefFor(const aFileName: string): TwbSaveDef;
     property OfficialDLC: TArray<string>
       read gdOfficialDLC
       write gdOfficialDLC;
@@ -3884,7 +3898,12 @@ type
     gcGlobalGeneration     : Integer;
     gcIdentitys            : array[Byte] of TDictionary<string, Cardinal>;
     gcNextIDs              : array[Byte] of Cardinal;
+    gcSaveContexts         : TArray<TwbSaveContext>;
+    gcSaveContextsLock     : TObject;
 
+    function SaveContextFileByName(const aFileName: string): IwbFile;
+    function SaveContextFiles: TwbFiles;
+    function FilesWithSaves: TwbFiles;
     function GetGameDef: IwbGameDef;
     function GetFileCount: Integer;
     function GetFile(aIndex: Integer): IwbFile;
@@ -4007,12 +4026,29 @@ type
     scGameContext    : IwbGameContext;
     scGameContextObj : TwbGameContext;
     scFile           : IwbFile;
+    scFileName       : string;
+    scJoinIndex      : Integer;
     scChaptersToSkip : TStringList;
+
+    scChangedFormFlags : Integer;
+    scLastRegistrationStart : Integer;
+
+    scFullPluginNames  : TStringList;
+    scLightPluginNames : TStringList;
+
+    scFullSlotFiles    : TArray<Integer>;
+    scLightSlotFiles   : TArray<Integer>;
+
+    procedure scJoin(const aFile: IwbFile; const aFileName: string);
+    procedure scBuildSlotTable;
+    function scSlotFile(const aSlotFiles: TArray<Integer>; aSlot: Integer): IwbFile;
+    function scHeldFileByName(const aFileName: string): IwbFile;
   public
     constructor Create(const aGameContext: IwbGameContext);
     destructor Destroy; override;
+    procedure BeforeDestruction; override;
 
-    function LoadSave(const aFileName: string; aLoadOrder: Integer; const aCompareTo: string = ''; aStates: TwbFileStates = []): IwbFile; virtual; abstract;
+    function LoadSave(const aFileName: string; aLoadOrder: Integer; const aCompareTo: string = ''; aStates: TwbFileStates = []; const aCompareToFile: IwbFile = nil): IwbFile; virtual; abstract;
 
     property GameContextObj: TwbGameContext
       read scGameContextObj;
@@ -4020,6 +4056,26 @@ type
       read scFile;
     property ChaptersToSkip: TStringList
       read scChaptersToSkip;
+    property ChangedFormFlags: Integer
+      read scChangedFormFlags
+      write scChangedFormFlags;
+    property LastRegistrationStart: Integer
+      read scLastRegistrationStart
+      write scLastRegistrationStart;
+    property FullPluginNames: TStringList
+      read scFullPluginNames;
+    property LightPluginNames: TStringList
+      read scLightPluginNames;
+    property FullSlotFiles: TArray<Integer>
+      read scFullSlotFiles;
+    property LightSlotFiles: TArray<Integer>
+      read scLightSlotFiles;
+
+    function FullSlotFile(aSlot: Integer): IwbFile;
+    function LightSlotFile(aSlot: Integer): IwbFile;
+    function SlotFile(const aFileID: TwbFileID): IwbFile;
+
+    procedure SetPluginNames(aFullNames, aLightNames: TStrings);
   end;
 
   TwbSaveContextClass = class of TwbSaveContext;
@@ -5143,7 +5199,6 @@ function wbGridCellToGroupLabel(const aGridCell: TwbGridCell): Cardinal;
 var
   wbGameMode         : TwbGameMode;
   wbToolMode         : TwbToolMode;
-  wbToolSource       : TwbToolSource;
   wbSubMode          : string;
   wbAppName          : string;
   wbApplicationTitle : string;
@@ -5153,7 +5208,6 @@ var
   wbGameName2        : string; // game title name used for AppData and MyGames folders
   wbGameNameReg      : string; // registry name
   wbToolName         : string;
-  wbSourceName       : string;
   wbGameSteamID      : string;
 
   wbAutoModes: TwbSetOfMode = [ // Tool modes that run without user interaction until final status
@@ -5270,10 +5324,12 @@ var
   wbNullSignature     : TwbSignature = #0#0#0#0;
   wbBytesToSkip       : Cardinal = 0;
   wbBytesToDump       : Cardinal = $FFFFFFFF;
-  wbBytesToGroup      : Cardinal = 4;
-  wbTerminator        : Byte = Ord('|');
-  wbPlayerRefID       : Cardinal = $14;
-  wbChangedFormOffset : Integer = 10000;
+
+const
+  wbBytesToGroup      = Cardinal(4);
+  wbTerminator        = Byte(Ord('|'));
+  wbPlayerRefID       = Cardinal($14);
+  wbChangedFormOffset = Integer(10000);
 
 function wbReadInteger24(aBasePtr: pointer): Int64;
 function wbSaveTablesFor(const aElement: IwbElement): IwbSaveTables;
@@ -5348,10 +5404,11 @@ var
   wbGameContextClass : TwbGameContextClass;
   wbSaveContextClass : TwbSaveContextClass;
 
-procedure wbRegisterGameDef(const aGameModes: TwbGameModes; aToolSource: TwbToolSource; aGameDefClass: TwbGameDefClass);
-function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource): IwbGameDef; overload;
-function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs; aDefine: Boolean = True): IwbGameDef; overload;
-function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs; const aDefineOptions: TwbGameDefineOptions): IwbGameDef; overload;
+procedure wbRegisterGameDef(const aGameModes: TwbGameModes; aGameDefClass: TwbGameDefClass);
+procedure wbRegisterSaveDefs(const aGameModes: TwbGameModes; aSaveDefClass, aCoSaveDefClass: TwbSaveDefClass);
+function wbCreateGameDef(aGameMode: TwbGameMode): IwbGameDef; overload;
+function wbCreateGameDef(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs; aDefine: Boolean = True): IwbGameDef; overload;
+function wbCreateGameDef(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs; const aDefineOptions: TwbGameDefineOptions): IwbGameDef; overload;
 function wbCreateGameContext(const aGameDef: IwbGameDef): IwbGameContext;
 function wbCreateSaveContext(const aGameContext: IwbGameContext): IwbSaveContext;
 
@@ -5847,16 +5904,15 @@ begin
     Include(Result, gcComplexFileFileID);
 end;
 
-constructor TwbGameDef.Create(aGameMode: TwbGameMode; aToolSource: TwbToolSource);
+constructor TwbGameDef.Create(aGameMode: TwbGameMode);
 begin
-  Create(aGameMode, aToolSource, Default(TwbGameDefInputs));
+  Create(aGameMode, Default(TwbGameDefInputs));
 end;
 
-constructor TwbGameDef.Create(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs);
+constructor TwbGameDef.Create(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs);
 begin
   Create;
   gdGameMode := aGameMode;
-  gdToolSource := aToolSource;
   gdCapabilities := wbComputeCapabilities(aGameMode, aInputs);
   gdGameName := aInputs.GameName;
   gdGameExeName := aInputs.GameExeName;
@@ -5864,16 +5920,22 @@ begin
   gdAppName := aInputs.AppName;
 end;
 
-constructor TwbSaveDef.Create;
+constructor TwbSaveDef.Create(aGameDef: TwbGameDef);
 begin
   inherited Create;
+  sdGameDef := aGameDef;
   FilePlugins := 'Master Files';
+end;
+
+procedure TwbSaveDef.Define;
+begin
 end;
 
 constructor TwbGameDef.Create;
 begin
   inherited Create;
   DefineOptions := TwbGameDefineOptions.Defaults;
+  gdSaveDefsLock := TObject.Create;
   gdHEDRVersion := 1.0;
   gdHEDRNextObjectID := $800;
   gdCellSizeFactor := 4096.0;
@@ -5909,7 +5971,9 @@ end;
 
 destructor TwbGameDef.Destroy;
 begin
+  FreeAndNil(gdCoSaveDef);
   FreeAndNil(gdSaveDef);
+  FreeAndNil(gdSaveDefsLock);
   FreeAndNil(gdRecordDefMap);
   FreeAndNil(gdGroupOrder);
   FreeAndNil(gdIgnoreRecords);
@@ -6281,8 +6345,69 @@ procedure TwbGameDef.Define;
 begin
 end;
 
-procedure TwbGameDef.SwitchToCoSave;
+var
+  _GameDefClasses    : array[TwbGameMode] of TwbGameDefClass;
+  _SaveDefClasses    : array[TwbGameMode] of TwbSaveDefClass;
+  _CoSaveDefClasses  : array[TwbGameMode] of TwbSaveDefClass;
+
+procedure TwbGameDef.CreateSaveDefs;
 begin
+  TMonitor.Enter(gdSaveDefsLock);
+  try
+    if gdSaveDefsCreated then
+      Exit;
+    var lSaveDefClass := _SaveDefClasses[gdGameMode];
+    var lCoSaveDefClass := _CoSaveDefClasses[gdGameMode];
+    if Assigned(lSaveDefClass) or Assigned(lCoSaveDefClass) then begin
+      if not gdDefined then
+        raise Exception.Create('The save defs of a game def are built from its definitions, which are not defined yet');
+      var lSaveDef: TwbSaveDef := nil;
+      var lCoSaveDef: TwbSaveDef := nil;
+      try
+        if Assigned(lSaveDefClass) then begin
+          lSaveDef := lSaveDefClass.Create(Self);
+          lSaveDef.Define;
+        end;
+        if Assigned(lCoSaveDefClass) then begin
+          lCoSaveDef := lCoSaveDefClass.Create(Self);
+          lCoSaveDef.Define;
+        end;
+      except
+        lCoSaveDef.Free;
+        lSaveDef.Free;
+        raise;
+      end;
+      gdSaveDef := lSaveDef;
+      gdCoSaveDef := lCoSaveDef;
+    end;
+    gdSaveDefsCreated := True;
+  finally
+    TMonitor.Exit(gdSaveDefsLock);
+  end;
+end;
+
+function TwbGameDef.GetSaveDef: TwbSaveDef;
+begin
+  if not gdSaveDefsCreated then
+    CreateSaveDefs;
+  Result := gdSaveDef;
+end;
+
+function TwbGameDef.GetCoSaveDef: TwbSaveDef;
+begin
+  if not gdSaveDefsCreated then
+    CreateSaveDefs;
+  Result := gdCoSaveDef;
+end;
+
+function TwbGameDef.SaveDefFor(const aFileName: string): TwbSaveDef;
+begin
+  if not gdSaveDefsCreated then
+    CreateSaveDefs;
+  if Assigned(gdCoSaveDef) and SameText(ExtractFileExt(aFileName), gdCoSaveDef.FileExtension) then
+    Result := gdCoSaveDef
+  else
+    Result := gdSaveDef;
 end;
 
 procedure TwbGameDef.EnsureDefined;
@@ -6299,9 +6424,6 @@ begin
     gdDefining := False;
   end;
 end;
-
-var
-  _GameDefClasses    : array[TwbGameMode, TwbToolSource] of TwbGameDefClass;
 
 function wbCreateGameContext(const aGameDef: IwbGameDef): IwbGameContext;
 begin
@@ -6325,6 +6447,8 @@ begin
   scChaptersToSkip := TwbFastStringList.Create;
   scChaptersToSkip.Sorted := True;
   scChaptersToSkip.Duplicates := dupIgnore;
+  scFullPluginNames := TStringList.Create;
+  scLightPluginNames := TStringList.Create;
 end;
 
 destructor TwbSaveContext.Destroy;
@@ -6333,7 +6457,119 @@ begin
   scGameContextObj := nil;
   scGameContext := nil;
   FreeAndNil(scChaptersToSkip);
+  FreeAndNil(scFullPluginNames);
+  FreeAndNil(scLightPluginNames);
   inherited;
+end;
+
+procedure TwbSaveContext.SetPluginNames(aFullNames, aLightNames: TStrings);
+begin
+  scFullPluginNames.Assign(aFullNames);
+  scLightPluginNames.Assign(aLightNames);
+end;
+
+procedure TwbSaveContext.BeforeDestruction;
+begin
+  if Assigned(scGameContextObj) then begin
+    var lContext := scGameContextObj;
+    TMonitor.Enter(lContext.gcSaveContextsLock);
+    try
+      for var lIdx := High(lContext.gcSaveContexts) downto Low(lContext.gcSaveContexts) do
+        if lContext.gcSaveContexts[lIdx] = Self then
+          Delete(lContext.gcSaveContexts, lIdx, 1);
+    finally
+      TMonitor.Exit(lContext.gcSaveContextsLock);
+    end;
+  end;
+  inherited;
+end;
+
+procedure TwbSaveContext.scJoin(const aFile: IwbFile; const aFileName: string);
+var
+  lIdx: Integer;
+begin
+  var lContext := scGameContextObj;
+  TMonitor.Enter(lContext.gcSaveContextsLock);
+  try
+    if lContext.gcFilesMap.Find(aFileName, lIdx) then
+      raise Exception.CreateFmt('"%s" is loaded already', [aFileName]);
+    for var lSaveContext in lContext.gcSaveContexts do
+      if SameText(lSaveContext.scFileName, aFileName) then
+        raise Exception.CreateFmt('"%s" is held by another save context', [aFileName]);
+    scFile := aFile;
+    scFileName := aFileName;
+    scJoinIndex := Length(lContext.gcFiles);
+    lContext.gcSaveContexts := lContext.gcSaveContexts + [Self];
+    scBuildSlotTable;
+  finally
+    TMonitor.Exit(lContext.gcSaveContextsLock);
+  end;
+end;
+
+procedure TwbSaveContext.scBuildSlotTable;
+var
+  lContext : TwbGameContext;
+
+  function ResolveSlot(const aName: string): Integer;
+  var
+    lMapIdx : Integer;
+    lObj    : Pointer;
+  begin
+    Result := -1;
+    if aName = '' then
+      Exit;
+    if not lContext.gcFilesMap.Find(lContext.ExpandFileName(lContext.Settings.DataPath + aName), lMapIdx) then
+      Exit;
+    lObj := Pointer(lContext.gcFilesMap.Objects[lMapIdx]);
+    for var lIdx := Low(lContext.gcFiles) to High(lContext.gcFiles) do
+      if Pointer(lContext.gcFiles[lIdx]) = lObj then
+        Exit(lIdx);
+  end;
+
+begin
+  lContext := scGameContextObj;
+  SetLength(scFullSlotFiles, scFullPluginNames.Count);
+  for var lSlot := 0 to Pred(scFullPluginNames.Count) do
+    scFullSlotFiles[lSlot] := ResolveSlot(scFullPluginNames[lSlot]);
+  SetLength(scLightSlotFiles, scLightPluginNames.Count);
+  for var lSlot := 0 to Pred(scLightPluginNames.Count) do
+    scLightSlotFiles[lSlot] := ResolveSlot(scLightPluginNames[lSlot]);
+end;
+
+function TwbSaveContext.scSlotFile(const aSlotFiles: TArray<Integer>; aSlot: Integer): IwbFile;
+begin
+  Result := nil;
+  if (aSlot < Low(aSlotFiles)) or (aSlot > High(aSlotFiles)) then
+    Exit;
+  var lIdx := aSlotFiles[aSlot];
+  if (lIdx < 0) or (lIdx > High(scGameContextObj.gcFiles)) then
+    Exit;
+  Result := scGameContextObj.gcFiles[lIdx];
+end;
+
+function TwbSaveContext.FullSlotFile(aSlot: Integer): IwbFile;
+begin
+  Result := scSlotFile(scFullSlotFiles, aSlot);
+end;
+
+function TwbSaveContext.LightSlotFile(aSlot: Integer): IwbFile;
+begin
+  Result := scSlotFile(scLightSlotFiles, aSlot);
+end;
+
+function TwbSaveContext.SlotFile(const aFileID: TwbFileID): IwbFile;
+begin
+  if aFileID.IsLightSlot then
+    Result := scSlotFile(scLightSlotFiles, aFileID.LightSlot)
+  else if aFileID.IsFullSlot then
+    Result := scSlotFile(scFullSlotFiles, aFileID.FullSlot)
+  else
+    Result := nil;
+end;
+
+function TwbSaveContext.scHeldFileByName(const aFileName: string): IwbFile;
+begin
+  Result := scGameContextObj.SaveContextFileByName(aFileName);
 end;
 
 { TwbGameDefineOptions }
@@ -6401,6 +6637,7 @@ begin
   gcFilesMap := TwbFastStringList.Create;
   gcFilesMap.Sorted := True;
   gcFilesMap.Duplicates := dupError;
+  gcSaveContextsLock := TObject.Create;
   gcRecordToSkip := CreateSkipList;
   gcSubRecordToSkip := CreateSkipList;
   gcGroupToSkip := CreateSkipList;
@@ -6431,11 +6668,71 @@ begin
   FreeAndNil(gcStripMastersFileNames);
   FreeAndNil(gcLEncoding[True]);
   FreeAndNil(gcLEncoding[False]);
+  FreeAndNil(gcSaveContextsLock);
   inherited;
 end;
 
 procedure TwbGameContext.DetachFilesFromModules;
 begin
+end;
+
+function TwbGameContext.SaveContextFileByName(const aFileName: string): IwbFile;
+begin
+  Result := nil;
+  TMonitor.Enter(gcSaveContextsLock);
+  try
+    for var lSaveContext in gcSaveContexts do
+      if SameText(lSaveContext.scFileName, aFileName) then
+        Exit(lSaveContext.scFile);
+  finally
+    TMonitor.Exit(gcSaveContextsLock);
+  end;
+end;
+
+function TwbGameContext.SaveContextFiles: TwbFiles;
+begin
+  TMonitor.Enter(gcSaveContextsLock);
+  try
+    SetLength(Result, Length(gcSaveContexts));
+    for var lIdx := Low(gcSaveContexts) to High(gcSaveContexts) do
+      Result[lIdx] := gcSaveContexts[lIdx].scFile;
+  finally
+    TMonitor.Exit(gcSaveContextsLock);
+  end;
+end;
+
+function TwbGameContext.FilesWithSaves: TwbFiles;
+var
+  lSaves     : TwbFiles;
+  lPositions : TArray<Integer>;
+begin
+  TMonitor.Enter(gcSaveContextsLock);
+  try
+    SetLength(lSaves, Length(gcSaveContexts));
+    SetLength(lPositions, Length(gcSaveContexts));
+    for var lIdx := Low(gcSaveContexts) to High(gcSaveContexts) do begin
+      lSaves[lIdx] := gcSaveContexts[lIdx].scFile;
+      lPositions[lIdx] := gcSaveContexts[lIdx].scJoinIndex;
+    end;
+  finally
+    TMonitor.Exit(gcSaveContextsLock);
+  end;
+  if Length(lSaves) = 0 then
+    Exit(gcFiles);
+
+  SetLength(Result, Length(gcFiles) + Length(lSaves));
+  var lOut := 0;
+  for var lFileIdx := 0 to Length(gcFiles) do begin
+    for var lSaveIdx := Low(lSaves) to High(lSaves) do
+      if (lPositions[lSaveIdx] = lFileIdx) or ((lFileIdx = Length(gcFiles)) and (lPositions[lSaveIdx] > lFileIdx)) then begin
+        Result[lOut] := lSaves[lSaveIdx];
+        Inc(lOut);
+      end;
+    if lFileIdx < Length(gcFiles) then begin
+      Result[lOut] := gcFiles[lFileIdx];
+      Inc(lOut);
+    end;
+  end;
 end;
 
 function TwbGameContext.CreateSkipList: TStringList;
@@ -6615,7 +6912,7 @@ begin
   if gcFilesMap.Find(aFileName, i) then
     Result := IwbFile(Pointer(gcFilesMap.Objects[i]))
   else
-    Result := nil;
+    Result := SaveContextFileByName(aFileName);
 end;
 
 function TwbGameContext.FileByModuleName(const aModuleName: string): IwbFile;
@@ -6665,9 +6962,30 @@ function TwbGameContext.RecordByLoadOrderFormID(const aFormID: TwbFormID; const 
 begin
   Result := nil;
   var lFileID := aFormID.FileID[SlotLayout];
-  for var i:= Low(gcFiles) to High(gcFiles) do
-    if gcFiles[i].LoadOrderFileID = lFileID then begin
-      Result := gcFiles[i].ContainedRecordByLoadOrderFormID[aFormID, True];
+
+  if Assigned(aSeenFromFile) and not lFileID.IsMediumSlot and (lFileID <> TwbFileID.CreateFull($FF)) then begin
+    var lSaveContext := aSeenFromFile.SaveContextObj;
+    if Assigned(lSaveContext) then begin
+      var lSlotFile := lSaveContext.SlotFile(lFileID);
+      if Assigned(lSlotFile) then begin
+        var lTargetFormID := aFormID.ChangeFileID(SlotLayout, lSlotFile.LoadOrderFileID);
+        Result := lSlotFile.ContainedRecordByLoadOrderFormID[lTargetFormID, True];
+        if Assigned(Result) then begin
+          var lVisibleResult := Result.HighestOverrideVisibleForFile[aSeenFromFile];
+          if Assigned(lVisibleResult) then
+            Result := lVisibleResult;
+        end;
+      end;
+      Exit;
+    end;
+  end;
+
+  var lFiles := gcFiles;
+  if lFileID = TwbFileID.CreateFull($FF) then
+    lFiles := FilesWithSaves;
+  for var i:= Low(lFiles) to High(lFiles) do
+    if lFiles[i].LoadOrderFileID = lFileID then begin
+      Result := lFiles[i].ContainedRecordByLoadOrderFormID[aFormID, True];
       if Assigned(Result) and Assigned(aSeenFromFile) then begin
         var lVisibleResult := Result.HighestOverrideVisibleForFile[aSeenFromFile];
         if Assigned(lVisibleResult) then
@@ -6693,34 +7011,41 @@ begin
     end;
 end;
 
-procedure wbRegisterGameDef(const aGameModes: TwbGameModes; aToolSource: TwbToolSource; aGameDefClass: TwbGameDefClass);
+procedure wbRegisterGameDef(const aGameModes: TwbGameModes; aGameDefClass: TwbGameDefClass);
 begin
   for var lGameMode := Low(TwbGameMode) to High(TwbGameMode) do
     if lGameMode in aGameModes then
-      _GameDefClasses[lGameMode, aToolSource] := aGameDefClass;
+      _GameDefClasses[lGameMode] := aGameDefClass;
 end;
 
-function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource): IwbGameDef;
+procedure wbRegisterSaveDefs(const aGameModes: TwbGameModes; aSaveDefClass, aCoSaveDefClass: TwbSaveDefClass);
 begin
-  Result := wbCreateGameDef(aGameMode, aToolSource, Default(TwbGameDefInputs));
+  for var lGameMode := Low(TwbGameMode) to High(TwbGameMode) do
+    if lGameMode in aGameModes then begin
+      _SaveDefClasses[lGameMode] := aSaveDefClass;
+      _CoSaveDefClasses[lGameMode] := aCoSaveDefClass;
+    end;
 end;
 
-function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs; aDefine: Boolean = True): IwbGameDef;
+function wbCreateGameDef(aGameMode: TwbGameMode): IwbGameDef;
 begin
-  var lGameDefClass := _GameDefClasses[aGameMode, aToolSource];
+  Result := wbCreateGameDef(aGameMode, Default(TwbGameDefInputs));
+end;
+
+function wbCreateGameDef(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs; aDefine: Boolean = True): IwbGameDef;
+begin
+  var lGameDefClass := _GameDefClasses[aGameMode];
   if not Assigned(lGameDefClass) then
-    raise Exception.Create('No definitions are registered for ' +
-      GetEnumName(TypeInfo(TwbGameMode), Ord(aGameMode)) + ' with ' +
-      GetEnumName(TypeInfo(TwbToolSource), Ord(aToolSource)));
-  var lGameDef := lGameDefClass.Create(aGameMode, aToolSource, aInputs);
+    raise Exception.Create('No definitions are registered for ' + GetEnumName(TypeInfo(TwbGameMode), Ord(aGameMode)));
+  var lGameDef := lGameDefClass.Create(aGameMode, aInputs);
   Result := lGameDef;
   if aDefine then
     lGameDef.EnsureDefined;
 end;
 
-function wbCreateGameDef(aGameMode: TwbGameMode; aToolSource: TwbToolSource; const aInputs: TwbGameDefInputs; const aDefineOptions: TwbGameDefineOptions): IwbGameDef;
+function wbCreateGameDef(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs; const aDefineOptions: TwbGameDefineOptions): IwbGameDef;
 begin
-  Result := wbCreateGameDef(aGameMode, aToolSource, aInputs, False);
+  Result := wbCreateGameDef(aGameMode, aInputs, False);
   var lGameDef := Result as TwbGameDef;
   lGameDef.DefineOptions := aDefineOptions;
   lGameDef.EnsureDefined;

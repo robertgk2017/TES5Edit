@@ -10931,5 +10931,5 @@ begin
 end;
 
 initialization
-  wbRegisterGameDef([gmTES5, gmTES5VR, gmEnderal, gmSSE, gmEnderalSE], tsPlugins, TwbGameDefTES5);
+  wbRegisterGameDef([gmTES5, gmTES5VR, gmEnderal, gmSSE, gmEnderalSE], TwbGameDefTES5);
 end.
