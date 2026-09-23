@@ -11899,7 +11899,7 @@ begin
     if not Assigned(Cell) then
       Exit;
 
-    var lFileSerial := TwbFile(IwbElement(Self)._File as TObject).flSerial;
+    var lFileSerial := (IwbElement(Self)._File as TObject as TwbFile).flSerial;
     CellFormID := Cell.FormID;
 
     // store cell's precombined index in cache

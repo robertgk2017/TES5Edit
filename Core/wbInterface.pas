@@ -611,11 +611,7 @@ type
     UpdateSupport      : Boolean;
     CS                 : Boolean;
     HNVSE              : Boolean;
-    VWDInTemporary     : Boolean;
-    VWDAsQuestChildren : Boolean;
-    ComplexFileFileID  : Boolean;
     Nehrim             : Boolean;
-    class function ForGame(aGameMode: TwbGameMode): TwbGameDefInputs; static;
   end;
 
   TwbGameIdentity = record
@@ -645,6 +641,52 @@ const
     {gmFO4VR}     (AppName: 'FO4VR';     GameName: 'Fallout4';  GameExeName: 'Fallout4VR.exe';          GameName2: 'Fallout4VR';              GameNameReg: 'Fallout 4 VR';            GameMasterEsm: 'Fallout4.esm';   SteamID: '611660';       LightName: 'Light'),
     {gmFO76}      (AppName: 'FO76';      GameName: 'Fallout76'; GameExeName: 'Fallout76.exe';           GameName2: 'Fallout 76';              GameNameReg: 'Steam App 1151340';       GameMasterEsm: 'SeventySix.esm'; SteamID: '1151340';      LightName: 'Light'),
     {gmSF1}       (AppName: 'SF1';       GameName: 'Starfield'; GameExeName: 'Starfield.exe';           GameName2: 'Starfield';               GameNameReg: 'Steam App 1716740';       GameMasterEsm: 'Starfield.esm';  SteamID: '1716740';      LightName: 'Small')
+  );
+
+type
+  TwbInstallRegistry = (irBethesda, irSureAI, irUninstall);
+
+  TwbInstallRegistryInfo = record
+    CurrentUser : Boolean;
+    KeyPrefix   : string;
+    ValueName   : string;
+  end;
+
+  TwbGameLocation = record
+    InstallRegistry    : TwbInstallRegistry;
+    DataFolder         : string;
+    MyGamesIsInstall   : Boolean;
+    IniName            : string;
+    IniInstallFallback : Boolean;
+    FixedSaveFolder    : string;
+    PluginsInData      : Boolean;
+    PluginsFolder      : string;
+  end;
+
+  TwbDataPathSearch = (dpsFound, dpsNoRegistryKey, dpsNoRegistryValue);
+
+const
+  wbInstallRegistries : array[TwbInstallRegistry] of TwbInstallRegistryInfo = (
+    {irBethesda}  (CurrentUser: False; KeyPrefix: '\SOFTWARE\Bethesda Softworks\';                          ValueName: 'Installed Path'),
+    {irSureAI}    (CurrentUser: True;  KeyPrefix: '\Software\SureAI\';                                      ValueName: 'Install_Path'),
+    {irUninstall} (CurrentUser: False; KeyPrefix: '\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\'; ValueName: 'InstallLocation')
+  );
+
+  wbGameLocations : array[TwbGameMode] of TwbGameLocation = (
+    {gmTES3}      (InstallRegistry: irBethesda;  DataFolder: 'Data Files';                                  MyGamesIsInstall: True;  IniName: 'Morrowind'; IniInstallFallback: False; FixedSaveFolder: '';                 PluginsInData: False; PluginsFolder: 'Morrowind'),
+    {gmTES4}      (InstallRegistry: irBethesda;  DataFolder: 'Data';                                        MyGamesIsInstall: False; IniName: 'Oblivion';  IniInstallFallback: False; FixedSaveFolder: '';                 PluginsInData: False; PluginsFolder: 'Oblivion'),
+    {gmTES4R}     (InstallRegistry: irUninstall; DataFolder: 'OblivionRemastered\Content\Dev\ObvData\Data'; MyGamesIsInstall: False; IniName: 'Oblivion';  IniInstallFallback: True;  FixedSaveFolder: 'Saved\SaveGames\'; PluginsInData: True;  PluginsFolder: 'Oblivion Remastered'),
+    {gmFO3}       (InstallRegistry: irBethesda;  DataFolder: 'Data';                                        MyGamesIsInstall: False; IniName: 'Fallout';   IniInstallFallback: False; FixedSaveFolder: '';                 PluginsInData: False; PluginsFolder: 'Fallout3'),
+    {gmFNV}       (InstallRegistry: irBethesda;  DataFolder: 'Data';                                        MyGamesIsInstall: False; IniName: 'Fallout';   IniInstallFallback: False; FixedSaveFolder: '';                 PluginsInData: False; PluginsFolder: 'FalloutNV'),
+    {gmTES5}      (InstallRegistry: irBethesda;  DataFolder: 'Data';                                        MyGamesIsInstall: False; IniName: 'Skyrim';    IniInstallFallback: False; FixedSaveFolder: '';                 PluginsInData: False; PluginsFolder: 'Skyrim'),
+    {gmEnderal}   (InstallRegistry: irSureAI;    DataFolder: 'Data';                                        MyGamesIsInstall: False; IniName: 'Enderal';   IniInstallFallback: False; FixedSaveFolder: '';                 PluginsInData: False; PluginsFolder: 'Enderal'),
+    {gmFO4}       (InstallRegistry: irBethesda;  DataFolder: 'Data';                                        MyGamesIsInstall: False; IniName: 'Fallout4';  IniInstallFallback: False; FixedSaveFolder: '';                 PluginsInData: False; PluginsFolder: 'Fallout4'),
+    {gmSSE}       (InstallRegistry: irBethesda;  DataFolder: 'Data';                                        MyGamesIsInstall: False; IniName: 'Skyrim';    IniInstallFallback: False; FixedSaveFolder: '';                 PluginsInData: False; PluginsFolder: 'Skyrim Special Edition'),
+    {gmTES5VR}    (InstallRegistry: irBethesda;  DataFolder: 'Data';                                        MyGamesIsInstall: False; IniName: 'Skyrim';    IniInstallFallback: True;  FixedSaveFolder: '';                 PluginsInData: False; PluginsFolder: 'Skyrim VR'),
+    {gmEnderalSE} (InstallRegistry: irSureAI;    DataFolder: 'Data';                                        MyGamesIsInstall: False; IniName: 'Enderal';   IniInstallFallback: False; FixedSaveFolder: '';                 PluginsInData: False; PluginsFolder: 'Enderal Special Edition'),
+    {gmFO4VR}     (InstallRegistry: irBethesda;  DataFolder: 'Data';                                        MyGamesIsInstall: False; IniName: 'Fallout4';  IniInstallFallback: True;  FixedSaveFolder: '';                 PluginsInData: False; PluginsFolder: 'Fallout4VR'),
+    {gmFO76}      (InstallRegistry: irUninstall; DataFolder: 'Data';                                        MyGamesIsInstall: False; IniName: 'Fallout76'; IniInstallFallback: False; FixedSaveFolder: '';                 PluginsInData: False; PluginsFolder: 'Fallout76'),
+    {gmSF1}       (InstallRegistry: irUninstall; DataFolder: 'Data';                                        MyGamesIsInstall: False; IniName: 'Starfield'; IniInstallFallback: True;  FixedSaveFolder: '';                 PluginsInData: False; PluginsFolder: 'Starfield')
   );
 
 type
@@ -3920,6 +3962,10 @@ type
     CellDetailsForWorldspaceCallback : TwbGetCellDetailsForWorldspaceCallback;
     class function Defaults: TwbGameContextSettings; static;
     procedure ApplyGameDefaults(aGameMode: TwbGameMode);
+    function FindDataPath(aGameMode: TwbGameMode; out aRegistryName: string): TwbDataPathSearch;
+    function DefaultMyGamesPath(aGameMode: TwbGameMode; const aDocumentsPath: string; out aIsEpic: Boolean): string;
+    function DefaultGameIniFileName(aGameMode: TwbGameMode; const aMyGamesPath: string): string;
+    function DefaultCustomIniFileName(aGameMode: TwbGameMode; const aMyGamesPath: string): string;
   end;
 
   TwbModuleExtension = (
@@ -5685,11 +5731,13 @@ uses
   System.RegularExpressions,
   System.TypInfo,
   System.Variants,
+  System.Win.Registry,
 
   Winapi.Windows,
 
   wbHalfFloat,
-  wbSort;
+  wbSort,
+  wbSteamVDFParser;
 
 class function TwbConflictConfig.ForContext(aContext: TwbGameContext): TwbConflictConfig;
 begin
@@ -6127,14 +6175,6 @@ begin
   Result := TwbNullWaitForm.Create;
 end;
 
-class function TwbGameDefInputs.ForGame(aGameMode: TwbGameMode): TwbGameDefInputs;
-begin
-  Result := Default(TwbGameDefInputs);
-  Result.VWDInTemporary := not (aGameMode in [gmTES4, gmTES4R]);
-  Result.VWDAsQuestChildren := aGameMode in [gmFO4, gmFO4VR, gmFO76, gmSF1];
-  Result.ComplexFileFileID := aGameMode = gmSF1;
-end;
-
 function wbComputeCapabilities(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs): TwbGameCapabilities;
 begin
   Result := [];
@@ -6224,11 +6264,11 @@ begin
     Include(Result, gcCommunityShaders);
   if aInputs.HNVSE then
     Include(Result, gcHNVSE);
-  if aInputs.VWDInTemporary then
+  if not (aGameMode in [gmTES4, gmTES4R]) then
     Include(Result, gcVWDInTemporary);
-  if aInputs.VWDAsQuestChildren then
+  if aGameMode in [gmFO4, gmFO4VR, gmFO76, gmSF1] then
     Include(Result, gcVWDAsQuestChildren);
-  if aInputs.ComplexFileFileID then
+  if aGameMode in [gmSF1] then
     Include(Result, gcComplexFileFileID);
 end;
 
@@ -7043,6 +7083,105 @@ begin
       AlwaysSaveOnamForce := True;
     end;
   end;
+end;
+
+function TwbGameContextSettings.FindDataPath(aGameMode: TwbGameMode; out aRegistryName: string): TwbDataPathSearch;
+var
+  lIdentity    : TwbGameIdentity;
+  lLocation    : TwbGameLocation;
+  lInstallPath : string;
+  lCurrentDir  : string;
+  lExeDir      : string;
+
+  function CheckPath(const aStartFrom: string): string;
+  var
+    s: string;
+  begin
+    Result := '';
+    s := aStartFrom;
+    while Length(s) > 3 do begin
+      if FileExists(s + lIdentity.GameExeName) and DirectoryExists(s + lLocation.DataFolder) then begin
+        Result := s;
+        Exit;
+      end;
+      s := ExtractFilePath(ExcludeTrailingPathDelimiter(s));
+    end;
+  end;
+
+begin
+  Result := dpsFound;
+  aRegistryName := '';
+  DataPath := '';
+  lIdentity := wbGameIdentities[aGameMode];
+  lLocation := wbGameLocations[aGameMode];
+
+  lCurrentDir := IncludeTrailingPathDelimiter(GetCurrentDir);
+  lInstallPath := CheckPath(lCurrentDir);
+  if lInstallPath = '' then begin
+    lExeDir := ExtractFilePath(ParamStr(0));
+    if not SameText(lCurrentDir, lExeDir) then
+      lInstallPath := CheckPath(lExeDir);
+  end;
+
+  if lInstallPath = '' then
+    for var lID in lIdentity.SteamID.Split([',']) do begin
+      lInstallPath := GetInstallPathBySteamID(lID);
+      if lInstallPath <> '' then
+        Break;
+    end;
+
+  if lInstallPath = '' then begin
+    var lRegistryInfo := wbInstallRegistries[lLocation.InstallRegistry];
+    var lRegistry := TRegistry.Create;
+    try
+      lRegistry.Access := KEY_READ or KEY_WOW64_32KEY;
+      if lRegistryInfo.CurrentUser then
+        lRegistry.RootKey := HKEY_CURRENT_USER
+      else
+        lRegistry.RootKey := HKEY_LOCAL_MACHINE;
+      aRegistryName := lRegistryInfo.KeyPrefix + lIdentity.GameNameReg + '\';
+      if not lRegistry.OpenKey(aRegistryName, False) then begin
+        lRegistry.Access := KEY_READ or KEY_WOW64_64KEY;
+        if not lRegistry.OpenKey(aRegistryName, False) then
+          Exit(dpsNoRegistryKey);
+      end;
+      aRegistryName := lRegistryInfo.ValueName;
+      lInstallPath := StringReplace(lRegistry.ReadString(aRegistryName), '"', '', [rfReplaceAll]);
+      if lInstallPath = '' then
+        Exit(dpsNoRegistryValue);
+    finally
+      lRegistry.Free;
+    end;
+  end;
+
+  DataPath := IncludeTrailingPathDelimiter(lInstallPath) + lLocation.DataFolder + '\';
+end;
+
+function TwbGameContextSettings.DefaultMyGamesPath(aGameMode: TwbGameMode; const aDocumentsPath: string; out aIsEpic: Boolean): string;
+begin
+  aIsEpic := False;
+  if wbGameLocations[aGameMode].MyGamesIsInstall then
+    Result := IncludeTrailingPathDelimiter(ExtractFilePath(ExcludeTrailingPathDelimiter(DataPath)))
+  else
+    Result := aDocumentsPath + 'My Games\' + wbGameIdentities[aGameMode].GameName2 + '\';
+
+  if (aGameMode in [gmFNV]) and FileExists(IncludeTrailingPathDelimiter(ExtractFilePath(ExcludeTrailingPathDelimiter(DataPath))) + 'EOSSDK-Win32-Shipping.dll') then begin
+    Result := aDocumentsPath + 'My Games\FalloutNV_Epic\';
+    aIsEpic := True;
+  end;
+end;
+
+function TwbGameContextSettings.DefaultGameIniFileName(aGameMode: TwbGameMode; const aMyGamesPath: string): string;
+begin
+  var lLocation := wbGameLocations[aGameMode];
+  Result := aMyGamesPath + lLocation.IniName + '.ini';
+  if lLocation.IniInstallFallback and not FileExists(Result) then
+    Result := ExtractFilePath(ExcludeTrailingPathDelimiter(DataPath)) + lLocation.IniName + '.ini';
+end;
+
+function TwbGameContextSettings.DefaultCustomIniFileName(aGameMode: TwbGameMode; const aMyGamesPath: string): string;
+begin
+  Result := aMyGamesPath + wbGameLocations[aGameMode].IniName + 'Custom.ini';
 end;
 
 { TwbGameContext }

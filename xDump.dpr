@@ -25,9 +25,9 @@ uses
 
   System.Classes,
   System.IniFiles,
+  System.IOUtils,
   System.SysUtils,
   System.TypInfo,
-  System.Win.Registry,
 
   WinApi.Windows,
 
@@ -781,41 +781,6 @@ begin
 end;
 {==============================================================================}
 
-const
-  DataName : array[Boolean] of string = (
-    'Data',
-    'Data Files'   // gmTES3
-  );
-
-function CheckAppPath: string;
-
-  function CheckPath(const aStartFrom: string): string;
-  var
-    s: string;
-  begin
-    Result := '';
-    s := aStartFrom;
-    while Length(s) > 3 do begin
-      if FileExists(s + wbGameExeName) and DirectoryExists(s + DataName[HostContext.GameDefObj.GameMode = gmTES3]) then begin
-        Result := s;
-        Exit;
-      end;
-      s := ExtractFilePath(ExcludeTrailingPathDelimiter(s));
-    end;
-  end;
-
-var
-  CurrentDir, ExeDir: string;
-begin
-  CurrentDir := IncludeTrailingPathDelimiter(GetCurrentDir);
-  Result := CheckPath(CurrentDir);
-  if (Result = '') then begin
-    ExeDir := ExtractFilePath(ParamStr(0));
-    if not SameText(CurrentDir, ExeDir) then
-      Result := CheckPath(ExeDir);
-  end;
-end;
-
 function CheckParamPath: string; // for Dump, do we have bsa in the same directory
 var
   s: string;
@@ -831,73 +796,19 @@ begin
 end;
 
 procedure DoInitPath;
-const
-  sBethRegKey             = '\SOFTWARE\Bethesda Softworks\';
-  sUninstallRegKey        = '\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\';
-  sSureAIRegKey           = '\Software\SureAI\';
-
 var
-  regPath, regKey, client: string;
-  ProgramPath : String;
-  DataPath    : String;
+  lRegistryName : string;
+  lDataPath     : string;
 begin
-  var lGameDef := HostContext.GameDefObj;
-  ProgramPath := IncludeTrailingPathDelimiter(ExtractFilePath(ParamStr(0)));
-
-  if not wbFindCmdLineParam('D', DataPath) then begin
-    DataPath := CheckAppPath;
-
-    if (DataPath = '') then with TRegistry.Create do try
-      Access  := KEY_READ or KEY_WOW64_32KEY;
-      RootKey := HKEY_LOCAL_MACHINE;
-      client  := 'Steam';
-
-      case lGameDef.GameMode of
-      gmTES3, gmTES4, gmFO3, gmFNV, gmTES5, gmFO4, gmSSE, gmTES5VR, gmFO4VR, gmSF1: begin
-        regPath := sBethRegKey + wbGameNameReg + '\';
-      end;
-      gmEnderal, gmEnderalSE: begin
-        RootKey := HKEY_CURRENT_USER;
-        regPath := sSureAIRegKey + wbGameNameReg + '\';
-      end;
-      gmFO76: begin
-        regPath := sUninstallRegKey + wbGameNameReg + '\';
-        client  := 'Bethesda.net Launcher';
-      end;
-      end;
-
-      if not OpenKey(regPath, False) then begin
-        Access := KEY_READ or KEY_WOW64_64KEY;
-        if not OpenKey(regPath, False) then begin
-          ReportProgress('Warning: Could not open registry key: ' + regPath);
-          Exit;
-        end;
-      end;
-
-      case lGameDef.GameMode of
-      gmTES3, gmTES4, gmFO3, gmFNV, gmTES5, gmFO4, gmSSE, gmTES5VR, gmFO4VR, gmSF1:
-                  regKey := 'Installed Path';
-      gmEnderal, gmEnderalSE:  regKey := 'Install_Path';
-      gmFO76:     regKey := 'Path';
-      end;
-
-      DataPath := ReadString(regKey);
-      DataPath := StringReplace(DataPath, '"', '', [rfReplaceAll]);
-
-      if DataPath = '' then begin
-        ReportProgress(Format('Warning: Could not determine %s installation path, no "%s" registry key', [wbGameName2, regKey]));
-      end;
-    finally
-      Free;
+  if wbFindCmdLineParam('D', lDataPath) then
+    HostContext.Settings.DataPath := IncludeTrailingPathDelimiter(lDataPath)
+  else
+    case HostContext.Settings.FindDataPath(HostContext.GameDefObj.GameMode, lRegistryName) of
+      dpsNoRegistryKey:
+        ReportProgress('Warning: Could not open registry key: ' + lRegistryName);
+      dpsNoRegistryValue:
+        ReportProgress(Format('Warning: Could not determine %s installation path, no "%s" registry key', [wbGameName2, lRegistryName]));
     end;
-
-    if (DataPath <> '') then
-      DataPath := IncludeTrailingPathDelimiter(DataPath) + 'Data\';
-
-  end else
-    DataPath := IncludeTrailingPathDelimiter(DataPath);
-
-  HostContext.Settings.DataPath := DataPath;
 end;
 
 function isMode(aMode: String): Boolean;
@@ -940,7 +851,6 @@ var
 begin
   SetTextBuf(Output, OutputBuffer);
   lSettings := TwbGameContextSettings.Defaults;
-  lInputs := Default(TwbGameDefInputs);
   lDefineOptions := TwbGameDefineOptions.Defaults;
   {$IF CompilerVersion >= 24}
   FormatSettings.DecimalSeparator := '.';
@@ -948,8 +858,6 @@ begin
   SysUtils.DecimalSeparator := '.';
   {$IFEND}
   _wbProgressCallback := ReportProgress;
-  lSettings.DontSave := True;
-  lSettings.AllowInternalEdit := False;
   wbMoreInfoForUnknown := False;
   lDefineOptions.SimpleRecords := False;
   wbHideUnused := False;
@@ -1022,89 +930,40 @@ begin
         DumpSourceName := 'Saves'
       else
         DumpSourceName := 'Plugins';
-      wbAppName := GetEnumName(TypeInfo(TwbGameMode), Ord(wbGameMode) );
-      Delete(wbAppName, 1 ,2);
+      var lIdentity := wbGameIdentities[wbGameMode];
+      wbAppName       := lIdentity.AppName;
+      wbGameName      := lIdentity.GameName;
+      wbGameExeName   := lIdentity.GameExeName;
+      wbGameName2     := lIdentity.GameName2;
+      wbGameNameReg   := lIdentity.GameNameReg;
+      wbGameMasterEsm := lIdentity.GameMasterEsm;
 
+      lSettings.ApplyGameDefaults(wbGameMode);
+      lSettings.DontSave := True;
+      lSettings.AllowInternalEdit := False;
+      lSettings.HideIgnored := True;
       lSettings.LoadBSAs := FindCmdLineSwitch('bsa') or FindCmdLineSwitch('allbsa');
+      lInputs := Default(TwbGameDefInputs);
       SavesSupported := True;
       tms := [tmDump, tmExport];
 
       if FindCmdLineSwitch('sr') then
         lDefineOptions.SimpleRecords := True;
 
-      lSettings.Language := 'English';
-
-      wbGameExeName := '';
       case wbGameMode of
-        gmFNV: begin
-          wbGameName := 'FalloutNV';
-        end;
-        gmFO3: begin
-          wbGameName := 'Fallout3';
-        end;
+        gmFNV, gmFO3, gmTES4, gmTES5, gmEnderal, gmSSE, gmEnderalSE: ;
         gmTES3: begin
-          wbGameName := 'Morrowind';
-          lSettings.LoadBSAs := false;
+          lSettings.LoadBSAs := False;
           tms := [tmDump];
           SavesSupported := False;
         end;
-        gmTES4: begin
-          wbGameName := 'Oblivion';
-        end;
-        gmTES5: begin
-          wbGameName    := 'Skyrim';
-          wbGameExeName := 'TESV';
-        end;
-        gmEnderal: begin
-          wbGameName      := 'Enderal';
-          wbGameExeName   := 'TESV';
-          wbGameMasterEsm := 'Skyrim.esm';
-        end;
-        gmTES5VR: begin
-          wbGameName    := 'Skyrim';
-          wbGameName2   := 'Skyrim VR';
-          wbGameExeName := 'SkyrimVR';
+        gmTES5VR:
           SavesSupported := False;
-        end;
-        gmFO4: begin
-          wbGameName           := 'Fallout4';
+        gmFO4, gmSF1:
           lSettings.CreateContainedIn := False;
-          lInputs.VWDAsQuestChildren := True;
-        end;
-        gmFO4VR: begin
-          wbGameName           := 'Fallout4';
-          wbGameExeName        := 'Fallout4VR';
-          wbGameName2          := 'Fallout4VR';
-          wbGameNameReg        := 'Fallout 4 VR';
+        gmFO4VR, gmFO76: begin
           lSettings.CreateContainedIn := False;
-          lInputs.VWDAsQuestChildren := True;
           SavesSupported := False;
-        end;
-        gmSSE: begin
-          wbGameName    := 'Skyrim';
-          wbGameExeName := 'SkyrimSE';
-          wbGameName2   := 'Skyrim Special Edition';
-        end;
-        gmEnderalSE: begin
-          wbAppName       := 'EnderalSE';
-          wbGameName      := 'Enderal';
-          wbGameExeName   := 'SkyrimSE';
-          wbGameName2     := 'Enderal Special Edition';
-          wbGameNameReg   := 'EnderalSE';
-          wbGameMasterEsm := 'Skyrim.esm';
-        end;
-        gmFO76: begin
-          wbGameName           := 'Fallout76';
-          wbGameNameReg        := 'Fallout 76';
-          wbGameMasterEsm      := 'SeventySix.esm';
-          lSettings.CreateContainedIn := False;
-          lInputs.VWDAsQuestChildren := True;
-          SavesSupported := False;
-        end;
-        gmSF1: begin
-          wbGameName           := 'Starfield';
-          lSettings.CreateContainedIn := False;
-          lInputs.VWDAsQuestChildren := True;
         end;
       else begin
         s := '';
@@ -1118,19 +977,6 @@ begin
         Exit;
       end;
       end;
-
-      if wbGameName2 = '' then
-        wbGameName2 := wbGameName;
-
-      if wbGameNameReg = '' then
-        wbGameNameReg := wbGameName2;
-
-      if wbGameMasterEsm = '' then
-        wbGameMasterEsm := wbGameName + csDotEsm;
-
-      if wbGameExeName = '' then
-        wbGameExeName := wbGameName;
-      wbGameExeName := wbGameExeName + csDotExe;
 
       HostContextRef := wbCreateGameContext(wbCreateGameDef(wbGameMode, lInputs, lDefineOptions));
       HostContext := HostContextRef as TwbGameContext;
@@ -1155,6 +1001,11 @@ begin
       DoInitPath;
       if (wbToolMode in [tmDump]) and (HostContext.Settings.DataPath = '') then // Dump can be run in any directory configuration
         HostContext.Settings.DataPath := CheckParamPath;
+
+      var lIsEpic: Boolean;
+      var lMyGamesPath := HostContext.Settings.DefaultMyGamesPath(wbGameMode, IncludeTrailingPathDelimiter(TPath.GetDocumentsPath), lIsEpic);
+      HostContext.Settings.TheGameIniFileName := HostContext.Settings.DefaultGameIniFileName(wbGameMode, lMyGamesPath);
+      HostContext.Settings.CustomIniFileName := HostContext.Settings.DefaultCustomIniFileName(wbGameMode, lMyGamesPath);
 
       HostContext.ModuleList.LoadModules;
 
@@ -1321,13 +1172,9 @@ begin
         DumpForms.Free;
       end;
 
-      if HostContext.GameDefObj.GameMode in [gmFO4, gmFO4vr, gmFO76, gmSF1] then
-        HostContext.Settings.Language := 'En';
-
       if HostContext.GameDefObj.GameMode <= gmEnderal then
         HostContext.AddDefaultLEncodingsIfMissing(False)
       else begin
-        wbLEncodingDefault[False] := TEncoding.UTF8;
         case HostContext.GameDefObj.GameMode of
         gmSSE, gmTES5VR, gmEnderalSE:
           HostContext.AddLEncodingIfMissing('english', '1252', False);
