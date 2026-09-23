@@ -18,6 +18,65 @@ uses
 
 type
   TwbGameDefFO3 = class(TwbGameDefCommon)
+  private
+    wbConditionParameters: array of IwbValueDef;
+    wbConditionVATSValueParameters: array of IwbValueDef;
+    wbConditionBaseObjects: TwbSignatures;
+
+    wbFormTypeEnum: IwbEnumDef;
+    wbMiscStatEnum: IwbEnumDef;
+    wbObjectTypeEnum: IwbEnumDef;
+    wbPlayerActionEnum: IwbEnumDef;
+    wbSkillEnum: IwbEnumDef;
+    wbSoundLevelEnum: IwbEnumDef;
+    wbVatsActionEnum: IwbEnumDef;
+    wbVatsValueFunctionEnum: IwbEnumDef;
+    wbWeaponAnimTypeEnum: IwbEnumDef;
+
+    wbActorValue: IwbIntegerDef;
+
+    wbAIDT: IwbRecordMemberDef;
+    wbBIPL: IwbRecordMemberDef;
+    wbBMDT: IwbRecordMemberDef;
+    wbCNTOs: IwbRecordMemberDef;
+    wbCOED: IwbRecordMemberDef;
+    wbConditions: IwbRecordMemberDef;
+    wbDESC: IwbRecordMemberDef;
+    wbDESCReq: IwbRecordMemberDef;
+    wbDEST: IwbRecordMemberDef;
+    wbDODT: IwbRecordMemberDef;
+    wbEDID: IwbRecordMemberDef;
+    wbEDIDReq: IwbRecordMemberDef;
+    wbEDIDReqKC: IwbRecordMemberDef;
+    wbEffects: IwbRecordMemberDef;
+    wbEffectsReq: IwbRecordMemberDef;
+    wbEFID: IwbRecordMemberDef;
+    wbEFIT: IwbRecordMemberDef;
+    wbEmbeddedScript: IwbRecordMemberDef;
+    wbEmbeddedScriptReq: IwbRecordMemberDef;
+    wbETYP: IwbRecordMemberDef;
+    wbETYPReq: IwbRecordMemberDef;
+    wbFULL: IwbSubRecordDef;
+    wbFULLReq: IwbRecordMemberDef;
+    wbICON: IwbRecordMemberDef;
+    wbICONReq: IwbRecordMemberDef;
+    wbMODD: IwbRecordMemberDef;
+    wbMODS: IwbRecordMemberDef;
+    wbMOSD: IwbRecordMemberDef;
+    wbMO2S: IwbRecordMemberDef;
+    wbMO3S: IwbRecordMemberDef;
+    wbMO4S: IwbRecordMemberDef;
+    wbREPL: IwbRecordMemberDef;
+    wbSCHRReq: IwbRecordMemberDef;
+    wbSCRI: IwbRecordMemberDef;
+    wbSCROs: IwbRecordMemberDef;
+    wbSLSD: IwbRecordMemberDef;
+    wbSPLOs: IwbRecordMemberDef;
+    wbXESP: IwbRecordMemberDef;
+    wbXLCM: IwbRecordMemberDef;
+    wbXSCL: IwbRecordMemberDef;
+    wbYNAM: IwbRecordMemberDef;
+    wbZNAM: IwbRecordMemberDef;
   protected
     function EPFDActorValueToStr(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
     function EPFDActorValueToInt(const aString: string; const aElement: IwbElement): Int64;
@@ -37,66 +96,6 @@ uses
 
   wbDefinitionsSignatures,
   wbHelpers;
-
-var
-  wbConditionParameters: array of IwbValueDef;
-  wbConditionVATSValueParameters: array of IwbValueDef;
-  wbConditionBaseObjects: TwbSignatures;
-
-  wbFormTypeEnum: IwbEnumDef;
-  wbMiscStatEnum: IwbEnumDef;
-  wbObjectTypeEnum: IwbEnumDef;
-  wbPlayerActionEnum: IwbEnumDef;
-  wbSkillEnum: IwbEnumDef;
-  wbSoundLevelEnum: IwbEnumDef;
-  wbVatsActionEnum: IwbEnumDef;
-  wbVatsValueFunctionEnum: IwbEnumDef;
-  wbWeaponAnimTypeEnum: IwbEnumDef;
-
-  wbActorValue: IwbIntegerDef;
-
-  wbAIDT: IwbRecordMemberDef;
-  wbBIPL: IwbRecordMemberDef;
-  wbBMDT: IwbRecordMemberDef;
-  wbCNTOs: IwbRecordMemberDef;
-  wbCOED: IwbRecordMemberDef;
-  wbConditions: IwbRecordMemberDef;
-  wbDESC: IwbRecordMemberDef;
-  wbDESCReq: IwbRecordMemberDef;
-  wbDEST: IwbRecordMemberDef;
-  wbDODT: IwbRecordMemberDef;
-  wbEDID: IwbRecordMemberDef;
-  wbEDIDReq: IwbRecordMemberDef;
-  wbEDIDReqKC: IwbRecordMemberDef;
-  wbEffects: IwbRecordMemberDef;
-  wbEffectsReq: IwbRecordMemberDef;
-  wbEFID: IwbRecordMemberDef;
-  wbEFIT: IwbRecordMemberDef;
-  wbEmbeddedScript: IwbRecordMemberDef;
-  wbEmbeddedScriptReq: IwbRecordMemberDef;
-  wbETYP: IwbRecordMemberDef;
-  wbETYPReq: IwbRecordMemberDef;
-  wbFULL: IwbSubRecordDef;
-  wbFULLReq: IwbRecordMemberDef;
-  wbICON: IwbRecordMemberDef;
-  wbICONReq: IwbRecordMemberDef;
-  wbMODD: IwbRecordMemberDef;
-  wbMODS: IwbRecordMemberDef;
-  wbMOSD: IwbRecordMemberDef;
-  wbMO2S: IwbRecordMemberDef;
-  wbMO3S: IwbRecordMemberDef;
-  wbMO4S: IwbRecordMemberDef;
-  wbREPL: IwbRecordMemberDef;
-  wbSCHRReq: IwbRecordMemberDef;
-  wbSCRI: IwbRecordMemberDef;
-  wbSCROs: IwbRecordMemberDef;
-  wbSLSD: IwbRecordMemberDef;
-  wbSPLOs: IwbRecordMemberDef;
-  wbXESP: IwbRecordMemberDef;
-  wbXLCM: IwbRecordMemberDef;
-  wbXSCL: IwbRecordMemberDef;
-  wbYNAM: IwbRecordMemberDef;
-  wbZNAM: IwbRecordMemberDef;
 
 type
   TConditionParameterType = (
@@ -2511,17 +2510,17 @@ end;
 
 procedure TwbGameDefFO3.Define;
 begin
-  RecordFlags := wbInteger('Record Flags', itU32, wbFlags(wbFlagsList([])));
+  gdRecordFlags := wbInteger('Record Flags', itU32, wbFlags(wbFlagsList([])));
 
-  MainRecordHeader := wbRecordHeader(RecordFlags);
+  gdMainRecordHeader := wbRecordHeader(RecordFlags);
 
-  SizeOfMainRecordStruct := 24;
+  gdSizeOfMainRecordStruct := 24;
 
   IgnoreRecords.Add(XXXX);
 
   {>>> Enums <<<}
 
-  ActorValueEnum :=
+  gdActorValueEnum :=
     wbEnum([
       {0}  'Aggression',
       {1}  'Confidence',
@@ -7886,12 +7885,11 @@ begin
   AddGroupOrder(DOBJ);
   AddGroupOrder(LGTM);
   AddGroupOrder(MUSC);
-  NexusModsUrl := 'https://www.nexusmods.com/fallout3/mods/637';
-  if wbToolMode = tmLODgen then
-    NexusModsUrl := 'https://www.nexusmods.com/fallout3/mods/21174';
-  HEDRVersion := 0.94;
-  DefaultFormVersion := 15;
-  DefaultLandTexture := 'LDirtWasteland01';
+  gdNexusModsUrl := 'https://www.nexusmods.com/fallout3/mods/637';
+  gdLODGenNexusModsUrl := 'https://www.nexusmods.com/fallout3/mods/21174';
+  gdHEDRVersion := 0.94;
+  gdDefaultFormVersion := 15;
+  gdDefaultLandTexture := 'LDirtWasteland01';
 end;
 
 initialization

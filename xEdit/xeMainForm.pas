@@ -1367,7 +1367,6 @@ uses
   wbHardcoded,
   wbHelpers,
   wbImplementation,
-  wbLocalization,
   wbLOD,
   wbSort,
 
@@ -2660,7 +2659,7 @@ begin
     try
       with TfrmModuleSelect.Create(Self) do try
 
-        AllModules := wbModuleListOf(xeContext).ModulesByLoadOrder(True).FilteredByFlag(mfValid).FilteredBy(function(a: PwbModuleInfo): Boolean
+        AllModules := xeContext.ModuleList.ModulesByLoadOrder(True).FilteredByFlag(mfValid).FilteredBy(function(a: PwbModuleInfo): Boolean
           begin
             Result := mfTemplate in a.miFlags;
             if not Result then begin
@@ -2962,7 +2961,7 @@ end;
 procedure TfrmMain.AddNewFileWithDialog;
 begin
   with TfrmModuleSelect.Create(Self) do try
-    AllModules := wbModuleListOf(xeContext).ModulesByLoadOrder(True).FilteredByFlag(mfValid).FilteredByFlag(mfTemplate);
+    AllModules := xeContext.ModuleList.ModulesByLoadOrder(True).FilteredByFlag(mfValid).FilteredByFlag(mfTemplate);
     Caption := 'What type of module do you want to create?';
 
     FilterFlag := mfValid;
@@ -3269,7 +3268,7 @@ var
 
   function IsLoaded(const aFileName: string): Boolean;
   begin
-    Result := (mfHasFile in wbModuleListOf(xeContext).ModuleByName(ExtractFileName(aFileName)).miFlags) or
+    Result := (mfHasFile in xeContext.ModuleList.ModuleByName(ExtractFileName(aFileName)).miFlags) or
       Assigned(xeContext.FileByName(fPath + ExtractFileName(aFileName)));
   end;
 
@@ -4106,7 +4105,7 @@ procedure TfrmMain.mniNavDeleteModGroupsClick(Sender: TObject);
 var
   i            : Integer;
 begin
-  var lModGroups := wbModGroupListOf(xeContext);
+  var lModGroups := xeContext.ModGroupList;
   lModGroups.Reload;
 
   with TfrmModGroupSelect.Create(Self) do try
@@ -4146,7 +4145,7 @@ var
   lModGroup    : TwbModGroup;
   sl           : TStringList;
 begin
-  var lModGroups := wbModGroupListOf(xeContext);
+  var lModGroups := xeContext.ModGroupList;
   lModGroups.Reload;
 
   with TfrmModGroupSelect.Create(Self) do try
@@ -4732,7 +4731,7 @@ var
 
   Stream        : TStream;
 begin
-  var lModules := wbModuleListOf(xeContext);
+  var lModules := xeContext.ModuleList;
   var lGameDef := xeContext.GameDefObj;
   {$IFDEF USE_PARALLEL_BUILD_REFS}
   TThread.CreateAnonymousThread(procedure begin
@@ -5247,7 +5246,7 @@ begin
   wbManualCleaningHide := Settings.ReadBool('Options', 'ManualCleaningHide', wbManualCleaningHide);
   wbManualCleaningAllow := Settings.ReadBool('Options', 'ManualCleaningAllow', wbManualCleaningAllow);
   xeContext.Settings.ConvertIntFormID := Settings.ReadBool('Options', 'ConvertIntFormID', xeContext.Settings.ConvertIntFormID);
-  for var lCollapse := Low(TwbCollapseOption) to High(TwbCollapseOption) do
+  for var lCollapse in TwbGameDefineOptions.CheckableCollapse do
     xeContext.GameDefObj.DefineOptions.SetCollapse(lCollapse, Settings.ReadBool('Options', TwbGameDefineOptions.CollapseSettingsKey(lCollapse), lCollapse in xeContext.GameDefObj.DefineOptions.Collapse));
   wbCollapseBenignArray := Settings.ReadBool('Options', 'CollapseBenignArray', wbCollapseBenignArray);
   wbShrinkButtons := Settings.ReadBool('Options', 'ShrinkButtons', wbShrinkButtons);
@@ -7818,7 +7817,7 @@ begin
       with TfrmModuleSelect.Create(Self) do try
         _File.GetMasters(sl);
         sl.Sorted := True;
-        AllModules := wbModuleListOf(xeContext).ModulesByLoadOrder(False).FilteredByFlag(mfValid).FilteredBy(function(a: PwbModuleInfo): Boolean
+        AllModules := xeContext.ModuleList.ModulesByLoadOrder(False).FilteredByFlag(mfValid).FilteredBy(function(a: PwbModuleInfo): Boolean
           begin
             Result := Assigned(a.miFile);
             if Result then begin
@@ -8330,7 +8329,7 @@ var
   Dummy: Boolean;
 begin
   if Now - LastNexusModsClick > 1/24/60/60 then begin
-    ShellExecute(Handle, 'open', PChar(xeContext.GameDefObj.NexusModsUrl), '', '', SW_SHOWNORMAL);
+    ShellExecute(Handle, 'open', PChar(xeNexusModsUrl), '', '', SW_SHOWNORMAL);
     LastNexusModsClick := Now;
   end;
   jbhNexusModsCloseBtnClick(Sender, Dummy);
@@ -8509,7 +8508,7 @@ procedure TfrmMain.mniViewModGroupsReloadClick(Sender: TObject);
 var
   WasModGroupsExist: Boolean;
 begin
-  var lModGroups := wbModGroupListOf(xeContext);
+  var lModGroups := xeContext.ModGroupList;
   with TfrmModGroupSelect.Create(Self) do try
     lModGroups.Reload;
     lModGroups.ByName(False).ShowValidationMessages;
@@ -9202,7 +9201,7 @@ begin
     _File   : IwbFile;
     Modules : TwbModuleInfos;
   begin
-    Modules := wbModuleListOf(xeContext).ModulesByLoadOrder(False).FilteredByFlag(mfHasFile);
+    Modules := xeContext.ModuleList.ModulesByLoadOrder(False).FilteredByFlag(mfHasFile);
     for i := Low(Modules) to High(Modules) do begin
       _File := Modules[i]._File;
       if not (csRefsBuild in _File.ContainerStates) then begin
@@ -9232,7 +9231,7 @@ begin
   with TfrmModuleSelect.Create(nil) do try
     Caption := 'Build reference information for:';
 
-    AllModules := wbModuleListOf(xeContext).ModulesByLoadOrder(False).FilteredByFlag(mfValid).FilteredBy(function(a: PwbModuleInfo): Boolean
+    AllModules := xeContext.ModuleList.ModulesByLoadOrder(False).FilteredByFlag(mfValid).FilteredBy(function(a: PwbModuleInfo): Boolean
       begin
         Result := Assigned(a.miFile);
         if Result then
@@ -9639,13 +9638,13 @@ begin
       // localization editor
       else if Element._File.IsLocalized and Assigned(Element.ValueDef) and (Element.ValueDef.DefType = dtLString) then begin
         with TfrmLocalization.Create(Self) do try
-          wbLocalizationHandler(xeContext).NoTranslate := true;
+          xeContext.LocalizationHandler.NoTranslate := true;
           StringID := StrToInt64Def('$' + Element.Value, 0);
-          wbLocalizationHandler(xeContext).NoTranslate := false;
+          xeContext.LocalizationHandler.NoTranslate := false;
           EditValue(Element._File.FileName, StringID);
           ShowModal;
         finally
-          wbLocalizationHandler(xeContext).NoTranslate := false;
+          xeContext.LocalizationHandler.NoTranslate := false;
           Free;
         end;
         vstView.Invalidate;
@@ -11028,7 +11027,7 @@ begin
     else
       Result := Result + StringOfChar(' ', 6) + '- <<: *quickClean';
     Result := Result + CRLF + Format(StringOfChar(' ', 8) + 'crc: 0x%s', [IntToHex(aInfo.CRC32, 8)]);
-    Result := Result + CRLF + Format(StringOfChar(' ', 8) + 'util: ''[%sEdit v%s](%s)''', [wbAppName, VersionString.ToString, xeContext.GameDefObj.NexusModsUrl]);
+    Result := Result + CRLF + Format(StringOfChar(' ', 8) + 'util: ''[%sEdit v%s](%s)''', [wbAppName, VersionString.ToString, xeNexusModsUrl]);
     if aInfo.ITM <> 0 then Result := Result + CRLF + Format(StringOfChar(' ', 8) + 'itm: %d', [aInfo.ITM]);
     if aInfo.UDR <> 0 then Result := Result + CRLF + Format(StringOfChar(' ', 8) + 'udr: %d', [aInfo.UDR]);
     if aInfo.NAV <> 0 then Result := Result + CRLF + Format(StringOfChar(' ', 8) + 'nav: %d', [aInfo.NAV]);
@@ -11315,9 +11314,9 @@ var
   lSelectedModules : TwbModuleInfos;
   UpdatedCount     : Integer;
 begin
-  var lModGroups := wbModGroupListOf(xeContext);
+  var lModGroups := xeContext.ModGroupList;
   with TfrmModuleSelect.Create(Self) do try
-    AllModules := wbModuleListOf(xeContext).ModulesByLoadOrder(False).FilteredByFlag(mfValid);
+    AllModules := xeContext.ModuleList.ModulesByLoadOrder(False).FilteredByFlag(mfValid);
     AllModules.ExcludeAll(mfTagged);
     AllModules.ExcludeAll(mfModGroupMissingAnyCRC);
     AllModules.ExcludeAll(mfModGroupMissingCurrentCRC);
@@ -12054,7 +12053,7 @@ end;
 
 procedure TfrmMain.mniMainLocalizationEditorClick(Sender: TObject);
 begin
-  if wbLocalizationHandler(xeContext) = nil then
+  if xeContext.LocalizationHandler = nil then
     Exit;
 
   with TfrmLocalization.Create(Self) do try
@@ -12069,7 +12068,7 @@ var
   i: integer;
   s: string;
 begin
-  if wbLocalizationHandler(xeContext) = nil then
+  if xeContext.LocalizationHandler = nil then
     Exit;
 
   s := StringReplace(TMenuItem(Sender).Caption, '&', '', []);
@@ -12079,10 +12078,10 @@ begin
 
   xeContext.Settings.Language := s;
 
-  wbLocalizationHandler(xeContext).Clear;
+  xeContext.LocalizationHandler.Clear;
   for i := Low(Files) to High(Files) do
     if Files[i].IsLocalized then
-      wbLocalizationHandler(xeContext).LoadForFile(Files[i].FileName);
+      xeContext.LocalizationHandler.LoadForFile(Files[i].FileName);
 
   vstNav.Invalidate;
   vstView.Invalidate;
@@ -12141,7 +12140,7 @@ begin
 
       with TfrmLocalizePlugin.Create(Self) do try
 
-        wbLocalizationHandler(xeContext).AvailableLocalizationFiles(lFiles);
+        xeContext.LocalizationHandler.AvailableLocalizationFiles(lFiles);
         clbFrom.Items.AddStrings(lFiles);
         clbTo.Items.AddStrings(lFiles);
 
@@ -12189,14 +12188,14 @@ begin
 
         for i := 0 to Pred(lFiles.Count) do begin
           if Integer(lFiles.Objects[i]) and 1 > 0 then begin
-            wblf := TwbLocalizationFile.Create(xeContext, wbLocalizationHandler(xeContext).StringsPath + lFiles[i]);
+            wblf := TwbLocalizationFile.Create(xeContext, xeContext.LocalizationHandler.StringsPath + lFiles[i]);
             for j := 0 to Pred(wblf.Count) do
               lFrom.Add(AnsiLowerCase(wblf.Items[j]));
             wblf.Destroy;
           end;
 
           if Integer(lFiles.Objects[i]) and 2 > 0 then begin
-            wblf := TwbLocalizationFile.Create(xeContext, wbLocalizationHandler(xeContext).StringsPath + lFiles[i]);
+            wblf := TwbLocalizationFile.Create(xeContext, xeContext.LocalizationHandler.StringsPath + lFiles[i]);
             lTo.AddStrings(wblf.Items);
             wblf.Destroy;
           end;
@@ -12226,13 +12225,13 @@ begin
               // count empty strings as translated too
               if s = '' then Inc(Translated);
           end;
-          ID := wbLocalizationHandler(xeContext).AddValue(s, Element);
+          ID := xeContext.LocalizationHandler.AddValue(s, Element);
           Element.EditValue := sStringID + IntToHex(ID, 8);
         end else begin
           s := Element.EditValue;
-          wbLocalizationHandler(xeContext).NoTranslate := true;
+          xeContext.LocalizationHandler.NoTranslate := true;
           Element.EditValue := s;
-          wbLocalizationHandler(xeContext).NoTranslate := false;
+          xeContext.LocalizationHandler.NoTranslate := false;
         end;
 
         if StartTick + 500 < GetTickCount64 then begin
@@ -12253,7 +12252,7 @@ begin
         FreeAndNil(lTo);
       end;
 
-      wbLocalizationHandler(xeContext).NoTranslate := false;
+      xeContext.LocalizationHandler.NoTranslate := false;
       pnlClient.Enabled := true;
       UpdatePnlCancelVisible;
       PostAddMessage('[Processing done] ' +
@@ -12396,7 +12395,7 @@ var
 
     if Sender = mniNavRenumberFormIDsInject then begin
       with TfrmModuleSelect.Create(Self) do try
-        AllModules := wbModuleListOf(xeContext).ModulesByLoadOrder(False).FilteredByFlag(mfValid);
+        AllModules := xeContext.ModuleList.ModulesByLoadOrder(False).FilteredByFlag(mfValid);
         AllModules.ExcludeAll(mfTagged);
         for i := 0 to Pred(SourceFile.MasterCount[True]) do
           with SourceFile.Masters[i, True] do
@@ -14096,7 +14095,7 @@ begin
     Settings.WriteBool('Options', 'ManualCleaningHide', wbManualCleaningHide);
     Settings.WriteBool('Options', 'ManualCleaningAllow', wbManualCleaningAllow);
     Settings.WriteBool('Options', 'ConvertIntFormID', xeContext.Settings.ConvertIntFormID);
-    for var lCollapse := Low(TwbCollapseOption) to High(TwbCollapseOption) do
+    for var lCollapse in TwbGameDefineOptions.CheckableCollapse do
       Settings.WriteBool('Options', TwbGameDefineOptions.CollapseSettingsKey(lCollapse), lCollapse in xeContext.GameDefObj.DefineOptions.Collapse);
     Settings.WriteBool('Options', 'CollapseBenignArray', wbCollapseBenignArray);
     Settings.WriteBool('Options', 'ShrinkButtons', wbShrinkButtons);
@@ -14428,7 +14427,7 @@ begin
     mniMainLocalizationLanguage.Clear;
     sl := TStringList.Create;
     try
-      wbLocalizationHandler(xeContext).AvailableLanguages(sl);
+      xeContext.LocalizationHandler.AvailableLanguages(sl);
       for i := 0 to Pred(sl.Count) do begin
         MenuItem := TMenuItem.Create(mniMainLocalizationLanguage);
         MenuItem.Caption := sl[i];
@@ -14684,7 +14683,7 @@ begin
     mniNavCreateModGroup.Visible := Length(Nodes) > 1;
   end;
 
-  mniNavEditModGroup.Visible := Length(wbModGroupListOf(xeContext).ByName(False)) > 0;
+  mniNavEditModGroup.Visible := Length(xeContext.ModGroupList.ByName(False)) > 0;
   mniNavDeleteModGroups.Visible := mniNavEditModGroup.Visible;
   mniNavUpdateCRCModGroups.Visible := mniNavEditModGroup.Visible;
 
@@ -15076,7 +15075,7 @@ var
 begin
   if xeQuickClean then begin
     aFiles := nil;
-    wbModuleListOf(xeContext).ModulesByLoadOrder(False).FilteredByFlag(mfTaggedForPluginMode).FilteredBy(function(aModule: PwbModuleInfo): Boolean
+    xeContext.ModuleList.ModulesByLoadOrder(False).FilteredByFlag(mfTaggedForPluginMode).FilteredBy(function(aModule: PwbModuleInfo): Boolean
     begin
       Result := False;
       if Assigned(aModule.miFile) then
@@ -15361,20 +15360,20 @@ begin
           SetLength(FileType, Succ(Length(FileType))); FileType[High(FileType)] := 0;
         end;
 
-      if wbLocalizationHandler(xeContext) <> nil then try
-        for i := 0 to Pred(wbLocalizationHandler(xeContext).Count) do try
-          if wbLocalizationHandler(xeContext)[i].Modified or wbTestWrite then begin
-            CheckListBox1.AddItem(wbLocalizationHandler(xeContext)[i].Name, Pointer(wbLocalizationHandler(xeContext)[i]));
-            CheckListBox1.Checked[Pred(CheckListBox1.Count)] := wbLocalizationHandler(xeContext)[i].Modified;
+      if xeContext.LocalizationHandler <> nil then try
+        for i := 0 to Pred(xeContext.LocalizationHandler.Count) do try
+          if xeContext.LocalizationHandler[i].Modified or wbTestWrite then begin
+            CheckListBox1.AddItem(xeContext.LocalizationHandler[i].Name, Pointer(xeContext.LocalizationHandler[i]));
+            CheckListBox1.Checked[Pred(CheckListBox1.Count)] := xeContext.LocalizationHandler[i].Modified;
             SetLength(FileType, Succ(Length(FileType))); FileType[High(FileType)] := 1;
           end;
         except
           on E: Exception do
-            wbProgress('Error while trying to access wbLocalizationHandler[%d]: [%s] %s', [i, E.ClassName, E.Message]);
+            wbProgress('Error while trying to access LocalizationHandler[%d]: [%s] %s', [i, E.ClassName, E.Message]);
         end;
       except
         on E: Exception do
-          wbProgress('Error while trying to iterate over wbLocalizationHandler: [%s] %s', [E.ClassName, E.Message]);
+          wbProgress('Error while trying to iterate over LocalizationHandler: [%s] %s', [E.ClassName, E.Message]);
       end;
 
       Caption := 'Save changed files:';
@@ -17582,10 +17581,10 @@ var
   CheckComboLink              : TwbCheckComboEditLink;
   {$ENDIF}
 begin
-  if EditInfoCacheLGeneration <> wbLocalizationHandler(xeContext).Generation then begin
+  if EditInfoCacheLGeneration <> xeContext.LocalizationHandler.Generation then begin
     EditInfoCacheID := nil;
     EditInfoCache := nil;
-    EditInfoCacheLGeneration := wbLocalizationHandler(xeContext).Generation;
+    EditInfoCacheLGeneration := xeContext.LocalizationHandler.Generation;
   end;
 
   case aElement.EditType of
@@ -20269,7 +20268,7 @@ begin
         lHeader.Add('#   wbActorTemplateHide  = ' + BoolToStr(wbActorTemplateHide, True));
         lHeader.Add('#   wbAllowInternalEdit  = ' + BoolToStr(xeContext.Settings.AllowInternalEdit, True));
         lHeader.Add('#   wbCanSortINFO        = ' + BoolToStr(xeContext.Settings.CanSortINFO, True));
-        lHeader.Add('#   wbDecodeTextureHashes = ' + BoolToStr(xeContext.GameDefObj.DefineOptions.DecodeTextureHashes, True));
+        lHeader.Add('#   wbDecodeTextureHashes = ' + BoolToStr(xeContext.GameDefObj.DefinedOptions.DecodeTextureHashes, True));
         lHeader.Add('#   wbDisplayLoadOrderFormID = ' + BoolToStr(wbDisplayLoadOrderFormID, True));
         lHeader.Add('#   wbDisplayShorterNames = ' + BoolToStr(wbDisplayShorterNames, True));
         lHeader.Add('#   wbEditAllowed        = ' + BoolToStr(xeContext.Settings.EditAllowed, True));
@@ -20278,11 +20277,11 @@ begin
         lHeader.Add('#   wbFillPNAM           = ' + BoolToStr(xeContext.Settings.FillPNAM, True));
         lHeader.Add('#   wbFlagsAsArray       = ' + BoolToStr(xeContext.Settings.FlagsAsArray, True));
         lHeader.Add('#   wbHideIgnored        = ' + BoolToStr(xeContext.Settings.HideIgnored, True));
-        lHeader.Add('#   wbHideLargeSubrecords = ' + BoolToStr(xeContext.GameDefObj.DefineOptions.HideLargeSubrecords, True));
+        lHeader.Add('#   wbHideLargeSubrecords = ' + BoolToStr(xeContext.GameDefObj.DefinedOptions.HideLargeSubrecords, True));
         lHeader.Add('#   wbHideNeverShow      = ' + BoolToStr(wbHideNeverShow, True));
         lHeader.Add('#   wbHideUnused         = ' + BoolToStr(wbHideUnused, True));
         lHeader.Add('#   wbShowFlagEnumValue  = ' + BoolToStr(wbShowFlagEnumValue, True));
-        lHeader.Add('#   wbSimpleRecords      = ' + BoolToStr(xeContext.GameDefObj.DefineOptions.SimpleRecords, True));
+        lHeader.Add('#   wbSimpleRecords      = ' + BoolToStr(xeContext.GameDefObj.DefinedOptions.SimpleRecords, True));
         lHeader.Add('#   wbSortFLST           = ' + BoolToStr(wbSortFLST, True));
         lHeader.Add('#   wbSortINFO           = ' + BoolToStr(xeContext.Settings.SortINFO, True));
         lHeader.Add('#   wbSortSubRecords     = ' + BoolToStr(xeContext.Settings.SortSubRecords, True));
@@ -20714,7 +20713,6 @@ var
   lGroup   : IwbContainerElementRef;
   lRecordA : IwbMainRecord;
   lRecordB : IwbMainRecord;
-  lNode    : PVirtualNode;
 begin
   for i := Low(Files) to High(Files) do
     if SameText(Files[i].FileName, xeTestNavCopyMaster) then
@@ -21168,8 +21166,8 @@ var
   MasterFile: IwbFile;
   WasUnsaved: Boolean;
 begin
-  var lModules := wbModuleListOf(xeContext);
-  var lModGroups := wbModGroupListOf(xeContext);
+  var lModules := xeContext.ModuleList;
+  var lModGroups := xeContext.ModGroupList;
   var lGameDef := xeContext.GameDefObj;
   try
     xeContext.LoaderDone := True;
@@ -21843,7 +21841,7 @@ begin
           xeContext.ContainerHandler.AddFolder(ltDataPath);
         end;
 
-        if lGameDef.DefineOptions.DecodeTextureHashes then begin
+        if lGameDef.DefinedOptions.DecodeTextureHashes then begin
           LoaderProgress('Start building resources cache...');
           xeContext.ContainerHandler.EnsureCache;
           LoaderProgress('...resources cache finished building');
@@ -21900,7 +21898,7 @@ begin
           end;
           if lIsSave then begin
             lSaveContext := wbCreateSaveContext(xeContextRef);
-            _File := (lSaveContext as TwbSaveContext).LoadSave(s, lLoadListIdx + ltLoadOrderOffset, ltMaster, ltStates, ltMasterFile);
+            _File := (lSaveContext as TwbSaveContext).LoadSave(s, lLoadListIdx + ltLoadOrderOffset, ltStates, ltMasterFile);
           end else
             _File := xeContext.LoadFile(s, lLoadListIdx + ltLoadOrderOffset, ltMaster, ltStates);
           SetLength(ltFiles, Succ(Length(ltFiles)));
@@ -22642,13 +22640,13 @@ const
   csCheckFor = 'property="twitter:label1" content="version"';
   csExtractAfter = 'property="twitter:data1" content="';
 begin
-  var lGameDef := xeContext.GameDefObj;
-  if lGameDef.NexusModsUrl = '' then
+  var lUrl := xeNexusModsUrl;
+  if lUrl = '' then
     Exit;
 
   vmax := '';
   try
-    s := GetUrlContent(lGameDef.NexusModsUrl);
+    s := GetUrlContent(lUrl);
     s := s.ToLowerInvariant;
     if s.Contains(csCheckFor) then begin
       i := Pos(csExtractAfter, s);

@@ -18,6 +18,110 @@ uses
 
 type
   TwbGameDefTES5 = class(TwbGameDefCommon)
+  private
+    wbBipedObjectFlags: IwbFlagsDef;
+    wbPKDTInterruptFlags: IwbFlagsDef;
+
+    wbPlayerActionEnum: IwbEnumDef;
+    wbArmorTypeEnum: IwbEnumDef;
+    wbAttackAnimationEnum: IwbEnumDef;
+    wbBipedObjectEnum: IwbEnumDef;
+    wbCastEnum: IwbEnumDef;
+    wbCastingSourceEnum: IwbEnumDef;
+    wbDeliveryEnum: IwbEnumDef;
+    wbEmotionTypeEnum: IwbEnumDef;
+    wbEntryPointsEnum: IwbEnumDef;
+    wbFormTypeEnum: IwbEnumDef;
+    wbFurnitureAnimEnum: IwbEnumDef;
+    wbLocationEnum: IwbEnumDef;
+    wbMapMarkerEnum: IwbEnumDef;
+    wbMiscStatEnum: IwbEnumDef;
+    wbObjectTypeEnum: IwbEnumDef;
+    wbQuestTypeEnum: IwbEnumDef;
+    wbSkillEnum: IwbEnumDef;
+    wbSoundLevelEnum: IwbEnumDef;
+    wbTintMaskTypeEnum: IwbEnumDef;
+    wbVatsValueFunctionEnum: IwbEnumDef;
+    wbWardStateEnum: IwbEnumDef;
+    wbWeaponAnimTypeEnum: IwbEnumDef;
+
+    wbEDID: IwbSubRecordDef;
+    wbCOED: IwbSubRecordDef;
+    wbXLCM: IwbSubRecordDef;
+    wbDEST: IwbSubRecordStructDef;
+    wbDODT: IwbSubRecordDef;
+    wbSPLO: IwbSubRecordDef;
+    wbSPLOs: IwbSubRecordArrayDef;
+    wbCNTO: IwbRecordMemberDef;
+    wbCNTOs: IwbSubRecordArrayDef;
+    wbCNTONoReach: IwbRecordMemberDef;
+    wbCNTOsNoReach: IwbSubRecordArrayDef;
+    wbAIDT: IwbRecordMemberDef;
+    wbCSDT: IwbSubRecordStructDef;
+    wbCSDTs: IwbSubRecordArrayDef;
+    wbFULL: IwbSubRecordDef;
+    wbFULLReq: IwbSubRecordDef;
+    wbDESC: IwbSubRecordDef;
+    wbDESCReq: IwbSubRecordDef;
+    wbXSCL: IwbSubRecordDef;
+    wbMODD: IwbRecordMemberDef;
+    wbMODS: IwbSubRecordDef;
+    wbMO2S: IwbSubRecordDef;
+    wbMO3S: IwbSubRecordDef;
+    wbMO4S: IwbSubRecordDef;
+    wbConditions: IwbRecordMemberDef;
+    wbXESP: IwbSubRecordDef;
+    wbICON: IwbSubRecordStructDef;
+    wbICONReq: IwbRecordMemberDef;
+    wbICO2: IwbSubRecordStructDef;
+    wbActorValue: IwbIntegerDef;
+    wbETYP: IwbSubRecordDef;
+    wbETYPReq: IwbSubRecordDef;
+    wbEFID: IwbSubRecordDef;
+    wbEFIT: IwbRecordMemberDef;
+    wbEffectsReq: IwbSubRecordArrayDef;
+    wbFirstPersonFlagsU32: IwbValueDef;
+    wbBODT: IwbSubRecordDef;
+    wbBOD2: IwbSubRecordDef;
+    wbBODTBOD2: IwbRecordMemberDef;
+    wbScriptEntry: IwbValueDef;
+    wbScriptPropertyObject: IwbUnionDef;
+    wbPLDT: IwbSubRecordDef;
+    wbPLVD: IwbSubRecordDef;
+    wbAttackData: IwbSubRecordStructDef;
+    wbLLCT: IwbSubRecordDef;
+    wbLVLD: IwbSubRecordDef;
+    wbVMAD: IwbSubRecordDef;
+    wbVMADFragmentedPERK: IwbSubRecordDef;
+    wbVMADFragmentedPACK: IwbSubRecordDef;
+    wbVMADFragmentedQUST: IwbSubRecordDef;
+    wbVMADFragmentedSCEN: IwbSubRecordDef;
+    wbVMADFragmentedINFO: IwbSubRecordDef;
+    wbCOCT: IwbSubRecordDef;
+    wbCITC: IwbSubRecordDef;
+    wbCITCReq: IwbSubRecordDef;
+    wbDMDSs: IwbSubRecordDef;
+    wbMO5S: IwbSubRecordDef;
+    wbSPCT: IwbSubRecordDef;
+    wbTints: IwbSubRecordArrayDef;
+    wbRACE_DATAFlags01: IwbValueDef;
+    wbPhonemeTargets: IwbSubRecordDef;
+    wbNoseMorphFlags: IwbValueDef;
+    wbBrowMorphFlags: IwbValueDef;
+    wbEyesMorphFlags01: IwbValueDef;
+    wbEyesMorphFlags02: IwbValueDef;
+    wbLipMorphFlags: IwbValueDef;
+    wbPHWT: IwbSubRecordStructDef;
+    wbMorphs: IwbSubRecordStructDef;
+    wbPDTO: IwbSubRecordDef;
+    wbPDTOs: IwbSubRecordArrayDef;
+    wbNull: IwbValueDef;
+    wbYNAM: IwbSubRecordDef;
+    wbZNAM: IwbSubRecordDef;
+    wbTVDT: IwbSubRecordDef;
+    wbNVNM: IwbSubRecordDef;
+    wbFactionRank: IwbRecordMemberDef;
+    wbSubtypeNamesEnum: IwbEnumDef;
   protected
     gdEventFunctionEnum : IwbEnumDef;
     gdEventMemberEnum   : IwbEnumDef;
@@ -46,112 +150,6 @@ uses
 
 type
   TVarRecs = array of TVarRec;
-
-var
-  wbBipedObjectFlags: IwbFlagsDef;
-  wbPKDTInterruptFlags: IwbFlagsDef;
-
-  wbPlayerActionEnum: IwbEnumDef;
-  wbArmorTypeEnum: IwbEnumDef;
-  wbAttackAnimationEnum: IwbEnumDef;
-  wbBipedObjectEnum: IwbEnumDef;
-  wbCastEnum: IwbEnumDef;
-  wbCastingSourceEnum: IwbEnumDef;
-  wbDeliveryEnum: IwbEnumDef;
-  wbEmotionTypeEnum: IwbEnumDef;
-  wbEntryPointsEnum: IwbEnumDef;
-  wbFormTypeEnum: IwbEnumDef;
-  wbFurnitureAnimEnum: IwbEnumDef;
-  wbLocationEnum: IwbEnumDef;
-  wbMapMarkerEnum: IwbEnumDef;
-  wbMiscStatEnum: IwbEnumDef;
-  wbObjectTypeEnum: IwbEnumDef;
-  wbQuestTypeEnum: IwbEnumDef;
-  wbSkillEnum: IwbEnumDef;
-  wbSoundLevelEnum: IwbEnumDef;
-  wbTintMaskTypeEnum: IwbEnumDef;
-  wbVatsValueFunctionEnum: IwbEnumDef;
-  wbWardStateEnum: IwbEnumDef;
-  wbWeaponAnimTypeEnum: IwbEnumDef;
-
-  wbEDID: IwbSubRecordDef;
-  wbCOED: IwbSubRecordDef;
-  wbXLCM: IwbSubRecordDef;
-  wbDEST: IwbSubRecordStructDef;
-  wbDODT: IwbSubRecordDef;
-  wbSPLO: IwbSubRecordDef;
-  wbSPLOs: IwbSubRecordArrayDef;
-  wbCNTO: IwbRecordMemberDef;
-  wbCNTOs: IwbSubRecordArrayDef;
-  wbCNTONoReach: IwbRecordMemberDef;
-  wbCNTOsNoReach: IwbSubRecordArrayDef;
-  wbAIDT: IwbRecordMemberDef;
-  wbCSDT: IwbSubRecordStructDef;
-  wbCSDTs: IwbSubRecordArrayDef;
-  wbFULL: IwbSubRecordDef;
-  wbFULLReq: IwbSubRecordDef;
-  wbDESC: IwbSubRecordDef;
-  wbDESCReq: IwbSubRecordDef;
-  wbXSCL: IwbSubRecordDef;
-  wbMODD: IwbRecordMemberDef;
-  wbMODS: IwbSubRecordDef;
-  wbMO2S: IwbSubRecordDef;
-  wbMO3S: IwbSubRecordDef;
-  wbMO4S: IwbSubRecordDef;
-  wbConditions: IwbRecordMemberDef;
-  wbXESP: IwbSubRecordDef;
-  wbICON: IwbSubRecordStructDef;
-  wbICONReq: IwbRecordMemberDef;
-  wbICO2: IwbSubRecordStructDef;
-  wbActorValue: IwbIntegerDef;
-  wbETYP: IwbSubRecordDef;
-  wbETYPReq: IwbSubRecordDef;
-  wbEFID: IwbSubRecordDef;
-  wbEFIT: IwbRecordMemberDef;
-  wbEffectsReq: IwbSubRecordArrayDef;
-  wbFirstPersonFlagsU32: IwbValueDef;
-  wbBODT: IwbSubRecordDef;
-  wbBOD2: IwbSubRecordDef;
-  wbBODTBOD2: IwbRecordMemberDef;
-  wbScriptEntry: IwbValueDef;
-  wbScriptPropertyObject: IwbUnionDef;
-  wbPLDT: IwbSubRecordDef;
-  wbPLVD: IwbSubRecordDef;
-  wbAttackData: IwbSubRecordStructDef;
-  wbLLCT: IwbSubRecordDef;
-  wbLVLD: IwbSubRecordDef;
-  wbVMAD: IwbSubRecordDef;
-  wbVMADFragmentedPERK: IwbSubRecordDef;
-  wbVMADFragmentedPACK: IwbSubRecordDef;
-  wbVMADFragmentedQUST: IwbSubRecordDef;
-  wbVMADFragmentedSCEN: IwbSubRecordDef;
-  wbVMADFragmentedINFO: IwbSubRecordDef;
-  wbCOCT: IwbSubRecordDef;
-  wbCITC: IwbSubRecordDef;
-  wbCITCReq: IwbSubRecordDef;
-  wbDMDSs: IwbSubRecordDef;
-  wbMO5S: IwbSubRecordDef;
-  wbSPCT: IwbSubRecordDef;
-  wbTints: IwbSubRecordArrayDef;
-  wbRACE_DATAFlags01: IwbValueDef;
-  wbPhonemeTargets: IwbSubRecordDef;
-  wbNoseMorphFlags: IwbValueDef;
-  wbBrowMorphFlags: IwbValueDef;
-  wbEyesMorphFlags01: IwbValueDef;
-  wbEyesMorphFlags02: IwbValueDef;
-  wbLipMorphFlags: IwbValueDef;
-  wbPHWT: IwbSubRecordStructDef;
-  wbMorphs: IwbSubRecordStructDef;
-  wbPDTO: IwbSubRecordDef;
-  wbPDTOs: IwbSubRecordArrayDef;
-  wbNull: IwbValueDef;
-  wbYNAM: IwbSubRecordDef;
-  wbZNAM: IwbSubRecordDef;
-  wbTVDT: IwbSubRecordDef;
-  wbNVNM: IwbSubRecordDef;
-  s: string;
-  wbFactionRank: IwbRecordMemberDef;
-  wbSubtypeNamesEnum: IwbEnumDef;
 
 type
   TConditionParameterType = (
@@ -2175,12 +2173,14 @@ begin
 end;
 
 procedure TwbGameDefTES5.Define;
+var
+  s: string;
 begin
-  RecordFlags := wbInteger('Record Flags', itU32, wbFlags(wbFlagsList([])));
+  gdRecordFlags := wbInteger('Record Flags', itU32, wbFlags(wbFlagsList([])));
 
-  MainRecordHeader := wbRecordHeader(RecordFlags);
+  gdMainRecordHeader := wbRecordHeader(RecordFlags);
 
-  SizeOfMainRecordStruct := 24;
+  gdSizeOfMainRecordStruct := 24;
 
   wbNull := wbUnused(-255);
   wbLLCT := wbInteger(LLCT, 'Count', itU8, nil, cpBenign);
@@ -3290,7 +3290,7 @@ begin
       {20} 'Casting Type Is'
     ]);
 
-  ActorValueEnum :=
+  gdActorValueEnum :=
     wbEnum([
     {00} 'Aggression',
     {01} 'Confidence',
@@ -10893,40 +10893,44 @@ begin
    //wbAddGroupOrder(LSPR);
    if IsSkyrimSE then AddGroupOrder(VOLI); {New to SSE}
   if IsSkyrimSE then begin
-    NexusModsUrl := 'https://www.nexusmods.com/skyrimspecialedition/mods/164';
-    if wbToolMode = tmLODgen then
-      NexusModsUrl := 'https://www.nexusmods.com/skyrimspecialedition/mods/6642';
+    gdNexusModsUrl := 'https://www.nexusmods.com/skyrimspecialedition/mods/164';
+    gdLODGenNexusModsUrl := 'https://www.nexusmods.com/skyrimspecialedition/mods/6642';
   end else begin
-    NexusModsUrl := 'https://www.nexusmods.com/skyrim/mods/25859';
-    if wbToolMode = tmLODgen then
-      NexusModsUrl := 'https://www.nexusmods.com/skyrim/mods/62698';
+    gdNexusModsUrl := 'https://www.nexusmods.com/skyrim/mods/25859';
+    gdLODGenNexusModsUrl := 'https://www.nexusmods.com/skyrim/mods/62698';
   end;
   case GameMode of
-    gmEnderal: NexusModsUrl := 'https://www.nexusmods.com/enderal/mods/23';
-    gmEnderalSE: NexusModsUrl := 'https://www.nexusmods.com/enderalspecialedition/mods/78';
+    gmEnderal: begin
+      gdNexusModsUrl := 'https://www.nexusmods.com/enderal/mods/23';
+      gdLODGenNexusModsUrl := '';
+    end;
+    gmEnderalSE: begin
+      gdNexusModsUrl := 'https://www.nexusmods.com/enderalspecialedition/mods/78';
+      gdLODGenNexusModsUrl := '';
+    end;
   end;
   if IsSkyrimSE then begin
-    OfficialDLC := ['Dawnguard.esm', 'HearthFires.esm', 'Dragonborn.esm'];
+    gdOfficialDLC := ['Dawnguard.esm', 'HearthFires.esm', 'Dragonborn.esm'];
 
     if GameMode = gmTES5VR then begin
       // new VR esm is loaded after DLCs
-      OfficialDLC := OfficialDLC + ['SkyrimVR.esm'];
+      gdOfficialDLC := OfficialDLC + ['SkyrimVR.esm'];
     end else
-      CreationClubContentFileName := 'Skyrim.ccc';
+      gdCreationClubContentFileName := 'Skyrim.ccc';
   end;
-  HEDRVersion := 1.7;
+  gdHEDRVersion := 1.7;
   if GameMode in [gmSSE, gmEnderalSE] then
-    HEDRVersion := 1.71;
+    gdHEDRVersion := 1.71;
   if GameMode in [gmSSE, gmTES5VR, gmEnderalSE] then
-    DefaultFormVersion := 44
+    gdDefaultFormVersion := 44
   else
-    DefaultFormVersion := 43;
-  QuestFlagsSignature := 'DNAM';
+    gdDefaultFormVersion := 43;
+  gdQuestFlagsSignature := 'DNAM';
   if GameMode in [gmTES5, gmTES5VR, gmSSE] then
-    DefaultLandTexture := 'LDirt02';
+    gdDefaultLandTexture := 'LDirt02';
   if GameMode in [gmSSE, gmTES5VR, gmEnderalSE] then begin
-    HardcodedRangeAdmitted := (GameMode <> gmTES5VR) or (gcLightPlugins in Capabilities);
-    HardcodedRangeMinVersion := 1.709;
+    gdHardcodedRangeAdmitted := (GameMode <> gmTES5VR) or (gcLightPlugins in Capabilities);
+    gdHardcodedRangeMinVersion := 1.709;
   end;
 end;
 

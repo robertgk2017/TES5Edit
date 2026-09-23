@@ -43,6 +43,12 @@ type
     function HasBSAs(ModName: string; const DataPath: String; Exact, modini: Boolean; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; override;
   end;
 
+  TwbLoadingSaveContext = class(TwbSaveContext)
+  public
+    destructor Destroy; override;
+    function LoadSave(const aFileName: string; aLoadOrder: Integer; aStates: TwbFileStates = []; const aCompareToFile: IwbFile = nil): IwbFile; override;
+  end;
+
 function StartsWith(const s, t: string): Boolean;
 
 function wbCopyElementToFile(const aSource: IwbElement; aFile: IwbFile; aAsNew, aDeepCopy: Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement;
@@ -78,7 +84,6 @@ uses
   wbCompression,
   wbHash,
   wbHelpers,
-  wbLocalization,
   wbSort;
 
 const
@@ -764,6 +769,7 @@ type
 
     flCachedEditInfos        : TwbCachedEditInfos;
     flGeneration             : Integer;
+    flSerial                 : Cardinal;
 
     flEncoding               : TEncoding;
     flEncodingTrans          : TEncoding;
@@ -974,6 +980,7 @@ type
     constructor CreateNew(const aContext: TwbGameContext; const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean); overload;
     constructor CreateNew(const aContext: TwbGameContext; const aFileName: string; aLoadOrder: Integer; aTemplate: PwbModuleInfo); overload;
   public
+    class function NewInstance: TObject; override;
     destructor Destroy; override;
   end;
 
@@ -990,13 +997,7 @@ type
     procedure GetMasters(aMasters: TStrings); override;
     procedure GetPluginNames(const aHeader: IwbFileHeader; aNames, aLightNames: TStrings);
   public
-    constructor CreateSave(const aSaveContext: TwbSaveContext; const aFileName: string; aLoadOrder: Integer; const aCompareTo: string; const aCompareToFile: IwbFile; aStates: TwbFileStates);
-  end;
-
-  TwbLoadingSaveContext = class(TwbSaveContext)
-  public
-    destructor Destroy; override;
-    function LoadSave(const aFileName: string; aLoadOrder: Integer; const aCompareTo: string = ''; aStates: TwbFileStates = []; const aCompareToFile: IwbFile = nil): IwbFile; override;
+    constructor CreateSave(const aSaveContext: TwbSaveContext; const aFileName: string; aLoadOrder: Integer; const aCompareToFile: IwbFile; aStates: TwbFileStates);
   end;
 
   TwbDataContainerFlag = (
@@ -2334,6 +2335,13 @@ end;
 
 var
   _FileGeneration: Integer = 1;
+  _FileSerial: Integer;
+
+class function TwbFile.NewInstance: TObject;
+begin
+  Result := inherited NewInstance;
+  TwbFile(Result).flSerial := Cardinal(AtomicIncrement(_FileSerial));
+end;
 
 function TwbFile.flComplexFileFileID: Boolean;
 begin
@@ -2374,7 +2382,7 @@ begin
     i := High(Integer);
 
   _File := flContextObj.LoadFile(s + t, i, '', States);
-  if not (wbToolMode in [tmDump, tmExport]) and (flContextObj.Settings.RequireLoadOrder and (_File.LoadOrder < 0)) then
+  if not flContextObj.Settings.TolerateMissingFiles and (flContextObj.Settings.RequireLoadOrder and (_File.LoadOrder < 0)) then
     raise Exception.Create('"' + GetFileName + '" requires master "' + aFileName + '" to be loaded before it.')
   else
     AddMaster(_File);
@@ -3344,7 +3352,7 @@ begin
     if (not flContextObj.Settings.AllowDirectSave) or (fsIsGameMaster in flStates) then
       Include(flStates, fsMemoryMapped)
     else begin
-      flModule := wbModuleListOf(flContextObj).ModuleByName(GetFileName);
+      flModule := flContextObj.ModuleList.ModuleByName(GetFileName);
       if not flModule.IsValid then
         flModule := nil;
       if Assigned(flModule) then
@@ -3384,9 +3392,9 @@ begin
     if flModule.miOfficialIndex < High(Integer) then
       Include(flStates, fsIsOfficial)
   end else if fsIsHardcoded in flStates then begin
-    flModule := wbModuleListOf(flContextObj).ModuleByName(GetFileName);
-    if not Assigned(flModule) then
-      flModule := wbModuleListOf(flContextObj).AddNewModule(GetFileName, False);
+    flModule := flContextObj.ModuleList.ModuleByName(GetFileName);
+    if not flModule.IsValid then
+      flModule := flContextObj.ModuleList.AddNewModule(GetFileName, False);
     flModule.miFile := Self;
     flModule.miLoadOrder := flLoadOrder;
     flModule.miFileID := flLoadOrderFileID;
@@ -3395,7 +3403,7 @@ begin
     Include(flModule.miFlags, mfIsHardcoded);
     Exclude(flModule.miFlags, mfValid);
   end else if not (fsOnlyHeader in flStates) and not GetIsNotPlugin then
-    flModule := wbModuleListOf(flContextObj).AddNewModule(GetFileName, False);
+    flModule := flContextObj.ModuleList.AddNewModule(GetFileName, False);
 
   if not (fsOnlyHeader in flStates) then begin
     if Assigned(flModule) and not Assigned(flModule.miFile) then begin
@@ -3445,11 +3453,11 @@ begin
   flLoadOrder := aLoadOrder;
   flFileName := aFileName;
   flFileNameOnDisk := flFileName;
-  flModule := wbModuleListOf(flContextObj).ModuleByName(GetFileName);
+  flModule := flContextObj.ModuleList.ModuleByName(GetFileName);
   if not flModule.IsValid then
     flModule := nil;
   if not Assigned(flModule) then
-    flModule := wbModuleListOf(flContextObj).AddNewModule(GetFileName, False);
+    flModule := flContextObj.ModuleList.AddNewModule(GetFileName, False);
 
   Header := TwbMainRecord.Create(Self, flContextObj.GameDefObj.HeaderSignature, TwbFormID.Null);
   Header.RecordBySignature['HEDR'].Elements[0].NativeValue := flContextObj.GameDefObj.HEDRVersion;
@@ -3517,11 +3525,11 @@ begin
   flLoadOrder := aLoadOrder;
   flFileName := aFileName;
   flFileNameOnDisk := flFileName;
-  flModule := wbModuleListOf(flContextObj).ModuleByName(GetFileName);
+  flModule := flContextObj.ModuleList.ModuleByName(GetFileName);
   if not flModule.IsValid then
     flModule := nil;
   if not Assigned(flModule) then
-    flModule := wbModuleListOf(flContextObj).AddNewModule(GetFileName, False);
+    flModule := flContextObj.ModuleList.AddNewModule(GetFileName, False);
 
   Header := TwbMainRecord.Create(Self, flContextObj.GameDefObj.HeaderSignature, TwbFormID.Null);
   Header.RecordBySignature['HEDR'].Elements[0].NativeValue := flContextObj.GameDefObj.HEDRVersion;
@@ -4146,7 +4154,7 @@ begin
   with flCachedEditInfos[aIdent] do begin
     Result :=
       (ceiGeneration >= GetHighestGenerationSelfAndMasters) and
-      (ceiLGeneration >= wbLocalizationHandler(flContextObj).Generation);
+      (ceiLGeneration >= flContextObj.LocalizationHandler.Generation);
     if Result then
       aEditInfo := ceiEditInfo
     else begin
@@ -5874,7 +5882,7 @@ var
         flLoadOrderFileID := TwbFileID.CreateFull(flLoadOrder);
       end;
 
-      flModule := wbModuleListOf(flContextObj).ModuleByName(GetFileName);
+      flModule := flContextObj.ModuleList.ModuleByName(GetFileName);
       if not flModule.IsValid then
         flModule := nil;
       if Assigned(flModule) and not Assigned(flModule.miFile) then begin
@@ -6282,7 +6290,7 @@ begin
   with flCachedEditInfos[aIdent] do begin
     ceiEditInfo := aEditInfo;
     ceiGeneration := _FileGeneration;
-    ceiLGeneration := wbLocalizationHandler(flContextObj).Generation;
+    ceiLGeneration := flContextObj.LocalizationHandler.Generation;
   end;
 end;
 
@@ -11414,7 +11422,7 @@ var
   _File       : IwbFile;
   GridCell    : TwbGridCell;
 begin
-  if mrLGeneration <> wbLocalizationHandler(ContextObj).Generation then
+  if mrLGeneration <> ContextObj.LocalizationHandler.Generation then
     mrInvalidateNameCache;
 
   if mrDisplayName <> '' then
@@ -11618,7 +11626,7 @@ function TwbMainRecord.GetFullName: string;
 var
   SelfRef: IwbContainerElementRef;
 begin
-  if mrLGeneration <> wbLocalizationHandler(ContextObj).Generation then
+  if mrLGeneration <> ContextObj.LocalizationHandler.Generation then
     mrInvalidateNameCache;
 
   if mrsFullNameFromCache in mrStates then
@@ -11834,7 +11842,7 @@ type
   end;
 
 threadvar
-  PrecombinedCacheFileName: string;
+  PrecombinedCacheFileSerial: Cardinal;
   PrecombinedCacheCellFormID: TwbFormID;
   PrecombinedCache: array of TwbPrecombinedInfo;
 
@@ -11847,7 +11855,7 @@ var
   CombinedRefs, CombinedRef: IwbContainerElementRef;
   cnt, i      : Integer;
   CellFormID  : TwbFormID;
-  MasterFolder, s: string;
+  MasterFolder: string;
 begin
   Result := '';
 
@@ -11891,13 +11899,13 @@ begin
     if not Assigned(Cell) then
       Exit;
 
-    s := IwbElement(Self)._File.Name;
+    var lFileSerial := TwbFile(IwbElement(Self)._File as TObject).flSerial;
     CellFormID := Cell.FormID;
 
     // store cell's precombined index in cache
-    if (CellFormID <> PrecombinedCacheCellFormID) or (s <> PrecombinedCacheFileName) then begin
+    if (CellFormID <> PrecombinedCacheCellFormID) or (lFileSerial <> PrecombinedCacheFileSerial) then begin
       PrecombinedCacheCellFormID := CellFormID;
-      PrecombinedCacheFileName := s;
+      PrecombinedCacheFileSerial := lFileSerial;
       SetLength(PrecombinedCache, 0);
 
       if gcPrecombinedMeshPerCell in lGameDef.Capabilities then begin
@@ -12299,7 +12307,7 @@ var
 begin
   CanCache := (not aForName) or not wbNoFullInShortName;
 
-  if mrLGeneration <> wbLocalizationHandler(ContextObj).Generation then
+  if mrLGeneration <> ContextObj.LocalizationHandler.Generation then
     mrInvalidateNameCache;
 
   if wbDisplayShorterNames then begin
@@ -12360,7 +12368,7 @@ function TwbMainRecord.GetName: string;
 var
   s : string;
 begin
-  if mrLGeneration <> wbLocalizationHandler(ContextObj).Generation then
+  if mrLGeneration <> ContextObj.LocalizationHandler.Generation then
     mrInvalidateNameCache;
 
   if mrName <> '' then
@@ -13430,7 +13438,7 @@ begin
     end;
   end;
   if Assigned(_File) then
-    mrLGeneration := wbLocalizationHandler(ContextObj).Generation;
+    mrLGeneration := ContextObj.LocalizationHandler.Generation;
 end;
 
 function TwbMainRecord.mrStruct: PwbMainRecordStruct;
@@ -13988,7 +13996,7 @@ type
     mrcMainRecords : TDynMainRecords;
   end;
 
-var
+threadvar
   _Collector       : PwbMainRecordCollector;
   _IgnoreCollector : Boolean;
 
@@ -24418,7 +24426,7 @@ begin
       Result := True;
     except
       // File neither found nor replaced, ignore if in xDump
-      if not (wbToolMode in [tmDump, tmExport]) then Raise;
+      if not Settings.TolerateMissingFiles then Raise;
     end;
   finally
     wbProgressUnlock;
@@ -24493,18 +24501,14 @@ begin
   inherited;
 end;
 
-function TwbLoadingSaveContext.LoadSave(const aFileName: string; aLoadOrder: Integer; const aCompareTo: string; aStates: TwbFileStates; const aCompareToFile: IwbFile): IwbFile;
+function TwbLoadingSaveContext.LoadSave(const aFileName: string; aLoadOrder: Integer; aStates: TwbFileStates; const aCompareToFile: IwbFile): IwbFile;
 begin
   if Assigned(scFile) then
     raise Exception.CreateFmt('A save context holds one save: "%s" is loaded, "%s" can not be loaded into it', [scFile.FileName, ExtractFileName(aFileName)]);
 
   var lGameContext := GameContextObj;
-  var lCompareTo := aCompareTo;
-  if Assigned(aCompareToFile) then begin
-    if aCompareToFile.ContextObj <> lGameContext then
-      raise Exception.CreateFmt('"%s" can not be compared to "%s": they belong to different game contexts', [ExtractFileName(aFileName), aCompareToFile.FileName]);
-    lCompareTo := aCompareToFile.FileName;
-  end;
+  if Assigned(aCompareToFile) and (aCompareToFile.ContextObj <> lGameContext) then
+    raise Exception.CreateFmt('"%s" can not be compared to "%s": they belong to different game contexts', [ExtractFileName(aFileName), aCompareToFile.FileName]);
 
   lGameContext.GameDefObj.InitRecords;
 
@@ -24515,7 +24519,7 @@ begin
   if Assigned(lGameContext.FileByName(lFileName)) then
     raise Exception.CreateFmt('"%s" can not be loaded as a save: the game context already holds it', [lFileName]);
 
-  Result := TwbFileSource.CreateSave(Self, lFileName, aLoadOrder, lCompareTo, aCompareToFile, aStates);
+  Result := TwbFileSource.CreateSave(Self, lFileName, aLoadOrder, aCompareToFile, aStates);
   try
     scJoin(Result, lFileName);
   except
@@ -26360,11 +26364,15 @@ begin
   flFileNameOnDisk := flFileName;
 end;
 
-constructor TwbFileSource.CreateSave(const aSaveContext: TwbSaveContext; const aFileName: string; aLoadOrder: Integer; const aCompareTo: string; const aCompareToFile: IwbFile; aStates: TwbFileStates);
+constructor TwbFileSource.CreateSave(const aSaveContext: TwbSaveContext; const aFileName: string; aLoadOrder: Integer; const aCompareToFile: IwbFile; aStates: TwbFileStates);
+var
+  lCompareTo : string;
 begin
   flSaveContextObj := aSaveContext;
   flCompareToFile := aCompareToFile;
-  inherited Create(aSaveContext.GameContextObj, aFileName, aLoadOrder, aCompareTo, aStates, nil);
+  if Assigned(aCompareToFile) then
+    lCompareTo := aCompareToFile.FileName;
+  inherited Create(aSaveContext.GameContextObj, aFileName, aLoadOrder, lCompareTo, aStates, nil);
 end;
 
 function TwbFileSource.flSaveDef: TwbSaveDef;
@@ -26521,10 +26529,6 @@ begin
   if Assigned(flCompareToFile) then begin
     flProgress('Adding master "' + flCompareToFile.FileName + '"');
     AddMaster(flCompareToFile);
-  end else if flCompareTo <> '' then begin
-    if not FileExists(flCompareTo) then
-      flCompareTo := ExtractFilePath(flFileName) + ExtractFileName(flCompareTo);
-    AddMaster(flCompareTo);
   end;
 
   if lSaveDef.ExtractInfo <> nil then

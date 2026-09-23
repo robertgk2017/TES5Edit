@@ -614,13 +614,43 @@ type
     VWDInTemporary     : Boolean;
     VWDAsQuestChildren : Boolean;
     ComplexFileFileID  : Boolean;
-    GameName           : string;
-    GameExeName        : string;
-    GameMasterEsm      : string;
-    AppName            : string;
+    Nehrim             : Boolean;
+    class function ForGame(aGameMode: TwbGameMode): TwbGameDefInputs; static;
   end;
 
+  TwbGameIdentity = record
+    AppName       : string;
+    GameName      : string;
+    GameExeName   : string;
+    GameName2     : string;
+    GameNameReg   : string;
+    GameMasterEsm : string;
+    SteamID       : string;
+    LightName     : string;
+  end;
+
+const
+  wbGameIdentities : array[TwbGameMode] of TwbGameIdentity = (
+    {gmTES3}      (AppName: 'TES3';      GameName: 'Morrowind'; GameExeName: 'Morrowind.exe';           GameName2: 'Morrowind';               GameNameReg: 'Morrowind';               GameMasterEsm: 'Morrowind.esm';  SteamID: '22320';        LightName: 'Light'),
+    {gmTES4}      (AppName: 'TES4';      GameName: 'Oblivion';  GameExeName: 'Oblivion.exe';            GameName2: 'Oblivion';                GameNameReg: 'Oblivion';                GameMasterEsm: 'Oblivion.esm';   SteamID: '22330,900883'; LightName: 'Light'),
+    {gmTES4R}     (AppName: 'TES4R';     GameName: 'Oblivion';  GameExeName: 'Oblivion Remastered.exe'; GameName2: 'Oblivion Remastered';     GameNameReg: 'Steam App 2623190';       GameMasterEsm: 'Oblivion.esm';   SteamID: '2623190';      LightName: 'Light'),
+    {gmFO3}       (AppName: 'FO3';       GameName: 'Fallout3';  GameExeName: 'Fallout3.exe';            GameName2: 'Fallout3';                GameNameReg: 'Fallout3';                GameMasterEsm: 'Fallout3.esm';   SteamID: '22370,22300';  LightName: 'Light'),
+    {gmFNV}       (AppName: 'FNV';       GameName: 'FalloutNV'; GameExeName: 'FalloutNV.exe';           GameName2: 'FalloutNV';               GameNameReg: 'FalloutNV';               GameMasterEsm: 'FalloutNV.esm';  SteamID: '22380,22490';  LightName: 'Light'),
+    {gmTES5}      (AppName: 'TES5';      GameName: 'Skyrim';    GameExeName: 'TESV.exe';                GameName2: 'Skyrim';                  GameNameReg: 'Skyrim';                  GameMasterEsm: 'Skyrim.esm';     SteamID: '72850';        LightName: 'Light'),
+    {gmEnderal}   (AppName: 'Enderal';   GameName: 'Enderal';   GameExeName: 'TESV.exe';                GameName2: 'Enderal';                 GameNameReg: 'Enderal';                 GameMasterEsm: 'Skyrim.esm';     SteamID: '933480';       LightName: 'Light'),
+    {gmFO4}       (AppName: 'FO4';       GameName: 'Fallout4';  GameExeName: 'Fallout4.exe';            GameName2: 'Fallout4';                GameNameReg: 'Fallout4';                GameMasterEsm: 'Fallout4.esm';   SteamID: '377160';       LightName: 'Light'),
+    {gmSSE}       (AppName: 'SSE';       GameName: 'Skyrim';    GameExeName: 'SkyrimSE.exe';            GameName2: 'Skyrim Special Edition';  GameNameReg: 'Skyrim Special Edition';  GameMasterEsm: 'Skyrim.esm';     SteamID: '489830';       LightName: 'Light'),
+    {gmTES5VR}    (AppName: 'TES5VR';    GameName: 'Skyrim';    GameExeName: 'SkyrimVR.exe';            GameName2: 'Skyrim VR';               GameNameReg: 'Skyrim VR';               GameMasterEsm: 'Skyrim.esm';     SteamID: '611670';       LightName: 'Light'),
+    {gmEnderalSE} (AppName: 'EnderalSE'; GameName: 'Enderal';   GameExeName: 'SkyrimSE.exe';            GameName2: 'Enderal Special Edition'; GameNameReg: 'EnderalSE';               GameMasterEsm: 'Skyrim.esm';     SteamID: '976620';       LightName: 'Light'),
+    {gmFO4VR}     (AppName: 'FO4VR';     GameName: 'Fallout4';  GameExeName: 'Fallout4VR.exe';          GameName2: 'Fallout4VR';              GameNameReg: 'Fallout 4 VR';            GameMasterEsm: 'Fallout4.esm';   SteamID: '611660';       LightName: 'Light'),
+    {gmFO76}      (AppName: 'FO76';      GameName: 'Fallout76'; GameExeName: 'Fallout76.exe';           GameName2: 'Fallout 76';              GameNameReg: 'Steam App 1151340';       GameMasterEsm: 'SeventySix.esm'; SteamID: '1151340';      LightName: 'Light'),
+    {gmSF1}       (AppName: 'SF1';       GameName: 'Starfield'; GameExeName: 'Starfield.exe';           GameName2: 'Starfield';               GameNameReg: 'Steam App 1716740';       GameMasterEsm: 'Starfield.esm';  SteamID: '1716740';      LightName: 'Small')
+  );
+
+type
   TwbCollapseOption = (
+    clpRoot, clpGroupRecord, clpGroupModels, clpGroupActors, clpGroupItems, clpGroupScripts, clpGroupQuests,
+    clpGroupPlacement, clpGroupWeather, clpGroupTypes, clpGroupStarfield,
     clpRecordHeader, clpObjectBounds, clpModels, clpFactions, clpFactionRelations, clpFragments, clpItems,
     clpLeveledItems, clpEquipSlots, clpObjectProperties, clpScriptProperties, clpConditions, clpRGBA, clpVec3,
     clpPosRot, clpRange, clpARMABoneData, clpRACEBoneData, clpScriptData, clpHeadParts, clpBodyParts,
@@ -635,85 +665,91 @@ type
   );
   TwbCollapseOptions = set of TwbCollapseOption;
 
-  TwbCollapseGroup = (
-    cgRecord, cgModels, cgActors, cgItems, cgScripts, cgQuests, cgPlacement, cgWeather, cgTypes, cgStarfield
-  );
+  TwbCollapseOptionFlag = (cofHeader);
+  TwbCollapseOptionFlags = set of TwbCollapseOptionFlag;
 
   TwbCollapseOptionInfo = record
-    Group   : TwbCollapseGroup;
+    Parent  : TwbCollapseOption;
     Caption : string;
+    Flags   : TwbCollapseOptionFlags;
   end;
 
 const
-  wbCollapseGroupCaptions : array[TwbCollapseGroup] of string = (
-    'Record', 'Models', 'Actors and Factions', 'Items and Lists', 'Scripts and Conditions', 'Quests',
-    'Placement and Navigation', 'Weather and Sounds', 'Value Types', 'Starfield'
-  );
-
   wbCollapseOptionInfos : array[TwbCollapseOption] of TwbCollapseOptionInfo = (
-    {clpRecordHeader}             (Group: cgRecord;    Caption: 'Record Header'),
-    {clpObjectBounds}             (Group: cgRecord;    Caption: 'Object Bounds (except TES4)'),
-    {clpModels}                   (Group: cgModels;    Caption: 'Models / 1st Person Models / Biped Models / World Models'),
-    {clpFactions}                 (Group: cgActors;    Caption: 'Factions'),
-    {clpFactionRelations}         (Group: cgActors;    Caption: 'Faction Relations'),
-    {clpFragments}                (Group: cgScripts;   Caption: 'Script Fragments (TES5+)'),
-    {clpItems}                    (Group: cgItems;     Caption: 'Items / Components'),
-    {clpLeveledItems}             (Group: cgItems;     Caption: 'Leveled List Entries (except FO76)'),
-    {clpEquipSlots}               (Group: cgActors;    Caption: 'Race Equip Slots (FO4 and FO76)'),
-    {clpObjectProperties}         (Group: cgActors;    Caption: 'Actor Value Properties (FO4 and FO76)'),
-    {clpScriptProperties}         (Group: cgScripts;   Caption: 'Script Properties (TES5+)'),
-    {clpConditions}               (Group: cgScripts;   Caption: 'Conditions'),
-    {clpRGBA}                     (Group: cgTypes;     Caption: 'Colors (RGB/A)'),
-    {clpVec3}                     (Group: cgTypes;     Caption: 'Vector3 (XYZ)'),
-    {clpPosRot}                   (Group: cgTypes;     Caption: 'PosRot Vec (XYZ,XYZ)'),
-    {clpRange}                    (Group: cgRecord;    Caption: 'Range'),
-    {clpARMABoneData}             (Group: cgModels;    Caption: 'ARMA Bone'),
-    {clpRACEBoneData}             (Group: cgModels;    Caption: 'RACE Bone'),
-    {clpScriptData}               (Group: cgScripts;   Caption: 'Script Data (TES3, TES4)'),
-    {clpHeadParts}                (Group: cgModels;    Caption: 'HeadParts'),
-    {clpBodyParts}                (Group: cgModels;    Caption: 'BodyParts'),
-    {clpModelInfoTexture}         (Group: cgModels;    Caption: 'Model Info: Alternate Texture'),
-    {clpModelInfoTextures}        (Group: cgModels;    Caption: 'Model Info: Texture File Hashes'),
-    {clpModelInfoAddons}          (Group: cgModels;    Caption: 'Model Info: Addons'),
-    {clpModelInfoMaterial}        (Group: cgModels;    Caption: 'Model Info: Material File Hash'),
-    {clpModelInfoMaterials}       (Group: cgModels;    Caption: 'Model Info: Materials'),
-    {clpModelInfo}                (Group: cgModels;    Caption: 'Model Info'),
-    {clpModelInfoHeader}          (Group: cgModels;    Caption: 'Model Info: Header'),
-    {clpTimeInterpolator}         (Group: cgTypes;     Caption: 'Time Interpolator (Time, Value)'),
-    {clpTimeInterpolators}        (Group: cgTypes;     Caption: 'Time Interpolators'),
-    {clpTimeInterpolatorsMultAdd} (Group: cgTypes;     Caption: 'Time Interpolators (Mult / Add)'),
-    {clpBluePrintItem}            (Group: cgStarfield; Caption: 'Blueprint Items'),
-    {clpPlacement}                (Group: cgPlacement; Caption: 'Placement'),
-    {clpVertices}                 (Group: cgPlacement; Caption: 'Vertices'),
-    {clpRDSA}                     (Group: cgStarfield; Caption: 'Reaction Radius Behavior (RDSA)'),
-    {clpFlags}                    (Group: cgTypes;     Caption: 'Flags'),
-    {clpTransforms}               (Group: cgPlacement; Caption: 'Transforms'),
-    {clpSounds}                   (Group: cgWeather;   Caption: 'Sounds'),
-    {clpDestruction}              (Group: cgRecord;    Caption: 'Destruction'),
-    {clpLocations}                (Group: cgRecord;    Caption: 'Locations'),
-    {clpNavmesh}                  (Group: cgPlacement; Caption: 'Navmesh'),
-    {clpOther}                    (Group: cgRecord;    Caption: 'Other'),
-    {clpPerk}                     (Group: cgRecord;    Caption: 'Perk'),
-    {clpKeywords}                 (Group: cgRecord;    Caption: 'Keywords'),
-    {clpFactionRanks}             (Group: cgActors;    Caption: 'Faction Ranks'),
-    {clpOwnership}                (Group: cgRecord;    Caption: 'Ownership'),
-    {clpObjectPaletteDefaults}    (Group: cgStarfield; Caption: 'Object Palette Defaults'),
-    {clpTraversal}                (Group: cgStarfield; Caption: 'Traversals'),
-    {clpBaseFormComponent}        (Group: cgRecord;    Caption: 'BaseForm Component'),
-    {clpVehicleConfig}            (Group: cgStarfield; Caption: 'Vehicle Config'),
-    {clpWeatherTimeOfDay}         (Group: cgWeather;   Caption: 'Weather: Time of Day Colors'),
-    {clpWeatherCloudTextures}     (Group: cgWeather;   Caption: 'Weather: Cloud Textures'),
-    {clpWeatherCloudSpeed}        (Group: cgWeather;   Caption: 'Weather: Cloud Speeds'),
-    {clpWeatherCloudAlphas}       (Group: cgWeather;   Caption: 'Weather: Cloud Alphas'),
-    {clpRagdoll}                  (Group: cgModels;    Caption: 'Ragdoll'),
-    {clpDirectionRotation}        (Group: cgPlacement; Caption: 'Direction Rotation'),
-    {clpMaxHeightData}            (Group: cgPlacement; Caption: 'Max Height Data'),
-    {clpAliases}                  (Group: cgQuests;    Caption: 'Aliases'),
-    {clpQuestStage}               (Group: cgQuests;    Caption: 'Quest Stages'),
-    {clpQuestLog}                 (Group: cgQuests;    Caption: 'Quest Log Entries'),
-    {clpQuestObjective}           (Group: cgQuests;    Caption: 'Quest Objectives'),
-    {clpQuestObjectiveTarget}     (Group: cgQuests;    Caption: 'Quest Objective Targets'),
-    {clpScriptEntry}              (Group: cgScripts;   Caption: 'Script Entries')
+    {clpRoot}                     (Parent: clpRoot;            Caption: ''; Flags: [cofHeader]),
+    {clpGroupRecord}              (Parent: clpRoot;            Caption: 'Record'; Flags: [cofHeader]),
+    {clpGroupModels}              (Parent: clpRoot;            Caption: 'Models'; Flags: [cofHeader]),
+    {clpGroupActors}              (Parent: clpRoot;            Caption: 'Actors and Factions'; Flags: [cofHeader]),
+    {clpGroupItems}               (Parent: clpRoot;            Caption: 'Items and Lists'; Flags: [cofHeader]),
+    {clpGroupScripts}             (Parent: clpRoot;            Caption: 'Scripts and Conditions'; Flags: [cofHeader]),
+    {clpGroupQuests}              (Parent: clpRoot;            Caption: 'Quests'; Flags: [cofHeader]),
+    {clpGroupPlacement}           (Parent: clpRoot;            Caption: 'Placement and Navigation'; Flags: [cofHeader]),
+    {clpGroupWeather}             (Parent: clpRoot;            Caption: 'Weather and Sounds'; Flags: [cofHeader]),
+    {clpGroupTypes}               (Parent: clpRoot;            Caption: 'Value Types'; Flags: [cofHeader]),
+    {clpGroupStarfield}           (Parent: clpRoot;            Caption: 'Starfield'; Flags: [cofHeader]),
+    {clpRecordHeader}             (Parent: clpGroupRecord;     Caption: 'Record Header'; Flags: []),
+    {clpObjectBounds}             (Parent: clpGroupRecord;     Caption: 'Object Bounds (except TES4)'; Flags: []),
+    {clpModels}                   (Parent: clpGroupModels;     Caption: 'Models / 1st Person Models / Biped Models / World Models'; Flags: []),
+    {clpFactions}                 (Parent: clpGroupActors;     Caption: 'Factions'; Flags: []),
+    {clpFactionRelations}         (Parent: clpGroupActors;     Caption: 'Faction Relations'; Flags: []),
+    {clpFragments}                (Parent: clpGroupScripts;    Caption: 'Script Fragments (TES5+)'; Flags: []),
+    {clpItems}                    (Parent: clpGroupItems;      Caption: 'Items / Components'; Flags: []),
+    {clpLeveledItems}             (Parent: clpGroupItems;      Caption: 'Leveled List Entries (except FO76)'; Flags: []),
+    {clpEquipSlots}               (Parent: clpGroupActors;     Caption: 'Race Equip Slots (FO4 and FO76)'; Flags: []),
+    {clpObjectProperties}         (Parent: clpGroupActors;     Caption: 'Actor Value Properties (FO4 and FO76)'; Flags: []),
+    {clpScriptProperties}         (Parent: clpGroupScripts;    Caption: 'Script Properties (TES5+)'; Flags: []),
+    {clpConditions}               (Parent: clpGroupScripts;    Caption: 'Conditions'; Flags: []),
+    {clpRGBA}                     (Parent: clpGroupTypes;      Caption: 'Colors (RGB/A)'; Flags: []),
+    {clpVec3}                     (Parent: clpGroupTypes;      Caption: 'Vector3 (XYZ)'; Flags: []),
+    {clpPosRot}                   (Parent: clpGroupTypes;      Caption: 'PosRot Vec (XYZ,XYZ)'; Flags: []),
+    {clpRange}                    (Parent: clpGroupRecord;     Caption: 'Range'; Flags: []),
+    {clpARMABoneData}             (Parent: clpGroupModels;     Caption: 'ARMA Bone'; Flags: []),
+    {clpRACEBoneData}             (Parent: clpGroupModels;     Caption: 'RACE Bone'; Flags: []),
+    {clpScriptData}               (Parent: clpGroupScripts;    Caption: 'Script Data (TES3, TES4)'; Flags: []),
+    {clpHeadParts}                (Parent: clpGroupModels;     Caption: 'HeadParts'; Flags: []),
+    {clpBodyParts}                (Parent: clpGroupModels;     Caption: 'BodyParts'; Flags: []),
+    {clpModelInfoTexture}         (Parent: clpGroupModels;     Caption: 'Model Info: Alternate Texture'; Flags: []),
+    {clpModelInfoTextures}        (Parent: clpGroupModels;     Caption: 'Model Info: Texture File Hashes'; Flags: []),
+    {clpModelInfoAddons}          (Parent: clpGroupModels;     Caption: 'Model Info: Addons'; Flags: []),
+    {clpModelInfoMaterial}        (Parent: clpGroupModels;     Caption: 'Model Info: Material File Hash'; Flags: []),
+    {clpModelInfoMaterials}       (Parent: clpGroupModels;     Caption: 'Model Info: Materials'; Flags: []),
+    {clpModelInfo}                (Parent: clpGroupModels;     Caption: 'Model Info'; Flags: []),
+    {clpModelInfoHeader}          (Parent: clpGroupModels;     Caption: 'Model Info: Header'; Flags: []),
+    {clpTimeInterpolator}         (Parent: clpGroupTypes;      Caption: 'Time Interpolator (Time, Value)'; Flags: []),
+    {clpTimeInterpolators}        (Parent: clpGroupTypes;      Caption: 'Time Interpolators'; Flags: []),
+    {clpTimeInterpolatorsMultAdd} (Parent: clpGroupTypes;      Caption: 'Time Interpolators (Mult / Add)'; Flags: []),
+    {clpBluePrintItem}            (Parent: clpGroupStarfield;  Caption: 'Blueprint Items'; Flags: []),
+    {clpPlacement}                (Parent: clpGroupPlacement;  Caption: 'Placement'; Flags: []),
+    {clpVertices}                 (Parent: clpGroupPlacement;  Caption: 'Vertices'; Flags: []),
+    {clpRDSA}                     (Parent: clpGroupStarfield;  Caption: 'Reaction Radius Behavior (RDSA)'; Flags: []),
+    {clpFlags}                    (Parent: clpGroupTypes;      Caption: 'Flags'; Flags: []),
+    {clpTransforms}               (Parent: clpGroupPlacement;  Caption: 'Transforms'; Flags: []),
+    {clpSounds}                   (Parent: clpGroupWeather;    Caption: 'Sounds'; Flags: []),
+    {clpDestruction}              (Parent: clpGroupRecord;     Caption: 'Destruction'; Flags: []),
+    {clpLocations}                (Parent: clpGroupRecord;     Caption: 'Locations'; Flags: []),
+    {clpNavmesh}                  (Parent: clpGroupPlacement;  Caption: 'Navmesh'; Flags: []),
+    {clpOther}                    (Parent: clpGroupRecord;     Caption: 'Other'; Flags: []),
+    {clpPerk}                     (Parent: clpGroupRecord;     Caption: 'Perk'; Flags: []),
+    {clpKeywords}                 (Parent: clpGroupRecord;     Caption: 'Keywords'; Flags: []),
+    {clpFactionRanks}             (Parent: clpGroupActors;     Caption: 'Faction Ranks'; Flags: []),
+    {clpOwnership}                (Parent: clpGroupRecord;     Caption: 'Ownership'; Flags: []),
+    {clpObjectPaletteDefaults}    (Parent: clpGroupStarfield;  Caption: 'Object Palette Defaults'; Flags: []),
+    {clpTraversal}                (Parent: clpGroupStarfield;  Caption: 'Traversals'; Flags: []),
+    {clpBaseFormComponent}        (Parent: clpGroupRecord;     Caption: 'BaseForm Component'; Flags: []),
+    {clpVehicleConfig}            (Parent: clpGroupStarfield;  Caption: 'Vehicle Config'; Flags: []),
+    {clpWeatherTimeOfDay}         (Parent: clpGroupWeather;    Caption: 'Weather: Time of Day Colors'; Flags: []),
+    {clpWeatherCloudTextures}     (Parent: clpGroupWeather;    Caption: 'Weather: Cloud Textures'; Flags: []),
+    {clpWeatherCloudSpeed}        (Parent: clpGroupWeather;    Caption: 'Weather: Cloud Speeds'; Flags: []),
+    {clpWeatherCloudAlphas}       (Parent: clpGroupWeather;    Caption: 'Weather: Cloud Alphas'; Flags: []),
+    {clpRagdoll}                  (Parent: clpGroupModels;     Caption: 'Ragdoll'; Flags: []),
+    {clpDirectionRotation}        (Parent: clpGroupPlacement;  Caption: 'Direction Rotation'; Flags: []),
+    {clpMaxHeightData}            (Parent: clpGroupPlacement;  Caption: 'Max Height Data'; Flags: []),
+    {clpAliases}                  (Parent: clpGroupQuests;     Caption: 'Aliases'; Flags: []),
+    {clpQuestStage}               (Parent: clpGroupQuests;     Caption: 'Quest Stages'; Flags: []),
+    {clpQuestLog}                 (Parent: clpGroupQuests;     Caption: 'Quest Log Entries'; Flags: []),
+    {clpQuestObjective}           (Parent: clpGroupQuests;     Caption: 'Quest Objectives'; Flags: []),
+    {clpQuestObjectiveTarget}     (Parent: clpGroupQuests;     Caption: 'Quest Objective Targets'; Flags: []),
+    {clpScriptEntry}              (Parent: clpGroupScripts;    Caption: 'Script Entries'; Flags: [])
   );
 
 type
@@ -725,6 +761,7 @@ type
     AllowEditHEDRVersion : Boolean;
     DecodeTextureHashes  : Boolean;
     class function Defaults: TwbGameDefineOptions; static;
+    class function CheckableCollapse: TwbCollapseOptions; static;
     class function CollapseSettingsKey(aOption: TwbCollapseOption): string; static;
     procedure SetCollapse(aOption: TwbCollapseOption; aValue: Boolean);
   end;
@@ -845,6 +882,8 @@ type
   TwbGameContext = class;
   IwbSaveContext = interface;
   TwbSaveContext = class;
+  TwbSaveContextClass = class of TwbSaveContext;
+  TwbLocalizationHandler = class;
   IwbFile = interface;
   IwbSaveTables = interface;
   IwbNamedDef = interface;
@@ -3402,6 +3441,28 @@ type
     function Append(aKind: TwbFaceGenKind; const aRaceID: string; aFemale: Boolean): PwbFaceGenFeature;
   end;
 
+  IwbSoundBankArray = interface(IInterface)
+  ['{5FEF18BF-C357-4B8A-9DBB-6F6D58923F89}']
+    function TryLookupGUID(const aNodeType : TwbWwiseNodeType;
+                           const aGUID     : TGUID;
+                             var aName     : string;
+                             var aFilename : string)
+                                           : Boolean;
+
+    function TryLookupDisplay(const aNodeType   : TwbWwiseNodeType;
+                              const aDisplayStr : string;
+                                var aGUID       : TGUID)
+                                                : Boolean;
+
+    procedure GetChildStrings(const aParentGUID: TGUID;
+                              const aChildType: TwbWwiseNodeType;
+                                var aList: TStringList);
+
+    procedure GetStrings(const aNodeType : TwbWwiseNodeType;
+                         const aMasters  : TStringList;
+                           var aList     : TStringList);
+  end;
+
   IwbSaveTables = interface(IwbInterface)
     ['{6F2D9C41-8B3A-4E57-A1C0-5D7E92B4F318}']
     procedure InitializeVMTypeArray(const aContainer: IwbContainer);
@@ -3472,14 +3533,14 @@ type
     property Files[aIndex: Integer]: IwbFile
       read GetFile;
     procedure SetContainerHandler(const aValue: IwbContainerHandler);
-    function GetSoundBankCache: IInterface;
-    procedure SetSoundBankCache(const aValue: IInterface);
+    function GetSoundBankCache: IwbSoundBankArray;
+    procedure SetSoundBankCache(const aValue: IwbSoundBankArray);
     function GetFaceGenCache: IwbFaceGenCache;
     procedure SetFaceGenCache(const aValue: IwbFaceGenCache);
     property ContainerHandler: IwbContainerHandler
       read GetContainerHandler
       write SetContainerHandler;
-    property SoundBankCache: IInterface
+    property SoundBankCache: IwbSoundBankArray
       read GetSoundBankCache
       write SetSoundBankCache;
     property FaceGenCache: IwbFaceGenCache
@@ -3537,6 +3598,7 @@ type
     gdCellSizeFactor   : Single;
     gdHeaderSignature  : TwbSignature;
     gdNexusModsUrl     : string;
+    gdLODGenNexusModsUrl : string;
     gdIgnoreRecords    : TStringList;
     gdGroupOrder       : TStringList;
     gdActorValueEnum   : IwbEnumDef;
@@ -3557,6 +3619,7 @@ type
     gdRecordsInit      : Boolean;
     gdDefined          : Boolean;
     gdDefining         : Boolean;
+    gdDefinedOptions   : TwbGameDefineOptions;
     gdGameMode         : TwbGameMode;
     gdCapabilities     : TwbGameCapabilities;
     gdGameName         : string;
@@ -3572,7 +3635,6 @@ type
     gdHardcodedRangeMinVersion : Double;
 
     function GetKnownSubRecordSignature(aKind: TwbKnownSubRecord): TwbSignature;
-    procedure SetKnownSubRecordSignature(aKind: TwbKnownSubRecord; const aValue: TwbSignature);
 
     function GetGameMode: TwbGameMode;
     function GetCreationClubContentFileName: string;
@@ -3596,28 +3658,7 @@ type
 
     procedure Define; virtual;
     procedure CreateSaveDefs;
-  public
-    DefineOptions: TwbGameDefineOptions;
 
-    constructor Create; overload;
-    constructor Create(aGameMode: TwbGameMode); overload;
-    constructor Create(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs); overload;
-    destructor Destroy; override;
-
-    procedure EnsureDefined;
-
-    property GameMode: TwbGameMode
-      read gdGameMode;
-    property Capabilities: TwbGameCapabilities
-      read gdCapabilities;
-    property GameName: string
-      read gdGameName;
-    property GameExeName: string
-      read gdGameExeName;
-    property GameMasterEsm: string
-      read gdGameMasterEsm;
-    property AppName: string
-      read gdAppName;
     function IsCS(const aDef1, aDef2: string): string; overload;
     function IsHNVSE(const aDef1, aDef2: TwbConflictPriority): TwbConflictPriority; overload;
     function IsTES3(const aDef1, aDef2: string): string; overload;
@@ -3655,6 +3696,50 @@ type
     function IsSF1(const aDef1, aDef2: IwbRecordMemberDef): IwbRecordMemberDef; overload;
     function IsSF1(const aDef1, aDef2: IwbValueDef): IwbValueDef; overload;
     function IsSF1(const aDef1, aDef2: string): string; overload;
+
+    procedure AddGroupOrder(const aSignature: TwbSignature);
+    function KnownSubRecordSignaturesPtr: PwbKnownSubRecordSignatures;
+
+    function RegisterRecordDef(const aSignature   : TwbSignature;
+                               const aName        : string;
+                               const aKnownSRs    : PwbKnownSubRecordSignatures;
+                               const aRecordFlags : IwbIntegerDefFormater;
+                               const aMembers     : array of IwbRecordMemberDef;
+                                     aPriority    : TwbConflictPriority;
+                                     aRequired    : Boolean;
+                                     aIsReference : Boolean)
+                                                  : IwbMainRecordDef; overload;
+    procedure AddRefRecordDef(const aRecordDef: IwbMainRecordDef);
+    function RegisterRecordDef(const aSignature: TwbSignature; const aName: string; const aRecordFlags: IwbIntegerDefFormater; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
+    function RegisterRecordDef(const aSignature: TwbSignature; const aName: string; const aKnownSRs: PwbKnownSubRecordSignatures; const aRecordFlags: IwbIntegerDefFormater; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
+    function RegisterRecordDef(const aSignature: TwbSignature; const aName: string; const aKnownSRs: PwbKnownSubRecordSignatures; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
+    function RegisterRecordDef(const aSignature: TwbSignature; const aName: string; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
+    function RegisterRefRecordDef(const aSignature: TwbSignature; const aName: string; const aRecordFlags: IwbIntegerDefFormater; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
+    function RegisterRefRecordDef(const aSignature: TwbSignature; const aName: string; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
+  public
+    DefineOptions: TwbGameDefineOptions;
+
+    constructor Create; overload;
+    constructor Create(aGameMode: TwbGameMode); overload;
+    constructor Create(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs); overload;
+    destructor Destroy; override;
+
+    procedure EnsureDefined;
+    property DefinedOptions: TwbGameDefineOptions
+      read gdDefinedOptions;
+
+    property GameMode: TwbGameMode
+      read gdGameMode;
+    property Capabilities: TwbGameCapabilities
+      read gdCapabilities;
+    property GameName: string
+      read gdGameName;
+    property GameExeName: string
+      read gdGameExeName;
+    property GameMasterEsm: string
+      read gdGameMasterEsm;
+    property AppName: string
+      read gdAppName;
     property IsMorrowind: Boolean
       read GetIsMorrowind;
     property IsOblivion: Boolean
@@ -3684,101 +3769,66 @@ type
     property IsUpdateSupported: Boolean
       read GetIsUpdateSupported;
 
-    procedure AddGroupOrder(const aSignature: TwbSignature);
     function GetGroupOrder(const aSignature: TwbSignature): Integer;
 
     property HEDRVersion: Double
-      read gdHEDRVersion
-      write gdHEDRVersion;
+      read gdHEDRVersion;
     property HEDRNextObjectID: Integer
-      read gdHEDRNextObjectID
-      write gdHEDRNextObjectID;
+      read gdHEDRNextObjectID;
     property CellSizeFactor: Single
-      read gdCellSizeFactor
-      write gdCellSizeFactor;
+      read gdCellSizeFactor;
     function PositionToGridCell(const aPosition: TwbVector): TwbGridCell;
     function GridCellToCenterPosition(const aGridCell: TwbGridCell): TwbVector;
     function IsInGridCell(const aPosition: TwbVector; const aGridCell: TwbGridCell): Boolean;
     property HeaderSignature: TwbSignature
-      read gdHeaderSignature
-      write gdHeaderSignature;
+      read gdHeaderSignature;
     property NexusModsUrl: string
-      read gdNexusModsUrl
-      write gdNexusModsUrl;
+      read gdNexusModsUrl;
+    property LODGenNexusModsUrl: string
+      read gdLODGenNexusModsUrl;
     property IgnoreRecords: TStringList
       read gdIgnoreRecords;
     property GroupOrder: TStringList
       read gdGroupOrder;
     property ActorValueEnum: IwbEnumDef
-      read gdActorValueEnum
-      write gdActorValueEnum;
+      read gdActorValueEnum;
     property SaveDef: TwbSaveDef
       read GetSaveDef;
     property CoSaveDef: TwbSaveDef
       read GetCoSaveDef;
     function SaveDefFor(const aFileName: string): TwbSaveDef;
+    function SaveContextClass: TwbSaveContextClass;
     property OfficialDLC: TArray<string>
-      read gdOfficialDLC
-      write gdOfficialDLC;
+      read gdOfficialDLC;
     property CreationClubContentFileName: string
-      read gdCreationClubContentFileName
-      write gdCreationClubContentFileName;
+      read gdCreationClubContentFileName;
     property KnownSubRecordSignatures[aKind: TwbKnownSubRecord]: TwbSignature
-      read GetKnownSubRecordSignature
-      write SetKnownSubRecordSignature;
+      read GetKnownSubRecordSignature;
     property RecordFlags: IwbIntegerDef
-      read gdRecordFlags
-      write gdRecordFlags;
+      read gdRecordFlags;
     property MainRecordHeader: IwbValueDef
-      read gdMainRecordHeader
-      write gdMainRecordHeader;
+      read gdMainRecordHeader;
     property SizeOfMainRecordStruct: Integer
-      read gdSizeOfMainRecordStruct
-      write gdSizeOfMainRecordStruct;
+      read gdSizeOfMainRecordStruct;
     property RecordDefs: TwbRecordDefEntries
       read gdRecordDefs;
     property RefRecordDefs: TwbMainRecordDefs
       read gdRefRecordDefs;
     property DefaultFormVersion: Word
-      read gdDefaultFormVersion
-      write gdDefaultFormVersion;
+      read gdDefaultFormVersion;
     property QuestFlagsSignature: TwbSignature
-      read gdQuestFlagsSignature
-      write gdQuestFlagsSignature;
+      read gdQuestFlagsSignature;
     property RaceFlagsSignature: TwbSignature
-      read gdRaceFlagsSignature
-      write gdRaceFlagsSignature;
+      read gdRaceFlagsSignature;
     property DefaultLandTexture: string
-      read gdDefaultLandTexture
-      write gdDefaultLandTexture;
+      read gdDefaultLandTexture;
     property ArchiveExtension: string
-      read gdArchiveExtension
-      write gdArchiveExtension;
+      read gdArchiveExtension;
     property HardcodedRangeAdmitted: Boolean
-      read gdHardcodedRangeAdmitted
-      write gdHardcodedRangeAdmitted;
+      read gdHardcodedRangeAdmitted;
     property HardcodedRangeMinVersion: Double
-      read gdHardcodedRangeMinVersion
-      write gdHardcodedRangeMinVersion;
+      read gdHardcodedRangeMinVersion;
 
-    function KnownSubRecordSignaturesPtr: PwbKnownSubRecordSignatures;
-
-    function RegisterRecordDef(const aSignature   : TwbSignature;
-                               const aName        : string;
-                               const aKnownSRs    : PwbKnownSubRecordSignatures;
-                               const aRecordFlags : IwbIntegerDefFormater;
-                               const aMembers     : array of IwbRecordMemberDef;
-                                     aPriority    : TwbConflictPriority;
-                                     aRequired    : Boolean;
-                                     aIsReference : Boolean)
-                                                  : IwbMainRecordDef; overload;
-    procedure AddRefRecordDef(const aRecordDef: IwbMainRecordDef);
-    function RegisterRecordDef(const aSignature: TwbSignature; const aName: string; const aRecordFlags: IwbIntegerDefFormater; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
-    function RegisterRecordDef(const aSignature: TwbSignature; const aName: string; const aKnownSRs: PwbKnownSubRecordSignatures; const aRecordFlags: IwbIntegerDefFormater; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
-    function RegisterRecordDef(const aSignature: TwbSignature; const aName: string; const aKnownSRs: PwbKnownSubRecordSignatures; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
-    function RegisterRecordDef(const aSignature: TwbSignature; const aName: string; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
-    function RegisterRefRecordDef(const aSignature: TwbSignature; const aName: string; const aRecordFlags: IwbIntegerDefFormater; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
-    function RegisterRefRecordDef(const aSignature: TwbSignature; const aName: string; const aMembers: array of IwbRecordMemberDef; aPriority: TwbConflictPriority = cpNormal; aRequired: Boolean = False): IwbMainRecordDef; overload;
     function FindRecordDef(const aSignature: TwbSignature; out aRecordDef: PwbMainRecordDef): Boolean; overload;
     function FindRecordDef(const aSignature: AnsiString; out aRecordDef: PwbMainRecordDef): Boolean; overload;
     function RecordDefMap: TStringList;
@@ -3864,10 +3914,153 @@ type
     DontCache             : Boolean;
     DontCacheLoad         : Boolean;
     DontCacheSave         : Boolean;
+    TolerateMissingFiles  : Boolean;
+    IgnoreESMFlagForLoadOrder : Boolean;
     FormIDCallback        : TwbGetFormIDCallback;
     CellDetailsForWorldspaceCallback : TwbGetCellDetailsForWorldspaceCallback;
     class function Defaults: TwbGameContextSettings; static;
+    procedure ApplyGameDefaults(aGameMode: TwbGameMode);
   end;
+
+  TwbModuleExtension = (
+    meUnknown,
+    meESM,
+    meESL,
+    meESP,
+    meESU
+  );
+
+  TwbModuleExtensionHelper = record helper for TwbModuleExtension
+    function ToString: string;
+  end;
+
+  TwbModuleFlag = (
+    mfInvalid,
+    mfValid,
+    mfGhost,
+    mfMastersMissing,
+    mfHasESMFlag,
+    mfHasLightFlag,
+    mfHasMediumFlag,
+    mfHasBlueprintFlag,
+    mfHasUpdateFlag,
+    mfHasLocalizedFlag,
+    mfHasESMExtension,
+    mfIsESM,
+    mfActiveInPluginsTxt,
+    mfActive,
+    mfForceLoad,
+    mfHasIndex,
+    mfLoaded,
+    mfLoading,
+    mfTagged,
+    mfHasFile,
+    mfIsHardcoded,
+    mfIsGameMaster,
+    mfNew,
+    mfTemplate,
+    mfIsModGroupTarget,
+    mfIsModGroupSource,
+    mfEphemeralModGroupTagged,
+    mfTaggedForPluginMode,
+    mfModGroupMissingCurrentCRC,
+    mfModGroupMissingAnyCRC
+  );
+
+  TwbModuleFlags = set of TwbModuleFlag;
+
+  PwbModuleInfo = ^TwbModuleInfo;
+  TwbModuleInfos = array of PwbModuleInfo;
+  TwbModuleInfo = record
+  private
+    miCRC32             : TwbCRC32;
+  public
+    miOriginalName      : string;
+    miName              : string;
+    miDateTime          : TDateTime;
+
+    miExtension         : TwbModuleExtension;
+
+    miMasterNames       : TDynStrings;
+    miMasters           : TwbModuleInfos;
+
+    miFlags             : TwbModuleFlags;
+
+    miOfficialIndex     : Integer;
+    miCCIndex           : Integer;
+    miPluginsTxtIndex   : Integer;
+    miLoadOrderTxtIndex : Integer;
+
+    miCombinedIndex     : Integer;
+
+    miFileID            : TwbFileID;
+    miLoadOrder         : Integer;
+
+    miFile              : TObject;
+    miContext           : TwbGameContext;
+
+    miModGroupTargets   : TwbModuleInfos;
+    miModGroupSources   : TwbModuleInfos;
+
+    function IsValid: Boolean;
+    function HasIndex: Boolean;
+    function IsActive: Boolean;
+    function IsTemplate: Boolean;
+    procedure ActivateMasters(aRecursive: Boolean);
+    procedure Activate(aActivateMasters: Boolean = False);
+    function LoadOrderDescription: string;
+    function FlagsDescription: string;
+    function Description: string;
+    function ToString(aInclDesc: Boolean): string;
+    function _File: IwbFile;
+
+    function GetModuleType: TwbModuleType;
+
+    function HasCRC32(aCRC32: TwbCRC32): Boolean;
+    function GetCRC32(out aCRC32: TwbCRC32): Boolean;
+  end;
+
+  TwbModuleInfosHelper = record helper for TwbModuleInfos
+    function ToStrings(aInclDesc: Boolean = False): TDynStrings;
+    procedure DeactivateAll;
+    procedure ExcludeAll(aFlag: TwbModuleFlag);
+    procedure IncludeAll(aFlag: TwbModuleFlag);
+    procedure ActivateMasters;
+    function FilteredByFlag(aFlag: TwbModuleFlag; aHasFlag: Boolean = True): TwbModuleInfos;
+    function FilteredBy(const aFunc: TFunc<PwbModuleInfo, Boolean>): TwbModuleInfos;
+  end;
+
+  TwbDynModuleInfos = array of TwbModuleInfo;
+
+  TwbModuleList = class
+  protected
+    mlContext               : TwbGameContext;
+    mlModules               : TwbDynModuleInfos;
+    mlModulesByName         : TStringList;
+    mlModulesLoadOrder      : TwbModuleInfos;
+    mlAdditionalModules     : TwbModuleInfos;
+    mlTemplateModules       : TwbModuleInfos;
+    mlUpdateIndex           : Integer;
+    mlNextFullSlot          : Integer;
+    mlNextMediumSlot        : Integer;
+    mlNextLightSlot         : Integer;
+    mlSimulatedLoadDisabled : Boolean;
+
+    class function InvalidModule: PwbModuleInfo; static;
+  public
+    constructor Create(aContext: TwbGameContext);
+    destructor Destroy; override;
+
+    procedure LoadModules; virtual; abstract;
+    function ModuleByName(const aName: string): PwbModuleInfo;
+    function ModulesByLoadOrder(aIncludeTemplates: Boolean): TwbModuleInfos;
+    function AddNewModule(const aFileName: string; aTemplate: Boolean): PwbModuleInfo;
+    function SimulateLoad(const aModules: TwbModuleInfos): TwbModuleInfos;
+    procedure ResetSimulatedLoad;
+    procedure DisableSimulatedLoad;
+  end;
+
+  TwbModuleListClass = class of TwbModuleList;
 
   TwbGameContext = class(TInterfacedObject, IwbGameContext)
   protected
@@ -3879,7 +4072,7 @@ type
     gcNextLightSlot  : Integer;
     gcNextMediumSlot : Integer;
     gcNextLoadOrder  : Integer;
-    gcModuleList     : TObject;
+    gcModuleList     : TwbModuleList;
     gcModGroupList   : TObject;
     gcRecordToSkip    : TStringList;
     gcSubRecordToSkip : TStringList;
@@ -3892,8 +4085,8 @@ type
     gcFirstLoadComplete    : Boolean;
     gcBuildingRefsParallel : Boolean;
     gcContainerHandler     : IwbContainerHandler;
-    gcLocalizationHandler  : TObject;
-    gcSoundBankCache       : IInterface;
+    gcLocalizationHandler  : TwbLocalizationHandler;
+    gcSoundBankCache       : IwbSoundBankArray;
     gcFaceGenCache         : IwbFaceGenCache;
     gcGlobalGeneration     : Integer;
     gcIdentitys            : array[Byte] of TDictionary<string, Cardinal>;
@@ -3905,6 +4098,7 @@ type
     function SaveContextFiles: TwbFiles;
     function FilesWithSaves: TwbFiles;
     function GetGameDef: IwbGameDef;
+    function GetModuleList: TwbModuleList;
     function GetFileCount: Integer;
     function GetFile(aIndex: Integer): IwbFile;
     function GetContainerHandler: IwbContainerHandler;
@@ -3913,8 +4107,8 @@ type
     function GetEncoding: TEncoding;
     function GetDontSave: Boolean;
     procedure SetContainerHandler(const aValue: IwbContainerHandler);
-    function GetSoundBankCache: IInterface;
-    procedure SetSoundBankCache(const aValue: IInterface);
+    function GetSoundBankCache: IwbSoundBankArray;
+    procedure SetSoundBankCache(const aValue: IwbSoundBankArray);
     function GetLEncoding(aFallback: Boolean): TStringList;
     function CreateSkipList: TStringList;
     function CreateLEncodingList: TStringList;
@@ -3966,12 +4160,8 @@ type
     property NextLoadOrder: Integer
       read gcNextLoadOrder
       write gcNextLoadOrder;
-    property ModuleList: TObject
-      read gcModuleList
-      write gcModuleList;
-    property ModGroupList: TObject
-      read gcModGroupList
-      write gcModGroupList;
+    property ModuleList: TwbModuleList
+      read GetModuleList;
     property RecordToSkip: TStringList
       read gcRecordToSkip;
     property SubRecordToSkip: TStringList
@@ -3997,11 +4187,11 @@ type
     property ContainerHandler: IwbContainerHandler
       read gcContainerHandler
       write gcContainerHandler;
-    property LocalizationHandler: TObject
+    property LocalizationHandler: TwbLocalizationHandler
       read gcLocalizationHandler;
-    property SoundBankCache: IInterface
+    property SoundBankCache: IwbSoundBankArray
       read gcSoundBankCache
-      write gcSoundBankCache;
+      write SetSoundBankCache;
     function GetFaceGenCache: IwbFaceGenCache;
     procedure SetFaceGenCache(const aValue: IwbFaceGenCache);
     property FaceGenCache: IwbFaceGenCache
@@ -4030,9 +4220,6 @@ type
     scJoinIndex      : Integer;
     scChaptersToSkip : TStringList;
 
-    scChangedFormFlags : Integer;
-    scLastRegistrationStart : Integer;
-
     scFullPluginNames  : TStringList;
     scLightPluginNames : TStringList;
 
@@ -4048,7 +4235,7 @@ type
     destructor Destroy; override;
     procedure BeforeDestruction; override;
 
-    function LoadSave(const aFileName: string; aLoadOrder: Integer; const aCompareTo: string = ''; aStates: TwbFileStates = []; const aCompareToFile: IwbFile = nil): IwbFile; virtual; abstract;
+    function LoadSave(const aFileName: string; aLoadOrder: Integer; aStates: TwbFileStates = []; const aCompareToFile: IwbFile = nil): IwbFile; virtual; abstract;
 
     property GameContextObj: TwbGameContext
       read scGameContextObj;
@@ -4056,12 +4243,6 @@ type
       read scFile;
     property ChaptersToSkip: TStringList
       read scChaptersToSkip;
-    property ChangedFormFlags: Integer
-      read scChangedFormFlags
-      write scChangedFormFlags;
-    property LastRegistrationStart: Integer
-      read scLastRegistrationStart
-      write scLastRegistrationStart;
     property FullPluginNames: TStringList
       read scFullPluginNames;
     property LightPluginNames: TStringList
@@ -4078,9 +4259,93 @@ type
     procedure SetPluginNames(aFullNames, aLightNames: TStrings);
   end;
 
-  TwbSaveContextClass = class of TwbSaveContext;
+  TwbLStringType = (
+    lsDLString,
+    lsILString,
+    lsString
+  );
+
+  TwbLocalizationFile = class
+  private
+    fEncoding    : array [Boolean] of TEncoding;
+    fName        : string;
+    fLanguage    : string;
+    fFileName    : string;
+    fFileType    : TwbLStringType;
+    fStrings     : TStrings;
+    fModified    : Boolean;
+    fNextID      : Cardinal;
+
+    procedure Init(aContext: TwbGameContext);
+    function FileStringType(const aFileName: string): TwbLStringType;
+    function ReadZString(aStream: TMemoryStream): string;
+    function ReadLenZString(aStream: TMemoryStream): string;
+    procedure WriteZString(aStream: TMemoryStream; const aString: string);
+    procedure WriteLenZString(aStream: TMemoryStream; const aString: string);
+    procedure ReadDirectory(aStream: TMemoryStream);
+  protected
+    function Get(Index: Cardinal): string;
+    procedure Put(Index: Cardinal; const S: string);
+  public
+    property Strings[Index: Cardinal]: string read Get write Put; default;
+    property Items: TStrings read fStrings;
+    property Name: string read fName;
+    property FileName: string read fFileName;
+    property Modified: Boolean read fModified write fModified;
+    property NextID: Cardinal read fNextID;
+    constructor Create(aContext: TwbGameContext; const aFileName: string); overload;
+    constructor Create(aContext: TwbGameContext; const aFileName: string; const aData: TBytes); overload;
+    destructor Destroy; override;
+    function Count: Integer;
+    function IndexToID(Index: Integer): Cardinal;
+    function IDExists(ID: Cardinal): Boolean;
+    function AddString(ID: Cardinal; const S: string): Boolean;
+    function Find(ID: Cardinal; out s: string): Boolean;
+    procedure WriteToStream(const aStream: TStream);
+    procedure ExportToFile(const aFileName: string);
+  end;
+
+  TwbLocalizationHandler = class
+  private
+    lhContext    : TwbGameContext;
+    lFiles       : TStringList;
+    fReuseDup    : Boolean;
+  protected
+    function Get(Index: Integer): TwbLocalizationFile;
+    function GetStringsPath: string;
+  public
+    Generation: Integer;
+    NoTranslate: Boolean;
+    property _Files[Index: Integer]: TwbLocalizationFile read Get; default;
+    property StringsPath: string read GetStringsPath;
+    property ReuseDup: Boolean read fReuseDup write fReuseDup;
+    constructor Create(aContext: TwbGameContext);
+    destructor Destroy; override;
+    procedure Clear;
+    function Count: Integer;
+    function LocalizedValueDecider(aElement: IwbElement): TwbLStringType;
+    procedure AvailableLanguages(aLanguages : TStringList);
+    procedure AvailableLocalizationFiles(aFiles: TStringList);
+    procedure LoadForFile(const aFileName: string);
+    function AddLocalization(const aFileName: string): TwbLocalizationFile; overload;
+    function AddLocalization(const aFileName: string; const aData: TBytes): TwbLocalizationFile; overload;
+    function GetValue(ID: Cardinal; aElement: IwbElement; out aValue: string): Boolean;
+    function SetValue(ID: Cardinal; aElement: IwbElement; const aValue: string): Cardinal;
+    function AddValue(const aValue: string; aElement: IwbElement): Cardinal;
+    function GetLocalizationFileNameByElement(aElement: IwbElement): string;
+    function GetLocalizationFileNameByType(const aPluginFile: string; ls: TwbLStringType): string;
+    procedure GetStringsFromFile(const aFileName: string; const aList: TStrings);
+  end;
 
 const
+  sStringID = 'STRINGID:';
+
+  wbLocalizationExtension: array [TwbLStringType] of string = (
+    '.DLSTRINGS',
+    '.ILSTRINGS',
+    '.STRINGS'
+  );
+
   arcU32 = -1;
   arcU16 = -2;
   arcU8  = -4;
@@ -5402,10 +5667,11 @@ var
   wbFileByReverseSortOrderComparer : IComparer<IwbFile>;
 
   wbGameContextClass : TwbGameContextClass;
+  wbModuleListClass  : TwbModuleListClass;
   wbSaveContextClass : TwbSaveContextClass;
 
 procedure wbRegisterGameDef(const aGameModes: TwbGameModes; aGameDefClass: TwbGameDefClass);
-procedure wbRegisterSaveDefs(const aGameModes: TwbGameModes; aSaveDefClass, aCoSaveDefClass: TwbSaveDefClass);
+procedure wbRegisterSaveDefs(const aGameModes: TwbGameModes; aSaveDefClass, aCoSaveDefClass: TwbSaveDefClass; aSaveContextClass: TwbSaveContextClass = nil);
 function wbCreateGameDef(aGameMode: TwbGameMode): IwbGameDef; overload;
 function wbCreateGameDef(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs; aDefine: Boolean = True): IwbGameDef; overload;
 function wbCreateGameDef(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs; const aDefineOptions: TwbGameDefineOptions): IwbGameDef; overload;
@@ -5423,7 +5689,6 @@ uses
   Winapi.Windows,
 
   wbHalfFloat,
-  wbLocalization,
   wbSort;
 
 class function TwbConflictConfig.ForContext(aContext: TwbGameContext): TwbConflictConfig;
@@ -5779,6 +6044,29 @@ type
     procedure UpdateStatus(aPosition: Integer; const aStatus: string);
   end;
 
+  TwbNullSoundBankArray = class(TInterfacedObject, IwbSoundBankArray)
+  protected
+    {--- IwbSoundBankArray ---}
+    function TryLookupGUID(const aNodeType : TwbWwiseNodeType;
+                           const aGUID     : TGUID;
+                             var aName     : string;
+                             var aFilename : string)
+                                           : Boolean;
+
+    function TryLookupDisplay(const aNodeType   : TwbWwiseNodeType;
+                              const aDisplayStr : string;
+                                var aGUID       : TGUID)
+                                                : Boolean;
+
+    procedure GetChildStrings(const aParentGUID: TGUID;
+                              const aChildType: TwbWwiseNodeType;
+                                var aList: TStringList);
+
+    procedure GetStrings(const aNodeType : TwbWwiseNodeType;
+                         const aMasters  : TStringList;
+                           var aList     : TStringList);
+  end;
+
 { TwbNullWaitForm }
 
 function TwbNullWaitForm.CreateProgress(const aCaption, aStatus: string; aMax: Integer): IwbProgress;
@@ -5797,6 +6085,38 @@ procedure TwbNullProgress.UpdateStatus(aPosition: Integer; const aStatus: string
 begin
 end;
 
+{ TwbNullSoundBankArray }
+
+procedure TwbNullSoundBankArray.GetChildStrings(const aParentGUID: TGUID; const aChildType: TwbWwiseNodeType; var aList: TStringList);
+begin
+  GetStrings(aChildType, nil, aList);
+end;
+
+procedure TwbNullSoundBankArray.GetStrings(const aNodeType: TwbWwiseNodeType; const aMasters: TStringList; var aList: TStringList);
+begin
+  if not Assigned(aList) then
+    Exit;
+
+  aList.BeginUpdate;
+  try
+    aList.Sorted := True;
+    aList.Duplicates := dupIgnore;
+  finally
+    aList.EndUpdate;
+  end;
+end;
+
+function TwbNullSoundBankArray.TryLookupDisplay(const aNodeType: TwbWwiseNodeType; const aDisplayStr: string; var aGUID: TGUID): Boolean;
+begin
+  aGUID := Default(TGUID);
+  Result := False;
+end;
+
+function TwbNullSoundBankArray.TryLookupGUID(const aNodeType: TwbWwiseNodeType; const aGUID: TGUID; var aName: string; var aFilename: string): Boolean;
+begin
+  Result := False;
+end;
+
 function NullCreateWaitForm(const aCaption     : string;
                             const aMessage     : string;
                                   aCanCancel   : Boolean;
@@ -5805,6 +6125,14 @@ function NullCreateWaitForm(const aCaption     : string;
                                                : IwbWaitForm;
 begin
   Result := TwbNullWaitForm.Create;
+end;
+
+class function TwbGameDefInputs.ForGame(aGameMode: TwbGameMode): TwbGameDefInputs;
+begin
+  Result := Default(TwbGameDefInputs);
+  Result.VWDInTemporary := not (aGameMode in [gmTES4, gmTES4R]);
+  Result.VWDAsQuestChildren := aGameMode in [gmFO4, gmFO4VR, gmFO76, gmSF1];
+  Result.ComplexFileFileID := aGameMode = gmSF1;
 end;
 
 function wbComputeCapabilities(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs): TwbGameCapabilities;
@@ -5914,10 +6242,14 @@ begin
   Create;
   gdGameMode := aGameMode;
   gdCapabilities := wbComputeCapabilities(aGameMode, aInputs);
-  gdGameName := aInputs.GameName;
-  gdGameExeName := aInputs.GameExeName;
-  gdGameMasterEsm := aInputs.GameMasterEsm;
-  gdAppName := aInputs.AppName;
+  gdGameName := wbGameIdentities[aGameMode].GameName;
+  gdGameExeName := wbGameIdentities[aGameMode].GameExeName;
+  gdGameMasterEsm := wbGameIdentities[aGameMode].GameMasterEsm;
+  gdAppName := wbGameIdentities[aGameMode].AppName;
+  if (aGameMode = gmTES4) and aInputs.Nehrim then begin
+    gdAppName := 'Nehrim';
+    gdGameMasterEsm := 'Nehrim.esm';
+  end;
 end;
 
 constructor TwbSaveDef.Create(aGameDef: TwbGameDef);
@@ -5935,6 +6267,7 @@ constructor TwbGameDef.Create;
 begin
   inherited Create;
   DefineOptions := TwbGameDefineOptions.Defaults;
+  gdDefinedOptions := DefineOptions;
   gdSaveDefsLock := TObject.Create;
   gdHEDRVersion := 1.0;
   gdHEDRNextObjectID := $800;
@@ -5957,11 +6290,6 @@ end;
 function TwbGameDef.GetKnownSubRecordSignature(aKind: TwbKnownSubRecord): TwbSignature;
 begin
   Result := gdKnownSubRecordSignatures[aKind];
-end;
-
-procedure TwbGameDef.SetKnownSubRecordSignature(aKind: TwbKnownSubRecord; const aValue: TwbSignature);
-begin
-  gdKnownSubRecordSignatures[aKind] := aValue;
 end;
 
 function TwbGameDef.KnownSubRecordSignaturesPtr: PwbKnownSubRecordSignatures;
@@ -6349,6 +6677,7 @@ var
   _GameDefClasses    : array[TwbGameMode] of TwbGameDefClass;
   _SaveDefClasses    : array[TwbGameMode] of TwbSaveDefClass;
   _CoSaveDefClasses  : array[TwbGameMode] of TwbSaveDefClass;
+  _SaveContextClasses: array[TwbGameMode] of TwbSaveContextClass;
 
 procedure TwbGameDef.CreateSaveDefs;
 begin
@@ -6410,6 +6739,11 @@ begin
     Result := gdSaveDef;
 end;
 
+function TwbGameDef.SaveContextClass: TwbSaveContextClass;
+begin
+  Result := _SaveContextClasses[gdGameMode];
+end;
+
 procedure TwbGameDef.EnsureDefined;
 begin
   if gdDefined then
@@ -6418,6 +6752,7 @@ begin
     raise Exception.Create('EnsureDefined called while the game def is being defined');
   gdDefining := True;
   try
+    gdDefinedOptions := DefineOptions;
     Define;
     gdDefined := True;
   finally
@@ -6433,8 +6768,11 @@ end;
 
 function wbCreateSaveContext(const aGameContext: IwbGameContext): IwbSaveContext;
 begin
-  Assert(Assigned(wbSaveContextClass));
-  Result := wbSaveContextClass.Create(aGameContext);
+  var lSaveContextClass := (aGameContext as TwbGameContext).GameDefObj.SaveContextClass;
+  if not Assigned(lSaveContextClass) then
+    lSaveContextClass := wbSaveContextClass;
+  Assert(Assigned(lSaveContextClass));
+  Result := lSaveContextClass.Create(aGameContext);
 end;
 
 { TwbSaveContext }
@@ -6577,10 +6915,18 @@ end;
 class function TwbGameDefineOptions.Defaults: TwbGameDefineOptions;
 begin
   Result := Default(TwbGameDefineOptions);
-  Result.Collapse := [Low(TwbCollapseOption)..High(TwbCollapseOption)];
+  Result.Collapse := CheckableCollapse;
   Result.SimpleRecords := True;
   Result.HideLargeSubrecords := True;
   Result.DecodeTextureHashes := True;
+end;
+
+class function TwbGameDefineOptions.CheckableCollapse: TwbCollapseOptions;
+begin
+  Result := [];
+  for var lOption := Low(TwbCollapseOption) to High(TwbCollapseOption) do
+    if not (cofHeader in wbCollapseOptionInfos[lOption].Flags) then
+      Include(Result, lOption);
 end;
 
 class function TwbGameDefineOptions.CollapseSettingsKey(aOption: TwbCollapseOption): string;
@@ -6624,7 +6970,91 @@ begin
   Result.NewHeaderAddon := 40;
 end;
 
+procedure TwbGameContextSettings.ApplyGameDefaults(aGameMode: TwbGameMode);
+begin
+  if aGameMode in [gmFO4, gmFO4VR, gmFO76, gmSF1] then
+    Language := 'En'
+  else
+    Language := 'English';
+
+  if aGameMode in [gmFO3, gmFNV] then begin
+    UDRSetZ := False;
+    UDRSetZValue := -15000;
+  end;
+
+  case aGameMode of
+    gmTES3: begin
+      LoadBSAs := False;
+      AllowInternalEdit := False;
+      DontCache := True;
+      DontCacheLoad := True;
+      DontCacheSave := True;
+      BuildRefs := False;
+      CreateContainedIn := False;
+      AllowESPMasters := True;
+      AllowESPMastersOnSave := True;
+    end;
+    gmTES4: begin
+      LoadBSAs := True;
+      AllowInternalEdit := False;
+      CanSortINFO := True;
+      AllowESPMasters := True;
+      AllowESPMastersOnSave := True;
+    end;
+    gmTES4R: begin
+      LoadBSAs := False;
+      AllowInternalEdit := False;
+      CanSortINFO := True;
+      AllowESPMasters := True;
+      AllowESPMastersOnSave := True;
+    end;
+    gmFO3, gmFNV: begin
+      LoadBSAs := False;
+      CanSortINFO := True;
+      AllowESPMasters := True;
+      AllowESPMastersOnSave := True;
+    end;
+    gmTES5, gmEnderal, gmTES5VR, gmSSE, gmEnderalSE: begin
+      LoadBSAs := True;  // localization won't work otherwise
+      HideIgnored := False; // to show Form Version
+      CanSortINFO := True;
+      AllowESPMasters := True;
+      AllowESPMastersOnSave := True;
+    end;
+    gmFO4, gmFO4VR: begin
+      LoadBSAs := True;  // localization won't work otherwise
+      HideIgnored := False; // to show Form Version
+      AlwaysSaveOnam := True;
+      AlwaysSaveOnamForce := True;
+      AllowESPMasters := True;
+      AllowESPMastersOnSave := True;
+    end;
+    gmFO76: begin
+      LoadBSAs := True;  // localization won't work otherwise
+      HideIgnored := False; // to show Form Version
+      AlwaysSaveOnam := True;
+      AlwaysSaveOnamForce := True;
+    end;
+    gmSF1: begin
+      EnforceAllMasters := True;
+      LoadBSAs := True;  // localization won't work otherwise
+      HideIgnored := False; // to show Form Version
+      AlwaysSaveOnam := True;
+      AlwaysSaveOnamForce := True;
+    end;
+  end;
+end;
+
 { TwbGameContext }
+
+function TwbGameContext.GetModuleList: TwbModuleList;
+begin
+  if not Assigned(gcModuleList) then begin
+    Assert(Assigned(wbModuleListClass));
+    gcModuleList := wbModuleListClass.Create(Self);
+  end;
+  Result := gcModuleList;
+end;
 
 constructor TwbGameContext.Create(const aGameDef: IwbGameDef);
 begin
@@ -6646,6 +7076,7 @@ begin
   gcLEncoding[False] := CreateLEncodingList;
   gcLEncoding[True] := CreateLEncodingList;
   gcLocalizationHandler := TwbLocalizationHandler.Create(Self);
+  gcSoundBankCache := TwbNullSoundBankArray.Create;
 end;
 
 destructor TwbGameContext.Destroy;
@@ -6842,14 +7273,17 @@ begin
   gcContainerHandler := aValue;
 end;
 
-function TwbGameContext.GetSoundBankCache: IInterface;
+function TwbGameContext.GetSoundBankCache: IwbSoundBankArray;
 begin
   Result := gcSoundBankCache;
 end;
 
-procedure TwbGameContext.SetSoundBankCache(const aValue: IInterface);
+procedure TwbGameContext.SetSoundBankCache(const aValue: IwbSoundBankArray);
 begin
-  gcSoundBankCache := aValue;
+  if Assigned(aValue) then
+    gcSoundBankCache := aValue
+  else
+    gcSoundBankCache := TwbNullSoundBankArray.Create;
 end;
 
 function TwbGameContext.GetFaceGenCache: IwbFaceGenCache;
@@ -7018,12 +7452,13 @@ begin
       _GameDefClasses[lGameMode] := aGameDefClass;
 end;
 
-procedure wbRegisterSaveDefs(const aGameModes: TwbGameModes; aSaveDefClass, aCoSaveDefClass: TwbSaveDefClass);
+procedure wbRegisterSaveDefs(const aGameModes: TwbGameModes; aSaveDefClass, aCoSaveDefClass: TwbSaveDefClass; aSaveContextClass: TwbSaveContextClass);
 begin
   for var lGameMode := Low(TwbGameMode) to High(TwbGameMode) do
     if lGameMode in aGameModes then begin
       _SaveDefClasses[lGameMode] := aSaveDefClass;
       _CoSaveDefClasses[lGameMode] := aCoSaveDefClass;
+      _SaveContextClasses[lGameMode] := aSaveContextClass;
     end;
 end;
 
@@ -20555,7 +20990,7 @@ begin
                 SetLength(LStringsAtOffSet, Succ(Offset));
 
               try
-                if wbLocalizationHandler(aElement.ContextObj).GetValue(aInt, aElement, s) then begin
+                if aElement.ContextObj.LocalizationHandler.GetValue(aInt, aElement, s) then begin
                   Inc(FoundLStringAtOffSet[Offset]);
 
                   if not Assigned(LStringsAtOffSet[Offset]) then
@@ -22845,13 +23280,13 @@ begin
   end;
 
   if aElement._File.IsLocalized then
-    if wbLocalizationHandler(aElement.ContextObj).NoTranslate then begin
+    if aElement.ContextObj.LocalizationHandler.NoTranslate then begin
       // assign a string when delocalizing and NoTranslate is true
       inherited FromStringNative(aBasePtr, aEndPtr, aElement, aValue, aTransformType);
       aElement.Localized := tbFalse;
     end else begin
       // set localized string's value
-      ID := wbLocalizationHandler(aElement.ContextObj).SetValue(PCardinal(aBasePtr)^, aElement, aValue);
+      ID := aElement.ContextObj.LocalizationHandler.SetValue(PCardinal(aBasePtr)^, aElement, aValue);
       aElement.RequestStorageChange(aBasePtr, aEndPtr, SizeOf(Cardinal));
       PCardinal(aBasePtr)^ := ID;
       aElement.Localized := tbTrue;
@@ -22924,7 +23359,7 @@ begin
       else
         Result := '<Error: lstring ID is not Int32>'
     end else begin
-      Found := wbLocalizationHandler(aElement.ContextObj).GetValue(PCardinal(aBasePtr)^, aElement, Result);
+      Found := aElement.ContextObj.LocalizationHandler.GetValue(PCardinal(aBasePtr)^, aElement, Result);
       if aTransformType = ttCheck then
         if Found then
           Result := ''
@@ -25777,6 +26212,1212 @@ constructor TwbFilesSet.Create;
 begin
   fdGeneration := AtomicIncrement(fdGenerationHead);
   inherited Create;
+end;
+
+function TwbModuleExtensionHelper.ToString: string;
+begin
+  case Self of
+    meESM: Result := csDotEsm;
+    meESL: Result := csDotEsl;
+    meESP: Result := csDotEsp;
+    meESU: Result := csDotEsu;
+  else
+    Result := '';
+  end;
+end;
+
+var
+  _InvalidModule     : TwbModuleInfo = (miFlags: [mfInvalid]);
+
+procedure FreeAllocatedModules(var aList: TwbModuleInfos);
+var
+  i: Integer;
+begin
+  for i := Low(aList) to High(aList) do
+    Dispose(aList[i]);
+  aList := nil;
+end;
+
+{ TwbModuleList }
+
+class function TwbModuleList.InvalidModule: PwbModuleInfo;
+begin
+  Result := @_InvalidModule;
+end;
+
+constructor TwbModuleList.Create(aContext: TwbGameContext);
+begin
+  inherited Create;
+  mlContext := aContext;
+  mlUpdateIndex := -1;
+end;
+
+destructor TwbModuleList.Destroy;
+begin
+  FreeAndNil(mlModulesByName);
+  FreeAllocatedModules(mlTemplateModules);
+  FreeAllocatedModules(mlAdditionalModules);
+  inherited;
+end;
+
+function TwbModuleList.ModuleByName(const aName: string): PwbModuleInfo;
+var
+  i: Integer;
+  s: string;
+begin
+  s := aName;
+  if s.EndsWith(csDotGhost, True) then
+    SetLength(s, Length(s) - Length(csDotGhost));
+  if s = '' then
+    Exit(@_InvalidModule);
+  LoadModules;
+  if mlModulesByName.Find(s, i) then
+    Result := Pointer(mlModulesByName.Objects[i])
+  else
+    Result := @_InvalidModule;
+end;
+
+function TwbModuleList.ModulesByLoadOrder(aIncludeTemplates: Boolean): TwbModuleInfos;
+var
+  i, j : Integer;
+begin
+  LoadModules;
+  Result := Copy(mlModulesLoadOrder);
+  i := Length(mlAdditionalModules);
+  if i > 0 then begin
+    j := Length(Result);
+    SetLength(Result, j + i);
+    for i := 0 to Pred(i) do
+      Result[j + i] := mlAdditionalModules[i];
+  end;
+  if aIncludeTemplates then begin
+    i := Length(mlTemplateModules);
+    if i > 0 then begin
+      j := Length(Result);
+      SetLength(Result, j + i);
+      for i := 0 to Pred(i) do
+        Result[j + i] := mlTemplateModules[i];
+    end;
+  end;
+end;
+
+{ TwbModuleInfo }
+
+procedure TwbModuleInfo.Activate(aActivateMasters: Boolean);
+begin
+  Include(miFlags, mfActive);
+  if aActivateMasters then
+    ActivateMasters(True);
+end;
+
+procedure TwbModuleInfo.ActivateMasters(aRecursive: Boolean);
+var
+  i: Integer;
+begin
+  for i := High(miMasters) downto Low(miMasters) do
+    if Assigned(miMasters[i]) then
+      with miMasters[i]^ do
+        if not (mfActive in miFlags) then
+          Activate(aRecursive);
+end;
+
+function TwbModuleList.AddNewModule(const aFileName: string; aTemplate: Boolean): PwbModuleInfo;
+begin
+  Result := AllocMem(SizeOf(TwbModuleInfo));
+  with Result^ do begin
+    miContext := mlContext;
+    miOriginalName := aFileName;
+    miName := aFileName;
+
+    miExtension := meUnknown;
+    if miName.EndsWith(csDotEsm, True) then
+      miExtension := meESM
+    else if miName.EndsWith(csDotEsp, True) then
+      miExtension := meESP
+    else if miName.EndsWith(csDotEsu, True) then
+      miExtension := meESU
+    else if miName.EndsWith(csDotEsl, True) and mlContext.GameDefObj.IsLightSupported then
+      miExtension := meESL;
+
+    if miExtension in [meESM, meESL] then
+      Include(miFlags, mfIsESM);
+
+    miDateTime := Now;
+    Include(miFlags, mfValid);
+    if aTemplate then
+      Include(miFlags, mfTemplate)
+    else
+      Include(miFlags, mfNew);
+
+    miOfficialIndex := High(Integer);
+    miCCIndex := High(Integer);
+    miPluginsTxtIndex := High(Integer);
+    miLoadOrderTxtIndex := High(Integer);
+    miCombinedIndex := High(Integer);
+
+    miFileID := TwbFileID.Invalid;
+    miLoadOrder := High(Integer);
+  end;
+  if aTemplate then begin
+    SetLength(mlTemplateModules, Succ(Length(mlTemplateModules)));
+    mlTemplateModules[High(mlTemplateModules)] := Result;
+    Result.miLoadOrder := 10000 + High(mlTemplateModules);
+  end else begin
+    SetLength(mlAdditionalModules, Succ(Length(mlAdditionalModules)));
+    mlAdditionalModules[High(mlAdditionalModules)] := Result;
+    mlModulesByName.AddObject(aFileName, Pointer(Result));
+  end;
+end;
+
+function TwbModuleInfo.Description: string;
+begin
+  Result := Trim(LoadOrderDescription + ' ' + FlagsDescription);
+end;
+
+function TwbModuleInfo.FlagsDescription: string;
+begin
+  Result := '';
+  if mfHasBlueprintFlag in miFlags then
+    Result := Result + '<BP>';
+  if mfGhost in miFlags then
+    Result := Result + '<Ghost>';
+  if mfHasESMFlag in miFlags then
+    Result := Result + '<ESM>';
+  if mfHasLightFlag in miFlags then
+    Result := Result + '<Light>';
+  if mfHasMediumFlag in miFlags then
+    Result := Result + '<Medium>';
+  if mfHasUpdateFlag in miFlags then
+    Result := Result + '<Update>';
+  if mfHasLocalizedFlag in miFlags then
+    Result := Result + '<Localized>';
+  if mfMastersMissing in miFlags then
+    Result := Result + '<MissingMasters>';
+end;
+
+function TwbModuleInfo.GetCRC32(out aCRC32: TwbCRC32): Boolean;
+begin
+  if not IsValid then begin
+    aCRC32 := 0;
+    Exit(False);
+  end;
+  if Assigned(miFile) then
+    aCRC32 := _File.CRC32
+  else begin
+    if miCRC32 = 0 then
+      miCRC32 := TwbHash.CRC32(miContext.Settings.DataPath + miOriginalName);
+    aCRC32 := miCRC32;
+  end;
+  Result := aCRC32.IsValid;
+end;
+
+function TwbModuleInfo.GetModuleType: TwbModuleType;
+begin
+  if mfHasLightFlag in miFlags then
+    Result := mtLight
+  else if mfHasMediumFlag in miFlags then
+    Result := mtMedium
+  else
+    Result := mtFull;
+end;
+
+function TwbModuleInfo.HasCRC32(aCRC32: TwbCRC32): Boolean;
+begin
+  if not IsValid then
+    Exit(False);
+  if Assigned(miFile) then
+    Exit(_File.CRC32 = aCRC32);
+  if miCRC32 = 0 then
+    miCRC32 := TwbHash.CRC32(miContext.Settings.DataPath + miOriginalName);
+  Result := aCRC32 = miCRC32;
+end;
+
+function TwbModuleInfo.HasIndex: Boolean;
+begin
+  Result := IsValid and (mfHasIndex in miFlags);
+end;
+
+function TwbModuleInfo.IsActive: Boolean;
+begin
+  Result := IsValid and (mfActive in miFlags);
+end;
+
+function TwbModuleInfo.IsTemplate: Boolean;
+begin
+  Result := IsValid and (mfTemplate in miFlags);
+end;
+
+function TwbModuleInfo.IsValid: Boolean;
+begin
+  Result := not ((mfInvalid in miFlags) or (@Self = @_InvalidModule));
+end;
+
+function TwbModuleInfo.LoadOrderDescription: string;
+begin
+  if mfTemplate in miFlags then
+    Exit('[Template]');
+
+  Result := '';
+  if (mfHasBlueprintFlag in miFlags) and (gcBlueprintPlugins in miContext.GameDefObj.Capabilities) then
+    Result := Result + '[BP]';
+  if miOfficialIndex = Low(Integer) then
+    Result := Result + '[GameMaster]'
+  else if miOfficialIndex = Succ(Low(Integer)) then
+    Result := Result + '[Hardcoded]'
+  else if miOfficialIndex = miContext.ModuleList.mlUpdateIndex then
+    Result := Result + '[Update]'
+  else if miOfficialIndex < High(Integer) then
+    Result := Result + '[DLC:'+miOfficialIndex.ToString+']';
+  if miCCIndex < High(Integer) then
+    Result := Result + '[CC:'+miCCIndex.ToString+']';
+  if Result = '' then begin
+    if (mfIsESM in miFlags) and (gcMastersLoadFirst in miContext.GameDefObj.Capabilities) then
+      Result := Result + '[ESM]';
+
+    if miPluginsTxtIndex < High(Integer) then
+      Result := Result + '[Plugins.txt:'+miPluginsTxtIndex.ToString+']';
+    if miLoadOrderTxtIndex < High(Integer) then
+      Result := Result + '[LoadOrder.txt:'+miLoadOrderTxtIndex.ToString+']';
+
+    if (Result = '') or (Result = '[ESM]') then
+      Result := Result + '[Time:'+FormatDateTime('yyyy-mm-dd hh:mm:ss', miDateTime)+']';
+  end;
+end;
+
+function TwbModuleInfo.ToString(aInclDesc: Boolean): string;
+begin
+  Result := miName;
+  if aInclDesc then
+    Result := Trim(Result + '    ' + Description);
+end;
+
+function TwbModuleInfo._File: IwbFile;
+
+begin
+  if not Supports(miFile, IwbFile, Result) then
+    Result := nil;
+end;
+
+{ TwbModuleInfosHelper }
+
+procedure TwbModuleInfosHelper.ActivateMasters;
+var
+  i: Integer;
+begin
+  for i := Low(Self) to High(Self) do
+    with Self[i]^ do
+      if mfActive in miFlags then
+        ActivateMasters(True);
+end;
+
+procedure TwbModuleInfosHelper.DeactivateAll;
+begin
+  ExcludeAll(mfActive);
+end;
+
+procedure TwbModuleList.ResetSimulatedLoad;
+var
+  i: Integer;
+begin
+  for i := Low(mlModules) to High(mlModules) do
+    with mlModules[i] do begin
+      Exclude(miFlags, mfLoaded);
+      Exclude(miFlags, mfLoading);
+      miFileID := TwbFileID.Invalid;
+      miLoadOrder := High(Integer);
+    end;
+  mlNextFullSlot := 0;
+  mlNextLightSlot := 0;
+  mlNextMediumSlot := 0;
+end;
+
+procedure TwbModuleList.DisableSimulatedLoad;
+begin
+  if mlSimulatedLoadDisabled then
+    Exit;
+  mlSimulatedLoadDisabled := True;
+  ResetSimulatedLoad;
+end;
+
+procedure TwbModuleInfosHelper.ExcludeAll(aFlag: TwbModuleFlag);
+var
+  i: Integer;
+begin
+  for i := Low(Self) to High(Self) do
+    with Self[i]^ do
+      Exclude(miFlags, aFlag);
+end;
+
+function TwbModuleInfosHelper.FilteredBy(const aFunc: TFunc<PwbModuleInfo, Boolean>): TwbModuleInfos;
+var
+  i, j: Integer;
+begin
+  SetLength(Result, Length(Self));
+  j := 0;
+  for i := Low(Self) to High(Self) do
+    if aFunc(Self[i]) then begin
+      Result[j] := Self[i];
+      Inc(j);
+    end;
+  SetLength(Result, j);
+end;
+
+function TwbModuleInfosHelper.FilteredByFlag(aFlag: TwbModuleFlag; aHasFlag: Boolean = True): TwbModuleInfos;
+var
+  i, j: Integer;
+begin
+  SetLength(Result, Length(Self));
+  j := 0;
+  for i := Low(Self) to High(Self) do
+    if (not (aFlag in Self[i]^.miFlags)) xor aHasFlag then begin
+      Result[j] := Self[i];
+      Inc(j);
+    end;
+  SetLength(Result, j);
+end;
+
+procedure TwbModuleInfosHelper.IncludeAll(aFlag: TwbModuleFlag);
+var
+  i: Integer;
+begin
+  for i := Low(Self) to High(Self) do
+    with Self[i]^ do
+      Include(miFlags, aFlag);
+end;
+
+function TwbModuleList.SimulateLoad(const aModules: TwbModuleInfos): TwbModuleInfos;
+var
+  NewLoadOrder      : TwbModuleInfos;
+  NewLoadOrderCount : Integer;
+
+  procedure Load(aModule: PwbModuleInfo);
+  var
+    i: Integer;
+  begin
+    with aModule^ do begin
+      if mfLoaded in miFlags then
+        Exit;
+      if mfLoading in miFlags then
+        raise Exception.Create('Modules contain circular references. Can''t load "'+miName+'"');
+      Include(miFlags, mfLoading);
+      try
+        for i := Low(miMasters) to High(miMasters) do
+          if Assigned(miMasters[i]) then
+            Load(miMasters[i])
+          else
+            raise Exception.Create('Module "'+miName+'" requires master "'+miMasterNames[i]+'" which can not be found');
+        Include(miFlags, mfLoaded);
+        miLoadOrder := NewLoadOrderCount;
+        NewLoadOrder[NewLoadOrderCount] := aModule;
+        Inc(NewLoadOrderCount);
+        var lLayout := mlContext.SlotLayout;
+        if not (mlContext.Settings.PseudoLight or mlContext.Settings.PseudoUpdate) then
+          if (mfHasUpdateFlag in miFlags) and not mlContext.Settings.IgnoreUpdate then begin
+            miFileID := TwbFileID.Invalid;
+          end else if (mfHasLightFlag in miFlags) and not mlContext.Settings.IgnoreLight then begin
+            if mlNextLightSlot > TwbFileID.MaxLightSlot(lLayout) then
+              raise Exception.Create('Too many light modules');
+            miFileID := TwbFileID.CreateLight(mlNextLightSlot, lLayout);
+            Inc(mlNextLightSlot);
+          end else if (mfHasMediumFlag in miFlags) and not mlContext.Settings.IgnoreMedium then begin
+            if mlNextMediumSlot > TwbFileID.MaxMediumSlot(lLayout) then
+              raise Exception.Create('Too many heavy modules');
+            miFileID := TwbFileID.CreateMedium(mlNextMediumSlot, lLayout);
+            Inc(mlNextMediumSlot);
+          end else begin
+            if mlNextFullSlot > TwbFileID.MaxFullSlot(lLayout) then
+              raise Exception.Create('Too many full modules');
+            miFileID := TwbFileID.CreateFull(mlNextFullSlot);
+            Inc(mlNextFullSlot);
+          end;
+      finally
+        Exclude(miFlags, mfLoading);
+      end;
+    end;
+  end;
+
+begin
+  if mlSimulatedLoadDisabled then
+    raise Exception.Create('Simulated Load has been disabled');
+
+  ResetSimulatedLoad;
+  SetLength(NewLoadOrder, Length(mlModules));
+  NewLoadOrderCount := 0;
+  for var lModuleIdx := Low(aModules) to High(aModules) do
+    with aModules[lModuleIdx]^ do
+      if miFlags * [mfActive, mfForceLoad] <> [] then
+        Load(aModules[lModuleIdx]);
+  SetLength(NewLoadOrder, NewLoadOrderCount);
+
+  var lActiveCount := 0;
+  for var lNewLoadOrderIdx := Low(NewLoadOrder) to High(NewLoadOrder) do
+    with NewLoadOrder[lNewLoadOrderIdx]^ do
+      if miFlags * [mfActive] <> [] then
+        Inc(lActiveCount);
+  if lActiveCount < 1 then
+    Exit(nil);
+
+  Result := NewLoadOrder;
+end;
+
+function TwbModuleInfosHelper.ToStrings(aInclDesc: Boolean): TDynStrings;
+var
+  i: Integer;
+begin
+  SetLength(Result ,Length(Self));
+  for i := Low(Self) to High(Self) do
+    Result[i] := Self[i].ToString(aInclDesc);
+end;
+
+constructor TwbLocalizationFile.Create(aContext: TwbGameContext; const aFileName: string);
+var
+  fs: TFileStream;
+  fStream: TMemoryStream;
+  Buffer: PByte;
+begin
+  fFileName := aFileName;
+  Init(aContext);
+  // cache file in mem
+  fStream := TMemoryStream.Create;
+  try
+    fs := TFileStream.Create(aFileName, fmOpenRead or fmShareDenyNone);
+    GetMem(Buffer, fs.Size);
+    try
+      fs.ReadBuffer(Buffer^, fs.Size);
+      fStream.WriteBuffer(Buffer^, fs.Size);
+      fStream.Position := 0;
+      ReadDirectory(fStream);
+    finally
+      if Assigned(Buffer) then FreeMem(Buffer);
+    end;
+  finally
+    FreeAndNil(fs);
+    FreeAndNil(fStream);
+  end;
+end;
+
+constructor TwbLocalizationFile.Create(aContext: TwbGameContext; const aFileName: string; const aData: TBytes);
+var
+  fStream: TMemoryStream;
+begin
+  fFileName := aFileName;
+  Init(aContext);
+  fStream := TMemoryStream.Create;
+  try
+    fStream.WriteBuffer(aData[0], length(aData));
+    fStream.Position := 0;
+    ReadDirectory(fStream);
+  finally
+    FreeAndNil(fStream);
+  end;
+end;
+
+destructor TwbLocalizationFile.Destroy;
+begin
+  FreeAndNil(fStrings);
+  inherited;
+end;
+
+procedure TwbLocalizationFile.Init(aContext: TwbGameContext);
+var
+  i: Integer;
+  s: string;
+begin
+  fModified := false;
+  fName := ExtractFileName(fFileName);
+
+  fLanguage := ChangeFileExt(fName, '');
+  i := Length(fLanguage);
+  while (i > 0) and (fLanguage[i]<>'_') do
+    Dec(i);
+  Delete(fLanguage, 1, i);
+
+  fEncoding[False] := nil;
+  fEncoding[True] := nil;
+
+  s := ChangeFileExt(fFileName, '.cpoverride');
+  if FileExists(s) then try
+    with TStringList.Create do try
+      LoadFromFile(s);
+      if Count > 0 then begin
+        s := Strings[0].Trim;
+        if s <> '' then
+          fEncoding[False] := wbMBCSEncoding(s);
+      end;
+    finally
+      Free;
+    end;
+  except end;
+
+  s := '';
+
+  if Assigned(fEncoding[False]) then
+    s := Format('[%s] Using encoding (from override): %s', [fName, fEncoding[False].EncodingName])
+  else begin
+    fEncoding[False] := aContext.EncodingForLanguage(fLanguage, False);
+    s := Format('[%s] Using encoding (from language): %s', [fName, fEncoding[False].EncodingName]);
+  end;
+
+  fEncoding[True] := aContext.EncodingForLanguage(fLanguage, True);
+  if fEncoding[True] = fEncoding[False] then
+    fEncoding[True] := nil;
+
+  if Assigned(fEncoding[True]) then
+    s := s + ' with fallback (from languange) to: ' + fEncoding[True].EncodingName;
+
+  wbProgress(s);
+
+  fFileType := FileStringType(fFileName);
+  fStrings := TwbFastStringList.Create;
+  fNextID := 1;
+end;
+
+function TwbLocalizationFile.FileStringType(const aFileName: string): TwbLStringType;
+var
+  ext: string;
+  i: TwbLStringType;
+begin
+  Result := lsString;
+  ext := ExtractFileExt(aFileName);
+  for i := Low(TwbLStringType) to High(TwbLStringType) do
+    if SameText(ext, wbLocalizationExtension[i]) then
+      Result := i;
+end;
+
+function TwbLocalizationFile.Find(ID: Cardinal; out s: string): Boolean;
+var
+  idx: integer;
+begin
+  s := '';
+  idx := fStrings.IndexOfObject(Pointer(ID));
+  Result := idx >= 0;
+  if Result then
+    s := fStrings[idx]
+  else
+    s := '<Error: Unknown lstring ID ' + IntToHex(ID, 8) + '>';
+end;
+
+function TwbLocalizationFile.ReadZString(aStream: TMemoryStream): string;
+var
+  Position : Integer;
+  p: PByte;
+  i, j: Integer;
+  b: TBytes;
+begin
+  Position := aStream.Position;
+  p := @PByte(aStream.Memory)[Position];
+  i := 0;
+  j := aStream.Size - Position;
+  while (i < j) and (p[i] <> 0) do
+    Inc(i);
+  if i > 0 then begin
+    b := BytesOf(p, i);
+    try
+      Result := fEncoding[False].GetString(b);
+    except
+      on E: EEncodingError do begin
+        if not Assigned(fEncoding[True]) then
+          raise;
+        Result := fEncoding[True].GetString(b);
+      end;
+    end;
+  end else
+    Result := '';
+  aStream.Position := Position + Succ(i);
+end;
+
+function TwbLocalizationFile.ReadLenZString(aStream: TMemoryStream): string;
+var
+  Position : Integer;
+  p: PByte;
+  i: Integer;
+  b: TBytes;
+begin
+  Position := aStream.Position;
+  p := @PByte(aStream.Memory)[Position];
+  i := PInteger(p)^;
+  Inc(PInteger(p), 1);
+  Dec(i);
+  if i > 0 then begin
+    b := BytesOf(p, i);
+    try
+      Result := fEncoding[False].GetString(b);
+    except
+      on E: EEncodingError do begin
+        if not Assigned(fEncoding[True]) then
+          raise;
+        Result := fEncoding[True].GetString(b);
+      end;
+    end;
+  end else
+    Result := '';
+  aStream.Position := Position + Succ(i) + SizeOf(Integer);
+end;
+
+procedure TwbLocalizationFile.WriteZString(aStream: TMemoryStream; const aString: string);
+var
+  b: TBytes;
+  i: Integer;
+const
+  z: Byte = 0;
+begin
+  b := fEncoding[False].GetBytes(aString);
+  i := Length(b);
+  if i > 0 then
+    aStream.WriteBuffer(b[0], i);
+  aStream.WriteBuffer(z, SizeOf(z));
+end;
+
+procedure TwbLocalizationFile.WriteLenZString(aStream: TMemoryStream; const aString: string);
+var
+  b    : TBytes;
+  i, j : Integer;
+const
+  z: Byte = 0;
+begin
+  b := fEncoding[False].GetBytes(aString);
+  i := Length(b);
+  j := Succ(i);
+  aStream.WriteBuffer(j, SizeOf(j));
+  if i > 0 then
+    aStream.WriteBuffer(b[0], i);
+  aStream.WriteBuffer(z, SizeOf(z));
+end;
+
+procedure TwbLocalizationFile.ReadDirectory(aStream: TMemoryStream);
+var
+  i: integer;
+  scount, id, offset: Cardinal;
+  oldPos: int64;
+  s: string;
+begin
+  if aStream.Size < 8 then
+    Exit;
+
+  aStream.Read(scount, 4); // number of strings
+  aStream.Position := aStream.Position + 4; // skip dataSize
+  if scount > 0 then
+    for i := 0 to scount - 1 do begin
+      aStream.Read(id, 4); // string ID
+      aStream.Read(offset, 4); // offset of string relative to data (header + dirsize)
+      oldPos := aStream.Position;
+      aStream.Position := 8 + scount*8 + offset; // header + dirsize + offset
+      if fFileType = lsString then
+        s := ReadZString(aStream)
+      else
+        s := ReadLenZString(aStream);
+      fStrings.AddObject(s, pointer(id));
+      if Succ(id) > fNextID then
+        fNextID := Succ(id);
+      aStream.Position := oldPos;
+    end;
+end;
+
+procedure TwbLocalizationFile.WriteToStream(const aStream: TStream);
+var
+  dir, data: TMemoryStream;
+  i: integer;
+  c: Cardinal;
+begin
+  dir := TMemoryStream.Create;
+  data := TMemoryStream.Create;
+  c := fStrings.Count;
+  dir.WriteBuffer(c, SizeOf(c)); // number of strings
+  dir.WriteBuffer(c, SizeOf(c)); // dataSize, will overwrite later
+  try
+    for i := 0 to Pred(fStrings.Count) do begin
+      c := Cardinal(fStrings.Objects[i]);
+      dir.WriteBuffer(c, SizeOf(c)); // ID
+      c := data.Position;
+      dir.WriteBuffer(c, SizeOf(c)); // relative position
+      if fFileType = lsString then
+        WriteZString(data, fStrings[i])
+      else
+        WriteLenZString(data, fStrings[i]);
+    end;
+    c := data.Size;
+    dir.Position := 4;
+    dir.WriteBuffer(c, SizeOf(c)); // dataSize
+
+    aStream.CopyFrom(dir, 0);
+    aStream.CopyFrom(data, 0);
+  finally
+    FreeAndNil(dir);
+    FreeAndNil(data);
+  end;
+end;
+
+function TwbLocalizationFile.Count: Integer;
+begin
+  Result := fStrings.Count;
+end;
+
+function TwbLocalizationFile.IndexToID(Index: Integer): Cardinal;
+begin
+  if Index < Count then
+    Result := Cardinal(fStrings.Objects[Index])
+  else
+    Result := 0;
+end;
+
+function TwbLocalizationFile.IDExists(ID: Cardinal): Boolean;
+begin
+  Result := fStrings.IndexOfObject(Pointer(ID)) >= 0;
+end;
+
+function TwbLocalizationFile.Get(Index: Cardinal): string;
+var
+  idx: integer;
+begin
+  Result := '';
+  idx := fStrings.IndexOfObject(Pointer(Index));
+  if idx >= 0 then
+    Result := fStrings[idx]
+  else
+    Result := '<Error: Unknown lstring ID ' + IntToHex(Index, 8) + '>';
+end;
+
+procedure TwbLocalizationFile.Put(Index: Cardinal; const S: string);
+var
+  idx: integer;
+begin
+  idx := fStrings.IndexOfObject(Pointer(Index));
+  if idx >= 0 then
+    if fStrings[idx] <> S then begin
+      fStrings[idx] := S;
+      fModified := true;
+    end;
+end;
+
+function TwbLocalizationFile.AddString(ID: Cardinal; const S: string): Boolean;
+begin
+  Result := false;
+  if ID < NextID then
+    Exit;
+
+  fStrings.AddObject(S, Pointer(ID));
+  fNextID := Succ(ID);
+  fModified := true;
+
+  Result := true;
+end;
+
+procedure TwbLocalizationFile.ExportToFile(const aFileName: string);
+var
+  i: integer;
+  sl: TStringList;
+begin
+  sl := TStringList.Create;
+  try
+    for i := 0 to Pred(fStrings.Count) do begin
+      sl.Add('[' + IntToHex(Integer(fStrings.Objects[i]), 8) + ']');
+      sl.Add(fStrings[i]);
+    end;
+    sl.SaveToFile(aFileName);
+  finally
+    FreeAndNil(sl);
+  end;
+end;
+
+constructor TwbLocalizationHandler.Create(aContext: TwbGameContext);
+begin
+  lhContext := aContext;
+  lFiles := TwbFastStringListIC.CreateSorted;
+  fReuseDup := false;
+  NoTranslate := false;
+end;
+
+destructor TwbLocalizationHandler.Destroy;
+begin
+  Clear;
+  FreeAndNil(lFiles);
+end;
+
+function TwbLocalizationHandler.Count: Integer;
+begin
+  TMonitor.Enter(Self);
+  try
+    Result := lFiles.Count;
+  finally
+    TMonitor.Exit(Self);
+  end;
+end;
+
+procedure TwbLocalizationHandler.Clear;
+var
+  i: integer;
+begin
+  TMonitor.Enter(Self);
+  try
+    for i := 0 to Pred(Count) do
+      _Files[i].Destroy;
+    lFiles.Clear;
+    Inc(Generation);
+  finally
+    TMonitor.Exit(Self);
+  end;
+end;
+
+function TwbLocalizationHandler.Get(Index: Integer): TwbLocalizationFile;
+begin
+  TMonitor.Enter(Self);
+  try
+    if Index < Count then
+      Result := TwbLocalizationFile(lFiles.Objects[Index])
+    else
+      Result := nil;
+  finally
+    TMonitor.Exit(Self);
+  end;
+end;
+
+function TwbLocalizationHandler.AddLocalization(const aFileName: string): TwbLocalizationFile;
+var
+  i: Integer;
+  s: string;
+begin
+  s := ExtractFileName(aFileName);
+  TMonitor.Enter(Self);
+  try
+    if lFiles.Find(s, i) then
+      Result := lFiles.Objects[i] as TwbLocalizationFile
+    else begin
+      Result := TwbLocalizationFile.Create(lhContext, aFileName);
+      lFiles.AddObject(s, Result);
+    end;
+  finally
+    TMonitor.Exit(Self);
+  end;
+end;
+
+function TwbLocalizationHandler.AddLocalization(const aFileName: string; const aData: TBytes): TwbLocalizationFile;
+var
+  i: Integer;
+  s: string;
+begin
+  s := ExtractFileName(aFileName);
+  TMonitor.Enter(Self);
+  try
+    if lFiles.Find(s, i) then
+      Result := lFiles.Objects[i] as TwbLocalizationFile
+    else begin
+      wbLockProcessMessages;
+      try
+        Result := TwbLocalizationFile.Create(lhContext, aFileName, aData);
+        lFiles.AddObject(s, Result);
+      finally
+        wbUnLockProcessMessages;
+      end;
+    end;
+  finally
+    TMonitor.Exit(Self);
+  end;
+end;
+
+function TwbLocalizationHandler.LocalizedValueDecider(aElement: IwbElement): TwbLStringType;
+var
+  sigElement, sigRecord: TwbSignature;
+  aRecord: IwbSubRecord;
+begin
+  if Supports(aElement, IwbSubRecord, aRecord) then
+    sigElement := aRecord.Signature
+  else
+    sigElement := '';
+
+  sigRecord := aElement.ContainingMainRecord.Signature;
+
+  if (sigRecord <> 'LSCR') and (sigElement = 'DESC') then Result := lsDLString else // DESC always from dlstrings except LSCR
+  if (sigRecord = 'QUST') and (sigElement = 'CNAM') then Result := lsDLString else // quest log entry
+  if (sigRecord = 'BOOK') and (sigElement = 'CNAM') then Result := lsDLString else // Book CNAM description
+  if (sigRecord = 'INFO') and (sigElement <> 'RNAM') then Result := lsILString else // dialog, RNAM are lsString, others lsILString
+    Result := lsString; // others
+end;
+
+function TwbLocalizationHandler.GetStringsPath: string;
+begin
+  Result := lhContext.Settings.DataPath + 'Strings\';
+end;
+
+procedure TwbLocalizationHandler.AvailableLanguages(aLanguages : TStringList);
+var
+  F  : TSearchRec;
+  p  : integer;
+  s  : string;
+
+  procedure ParseString;
+  begin
+    p := LastDelimiter('_', s);
+    if p > 0 then begin
+      s := Copy(s, p + 1, length(s));
+      if s = '' then
+        Exit;
+      s := AnsiUpperCase(s[1]) + Copy(s, 2, Length(s));
+      if aLanguages.IndexOf(s) < 0 then
+        aLanguages.Add(s);
+    end;
+  end;
+
+var
+  sl : TStringList;
+  i  : Integer;
+begin
+  TMonitor.Enter(Self);
+  try
+    if lhContext.ContainerHandler <> nil then begin
+      sl := TStringList.Create;
+      try
+        lhContext.ContainerHandler.ContainerResourceList('', sl, 'strings');
+        for i := 0 to Pred(sl.Count) do begin
+          s := sl[i];
+          if s.EndsWith('strings', True) then begin
+            s := ChangeFileExt(s, '').ToLower;
+            ParseString;
+          end;
+        end;
+      finally
+        sl.Free;
+      end;
+    end else begin
+      if FindFirst(StringsPath + '*.*STRINGS', faAnyFile, F) = 0 then try
+        repeat
+          s := LowerCase(ChangeFileExt(F.Name, ''));
+          ParseString;
+        until FindNext(F) <> 0;
+      finally
+        System.SysUtils.FindClose(F);
+      end;
+    end;
+  finally
+    TMonitor.Exit(Self);
+  end;
+end;
+
+procedure TwbLocalizationHandler.AvailableLocalizationFiles(aFiles: TStringList);
+var
+  F: TSearchRec;
+  sl : TStringList;
+  i  : Integer;
+  s  : string;
+begin
+  TMonitor.Enter(Self);
+  try
+    if lhContext.ContainerHandler <> nil then begin
+      sl := TStringList.Create;
+      try
+        lhContext.ContainerHandler.ContainerResourceList('', sl, 'strings');
+        for i := 0 to Pred(sl.Count) do begin
+          s := sl[i];
+          if s.EndsWith('strings', True) then
+            aFiles.Add(ExtractFileName(s));
+        end;
+      finally
+        sl.Free;
+      end;
+    end else begin
+      if FindFirst(StringsPath + '*.*STRINGS', faAnyFile, F) = 0 then try
+        repeat
+          aFiles.Add(F.Name);
+        until FindNext(F) <> 0;
+      finally
+        System.SysUtils.FindClose(F);
+      end;
+    end;
+  finally
+    TMonitor.Exit(Self);
+  end;
+end;
+
+procedure TwbLocalizationHandler.LoadForFile(const aFileName: string);
+var
+  ls   : TwbLStringType;
+  i    : Integer;
+  s    : string;
+  res  : TDynResources;
+begin
+  if lhContext.ContainerHandler = nil then
+    Exit;
+
+  TMonitor.Enter(Self);
+  try
+    for ls := Low(TwbLStringType) to High(TwbLStringType) do begin
+      s := GetLocalizationFileNameByType(aFileName, ls);
+      if not lFiles.Find(ExtractFileName(s), i) then begin
+        res := lhContext.ContainerHandler.OpenResource(s);
+        if length(res) > 0 then
+          AddLocalization(lhContext.Settings.DataPath + s, res[High(res)].GetData);
+      end;
+    end;
+  finally
+    TMonitor.Exit(Self);
+  end;
+end;
+
+function TwbLocalizationHandler.GetLocalizationFileNameByType(const aPluginFile: string; ls: TwbLStringType): string;
+begin
+  Result := Format('%s_%s%s', [
+    ChangeFileExt(aPluginFile, ''),
+    lhContext.Settings.Language,
+    wbLocalizationExtension[ls]
+  ]);
+  // relative path to Data folder
+  Result := 'Strings\' + Result;
+end;
+
+function TwbLocalizationHandler.GetLocalizationFileNameByElement(aElement: IwbElement): string;
+begin
+  Result := '';
+
+  if not Assigned(aElement) then
+    Exit;
+
+  Result := GetLocalizationFileNameByType(aElement._File.FileName, LocalizedValueDecider(aElement));
+end;
+
+// create a new lstring from aValue for aElement
+function TwbLocalizationHandler.AddValue(const aValue: string; aElement: IwbElement): Cardinal;
+var
+  ls: TwbLStringType;
+  FileName: string;
+  wblf: array [TwbLStringType] of TwbLocalizationFile;
+  idx: integer;
+  data: TBytes;
+  ID: Cardinal;
+begin
+  Result := 0;
+
+  if not Assigned(aElement) then
+    Exit;
+
+  if aValue = '' then
+    Exit;
+
+  TMonitor.Enter(Self);
+  // create localization files if absent
+  try
+    ID := 1;
+    for ls := Low(TwbLStringType) to High(TwbLStringType) do begin
+      FileName := GetLocalizationFileNameByType(aElement._File.FileName, ls);
+      idx := lFiles.IndexOf(ExtractFileName(FileName));
+      if idx < 0 then begin
+        wblf[ls] := AddLocalization(lhContext.Settings.DataPath + FileName, data);
+        wblf[ls].Modified := true;
+      end else
+        wblf[ls] := _Files[idx];
+
+      if wblf[ls].NextID > ID then
+        ID := wblf[ls].NextID;
+    end;
+
+    ls := LocalizedValueDecider(aElement);
+
+    // detect a duplicate string
+    if ReuseDup then begin
+      idx := wblf[ls].fStrings.IndexOf(aValue);
+      if idx >= 0 then
+        ID := Cardinal(wblf[ls].fStrings.Objects[idx])
+      else
+        wblf[ls].AddString(ID, aValue);
+    end else
+      wblf[ls].AddString(ID, aValue);
+
+    Result := ID;
+  finally
+    TMonitor.Exit(Self);
+  end;
+end;
+
+function TwbLocalizationHandler.SetValue(ID: Cardinal; aElement: IwbElement; const aValue: string): Cardinal;
+var
+  idx: integer;
+  FileName: string;
+begin
+  Result := ID;
+
+  if not Assigned(aElement) then
+    Exit;
+
+  TMonitor.Enter(Self);
+  try
+    FileName := GetLocalizationFileNameByElement(aElement);
+    idx := lFiles.IndexOf(ExtractFileName(FileName));
+
+    if (idx < 0 ) or (ID = 0) then begin
+      // new string
+      Result := AddValue(aValue, aElement);
+      Exit;
+    end;
+
+    if not _Files[idx].IDExists(ID) then
+      // string doesn't exist, create new
+      Result := AddValue(aValue, aElement)
+    else
+      // modify existing
+      _Files[idx][ID] := aValue;
+  finally
+    TMonitor.Exit(Self);
+  end;
+end;
+
+
+function TwbLocalizationHandler.GetValue(ID: Cardinal; aElement: IwbElement; out aValue: string): Boolean;
+var
+  lFileName: string;
+  idx: integer;
+begin
+  aValue := '';
+
+  if NoTranslate then begin
+    aValue := IntToHex(ID, 8);
+    Exit(True);
+  end;
+
+  if ID = 0 then
+    Exit(True);
+
+  lFileName := ExtractFileName(GetLocalizationFileNameByElement(aElement));
+
+  if lFileName = '' then
+    Exit(False);
+
+  TMonitor.Enter(Self);
+  try
+    idx := lFiles.IndexOf(lFileName);
+
+    // load strings files if absent
+    if idx < 0 then begin
+      LoadForFile(aElement._File.FileName);
+      // get file again
+      idx := lFiles.IndexOf(lFileName);
+    end;
+
+    if idx < 0 then begin
+      aValue := '<Error: No strings file for lstring ID ' + IntToHex(ID, 8) + '>';
+      Exit(False);
+    end;
+
+    Result := _Files[idx].Find(ID, aValue);
+  finally
+    TMonitor.Exit(Self);
+  end;
+end;
+
+procedure TwbLocalizationHandler.GetStringsFromFile(const aFileName: string; const aList: TStrings);
+var
+  i: integer;
+begin
+  if not Assigned(aList) then
+    Exit;
+
+  TMonitor.Enter(Self);
+  try
+    for i := 0 to Pred(lFiles.Count) do
+      if SameText(lFiles[i], aFileName) then begin
+        aList.Assign(_Files[i].fStrings);
+        Break;
+      end;
+  finally
+    TMonitor.Exit(Self);
+  end;
 end;
 
 initialization

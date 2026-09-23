@@ -147,7 +147,13 @@ type
     function ByName(aValidOnly: Boolean): TwbModGroupPtrs;
   end;
 
-function wbModGroupListOf(const aContext: TwbGameContext): TwbModGroupList;
+  TwbGameContextModGroupsHelper = class helper for TwbGameContext
+  private
+    function GetModGroupList: TwbModGroupList;
+  public
+    property ModGroupList: TwbModGroupList
+      read GetModGroupList;
+  end;
 
 implementation
 
@@ -157,14 +163,16 @@ uses
   wbHelpers,
   wbSort;
 
-function wbModGroupListOf(const aContext: TwbGameContext): TwbModGroupList;
+{ TwbGameContextModGroupsHelper }
+
+function TwbGameContextModGroupsHelper.GetModGroupList: TwbModGroupList;
 begin
-  Result := TwbModGroupList(aContext.ModGroupList);
-  if not Assigned(Result) then begin
+  if not Assigned(gcModGroupList) then begin
     Result := TwbModGroupList.Create;
-    Result.mgContext := aContext;
-    aContext.ModGroupList := Result;
-  end;
+    Result.mgContext := Self;
+    gcModGroupList := Result;
+  end else
+    Result := TwbModGroupList(gcModGroupList);
 end;
 
 procedure TwbModGroupList.Load;
@@ -185,7 +193,7 @@ begin
     try
       ModGroupFilesByName.Sorted := True;
       ModGroupFilesByName.Duplicates := dupError;
-      Modules := wbModuleListOf(mgContext).ModulesByLoadOrder(False){.FilteredByFlag(mfHasFile)};
+      Modules := mgContext.ModuleList.ModulesByLoadOrder(False){.FilteredByFlag(mfHasFile)};
       SetLength(ModGroupFiles, Succ(Length(Modules)));
       j := 0;
       for i := Low(Modules) to Length(Modules) do begin
@@ -630,7 +638,7 @@ begin
   if mgiFileName.IsEmpty then
     Exit(False);
 
-  mgiModule := wbModuleListOf(aContext).ModuleByName(mgiFileName);
+  mgiModule := aContext.ModuleList.ModuleByName(mgiFileName);
 
   if Length(Fragments) > 1 then begin
     Fragments := Fragments[1].Split([',']).ForEach(Trim).RemoveEmpty;
@@ -766,7 +774,7 @@ var
   SourceReported : Boolean;
 begin
   Result := False;
-  Modules := wbModuleListOf(aContext).ModulesByLoadOrder(False);
+  Modules := aContext.ModuleList.ModulesByLoadOrder(False);
   for i := Low(Modules) to High(Modules) do
     with Modules[i]^ do begin
       miModGroupTargets := nil;

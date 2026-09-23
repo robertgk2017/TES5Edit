@@ -18,6 +18,81 @@ uses
 
 type
   TwbGameDefFNV = class(TwbGameDefCommon)
+  private
+    wbConditionParameters: array of IwbValueDef;
+    wbConditionVATSValueParameters: array of IwbValueDef;
+    wbConditionBaseObjects: TwbSignatures;
+
+    wbConditionVATSValueEnum: IwbEnumDef;
+    wbFormTypeEnum: IwbEnumDef;
+    wbHeadPartIndexEnum: IwbEnumDef;
+    wbMiscStatEnum: IwbEnumDef;
+    wbModEffectEnum: IwbEnumDef;
+    wbObjectTypeEnum: IwbEnumDef;
+    wbPlayerActionEnum: IwbEnumDef;
+    wbReloadAnimEnum: IwbEnumDef;
+    wbSkillEnum: IwbEnumDef;
+    wbSoundLevelEnum: IwbEnumDef;
+    wbVatsValueFunctionEnum: IwbEnumDef;
+    wbWeaponAnimTypeEnum: IwbEnumDef;
+
+    wbEDID: IwbSubRecordDef;
+    wbEDIDReq: IwbSubRecordDef;
+    wbEDIDReqKC: IwbSubRecordDef;
+    wbBMDT: IwbSubRecordDef;
+    wbYNAM: IwbSubRecordDef;
+    wbZNAM: IwbSubRecordDef;
+    wbCOED: IwbSubRecordDef;
+    wbXLCM: IwbSubRecordDef;
+    wbREPL: IwbSubRecordDef;
+    wbBIPL: IwbSubRecordDef;
+    wbDEST: IwbSubRecordStructDef;
+    wbDESTActor: IwbRecordMemberDef;
+    wbDODT: IwbSubRecordDef;
+    wbSLSD: IwbSubRecordDef;
+    wbSPLO: IwbSubRecordDef;
+    wbSPLOs: IwbRecordMemberDef;
+    wbCNTO: IwbRecordMemberDef;
+    wbCNTOs: IwbSubRecordArrayDef;
+    wbAIDT: IwbRecordMemberDef;
+    wbCSDT: IwbSubRecordStructDef;
+    wbCSDTs: IwbRecordMemberDef;
+    wbFULL: IwbSubRecordDef;
+    wbFULLActor: IwbRecordMemberDef;
+    wbFULLReq: IwbSubRecordDef;
+    wbDESC: IwbSubRecordDef;
+    wbDESCReq: IwbSubRecordDef;
+    wbXSCL: IwbSubRecordDef;
+    wbMODD: IwbRecordMemberDef;
+    wbMOSD: IwbRecordMemberDef;
+    wbMODS: IwbSubRecordDef;
+    wbMO2S: IwbSubRecordDef;
+    wbMO3S: IwbSubRecordDef;
+    wbMO4S: IwbSubRecordDef;
+    wbSCHRReq: IwbSubRecordDef;
+    wbConditions: IwbRecordMemberDef;
+    wbSCROs: IwbRecordMemberDef;
+    wbEmbeddedScript: IwbRecordMemberDef;
+    wbEmbeddedScriptPerk: IwbRecordMemberDef;
+    wbEmbeddedScriptReq: IwbRecordMemberDef;
+    wbSCRI: IwbSubRecordDef;
+    wbSCRIActor: IwbRecordMemberDef;
+    wbENAM: IwbSubRecordDef;
+    wbXESP: IwbSubRecordDef;
+    wbICON: IwbSubRecordStructDef;
+    wbICONReq: IwbSubRecordStructDef;
+    wbActorValue: IwbIntegerDef;
+    wbETYP: IwbSubRecordDef;
+    wbETYPReq: IwbSubRecordDef;
+    wbEFID: IwbSubRecordDef;
+    wbEFIT: IwbRecordMemberDef;
+    wbEffects: IwbSubRecordArrayDef;
+    wbEffectsReq: IwbSubRecordArrayDef;
+    wbEffect: IwbRecordMemberDef;
+    wbIngredient: IwbRecordMemberDef;
+    wbOutput: IwbRecordMemberDef;
+    wbFactionRank: IwbRecordMemberDef;
+    wbStaticPart: IwbRecordMemberDef;
   protected
     function EPFDActorValueToStr(aInt: Int64; const aElement: IwbElement; aType: TwbCallbackType): string;
     function EPFDActorValueToInt(const aString: string; const aElement: IwbElement): Int64;
@@ -37,82 +112,6 @@ uses
 
   wbDefinitionsSignatures,
   wbHelpers;
-
-var
-  wbConditionParameters: array of IwbValueDef;
-  wbConditionVATSValueParameters: array of IwbValueDef;
-  wbConditionBaseObjects: TwbSignatures;
-
-  wbConditionVATSValueEnum: IwbEnumDef;
-  wbFormTypeEnum: IwbEnumDef;
-  wbHeadPartIndexEnum: IwbEnumDef;
-  wbMiscStatEnum: IwbEnumDef;
-  wbModEffectEnum: IwbEnumDef;
-  wbObjectTypeEnum: IwbEnumDef;
-  wbPlayerActionEnum: IwbEnumDef;
-  wbReloadAnimEnum: IwbEnumDef;
-  wbSkillEnum: IwbEnumDef;
-  wbSoundLevelEnum: IwbEnumDef;
-  wbVatsValueFunctionEnum: IwbEnumDef;
-  wbWeaponAnimTypeEnum: IwbEnumDef;
-
-  wbEDID: IwbSubRecordDef;
-  wbEDIDReq: IwbSubRecordDef;
-  wbEDIDReqKC: IwbSubRecordDef;
-  wbBMDT: IwbSubRecordDef;
-  wbYNAM: IwbSubRecordDef;
-  wbZNAM: IwbSubRecordDef;
-  wbCOED: IwbSubRecordDef;
-  wbXLCM: IwbSubRecordDef;
-  wbREPL: IwbSubRecordDef;
-  wbBIPL: IwbSubRecordDef;
-  wbDEST: IwbSubRecordStructDef;
-  wbDESTActor: IwbRecordMemberDef;
-  wbDODT: IwbSubRecordDef;
-  wbSLSD: IwbSubRecordDef;
-  wbSPLO: IwbSubRecordDef;
-  wbSPLOs: IwbRecordMemberDef;
-  wbCNTO: IwbRecordMemberDef;
-  wbCNTOs: IwbSubRecordArrayDef;
-  wbAIDT: IwbRecordMemberDef;
-  wbCSDT: IwbSubRecordStructDef;
-  wbCSDTs: IwbRecordMemberDef;
-  wbFULL: IwbSubRecordDef;
-  wbFULLActor: IwbRecordMemberDef;
-  wbFULLReq: IwbSubRecordDef;
-  wbDESC: IwbSubRecordDef;
-  wbDESCReq: IwbSubRecordDef;
-  wbXSCL: IwbSubRecordDef;
-  wbMODD: IwbRecordMemberDef;
-  wbMOSD: IwbRecordMemberDef;
-  wbMODS: IwbSubRecordDef;
-  wbMO2S: IwbSubRecordDef;
-  wbMO3S: IwbSubRecordDef;
-  wbMO4S: IwbSubRecordDef;
-  wbSCHRReq: IwbSubRecordDef;
-  wbConditions: IwbRecordMemberDef;
-  wbSCROs: IwbRecordMemberDef;
-  wbEmbeddedScript: IwbRecordMemberDef;
-  wbEmbeddedScriptPerk: IwbRecordMemberDef;
-  wbEmbeddedScriptReq: IwbRecordMemberDef;
-  wbSCRI: IwbSubRecordDef;
-  wbSCRIActor: IwbRecordMemberDef;
-  wbENAM: IwbSubRecordDef;
-  wbXESP: IwbSubRecordDef;
-  wbICON: IwbSubRecordStructDef;
-  wbICONReq: IwbSubRecordStructDef;
-  wbActorValue: IwbIntegerDef;
-  wbETYP: IwbSubRecordDef;
-  wbETYPReq: IwbSubRecordDef;
-  wbEFID: IwbSubRecordDef;
-  wbEFIT: IwbRecordMemberDef;
-  wbEffects: IwbSubRecordArrayDef;
-  wbEffectsReq: IwbSubRecordArrayDef;
-  wbEffect: IwbRecordMemberDef;
-  wbIngredient: IwbRecordMemberDef;
-  wbOutput: IwbRecordMemberDef;
-  wbFactionRank: IwbRecordMemberDef;
-  wbStaticPart: IwbRecordMemberDef;
 
 type
   TConditionParameterType = (
@@ -2838,11 +2837,11 @@ end;
 
 procedure TwbGameDefFNV.Define;
 begin
-  RecordFlags := wbInteger('Record Flags', itU32, wbFlags(wbFlagsList([])));
+  gdRecordFlags := wbInteger('Record Flags', itU32, wbFlags(wbFlagsList([])));
 
-  MainRecordHeader := wbRecordHeader(RecordFlags);
+  gdMainRecordHeader := wbRecordHeader(RecordFlags);
 
-  SizeOfMainRecordStruct := 24;
+  gdSizeOfMainRecordStruct := 24;
 
   IgnoreRecords.Add(XXXX);
 
@@ -3347,7 +3346,7 @@ begin
       'Is Paralyzing Palm'
     ]);
 
-  ActorValueEnum :=
+  gdActorValueEnum :=
     wbEnum([
         {00} 'Aggression',
         {01} 'Confidence',
@@ -9125,12 +9124,11 @@ begin
   AddGroupOrder(DEHY);
   AddGroupOrder(HUNG);
   AddGroupOrder(SLPD);
-  NexusModsUrl := 'https://www.nexusmods.com/newvegas/mods/34703';
-  if wbToolMode = tmLODgen then
-    NexusModsUrl := 'https://www.nexusmods.com/newvegas/mods/58562';
-  HEDRVersion := 1.34;
-  DefaultFormVersion := 15;
-  DefaultLandTexture := 'LDirtWasteland01';
+  gdNexusModsUrl := 'https://www.nexusmods.com/newvegas/mods/34703';
+  gdLODGenNexusModsUrl := 'https://www.nexusmods.com/newvegas/mods/58562';
+  gdHEDRVersion := 1.34;
+  gdDefaultFormVersion := 15;
+  gdDefaultLandTexture := 'LDirtWasteland01';
 end;
 
 initialization

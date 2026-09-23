@@ -1132,14 +1132,11 @@ begin
         wbGameExeName := wbGameName;
       wbGameExeName := wbGameExeName + csDotExe;
 
-      lInputs.GameName := wbGameName;
-      lInputs.GameExeName := wbGameExeName;
-      lInputs.GameMasterEsm := wbGameMasterEsm;
-      lInputs.AppName := wbAppName;
       HostContextRef := wbCreateGameContext(wbCreateGameDef(wbGameMode, lInputs, lDefineOptions));
       HostContext := HostContextRef as TwbGameContext;
       lSettings.CreationClubContentFileName := HostContext.Settings.CreationClubContentFileName;
       HostContext.Settings := lSettings;
+      HostContext.Settings.TolerateMissingFiles := wbToolMode in [tmDump, tmExport];
 
       if not (wbToolMode in tms) then begin
         WriteLn(ErrOutput, 'Application '+wbGameName+' does not currently support ToolMode: '+wbToolName);
@@ -1159,7 +1156,7 @@ begin
       if (wbToolMode in [tmDump]) and (HostContext.Settings.DataPath = '') then // Dump can be run in any directory configuration
         HostContext.Settings.DataPath := CheckParamPath;
 
-      wbModuleListOf(HostContext).LoadModules;
+      HostContext.ModuleList.LoadModules;
 
       if FindCmdLineSwitch('report') then
         wbReportMode := True
@@ -1694,7 +1691,7 @@ begin
           _File := HostContext.LoadFile(s, High(Integer));
 
       if not (gcHardcodedFileIsFirstMaster in HostContext.GameDefObj.Capabilities) then
-        with wbModuleListOf(HostContext).ModuleByName(wbGameMasterEsm)^ do
+        with HostContext.ModuleList.ModuleByName(wbGameMasterEsm)^ do
           if mfHasFile in miFlags then begin
             b := TwbHardcodedContainer.GetHardCodedDat(HostContext.GameDefObj.GameName);
             if Length(b) > 0 then

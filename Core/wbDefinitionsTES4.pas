@@ -18,6 +18,40 @@ uses
 
 type
   TwbGameDefTES4 = class(TwbGameDefCommon)
+  private
+    wbConditionMembers: array of IwbValueDef;
+    wbConditionParameters: array of IwbValueDef;
+    wbSoundDataMembers: array of IwbValueDef;
+
+    wbAttributeEnum: IwbEnumDef;
+    wbDialogueTypeEnum: IwbEnumDef;
+    wbFormTypeEnum: IwbEnumDef;
+    wbMagicSchoolEnum: IwbEnumDef;
+    wbMajorSkillEnum: IwbEnumDef;
+    wbMiscStatEnum: IwbEnumDef;
+    wbSkillEnum: IwbEnumDef;
+    wbSpecializationEnum: IwbEnumDef;
+
+    wbBipedFlags: IwbFlagsDef;
+    wbPGAGFlags: IwbFlagsDef;
+
+    wbBodyParts: IwbRecordMemberDef;
+    wbCNTOs: IwbRecordMemberDef;
+    wbConditions: IwbRecordMemberDef;
+    wbDESC: IwbRecordMemberDef;
+    wbEDID: IwbRecordMemberDef;
+    wbEffects: IwbRecordMemberDef;
+    wbFULL: IwbSubRecordDef;
+    wbFULLReq: IwbRecordMemberDef;
+    wbICON: IwbRecordMemberDef;
+    wbPGRP: IwbRecordMemberDef;
+    wbResultScript: IwbRecordMemberDef;
+    wbSCHR: IwbRecordMemberDef;
+    wbSCRI: IwbRecordMemberDef;
+    wbSCROs: IwbRecordMemberDef;
+    wbSPLOs: IwbRecordMemberDef;
+    wbXESP: IwbRecordMemberDef;
+    wbXSCL: IwbRecordMemberDef;
   protected
     procedure Define; override;
   end;
@@ -31,41 +65,6 @@ uses
 
   wbDefinitionsSignatures,
   wbHelpers;
-
-var
-  wbConditionMembers: array of IwbValueDef;
-  wbConditionParameters: array of IwbValueDef;
-  wbSoundDataMembers: array of IwbValueDef;
-
-  wbAttributeEnum: IwbEnumDef;
-  wbDialogueTypeEnum: IwbEnumDef;
-  wbFormTypeEnum: IwbEnumDef;
-  wbMagicSchoolEnum: IwbEnumDef;
-  wbMajorSkillEnum: IwbEnumDef;
-  wbMiscStatEnum: IwbEnumDef;
-  wbSkillEnum: IwbEnumDef;
-  wbSpecializationEnum: IwbEnumDef;
-
-  wbBipedFlags: IwbFlagsDef;
-  wbPGAGFlags: IwbFlagsDef;
-
-  wbBodyParts: IwbRecordMemberDef;
-  wbCNTOs: IwbRecordMemberDef;
-  wbConditions: IwbRecordMemberDef;
-  wbDESC: IwbRecordMemberDef;
-  wbEDID: IwbRecordMemberDef;
-  wbEffects: IwbRecordMemberDef;
-  wbFULL: IwbSubRecordDef;
-  wbFULLReq: IwbRecordMemberDef;
-  wbICON: IwbRecordMemberDef;
-  wbPGRP: IwbRecordMemberDef;
-  wbResultScript: IwbRecordMemberDef;
-  wbSCHR: IwbRecordMemberDef;
-  wbSCRI: IwbRecordMemberDef;
-  wbSCROs: IwbRecordMemberDef;
-  wbSPLOs: IwbRecordMemberDef;
-  wbXESP: IwbRecordMemberDef;
-  wbXSCL: IwbRecordMemberDef;
 
 type
   TConditionParameterType = (
@@ -1005,9 +1004,9 @@ end;
 
 procedure TwbGameDefTES4.Define;
 begin
-  RecordFlags := wbInteger('Record Flags', itU32, wbFlags(wbFlagsList([])));
+  gdRecordFlags := wbInteger('Record Flags', itU32, wbFlags(wbFlagsList([])));
 
-  MainRecordHeader := wbStruct('Record Header', [
+  gdMainRecordHeader := wbStruct('Record Header', [
     wbString('Signature', 4, cpCritical),
     wbInteger('Data Size', itU32, nil, cpIgnore),
     RecordFlags,
@@ -1018,13 +1017,13 @@ begin
     .IncludeFlag(dfSummaryMembersNoName)
     .IncludeFlag(dfCollapsed, clpRecordHeader in DefineOptions.Collapse);
 
-  SizeOfMainRecordStruct := 20;
+  gdSizeOfMainRecordStruct := 20;
 
   IgnoreRecords.Add(XXXX);
 
 {>>> Enums <<<}
 
-  ActorValueEnum :=
+  gdActorValueEnum :=
     wbEnum([
       {0}  'Strength',
       {1}  'Intelligence',
@@ -3731,11 +3730,10 @@ begin
   AddGroupOrder(WATR);
   AddGroupOrder(EFSH);
   //wbAddGroupOrder(TOFT);
-  NexusModsUrl := 'https://www.nexusmods.com/oblivion/mods/11536';
-  if wbToolMode = tmLODgen then
-    NexusModsUrl := 'https://www.nexusmods.com/oblivion/mods/15781';
-  HEDRVersion := 1.0;
-  DefaultLandTexture := 'TerrainHDDirt01dds';
+  gdNexusModsUrl := 'https://www.nexusmods.com/oblivion/mods/11536';
+  gdLODGenNexusModsUrl := 'https://www.nexusmods.com/oblivion/mods/15781';
+  gdHEDRVersion := 1.0;
+  gdDefaultLandTexture := 'TerrainHDDirt01dds';
 end;
 
 initialization
