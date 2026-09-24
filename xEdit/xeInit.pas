@@ -603,7 +603,6 @@ function _DoInit: Boolean;
 var
   s: string;
   ToolModes: TwbSetOfMode;
-  SavesSupported: Boolean;
   SourceName: string;
   i: Integer;
   ExeName: string;
@@ -611,7 +610,6 @@ var
   lSettings: TwbGameContextSettings;
 begin
   ExeName := ChangeFileExt(ExtractFileName(ParamStr(0)), '').ToLowerInvariant;
-  lInputs := Default(TwbGameDefInputs);
   lSettings := TwbGameContextSettings.Defaults;
 
   if not wbIsAeroEnabled then
@@ -687,92 +685,76 @@ begin
   if not (xeToolMode in [tmView, tmEdit]) then
     wbPrettyFormID := False;
 
-  lSettings.Language := 'English';
-
   if isMode('FNV') then begin
     xeGameMode         := gmFNV;
     ToolModes          := wbAlwaysMode + [tmMasterUpdate, tmMasterRestore];
-    SavesSupported     := True;
   end
 
   else if isMode('FO3') then begin
     xeGameMode         := gmFO3;
     ToolModes          := wbAlwaysMode + [tmMasterUpdate, tmMasterRestore];
-    SavesSupported     := False;
   end
 
   else if isMode('TES3') then begin
     xeGameMode         := gmTES3;
     (**)
     ToolModes          := (**)[tmView];(** )wbAlwaysMode - [tmLODgen];(**)
-    SavesSupported     := False;
     (**)
   end
 
   else if isMode('TES4') then begin
     xeGameMode         := gmTES4;
     ToolModes          := wbAlwaysMode;
-    SavesSupported     := False;
   end
 
   else if isMode('TES4R') then begin
     xeGameMode         := gmTES4R;
     ToolModes          := wbAlwaysMode;
-    SavesSupported     := False;
   end
 
   else if isMode('TES5') then begin
     xeGameMode         := gmTES5;
     ToolModes          := wbAlwaysMode + [tmOnamUpdate];
-    SavesSupported     := True;
   end
 
   else if isMode('EnderalSE') then begin
     xeGameMode         := gmEnderalSE;
     ToolModes          := wbAlwaysMode + [tmOnamUpdate];
-    SavesSupported     := True;
   end
 
   else if isMode('Enderal') then begin
     xeGameMode         := gmEnderal;
     ToolModes          := wbAlwaysMode + [tmOnamUpdate];
-    SavesSupported     := True;
   end
 
   else if isMode('TES5VR') then begin
     xeGameMode         := gmTES5VR;
     ToolModes          := wbAlwaysMode + [tmOnamUpdate];
-    SavesSupported     := False;
   end
 
   else if isMode('SSE') then begin
     xeGameMode         := gmSSE;
     ToolModes          := wbAlwaysMode + [tmOnamUpdate];
-    SavesSupported     := True;
   end
 
   else if isMode('FO4') then begin
     xeGameMode         := gmFO4;
     ToolModes          := wbAlwaysMode;
-    SavesSupported     := True;
   end
 
   else if isMode('FO4VR') then begin
     xeGameMode         := gmFO4VR;
     ToolModes          := wbAlwaysMode;
-    SavesSupported     := False;
   end
 
   else if isMode('FO76') then begin
     xeGameMode         := gmFO76;
     ToolModes          := wbAlwaysMode;
-    SavesSupported     := False;
   end
 
   else if isMode('SF1') then begin
     xeGameMode         := gmSF1;
     ToolModes          := wbAlwaysMode - [tmESMify, tmESPify, tmLODgen];
-    SavesSupported     := False;
 
     if    FindCmdLineSwitch('ItJustWorksTM')
       and FindCmdLineSwitch('ThisIsFine')
@@ -795,16 +777,6 @@ begin
     Exit(False);
   end;
 
-  if xeSavesMode and not SavesSupported then begin
-    ShowMessage('Application ' + lIdentity.GameName + ' does not currently support ' + SourceName);
-    Exit(False);
-  end;
-
-  if xeSavesMode and (xeToolMode = tmEdit) then begin
-    ShowMessage('Application ' + lIdentity.GameName + ' does not currently support ' + SourceName + ' in ' + xeToolName + ' mode.');
-    Exit(False);
-  end;
-
   if FindCmdLineSwitch('DontCache') then
     lSettings.DontCache := True;
   if lSettings.DontCache or FindCmdLineSwitch('DontCacheLoad') then
@@ -818,31 +790,23 @@ begin
 
   lSettings.ApplyGameDefaults(xeGameMode);
   lSettings.ToolName := xeToolName;
-  case xeGameMode of
-    gmTES4:
-      if (not FileExists(lSettings.DataPath + 'Oblivion.esm')) and FileExists(lSettings.DataPath + 'Nehrim.esm') then
-        lInputs.Nehrim      := True;
-    gmFNV:
-      lInputs.HNVSE := FileExists(lSettings.DataPath + 'NVSE\Plugins\Hnvse.dll');
-    gmSSE, gmEnderalSE:
-      lInputs.CS := FileExists(lSettings.DataPath + 'SKSE\Plugins\CommunityShaders.dll');
-    gmTES5VR: begin
-      lInputs.LightSupport := FileExists(lSettings.DataPath + 'SKSE\Plugins\skyrimvresl.dll');
-      lInputs.UpdateSupport := lInputs.LightSupport;
-      lInputs.CS := FileExists(lSettings.DataPath + 'SKSE\Plugins\CommunityShaders.dll');
-    end;
-    gmFO4VR: begin
-      lInputs.LightSupport := FileExists(lSettings.DataPath + 'F4SE\Plugins\falloutvresl.dll') or
-                              FileExists(lSettings.DataPath + 'F4SE\Plugins\Daytripper4.dll');
-      lInputs.UpdateSupport := lInputs.LightSupport;
-    end;
-  end;
+  lInputs := TwbGameDefInputs.Detect(xeGameMode, lSettings.DataPath);
 
   xeContextRef := wbCreateGameContext(wbCreateGameDef(xeGameMode, lInputs, False));
   xeContext := xeContextRef as TwbGameContext;
   xeContext.Settings := lSettings;
 
-  xeContext.Settings.SortINFO := xeContext.Settings.CanSortINFO;
+  if xeSavesMode and not xeContext.GameDefObj.HasSaveDef then begin
+    ShowMessage('Application ' + xeContext.GameDefObj.GameName + ' does not currently support ' + SourceName);
+    Exit(False);
+  end;
+
+  if xeSavesMode and (xeToolMode = tmEdit) then begin
+    ShowMessage('Application ' + xeContext.GameDefObj.GameName + ' does not currently support ' + SourceName + ' in ' + xeToolName + ' mode.');
+    Exit(False);
+  end;
+
+  xeContext.Settings.SortINFO := gcCanSortINFO in xeContext.GameDefObj.Capabilities;
 
   if not ReadSettings then
     Exit(False);
@@ -853,7 +817,7 @@ begin
       xeContext.GameDefObj.DefineOptions.StarfieldIsABugInfestedHellhole := False; //you wish... but lets pretend
   end;
 
-  if xeContext.Settings.CanSortINFO then begin
+  if gcCanSortINFO in xeContext.GameDefObj.Capabilities then begin
     if FindCmdLineSwitch('sortinfo') then
       xeContext.Settings.SortINFO := True;
 
@@ -867,19 +831,7 @@ begin
       xeContext.Settings.FillPNAM := False;
   end;
 
-  // Was gmTES5, but is now gmEnderal
-  if xeContext.GameDefObj.GameMode <= gmEnderal then
-    xeContext.AddDefaultLEncodingsIfMissing(False)
-  else begin
-    case xeContext.GameDefObj.GameMode of
-    gmSSE, gmTES5VR, gmEnderalSE:
-      xeContext.AddLEncodingIfMissing('english', '1252', False);
-    else {FO4, FO76}
-      xeContext.AddLEncodingIfMissing('en', '1252', False);
-    end;
-  end;
-
-  xeContext.AddDefaultLEncodingsIfMissing(True);
+  xeContext.AddGameDefaultLEncodings;
 
   if wbFindCmdLineParam('AllowDirectSaves', s) then begin
     xeContext.AllowDirectSaveFor.AddStrings(s.Split([',']).ForEach(Trim).RemoveEmpty);
@@ -993,14 +945,14 @@ begin
 
     if (FindCmdLineSwitch('quickclean') or FindCmdLineSwitch('qc')
       or ExeName.Contains('quickclean') or ExeName.Contains('qc')) and not xeSavesMode then begin
-      if xeContext.Settings.CanSortINFO then
+      if gcCanSortINFO in xeContext.GameDefObj.Capabilities then
         xeContext.Settings.FillPNAM := True;
       xeQuickClean := True;
     end;
 
     if (FindCmdLineSwitch('quickautoclean') or FindCmdLineSwitch('qac')
       or ExeName.Contains('quickautoclean') or ExeName.Contains('qac')) and not xeSavesMode then begin
-      if xeContext.Settings.CanSortINFO then
+      if gcCanSortINFO in xeContext.GameDefObj.Capabilities then
         xeContext.Settings.FillPNAM := True;
       xeQuickClean := True;
       xeQuickCleanAutoSave := xeQuickClean;
@@ -1057,54 +1009,10 @@ begin
     xeContext.GameDefObj.DefineOptions.SimpleRecords := False;
   end;
 
-  if wbFindCmdLineParam('l', s) then begin
-    xeContext.Settings.Language := s;
-  end else begin
-    if FileExists(xeContext.Settings.TheGameIniFileName) then begin
-      with TMemIniFile.Create(xeContext.Settings.TheGameIniFileName) do try
-        case xeContext.GameDefObj.GameMode of
-          gmTES4: case ReadInteger('Controls', 'iLanguage', 0) of
-            1: s := 'German';
-            2: s := 'French';
-            3: s := 'Spanish';
-            4: s := 'Italian';
-          else
-            s := 'English';
-          end;
-        else
-          s := Trim(ReadString('General', 'sLanguage', '')).ToLower;
-        end;
-      finally
-        Free;
-      end;
-    end;
-
-    if FileExists(xeContext.Settings.CustomIniFileName) then begin
-       with TMemIniFile.Create(xeContext.Settings.CustomIniFileName) do try
-        case xeContext.GameDefObj.GameMode of
-          gmTES4: begin
-            if ValueExists('Controls', 'iLanguage') then
-              case ReadInteger('Controls', 'iLanguage', 0) of
-                1: s := 'German';
-                2: s := 'French';
-                3: s := 'Spanish';
-                4: s := 'Italian';
-              else
-                s := 'English';
-              end;
-          end else begin
-            if ValueExists('General', 'sLanguage') then
-              s := Trim(ReadString('General', 'sLanguage', '')).ToLower;
-          end;
-        end;
-      finally
-        Free;
-      end;
-    end;
-
-    if (s <> '') and not SameText(s, xeContext.Settings.Language) then
-      xeContext.Settings.Language := s;
-  end;
+  if wbFindCmdLineParam('l', s) then
+    xeContext.Settings.Language := s
+  else
+    xeContext.ApplyGameIniLanguage;
 
   xeContext.Settings.EncodingTrans := xeContext.EncodingForLanguage(xeContext.Settings.Language, False);
 
@@ -1245,7 +1153,7 @@ begin
       xeContext.Settings.BuildRefs := False;
     end;
     tmTranslate: begin
-      if xeContext.GameDefObj.GameMode >= gmTES5 then
+      if xeContext.GameDefObj.GameMode in [gmTES5, gmEnderal, gmFO4, gmSSE, gmTES5VR, gmEnderalSE, gmFO4VR, gmFO76, gmSF1] then
         xeContext.Settings.LoadBSAs := True; //needed for localization
       xeContext.Settings.TranslationMode := True;
       wbHideUnused             := True;
@@ -1401,6 +1309,7 @@ begin
       if lCapability in xeContext.GameDefObj.Capabilities then
         lCapabilities := lCapabilities + ' ' + GetEnumName(TypeInfo(TwbGameCapability), Ord(lCapability));
     lLines.Add('def.Capabilities=' + Trim(lCapabilities));
+    lLines.Add('def.HasSaveDef=' + BoolToStr(xeContext.GameDefObj.HasSaveDef, True));
     lRtti := TRttiContext.Create;
     lSettings := xeContext.Settings;
     for lField in lRtti.GetType(TypeInfo(TwbGameContextSettings)).GetFields do

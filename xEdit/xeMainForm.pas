@@ -16919,17 +16919,20 @@ begin
 end;
 
 procedure TfrmMain.SetDefaultNodeHeight(aHeight: Integer);
+
+  procedure SetTreeHeights(aTree: TVirtualEditTree);
+  begin
+    aTree.HandleNeeded;
+    aTree.DefaultNodeHeight := aHeight;
+    aTree.Header.Height := aHeight + 3;
+  end;
+
 begin
-  vstNav.DefaultNodeHeight := aHeight;
-  vstNav.Header.Height := aHeight + 3;
-  vstView.DefaultNodeHeight := aHeight;
-  vstView.Header.Height := aHeight + 3;
-  vstSpreadSheetWeapon.DefaultNodeHeight := aHeight;
-  vstSpreadSheetWeapon.Header.Height := aHeight + 3;
-  vstSpreadSheetArmor.DefaultNodeHeight := aHeight;
-  vstSpreadSheetArmor.Header.Height := aHeight + 3;
-  vstSpreadSheetAmmo.DefaultNodeHeight := aHeight;
-  vstSpreadSheetAmmo.Header.Height := aHeight + 3;
+  SetTreeHeights(vstNav);
+  SetTreeHeights(vstView);
+  SetTreeHeights(vstSpreadSheetWeapon);
+  SetTreeHeights(vstSpreadSheetArmor);
+  SetTreeHeights(vstSpreadSheetAmmo);
 end;
 
 function TfrmMain.ValidateCRC(const aFileName  : string;
@@ -20270,7 +20273,7 @@ begin
         lHeader.Add('#   xeQuickShowConflicts = ' + BoolToStr(xeQuickShowConflicts, True));
         lHeader.Add('#   wbActorTemplateHide  = ' + BoolToStr(wbActorTemplateHide, True));
         lHeader.Add('#   wbAllowInternalEdit  = ' + BoolToStr(xeContext.Settings.AllowInternalEdit, True));
-        lHeader.Add('#   wbCanSortINFO        = ' + BoolToStr(xeContext.Settings.CanSortINFO, True));
+        lHeader.Add('#   wbCanSortINFO        = ' + BoolToStr(gcCanSortINFO in xeContext.GameDefObj.Capabilities, True));
         lHeader.Add('#   wbDecodeTextureHashes = ' + BoolToStr(xeContext.GameDefObj.DefinedOptions.DecodeTextureHashes, True));
         lHeader.Add('#   wbDisplayLoadOrderFormID = ' + BoolToStr(wbDisplayLoadOrderFormID, True));
         lHeader.Add('#   wbDisplayShorterNames = ' + BoolToStr(wbDisplayShorterNames, True));

@@ -41,6 +41,7 @@ type
     function FindBSAs(const IniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; overload; override;
     function FindBSAs(const IniName, CustomIniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; overload; override;
     function HasBSAs(ModName: string; const DataPath: String; Exact, modini: Boolean; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; override;
+    procedure ApplyGameIniLanguage; override;
   end;
 
   TwbLoadingSaveContext = class(TwbSaveContext)
@@ -762,7 +763,6 @@ type
     flInjectedRecords        : array of IwbMainRecord;
 
     flModule                 : PwbModuleInfo;
-    [weak] flContext         : IwbGameContext;
     flContextObj             : TwbGameContext;
     flSaveContextObj         : TwbSaveContext;
     flSaveTables             : IwbSaveTables;
@@ -789,7 +789,6 @@ type
     function GetElementType: TwbElementType; override;
     function GetFile: IwbFile; override;
     function GameDefObj: TwbGameDef; override;
-    function GetContext: IwbGameContext;
     function ContextObj: TwbGameContext; override;
     function SaveContextObj: TwbSaveContext; override;
     procedure SetSaveContextObj(aSaveContext: TwbSaveContext);
@@ -3328,7 +3327,6 @@ var
   s: string;
 begin
   flContextObj := aContext;
-  flContext := aContext;
   flData := aData;
   flStates := aStates * [fsIsTemporary, fsIsHardcoded, fsOnlyHeader, fsIsDeltaPatch];
   flLoadOrderFileID := TwbFileID.Invalid;
@@ -3436,9 +3434,8 @@ constructor TwbFile.CreateNew(const aContext: TwbGameContext; const aFileName: s
 var
   Header : IwbMainRecord;
 begin
-  flContextObj := aContext;
-  flContext := aContext;
-
+  flContextObj := aContext;  
+  
   var lGameDef := flContextObj.GameDefObj;
   Assert(not (aIsLight and aIsMedium));
 
@@ -3502,8 +3499,8 @@ begin
     end;
   end;
 
-  if lGameDef.IsStarfield then
-    AddMasters(['Starfield.esm'{, 'BlueprintShips-Starfield.esm'}]);
+  if Length(lGameDef.NewFileMasters) > 0 then
+    AddMasters(lGameDef.NewFileMasters);
 
   BuildOrLoadRef(False);
 end;
@@ -3514,7 +3511,6 @@ var
   i      : Integer;
 begin
   flContextObj := aContext;
-  flContext := aContext;
 
   var lGameDef := flContextObj.GameDefObj;
   flLoadOrderFileID := TwbFileID.Invalid;
@@ -3602,8 +3598,8 @@ begin
           if Assigned(miFile) then
             AddMaster(_File);
 
-  if lGameDef.IsStarfield then
-    AddMasters(['Starfield.esm'{, 'BlueprintShips-Starfield.esm'}]);
+  if Length(lGameDef.NewFileMasters) > 0 then
+    AddMasters(lGameDef.NewFileMasters);
 
   BuildOrLoadRef(False);
 end;
@@ -4282,11 +4278,6 @@ end;
 function TwbFile.GetBaseOffset: NativeUInt;
 begin
   Result := flBaseOffset;
-end;
-
-function TwbFile.GetContext: IwbGameContext;
-begin
-  Result := flContext;
 end;
 
 function TwbFile.ContextObj: TwbGameContext;
@@ -10842,7 +10833,7 @@ begin
 
   Include(cntStates, csInitOnce);
 
-  if {$IFDEF USE_PARALLEL_BUILD_REFS}not lContext.BuildingRefsParallel and{$ENDIF} lContext.Settings.CanSortINFO and lContext.Settings.SortINFO then
+  if {$IFDEF USE_PARALLEL_BUILD_REFS}not lContext.BuildingRefsParallel and{$ENDIF} (gcCanSortINFO in lCapabilities) and lContext.Settings.SortINFO then
     if not (GetIsDeleted or GetIsPartialForm) and ContextObj.BeginInternalEdit(False) then try
       if lContext.Settings.FillPNAM and (GetSignature = 'INFO') and not Assigned(GetRecordBySignature('PNAM')) then begin
         if Supports(IwbContainer(eContainer), IwbGroupRecordInternal, GroupRecordInternal) then
@@ -19455,7 +19446,7 @@ begin
     ChildrenOf := GetChildrenOf;
     // there is no PNAM in Fallout 4, looks like INFOs are no longer linked lists
 
-    if {$IFDEF USE_PARALLEL_BUILD_REFS}not ContextObj.BuildingRefsParallel and{$ENDIF} ContextObj.Settings.CanSortINFO and (grStruct.grsGroupType = 7) then begin
+    if {$IFDEF USE_PARALLEL_BUILD_REFS}not ContextObj.BuildingRefsParallel and{$ENDIF} (gcCanSortINFO in GameDefObj.Capabilities) and (grStruct.grsGroupType = 7) then begin
 
       if not ContextObj.Settings.SortINFO then
         Exit;
@@ -24341,6 +24332,59 @@ begin
   end;
 end;
 
+procedure TwbLoadingGameContext.ApplyGameIniLanguage;
+var
+  s: string;
+begin
+  s := '';
+  var lMode := GameDefObj.GameMode;
+
+  if FileExists(Settings.TheGameIniFileName) then begin
+    with TMemIniFile.Create(Settings.TheGameIniFileName) do try
+      case lMode of
+        gmTES4: case ReadInteger('Controls', 'iLanguage', 0) of
+          1: s := 'German';
+          2: s := 'French';
+          3: s := 'Spanish';
+          4: s := 'Italian';
+        else
+          s := 'English';
+        end;
+      else
+        s := Trim(ReadString('General', 'sLanguage', '')).ToLower;
+      end;
+    finally
+      Free;
+    end;
+  end;
+
+  if FileExists(Settings.CustomIniFileName) then begin
+    with TMemIniFile.Create(Settings.CustomIniFileName) do try
+      case lMode of
+        gmTES4: begin
+          if ValueExists('Controls', 'iLanguage') then
+            case ReadInteger('Controls', 'iLanguage', 0) of
+              1: s := 'German';
+              2: s := 'French';
+              3: s := 'Spanish';
+              4: s := 'Italian';
+            else
+              s := 'English';
+            end;
+        end else begin
+          if ValueExists('General', 'sLanguage') then
+            s := Trim(ReadString('General', 'sLanguage', '')).ToLower;
+        end;
+      end;
+    finally
+      Free;
+    end;
+  end;
+
+  if (s <> '') and not SameText(s, Settings.Language) then
+    Settings.Language := s;
+end;
+
 procedure TwbLoadingGameContext.DetachFilesFromModules;
 begin
   for var lIdx := Low(gcFiles) to High(gcFiles) do
@@ -26356,7 +26400,6 @@ end;
 constructor TwbFileSource.CreateNew(const aContext: TwbGameContext; const aFileName: string; aLoadOrder: Integer);
 begin
   flContextObj := aContext;
-  flContext := aContext;
   Include(flStates, fsIsNew);
   flLoadOrder := aLoadOrder;
   flFileName := aFileName;
