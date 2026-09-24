@@ -50,13 +50,11 @@ uses
   wbDefinitionsTES5Saves in 'Core\wbDefinitionsTES5Saves.pas',
   wbDefinitionsSF1 in 'Core\wbDefinitionsSF1.pas',
   wbDiff in 'Core\wbDiff.pas',
-  wbGameDefGlobals in 'Core\wbGameDefGlobals.pas',
   wbHardcoded in 'Core\wbHardcoded.pas',
   wbHelpers in 'Core\wbHelpers.pas',
   wbImplementation in 'Core\wbImplementation.pas',
   wbInterface in 'Core\wbInterface.pas',
   wbLoadOrder in 'Core\wbLoadOrder.pas',
-  wbLocalization in 'Core\wbLocalization.pas',
   wbSaveInterface in 'Core\wbSaveInterface.pas',
   wbSort in 'Core\wbSort.pas';
 
@@ -69,6 +67,10 @@ const
 {$SetPEFlags IMAGE_FILE_LARGE_ADDRESS_AWARE}
 
 var
+  HostGameMode         : TwbGameMode  = Low(TwbGameMode);
+  HostToolMode         : TwbToolMode  = Low(TwbToolMode);
+  HostApplicationTitle : string;
+  HostToolName         : string;
   HostContextRef       : IwbGameContext;
   HostContext          : TwbGameContext;
   HostSaveContextRef   : IwbSaveContext;
@@ -702,7 +704,7 @@ begin
   if DumpCheckReport then
     Error := aElement.Check;
 
-  if wbToolMode in [tmDump] then begin
+  if HostToolMode in [tmDump] then begin
 
     Name := aElement.DisplayName[True];
     Value := aElement.Value;
@@ -807,7 +809,7 @@ begin
       dpsNoRegistryKey:
         ReportProgress('Warning: Could not open registry key: ' + lRegistryName);
       dpsNoRegistryValue:
-        ReportProgress(Format('Warning: Could not determine %s installation path, no "%s" registry key', [wbGameName2, lRegistryName]));
+        ReportProgress(Format('Warning: Could not determine %s installation path, no "%s" registry key', [HostContext.GameDefObj.Identity.GameName2, lRegistryName]));
     end;
 end;
 
@@ -879,7 +881,7 @@ begin
         s := GetEnumName(TypeInfo(TwbToolMode), Ord(tm) );
         Delete(s, 1, 2);
         if FindCmdLineSwitch(s) then begin
-          wbToolMode := tm;
+          HostToolMode := tm;
           Found := True;
           Break;
         end;
@@ -889,7 +891,7 @@ begin
           s := GetEnumName(TypeInfo(TwbToolMode), Ord(tm) ).ToLowerInvariant;
           Delete(s, 1, 2);
           if t.Contains(s) then begin
-            wbToolMode := tm;
+            HostToolMode := tm;
             Found := True;
             Break;
           end;
@@ -904,7 +906,7 @@ begin
         s := GetEnumName(TypeInfo(TwbGameMode), Ord(gm) );
         Delete(s, 1, 2);
         if FindCmdLineSwitch(s) then begin
-          wbGameMode := gm;
+          HostGameMode := gm;
           Found := True;
           Break;
         end;
@@ -914,7 +916,7 @@ begin
           s := GetEnumName(TypeInfo(TwbGameMode), Ord(gm) ).ToLowerInvariant;
           Delete(s, 1, 2);
           if t.Contains(s) then begin
-            wbGameMode := gm;
+            HostGameMode := gm;
             Found := True;
             Break;
           end;
@@ -924,21 +926,14 @@ begin
         Exit;
       end;
 
-      wbToolName := GetEnumName(TypeInfo(TwbToolMode), Ord(wbToolMode) );
-      Delete(wbToolName, 1 ,2);
+      HostToolName := GetEnumName(TypeInfo(TwbToolMode), Ord(HostToolMode) );
+      Delete(HostToolName, 1 ,2);
       if DumpSaves then
         DumpSourceName := 'Saves'
       else
         DumpSourceName := 'Plugins';
-      var lIdentity := wbGameIdentities[wbGameMode];
-      wbAppName       := lIdentity.AppName;
-      wbGameName      := lIdentity.GameName;
-      wbGameExeName   := lIdentity.GameExeName;
-      wbGameName2     := lIdentity.GameName2;
-      wbGameNameReg   := lIdentity.GameNameReg;
-      wbGameMasterEsm := lIdentity.GameMasterEsm;
-
-      lSettings.ApplyGameDefaults(wbGameMode);
+      lSettings.ApplyGameDefaults(HostGameMode);
+      lSettings.ToolName := HostToolName;
       lSettings.DontSave := True;
       lSettings.AllowInternalEdit := False;
       lSettings.HideIgnored := True;
@@ -950,7 +945,7 @@ begin
       if FindCmdLineSwitch('sr') then
         lDefineOptions.SimpleRecords := True;
 
-      case wbGameMode of
+      case HostGameMode of
         gmFNV, gmFO3, gmTES4, gmTES5, gmEnderal, gmSSE, gmEnderalSE: ;
         gmTES3: begin
           lSettings.LoadBSAs := False;
@@ -978,18 +973,17 @@ begin
       end;
       end;
 
-      HostContextRef := wbCreateGameContext(wbCreateGameDef(wbGameMode, lInputs, lDefineOptions));
+      HostContextRef := wbCreateGameContext(wbCreateGameDef(HostGameMode, lInputs, lDefineOptions));
       HostContext := HostContextRef as TwbGameContext;
-      lSettings.CreationClubContentFileName := HostContext.Settings.CreationClubContentFileName;
       HostContext.Settings := lSettings;
-      HostContext.Settings.TolerateMissingFiles := wbToolMode in [tmDump, tmExport];
+      HostContext.Settings.TolerateMissingFiles := HostToolMode in [tmDump, tmExport];
 
-      if not (wbToolMode in tms) then begin
-        WriteLn(ErrOutput, 'Application '+wbGameName+' does not currently support ToolMode: '+wbToolName);
+      if not (HostToolMode in tms) then begin
+        WriteLn(ErrOutput, 'Application '+HostContext.GameDefObj.GameName+' does not currently support ToolMode: '+HostToolName);
         Exit;
       end;
       if DumpSaves and not SavesSupported then begin
-        WriteLn(ErrOutput, 'Application '+wbGameName+' does not currently support ToolSource: '+DumpSourceName);
+        WriteLn(ErrOutput, 'Application '+HostContext.GameDefObj.GameName+' does not currently support ToolSource: '+DumpSourceName);
         Exit;
       end;
 
@@ -999,13 +993,13 @@ begin
       end;
 
       DoInitPath;
-      if (wbToolMode in [tmDump]) and (HostContext.Settings.DataPath = '') then // Dump can be run in any directory configuration
+      if (HostToolMode in [tmDump]) and (HostContext.Settings.DataPath = '') then // Dump can be run in any directory configuration
         HostContext.Settings.DataPath := CheckParamPath;
 
       var lIsEpic: Boolean;
-      var lMyGamesPath := HostContext.Settings.DefaultMyGamesPath(wbGameMode, IncludeTrailingPathDelimiter(TPath.GetDocumentsPath), lIsEpic);
-      HostContext.Settings.TheGameIniFileName := HostContext.Settings.DefaultGameIniFileName(wbGameMode, lMyGamesPath);
-      HostContext.Settings.CustomIniFileName := HostContext.Settings.DefaultCustomIniFileName(wbGameMode, lMyGamesPath);
+      var lMyGamesPath := HostContext.Settings.DefaultMyGamesPath(HostGameMode, IncludeTrailingPathDelimiter(TPath.GetDocumentsPath), lIsEpic);
+      HostContext.Settings.TheGameIniFileName := HostContext.Settings.DefaultGameIniFileName(HostGameMode, lMyGamesPath);
+      HostContext.Settings.CustomIniFileName := HostContext.Settings.DefaultCustomIniFileName(HostGameMode, lMyGamesPath);
 
       HostContext.ModuleList.LoadModules;
 
@@ -1051,19 +1045,17 @@ begin
      if SourceName = 'Plugins' then
        SourceName := '';
 
-     wbApplicationTitle := wbAppName + wbToolName + SourceName +  ' ' + VersionString;
+     HostApplicationTitle := HostContext.GameDefObj.AppName + HostToolName + SourceName +  ' ' + VersionString;
      {$IFDEF WIN64}
-     wbApplicationTitle := wbApplicationTitle + ' x64';
+     HostApplicationTitle := HostApplicationTitle + ' x64';
      {$ENDIF WIN64}
-     if wbSubMode <> '' then
-       wbApplicationTitle := wbApplicationTitle + ' (' + wbSubMode + ')';
 
      {$IFDEF EXCEPTION_LOGGING_ENABLED}
-     nxEHAppVersion := wbApplicationTitle;
+     nxEHAppVersion := HostApplicationTitle;
      {$ENDIF}
 
       if not FindCmdLineSwitch('q') and not wbReportMode then begin
-        WriteLn(ErrOutput, wbApplicationTitle);
+        WriteLn(ErrOutput, HostApplicationTitle);
         WriteLn(ErrOutput);
 
         WriteLn(ErrOutput, 'The Source Code Form is subject to the terms of the Mozilla Public License,');
@@ -1261,14 +1253,14 @@ begin
         if FileExists(HostContext.Settings.DataPath + s) then
           s := HostContext.Settings.DataPath + s;
 
-      if (wbToolMode in [tmDump]) and (ParamCount >= 1) and not FileExists(s) then begin
+      if (HostToolMode in [tmDump]) and (ParamCount >= 1) and not FileExists(s) then begin
         if s[1] in SwitchChars then
           WriteLn(ErrOutput, 'No inputfile was specified. Please check the command line parameters.')
         else
           WriteLn(ErrOutput, 'Can''t find the file "',s,'". Please check the command line parameters.');
         WriteLn;
         NeedsSyntaxInfo := True;
-      end else if (wbToolMode in [tmExport]) and (ParamCount >=1) and not isFormatValid(s) then begin
+      end else if (HostToolMode in [tmExport]) and (ParamCount >=1) and not isFormatValid(s) then begin
         if s[1] in SwitchChars then
           WriteLn(ErrOutput, 'No format was specified. Please check the command line parameters.')
         else
@@ -1295,25 +1287,28 @@ begin
         end;
 
       if NeedsSyntaxInfo or (ParamCount < 1) or FindCmdLineSwitch('?') or FindCmdLineSwitch('help') then begin
-        WriteLn(ErrOutput, 'Syntax:  '+wbAppName+'Dump [options] inputfile');
-        WriteLn(ErrOutput, '  or     '+wbAppName+'Export [options] format');
+        var lIdentity := HostContext.GameDefObj.Identity;
+        WriteLn(ErrOutput, 'Syntax:  '+lIdentity.AppName+'Dump [options] inputfile');
+        WriteLn(ErrOutput, '  or     '+lIdentity.AppName+'Export [options] format');
         WriteLn(ErrOutput);
-        WriteLn(ErrOutput, wbAppName + 'Dump will load the specified esp/esm files and all it''s masters and will dump the decoded contents of the specified file to stdout. Masters are searched for in the same directory as the specified file.');
+        WriteLn(ErrOutput, lIdentity.AppName + 'Dump will load the specified esp/esm files and all it''s masters and will dump the decoded contents of the specified file to stdout. Masters are searched for in the same directory as the specified file.');
         WriteLn(ErrOutput);
-        WriteLn(ErrOutput, wbAppName + 'Dump -Saves will load the specified save or coSave file and all it''s masters and will dump the decoded contents of the specified file to stdout. Masters are searched for in the game directory.');
+        WriteLn(ErrOutput, lIdentity.AppName + 'Dump -Saves will load the specified save or coSave file and all it''s masters and will dump the decoded contents of the specified file to stdout. Masters are searched for in the game directory.');
         WriteLn(ErrOutput);
-        WriteLn(ErrOutput, wbAppName + 'Export will dump the plugin definition in the specified format.');
-        WriteLn(ErrOutput, wbAppName + 'Export -Saves will dump the save file definition in the specified format.');
+        WriteLn(ErrOutput, lIdentity.AppName + 'Export will dump the plugin definition in the specified format.');
+        WriteLn(ErrOutput, lIdentity.AppName + 'Export -Saves will dump the save file definition in the specified format.');
         WriteLn(ErrOutput);
         WriteLn(ErrOutput, 'You can use the normal redirect mechanism to send the output to a file.');
-        WriteLn(ErrOutput, 'e.g. "'+wbAppName+'Dump '+wbGameMasterEsm+' > '+wbGameName+'.txt"');
+        WriteLn(ErrOutput, 'e.g. "'+lIdentity.AppName+'Dump '+lIdentity.GameMasterEsm+' > '+lIdentity.GameName+'.txt"');
         WriteLn(ErrOutput);
         WriteLn(ErrOutput, 'Currently supported options:');
         WriteLn(ErrOutput, '-? / -help   ', 'This help screen');
         WriteLn(ErrOutput, '-q           ', 'Suppress version message');
         WriteLn(ErrOutput, '-more        ', 'Displays aditional information on Unknowns');
         WriteLn(ErrOutput, '-l:language  ', 'Specifies language for localization files (since TES5)');
-        WriteLn(ErrOutput, '             ', '  Default language is English for TES5 or SSE and En for FO4');
+        WriteLn(ErrOutput, '             ', '  Default language is the one the game''s ini sets, replaced by the custom');
+        WriteLn(ErrOutput, '             ', '  ini''s when it has the key; if that leaves none, En for FO4, FO4VR, FO76');
+        WriteLn(ErrOutput, '             ', '  and SF1, else English');
         WriteLn(ErrOutput, '-bsa         ', 'Loads default associated BSAs');
         WriteLn(ErrOutput, '             ', ' (plugin'+HostContext.GameDefObj.ArchiveExtension+' and plugin - interface.'+HostContext.GameDefObj.ArchiveExtension+')');
         WriteLn(ErrOutput, '-allbsa      ', 'Loads all associated BSAs (plugin*.bsa)');
@@ -1360,7 +1355,7 @@ begin
         Exit;
       end;
 
-      if wbToolMode in [tmExport] then begin
+      if HostToolMode in [tmExport] then begin
         HostContext.Settings.LoadBSAs := False;
         wbReportMode := False;
         wbMoreInfoForUnknown:= False;
@@ -1371,7 +1366,7 @@ begin
         HostContext.ContainerHandler := wbCreateContainerHandler(HostContext.GameDefObj);
 
       StartTime := Now;
-      ReportProgress('Application name : ' + wbApplicationTitle);
+      ReportProgress('Application name : ' + HostApplicationTitle);
       if Assigned(Dumpgroups) then
         ReportProgress('['+s+']   Dumping groups : '+DumpGroups.CommaText);
       if Assigned(DumpRecords) then
@@ -1394,7 +1389,7 @@ begin
       if wbDumpOffset>0 then
         ReportProgress('['+s+']   Dump Offset mode : '+IntToStr(wbDumpOffset));
 
-      if wbToolMode in [tmDump] then begin
+      if HostToolMode in [tmDump] then begin
 
         Masters := TStringList.Create;
         try
@@ -1528,26 +1523,26 @@ begin
       if gcHardcodedFileIsFirstMaster in HostContext.GameDefObj.Capabilities then begin
         b := TwbHardcodedContainer.GetHardCodedDat(HostContext.GameDefObj.GameName);
         if Length(b) > 0 then
-          HostContext.LoadFile(wbGameExeName, 0, '', [fsIsHardcoded], b);
+          HostContext.LoadFile(HostContext.GameDefObj.GameExeName, 0, '', [fsIsHardcoded], b);
       end;
 
-      if wbToolMode in [tmDump] then
+      if HostToolMode in [tmDump] then
         if Assigned(HostSaveContext) then
           _File := HostSaveContext.LoadSave(s, High(Integer))
         else
           _File := HostContext.LoadFile(s, High(Integer));
 
       if not (gcHardcodedFileIsFirstMaster in HostContext.GameDefObj.Capabilities) then
-        with HostContext.ModuleList.ModuleByName(wbGameMasterEsm)^ do
+        with HostContext.ModuleList.ModuleByName(HostContext.GameDefObj.GameMasterEsm)^ do
           if mfHasFile in miFlags then begin
             b := TwbHardcodedContainer.GetHardCodedDat(HostContext.GameDefObj.GameName);
             if Length(b) > 0 then
-              HostContext.LoadFile(wbGameExeName, 0, wbGameMasterEsm, [fsIsHardcoded], b);
+              HostContext.LoadFile(HostContext.GameDefObj.GameExeName, 0, HostContext.GameDefObj.GameMasterEsm, [fsIsHardcoded], b);
           end;
 
       ReportProgress('Finished loading record. Starting Dump.');
 
-      if wbToolMode in [tmDump] then begin
+      if HostToolMode in [tmDump] then begin
         FileIsSave := Assigned(_File) and Assigned(_File.SaveContextObj);
         if FindCmdLineSwitch('check') and not wbReportMode then
           CheckForErrors(0, _File)
@@ -1568,14 +1563,14 @@ begin
           if not DontWriteReport then
             HostContext.GameDefObj.ReportDefs;
         end;
-      end else if wbToolMode in [tmExport] then begin
+      end else if HostToolMode in [tmExport] then begin
         for Pass := epRead to epRemaining do begin
           ProfileHeader(StrToTExportFormat(s), Pass);
           ProfileArray(StrToTExportFormat(s), Pass);
           ProfileChapters(StrToTExportFormat(s), Pass);
         end;
 
-        wbDefProfiles.SaveToFile(wbAppName+wbToolName+DumpSourceName+'.txt');
+        wbDefProfiles.SaveToFile(HostContext.GameDefObj.AppName+HostToolName+DumpSourceName+'.txt');
       end;
 
       ReportProgress('All Done.');

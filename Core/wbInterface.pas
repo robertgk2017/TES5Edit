@@ -90,9 +90,6 @@ const
   csDotFos   = '.fos';
   csDotEss   = '.ess';
 
-var
-  wbLightName: string = 'Light';
-
 type
   TwbProgressCallback = procedure(const aStatus: string);
 
@@ -147,14 +144,12 @@ var
   wbMoreInfoForUnknown               : Boolean    = False;
   wbMoreInfoForIndex                 : Boolean    = False;
   wdMakeUnknownElementsUnique        : Boolean    = False;
-  wbTestWrite                        : Boolean    = False;
   wbResolveAlias                    : Boolean    = True;
   wbActorTemplateHide                : Boolean    = True;
   wbAlignArrayElements               : Boolean    = True;
   wbAlignArrayLimit                  : Integer    = 5000;
   wbCopyIsRunning                    : Integer    = 0;
   wbHasAddedOptimizedSupport         : Boolean    = False;
-  wbAllowEditGameMaster              : Boolean    = False;
   wbEditInfoUseShortName             : Boolean    = False;
   wbDevMode                          : Boolean    = False;
   wbAlwaysSorted                     : Boolean    = False;
@@ -176,8 +171,6 @@ var
   wbShowRawData                      : Boolean    = False;
   wbDisableFormIDCheck               : Boolean    = False;
   wbAllowUnsafeScripts               : Boolean    = False;
-
-  wbAllowMakePartial                 : Boolean    = False;
 
   wbGlobalModifedGeneration          : UInt64;
 
@@ -219,7 +212,6 @@ var
 
   wbMoreInfoForRequired              : Boolean    = False;
   wbMoreInfoForDecider               : Boolean    = False;
-  wbTrackAllEditorID                 : Boolean    = False;
   wbShowTip                          : Boolean    = True;
   wbPatron                           : Boolean    = False;
   wbNoGitHubCheck                    : Boolean    = False;
@@ -236,8 +228,6 @@ var
   wbDumpOffset                       : Integer    = 0;              // 1= starting offset, 2 = Count, 3 = Offsets, size and count
 
   wbProgramPath                      : string;
-
-  wbStarfieldIsABugInfestedHellhole  : Boolean    = False;
 
   wbSpeedOverMemory                  : Boolean    = False;
 
@@ -802,6 +792,7 @@ type
     AllowMasterFilesEdit : Boolean;
     AllowEditHEDRVersion : Boolean;
     DecodeTextureHashes  : Boolean;
+    StarfieldIsABugInfestedHellhole : Boolean;
     class function Defaults: TwbGameDefineOptions; static;
     class function CheckableCollapse: TwbCollapseOptions; static;
     class function CollapseSettingsKey(aOption: TwbCollapseOption): string; static;
@@ -3477,32 +3468,34 @@ type
   TwbFaceGenFeatures = array of TwbFaceGenFeature;
   TwbFaceGenKind = (fgkFaceMorphs, fgkTintLayers, fgkMorphValues);
 
-  IwbFaceGenCache = interface(IwbInterface)
-    ['{A4D17E62-3C9B-4B0F-8E25-7F1C60D9B2A8}']
+  TwbFaceGenCache = class
+  protected
+    fgcFeatures : array[TwbFaceGenKind] of TwbFaceGenFeatures;
+  public
     function Cached(aKind: TwbFaceGenKind; const aRaceID: string; aFemale: Boolean): PwbFaceGenFeature;
     function Append(aKind: TwbFaceGenKind; const aRaceID: string; aFemale: Boolean): PwbFaceGenFeature;
   end;
 
-  IwbSoundBankArray = interface(IInterface)
-  ['{5FEF18BF-C357-4B8A-9DBB-6F6D58923F89}']
+  TwbSoundBankCache = class
+  public
     function TryLookupGUID(const aNodeType : TwbWwiseNodeType;
                            const aGUID     : TGUID;
                              var aName     : string;
                              var aFilename : string)
-                                           : Boolean;
+                                           : Boolean; virtual;
 
     function TryLookupDisplay(const aNodeType   : TwbWwiseNodeType;
                               const aDisplayStr : string;
                                 var aGUID       : TGUID)
-                                                : Boolean;
+                                                : Boolean; virtual;
 
     procedure GetChildStrings(const aParentGUID: TGUID;
                               const aChildType: TwbWwiseNodeType;
-                                var aList: TStringList);
+                                var aList: TStringList); virtual;
 
     procedure GetStrings(const aNodeType : TwbWwiseNodeType;
                          const aMasters  : TStringList;
-                           var aList     : TStringList);
+                           var aList     : TStringList); virtual;
   end;
 
   IwbSaveTables = interface(IwbInterface)
@@ -3575,19 +3568,9 @@ type
     property Files[aIndex: Integer]: IwbFile
       read GetFile;
     procedure SetContainerHandler(const aValue: IwbContainerHandler);
-    function GetSoundBankCache: IwbSoundBankArray;
-    procedure SetSoundBankCache(const aValue: IwbSoundBankArray);
-    function GetFaceGenCache: IwbFaceGenCache;
-    procedure SetFaceGenCache(const aValue: IwbFaceGenCache);
     property ContainerHandler: IwbContainerHandler
       read GetContainerHandler
       write SetContainerHandler;
-    property SoundBankCache: IwbSoundBankArray
-      read GetSoundBankCache
-      write SetSoundBankCache;
-    property FaceGenCache: IwbFaceGenCache
-      read GetFaceGenCache
-      write SetFaceGenCache;
     property GameMasterFile: IwbFile
       read GetGameMasterFile;
 
@@ -3664,10 +3647,7 @@ type
     gdDefinedOptions   : TwbGameDefineOptions;
     gdGameMode         : TwbGameMode;
     gdCapabilities     : TwbGameCapabilities;
-    gdGameName         : string;
-    gdGameExeName      : string;
-    gdGameMasterEsm    : string;
-    gdAppName          : string;
+    gdIdentity         : TwbGameIdentity;
     gdDefaultFormVersion : Word;
     gdQuestFlagsSignature : TwbSignature;
     gdRaceFlagsSignature  : TwbSignature;
@@ -3679,7 +3659,6 @@ type
     function GetKnownSubRecordSignature(aKind: TwbKnownSubRecord): TwbSignature;
 
     function GetGameMode: TwbGameMode;
-    function GetCreationClubContentFileName: string;
     function GetCapabilities: TwbGameCapabilities;
     function GetIsMorrowind: Boolean;
     function GetIsOblivion: Boolean;
@@ -3700,6 +3679,7 @@ type
 
     procedure Define; virtual;
     procedure CreateSaveDefs;
+    class function ComputeCapabilities(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs): TwbGameCapabilities; static;
 
     function IsCS(const aDef1, aDef2: string): string; overload;
     function IsHNVSE(const aDef1, aDef2: TwbConflictPriority): TwbConflictPriority; overload;
@@ -3774,14 +3754,16 @@ type
       read gdGameMode;
     property Capabilities: TwbGameCapabilities
       read gdCapabilities;
+    property Identity: TwbGameIdentity
+      read gdIdentity;
     property GameName: string
-      read gdGameName;
+      read gdIdentity.GameName;
     property GameExeName: string
-      read gdGameExeName;
+      read gdIdentity.GameExeName;
     property GameMasterEsm: string
-      read gdGameMasterEsm;
+      read gdIdentity.GameMasterEsm;
     property AppName: string
-      read gdAppName;
+      read gdIdentity.AppName;
     property IsMorrowind: Boolean
       read GetIsMorrowind;
     property IsOblivion: Boolean
@@ -3897,8 +3879,8 @@ type
     UseFalsePlugins       : Boolean;
     CreateContainedIn     : Boolean;
     DelayLoadRecords      : Boolean;
-    CreationClubContentFileName : string;
     CreationClubContent   : TArray<string>;
+    ToolName              : string;
     DataPath              : string;
     OutputPath            : string;
     ScriptsPath           : string;
@@ -3925,6 +3907,9 @@ type
     HideIgnored           : Boolean;
     EditAllowed           : Boolean;
     AllowInternalEdit     : Boolean;
+    AllowEditGameMaster   : Boolean;
+    AllowMakePartial      : Boolean;
+    TrackAllEditorID      : Boolean;
     DontSave              : Boolean;
     AllowDirectSave       : Boolean;
     StripMasters          : Boolean;
@@ -3953,6 +3938,7 @@ type
     ConvertIntFormID      : Boolean;
     ForceNewHeader        : Boolean;
     NewHeaderAddon        : Cardinal;
+    TestWrite             : Boolean;
     DontCache             : Boolean;
     DontCacheLoad         : Boolean;
     DontCacheSave         : Boolean;
@@ -4132,10 +4118,11 @@ type
     gcBuildingRefsParallel : Boolean;
     gcContainerHandler     : IwbContainerHandler;
     gcLocalizationHandler  : TwbLocalizationHandler;
-    gcSoundBankCache       : IwbSoundBankArray;
-    gcFaceGenCache         : IwbFaceGenCache;
+    gcSoundBankCache       : TwbSoundBankCache;
+    gcRetiredSoundBanks    : TArray<TwbSoundBankCache>;
+    gcFaceGenCache         : TwbFaceGenCache;
     gcGlobalGeneration     : Integer;
-    gcIdentitys            : array[Byte] of TDictionary<string, Cardinal>;
+    gcIdentities           : array[Byte] of TDictionary<string, Cardinal>;
     gcNextIDs              : array[Byte] of Cardinal;
     gcSaveContexts         : TArray<TwbSaveContext>;
     gcSaveContextsLock     : TObject;
@@ -4149,12 +4136,8 @@ type
     function GetFile(aIndex: Integer): IwbFile;
     function GetContainerHandler: IwbContainerHandler;
     function GetGameMasterFile: IwbFile;
-    function GetCreationClubContentFileName: string;
-    function GetEncoding: TEncoding;
-    function GetDontSave: Boolean;
     procedure SetContainerHandler(const aValue: IwbContainerHandler);
-    function GetSoundBankCache: IwbSoundBankArray;
-    procedure SetSoundBankCache(const aValue: IwbSoundBankArray);
+    procedure SetSoundBankCache(const aValue: TwbSoundBankCache);
     function GetLEncoding(aFallback: Boolean): TStringList;
     function CreateSkipList: TStringList;
     function CreateLEncodingList: TStringList;
@@ -4235,14 +4218,10 @@ type
       write gcContainerHandler;
     property LocalizationHandler: TwbLocalizationHandler
       read gcLocalizationHandler;
-    property SoundBankCache: IwbSoundBankArray
+    property SoundBankCache: TwbSoundBankCache
       read gcSoundBankCache
       write SetSoundBankCache;
-    function GetFaceGenCache: IwbFaceGenCache;
-    procedure SetFaceGenCache(const aValue: IwbFaceGenCache);
-    property FaceGenCache: IwbFaceGenCache
-      read gcFaceGenCache
-      write gcFaceGenCache;
+    function FaceGenCache: TwbFaceGenCache;
     property LEncoding[aFallback: Boolean]: TStringList
       read GetLEncoding;
     function EncodingForLanguage(const aLanguage: string; aFallback: Boolean): TEncoding;
@@ -4269,12 +4248,12 @@ type
     scFullPluginNames  : TStringList;
     scLightPluginNames : TStringList;
 
-    scFullSlotFiles    : TArray<Integer>;
-    scLightSlotFiles   : TArray<Integer>;
+    scFullSlotFileIndices  : TArray<Integer>;
+    scLightSlotFileIndices : TArray<Integer>;
 
     procedure scJoin(const aFile: IwbFile; const aFileName: string);
     procedure scBuildSlotTable;
-    function scSlotFile(const aSlotFiles: TArray<Integer>; aSlot: Integer): IwbFile;
+    function scSlotFile(const aSlotFileIndices: TArray<Integer>; aSlot: Integer): IwbFile;
     function scHeldFileByName(const aFileName: string): IwbFile;
   public
     constructor Create(const aGameContext: IwbGameContext);
@@ -4293,10 +4272,10 @@ type
       read scFullPluginNames;
     property LightPluginNames: TStringList
       read scLightPluginNames;
-    property FullSlotFiles: TArray<Integer>
-      read scFullSlotFiles;
-    property LightSlotFiles: TArray<Integer>
-      read scLightSlotFiles;
+    property FullSlotFileIndices: TArray<Integer>
+      read scFullSlotFileIndices;
+    property LightSlotFileIndices: TArray<Integer>
+      read scLightSlotFileIndices;
 
     function FullSlotFile(aSlot: Integer): IwbFile;
     function LightSlotFile(aSlot: Integer): IwbFile;
@@ -5508,19 +5487,6 @@ function wbBlockFromSubBlock(const aSubBlock: TwbGridCell): TwbGridCell;
 function wbGridCellToGroupLabel(const aGridCell: TwbGridCell): Cardinal;
 
 var
-  wbGameMode         : TwbGameMode;
-  wbToolMode         : TwbToolMode;
-  wbSubMode          : string;
-  wbAppName          : string;
-  wbApplicationTitle : string;
-  wbGameName         : string; //name of the exe, usually also name of the game master
-  wbGameExeName      : string;
-  wbGameMasterEsm    : string; // name of the GameMaster.esm, usually wbGameName + csDotEsm, different for Fallout 76
-  wbGameName2        : string; // game title name used for AppData and MyGames folders
-  wbGameNameReg      : string; // registry name
-  wbToolName         : string;
-  wbGameSteamID      : string;
-
   wbAutoModes: TwbSetOfMode = [ // Tool modes that run without user interaction until final status
     tmOnamUpdate,
     tmMasterUpdate,
@@ -5644,7 +5610,6 @@ const
 
 function wbReadInteger24(aBasePtr: pointer): Int64;
 function wbSaveTablesFor(const aElement: IwbElement): IwbSaveTables;
-function wbFaceGenCacheOf(const aElement: IwbElement): IwbFaceGenCache;
 
 function wbProgressLock: Integer;
 function wbProgressUnlock: Integer;
@@ -6092,29 +6057,6 @@ type
     procedure UpdateStatus(aPosition: Integer; const aStatus: string);
   end;
 
-  TwbNullSoundBankArray = class(TInterfacedObject, IwbSoundBankArray)
-  protected
-    {--- IwbSoundBankArray ---}
-    function TryLookupGUID(const aNodeType : TwbWwiseNodeType;
-                           const aGUID     : TGUID;
-                             var aName     : string;
-                             var aFilename : string)
-                                           : Boolean;
-
-    function TryLookupDisplay(const aNodeType   : TwbWwiseNodeType;
-                              const aDisplayStr : string;
-                                var aGUID       : TGUID)
-                                                : Boolean;
-
-    procedure GetChildStrings(const aParentGUID: TGUID;
-                              const aChildType: TwbWwiseNodeType;
-                                var aList: TStringList);
-
-    procedure GetStrings(const aNodeType : TwbWwiseNodeType;
-                         const aMasters  : TStringList;
-                           var aList     : TStringList);
-  end;
-
 { TwbNullWaitForm }
 
 function TwbNullWaitForm.CreateProgress(const aCaption, aStatus: string; aMax: Integer): IwbProgress;
@@ -6133,14 +6075,9 @@ procedure TwbNullProgress.UpdateStatus(aPosition: Integer; const aStatus: string
 begin
 end;
 
-{ TwbNullSoundBankArray }
+{ TwbSoundBankCache }
 
-procedure TwbNullSoundBankArray.GetChildStrings(const aParentGUID: TGUID; const aChildType: TwbWwiseNodeType; var aList: TStringList);
-begin
-  GetStrings(aChildType, nil, aList);
-end;
-
-procedure TwbNullSoundBankArray.GetStrings(const aNodeType: TwbWwiseNodeType; const aMasters: TStringList; var aList: TStringList);
+procedure TwbSoundBankCache.GetChildStrings(const aParentGUID: TGUID; const aChildType: TwbWwiseNodeType; var aList: TStringList);
 begin
   if not Assigned(aList) then
     Exit;
@@ -6154,13 +6091,27 @@ begin
   end;
 end;
 
-function TwbNullSoundBankArray.TryLookupDisplay(const aNodeType: TwbWwiseNodeType; const aDisplayStr: string; var aGUID: TGUID): Boolean;
+procedure TwbSoundBankCache.GetStrings(const aNodeType: TwbWwiseNodeType; const aMasters: TStringList; var aList: TStringList);
+begin
+  if not Assigned(aList) then
+    Exit;
+
+  aList.BeginUpdate;
+  try
+    aList.Sorted := True;
+    aList.Duplicates := dupIgnore;
+  finally
+    aList.EndUpdate;
+  end;
+end;
+
+function TwbSoundBankCache.TryLookupDisplay(const aNodeType: TwbWwiseNodeType; const aDisplayStr: string; var aGUID: TGUID): Boolean;
 begin
   aGUID := Default(TGUID);
   Result := False;
 end;
 
-function TwbNullSoundBankArray.TryLookupGUID(const aNodeType: TwbWwiseNodeType; const aGUID: TGUID; var aName: string; var aFilename: string): Boolean;
+function TwbSoundBankCache.TryLookupGUID(const aNodeType: TwbWwiseNodeType; const aGUID: TGUID; var aName: string; var aFilename: string): Boolean;
 begin
   Result := False;
 end;
@@ -6175,7 +6126,7 @@ begin
   Result := TwbNullWaitForm.Create;
 end;
 
-function wbComputeCapabilities(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs): TwbGameCapabilities;
+class function TwbGameDef.ComputeCapabilities(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs): TwbGameCapabilities;
 begin
   Result := [];
   if (aGameMode in [gmSSE, gmEnderalSE, gmFO4, gmSF1]) or aInputs.LightSupport then
@@ -6281,14 +6232,11 @@ constructor TwbGameDef.Create(aGameMode: TwbGameMode; const aInputs: TwbGameDefI
 begin
   Create;
   gdGameMode := aGameMode;
-  gdCapabilities := wbComputeCapabilities(aGameMode, aInputs);
-  gdGameName := wbGameIdentities[aGameMode].GameName;
-  gdGameExeName := wbGameIdentities[aGameMode].GameExeName;
-  gdGameMasterEsm := wbGameIdentities[aGameMode].GameMasterEsm;
-  gdAppName := wbGameIdentities[aGameMode].AppName;
+  gdCapabilities := ComputeCapabilities(aGameMode, aInputs);
+  gdIdentity := wbGameIdentities[aGameMode];
   if (aGameMode = gmTES4) and aInputs.Nehrim then begin
-    gdAppName := 'Nehrim';
-    gdGameMasterEsm := 'Nehrim.esm';
+    gdIdentity.AppName := 'Nehrim';
+    gdIdentity.GameMasterEsm := 'Nehrim.esm';
   end;
 end;
 
@@ -6368,11 +6316,6 @@ end;
 function TwbGameDef.GetGameMode: TwbGameMode;
 begin
   Result := gdGameMode;
-end;
-
-function TwbGameDef.GetCreationClubContentFileName: string;
-begin
-  Result := gdCreationClubContentFileName;
 end;
 
 function TwbGameDef.GetCapabilities: TwbGameCapabilities;
@@ -6906,20 +6849,20 @@ var
 
 begin
   lContext := scGameContextObj;
-  SetLength(scFullSlotFiles, scFullPluginNames.Count);
+  SetLength(scFullSlotFileIndices, scFullPluginNames.Count);
   for var lSlot := 0 to Pred(scFullPluginNames.Count) do
-    scFullSlotFiles[lSlot] := ResolveSlot(scFullPluginNames[lSlot]);
-  SetLength(scLightSlotFiles, scLightPluginNames.Count);
+    scFullSlotFileIndices[lSlot] := ResolveSlot(scFullPluginNames[lSlot]);
+  SetLength(scLightSlotFileIndices, scLightPluginNames.Count);
   for var lSlot := 0 to Pred(scLightPluginNames.Count) do
-    scLightSlotFiles[lSlot] := ResolveSlot(scLightPluginNames[lSlot]);
+    scLightSlotFileIndices[lSlot] := ResolveSlot(scLightPluginNames[lSlot]);
 end;
 
-function TwbSaveContext.scSlotFile(const aSlotFiles: TArray<Integer>; aSlot: Integer): IwbFile;
+function TwbSaveContext.scSlotFile(const aSlotFileIndices: TArray<Integer>; aSlot: Integer): IwbFile;
 begin
   Result := nil;
-  if (aSlot < Low(aSlotFiles)) or (aSlot > High(aSlotFiles)) then
+  if (aSlot < Low(aSlotFileIndices)) or (aSlot > High(aSlotFileIndices)) then
     Exit;
-  var lIdx := aSlotFiles[aSlot];
+  var lIdx := aSlotFileIndices[aSlot];
   if (lIdx < 0) or (lIdx > High(scGameContextObj.gcFiles)) then
     Exit;
   Result := scGameContextObj.gcFiles[lIdx];
@@ -6927,20 +6870,20 @@ end;
 
 function TwbSaveContext.FullSlotFile(aSlot: Integer): IwbFile;
 begin
-  Result := scSlotFile(scFullSlotFiles, aSlot);
+  Result := scSlotFile(scFullSlotFileIndices, aSlot);
 end;
 
 function TwbSaveContext.LightSlotFile(aSlot: Integer): IwbFile;
 begin
-  Result := scSlotFile(scLightSlotFiles, aSlot);
+  Result := scSlotFile(scLightSlotFileIndices, aSlot);
 end;
 
 function TwbSaveContext.SlotFile(const aFileID: TwbFileID): IwbFile;
 begin
   if aFileID.IsLightSlot then
-    Result := scSlotFile(scLightSlotFiles, aFileID.LightSlot)
+    Result := scSlotFile(scLightSlotFileIndices, aFileID.LightSlot)
   else if aFileID.IsFullSlot then
-    Result := scSlotFile(scFullSlotFiles, aFileID.FullSlot)
+    Result := scSlotFile(scFullSlotFileIndices, aFileID.FullSlot)
   else
     Result := nil;
 end;
@@ -7202,7 +7145,6 @@ begin
   gcGameDef := aGameDef;
   gcGameDefObj := aGameDef as TwbGameDef;
   gcGlobalGeneration := 1;
-  Settings.CreationClubContentFileName := gcGameDefObj.CreationClubContentFileName;
   gcFilesMap := TwbFastStringList.Create;
   gcFilesMap.Sorted := True;
   gcFilesMap.Duplicates := dupError;
@@ -7215,18 +7157,21 @@ begin
   gcLEncoding[False] := CreateLEncodingList;
   gcLEncoding[True] := CreateLEncodingList;
   gcLocalizationHandler := TwbLocalizationHandler.Create(Self);
-  gcSoundBankCache := TwbNullSoundBankArray.Create;
+  gcSoundBankCache := TwbSoundBankCache.Create;
 end;
 
 destructor TwbGameContext.Destroy;
 begin
-  gcFaceGenCache := nil;
+  FreeAndNil(gcFaceGenCache);
   gcFiles := nil;
-  gcSoundBankCache := nil;
+  FreeAndNil(gcSoundBankCache);
+  for var lCache in gcRetiredSoundBanks do
+    lCache.Free;
+  gcRetiredSoundBanks := nil;
   FreeAndNil(gcLocalizationHandler);
   gcContainerHandler := nil;
-  for var i := Low(gcIdentitys) to High(gcIdentitys) do
-    FreeAndNil(gcIdentitys[i]);
+  for var i := Low(gcIdentities) to High(gcIdentities) do
+    FreeAndNil(gcIdentities[i]);
   FreeAndNil(gcFilesMap);
   DetachFilesFromModules;
   FreeAndNil(gcModuleList);
@@ -7341,16 +7286,6 @@ begin
     Result := gcLEncoding[aFallback].Objects[i] as TEncoding;
 end;
 
-function TwbGameContext.GetEncoding: TEncoding;
-begin
-  Result := Settings.Encoding;
-end;
-
-function TwbGameContext.GetDontSave: Boolean;
-begin
-  Result := Settings.DontSave;
-end;
-
 procedure TwbGameContext.IncGlobalGeneration;
 begin
   Inc(gcGlobalGeneration);
@@ -7370,21 +7305,16 @@ var
 begin
   aIdentity := aIdentity.ToLowerInvariant;
 
-  if not Assigned(gcIdentitys[aFormIDNameBase]) then
-    gcIdentitys[aFormIDNameBase] := TDictionary<string, Cardinal>.Create;
+  if not Assigned(gcIdentities[aFormIDNameBase]) then
+    gcIdentities[aFormIDNameBase] := TDictionary<string, Cardinal>.Create;
 
-  if not gcIdentitys[aFormIDNameBase].TryGetValue(aIdentity, i) then begin
+  if not gcIdentities[aFormIDNameBase].TryGetValue(aIdentity, i) then begin
     i := gcNextIDs[aFormIDNameBase];
     Inc(gcNextIDs[aFormIDNameBase]);
-    gcIdentitys[aFormIDNameBase].Add(aIdentity, i);
+    gcIdentities[aFormIDNameBase].Add(aIdentity, i);
   end;
 
   Result := TwbFormID.FromCardinal( (Cardinal(aFormIDBase) shl 16) + i );
-end;
-
-function TwbGameContext.GetCreationClubContentFileName: string;
-begin
-  Result := Settings.CreationClubContentFileName;
 end;
 
 function TwbGameContext.GetGameDef: IwbGameDef;
@@ -7412,27 +7342,27 @@ begin
   gcContainerHandler := aValue;
 end;
 
-function TwbGameContext.GetSoundBankCache: IwbSoundBankArray;
+procedure TwbGameContext.SetSoundBankCache(const aValue: TwbSoundBankCache);
 begin
-  Result := gcSoundBankCache;
-end;
+  if aValue = gcSoundBankCache then
+    Exit;
 
-procedure TwbGameContext.SetSoundBankCache(const aValue: IwbSoundBankArray);
-begin
+  var lOld := gcSoundBankCache;
   if Assigned(aValue) then
     gcSoundBankCache := aValue
   else
-    gcSoundBankCache := TwbNullSoundBankArray.Create;
+    gcSoundBankCache := TwbSoundBankCache.Create;
+  if Length(gcFiles) = 0 then
+    lOld.Free
+  else
+    gcRetiredSoundBanks := gcRetiredSoundBanks + [lOld];
 end;
 
-function TwbGameContext.GetFaceGenCache: IwbFaceGenCache;
+function TwbGameContext.FaceGenCache: TwbFaceGenCache;
 begin
+  if not Assigned(gcFaceGenCache) then
+    gcFaceGenCache := TwbFaceGenCache.Create;
   Result := gcFaceGenCache;
-end;
-
-procedure TwbGameContext.SetFaceGenCache(const aValue: IwbFaceGenCache);
-begin
-  gcFaceGenCache := aValue;
 end;
 
 function TwbGameContext.GameMasterRecordByFormID(const aFormID: TwbFormID): IwbMainRecord;
@@ -7522,7 +7452,7 @@ end;
 
 procedure TwbGameContext.ForceClosed;
 begin
-  gcFaceGenCache := nil;
+  FreeAndNil(gcFaceGenCache);
   DetachFilesFromModules;
   gcFiles := nil;
   gcFilesMap.Clear;
@@ -23920,14 +23850,6 @@ end;
 
 { TwbFaceGenCache }
 
-type
-  TwbFaceGenCache = class(TInterfacedObject, IwbFaceGenCache)
-  protected
-    fgcFeatures : array[TwbFaceGenKind] of TwbFaceGenFeatures;
-    function Cached(aKind: TwbFaceGenKind; const aRaceID: string; aFemale: Boolean): PwbFaceGenFeature;
-    function Append(aKind: TwbFaceGenKind; const aRaceID: string; aFemale: Boolean): PwbFaceGenFeature;
-  end;
-
 function TwbFaceGenCache.Cached(aKind: TwbFaceGenKind; const aRaceID: string; aFemale: Boolean): PwbFaceGenFeature;
 begin
   Result := nil;
@@ -23942,27 +23864,6 @@ begin
   Result := @fgcFeatures[aKind][High(fgcFeatures[aKind])];
   Result.RaceID := aRaceID;
   Result.Female := aFemale;
-end;
-
-function wbFaceGenCacheOf(const aElement: IwbElement): IwbFaceGenCache;
-var
-  lFile    : IwbFile;
-  lContext : IwbGameContext;
-begin
-  Result := nil;
-  if not Assigned(aElement) then
-    Exit;
-  lFile := aElement._File;
-  if not Assigned(lFile) then
-    Exit;
-  lContext := lFile.Context;
-  if not Assigned(lContext) then
-    Exit;
-  Result := lContext.FaceGenCache;
-  if not Assigned(Result) then begin
-    Result := TwbFaceGenCache.Create;
-    lContext.FaceGenCache := Result;
-  end;
 end;
 
 { TwbRefID }
