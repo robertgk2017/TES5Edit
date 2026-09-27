@@ -1003,7 +1003,7 @@ begin
         lDefineOptions.SimpleRecords := True;
 
       case HostGameMode of
-        gmFNV, gmFO3, gmTES4, gmTES5, gmEnderal, gmTES5VR, gmSSE, gmEnderalSE: ;
+        gmFNV, gmFO3, gmTES4, gmTES4R, gmTES5, gmEnderal, gmTES5VR, gmSSE, gmEnderalSE: ;
         gmTES3: begin
           lSettings.LoadBSAs := False;
           tms := [tmDump];
@@ -1013,7 +1013,7 @@ begin
       else begin
         s := '';
         for gm := Low(TwbGameMode) to High(TwbGameMode) do
-          if gm in [gmFNV, gmFO3, gmTES3, gmTES4, gmTES5, gmEnderal, gmTES5VR, gmFO4, gmFO4VR, gmSSE, gmEnderalSE, gmFO76, gmSF1] then begin
+          if gm in [gmFNV, gmFO3, gmTES3, gmTES4, gmTES4R, gmTES5, gmEnderal, gmTES5VR, gmFO4, gmFO4VR, gmSSE, gmEnderalSE, gmFO76, gmSF1] then begin
             if s <> '' then
               s := s + ', ';
             s := s + Copy(GetEnumName(TypeInfo(TwbGameMode), Ord(gm)), 3);
@@ -1036,6 +1036,13 @@ begin
       if not (HostToolMode in tms) then begin
         WriteLn(ErrOutput, 'Application '+HostContext.GameDefObj.GameName+' does not currently support ToolMode: '+HostToolName);
         Exit;
+      end;
+      if (HostToolMode in [tmDump]) and (ParamCount >= 1) and not DumpSaves and not FindCmdLineSwitch('Plugins') and not t.Contains('plugins') then begin
+        var lInputFile := ParamStr(ParamCount);
+        if (lInputFile <> '') and not CharInSet(lInputFile[1], SwitchChars) and not wbIsModule(lInputFile, HostContext.GameDefObj.GameExeName) then begin
+          DumpSaves := True;
+          DumpSourceName := 'Saves';
+        end;
       end;
       if DumpSaves and not HostContext.GameDefObj.HasSaveDef then begin
         WriteLn(ErrOutput, 'Application '+HostContext.GameDefObj.GameName+' does not currently support ToolSource: '+DumpSourceName);

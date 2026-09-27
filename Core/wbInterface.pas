@@ -602,6 +602,8 @@ type
     CS                 : Boolean;
     HNVSE              : Boolean;
     Nehrim             : Boolean;
+    HardcodedRange     : Boolean;
+    EslExtension       : Boolean;
 
     class function Detect(aGameMode: TwbGameMode; const aDataPath: string): TwbGameDefInputs; static;
   end;
@@ -1472,7 +1474,8 @@ type
     csSortedBySortOrder,
     csCollapsed,
     csExpanded,
-    csConstructionCompleted
+    csConstructionCompleted,
+    csFillPending
   );
 
   TwbContainerStates = set of TwbContainerState;
@@ -3653,6 +3656,9 @@ type
     gdArchiveExtension    : string;
     gdHardcodedRangeAdmitted   : Boolean;
     gdHardcodedRangeMinVersion : Double;
+    gdLightFlag                : Cardinal;
+    gdLightFlags               : Cardinal;
+    gdEslExtensionSupported    : Boolean;
 
     function GetKnownSubRecordSignature(aKind: TwbKnownSubRecord): TwbSignature;
 
@@ -3853,6 +3859,12 @@ type
       read gdHardcodedRangeAdmitted;
     property HardcodedRangeMinVersion: Double
       read gdHardcodedRangeMinVersion;
+    property LightFlag: Cardinal
+      read gdLightFlag;
+    property LightFlags: Cardinal
+      read gdLightFlags;
+    property EslExtensionSupported: Boolean
+      read gdEslExtensionSupported;
 
     function FindRecordDef(const aSignature: TwbSignature; out aRecordDef: PwbMainRecordDef): Boolean; overload;
     function FindRecordDef(const aSignature: AnsiString; out aRecordDef: PwbMainRecordDef): Boolean; overload;
@@ -4129,7 +4141,6 @@ type
 
     function SaveContextFileByName(const aFileName: string): IwbFile;
     function SaveContextFiles: TwbFiles;
-    function FilesWithSaves: TwbFiles;
     function GetModuleList: TwbModuleList;
     function GetFileCount: Integer;
     function GetFile(aIndex: Integer): IwbFile;
@@ -4243,7 +4254,6 @@ type
     scGameContextObj : TwbGameContext;
     scFile           : IwbFile;
     scFileName       : string;
-    scJoinIndex      : Integer;
     scChaptersToSkip : TStringList;
 
     scFullPluginNames  : TStringList;
@@ -6242,6 +6252,8 @@ begin
     gdIdentity.AppName := 'Nehrim';
     gdIdentity.GameMasterEsm := 'Nehrim.esm';
   end;
+  gdHardcodedRangeAdmitted := aInputs.HardcodedRange;
+  gdEslExtensionSupported := aInputs.EslExtension or (gcLightPlugins in gdCapabilities);
 end;
 
 constructor TwbSaveDef.Create(aGameDef: TwbGameDef);
@@ -6256,12 +6268,52 @@ begin
 end;
 
 class function TwbGameDefInputs.Detect(aGameMode: TwbGameMode; const aDataPath: string): TwbGameDefInputs;
+
+  function TomlBool(const aFileName, aSection, aKey: string; aDefault: Boolean): Boolean;
+  begin
+    Result := aDefault;
+    if not FileExists(aFileName) then
+      Exit;
+    var lLines := TStringList.Create;
+    try
+      try
+        lLines.LoadFromFile(aFileName);
+      except
+        Exit;
+      end;
+      var lSection := '';
+      for var lLine in lLines do begin
+        var s := lLine;
+        var p := Pos('#', s);
+        if p > 0 then
+          Delete(s, p, MaxInt);
+        s := Trim(s);
+        if s.StartsWith('[') and s.EndsWith(']') then
+          lSection := Trim(Copy(s, 2, Length(s) - 2))
+        else if lSection = aSection then begin
+          p := Pos('=', s);
+          if (p > 0) and (Trim(Copy(s, 1, p - 1)) = aKey) then begin
+            var lValue := Trim(Copy(s, p + 1, MaxInt));
+            if lValue = 'true' then
+              Result := True
+            else if lValue = 'false' then
+              Result := False;
+          end;
+        end;
+      end;
+    finally
+      lLines.Free;
+    end;
+  end;
+
 begin
   Result := Default(TwbGameDefInputs);
   case aGameMode of
-    gmTES4:
+    gmTES4: begin
       if (not FileExists(aDataPath + 'Oblivion.esm')) and FileExists(aDataPath + 'Nehrim.esm') then
         Result.Nehrim      := True;
+      Result.LightSupport := FileExists(aDataPath + 'OBSE\Plugins\OblivionESL.dll');
+    end;
     gmFNV:
       Result.HNVSE := FileExists(aDataPath + 'NVSE\Plugins\Hnvse.dll');
     gmSSE, gmEnderalSE:
@@ -6272,9 +6324,14 @@ begin
       Result.CS := FileExists(aDataPath + 'SKSE\Plugins\CommunityShaders.dll');
     end;
     gmFO4VR: begin
-      Result.LightSupport := FileExists(aDataPath + 'F4SE\Plugins\falloutvresl.dll') or
-                             FileExists(aDataPath + 'F4SE\Plugins\Daytripper4.dll');
-      Result.UpdateSupport := Result.LightSupport;
+      var lVRESL := FileExists(aDataPath + 'F4SE\Plugins\falloutvresl.dll');
+      var lDaytripper4 := FileExists(aDataPath + 'F4SE\Plugins\Daytripper4.dll');
+      var lDaytripper4Toml := aDataPath + 'F4SE\Plugins\Daytripper4.toml';
+      Result.LightSupport := lVRESL or
+        (lDaytripper4 and TomlBool(lDaytripper4Toml, 'Patches', 'SmallFileLoader', False));
+      Result.UpdateSupport := lVRESL;
+      Result.HardcodedRange := lDaytripper4 and TomlBool(lDaytripper4Toml, 'Patches', 'ExtendedFormRange', True);
+      Result.EslExtension := lDaytripper4 and TomlBool(lDaytripper4Toml, 'Patches', 'EslExtensionSupport', True);
     end;
   end;
 end;
@@ -6287,6 +6344,8 @@ begin
   gdSaveDefsLock := TObject.Create;
   gdHEDRVersion := 1.0;
   gdHEDRNextObjectID := $800;
+  gdLightFlag := $00000200;
+  gdLightFlags := $00000200;
   gdCellSizeFactor := 4096.0;
   gdHeaderSignature := 'TES4';
   gdIgnoreRecords := TStringList.Create;
@@ -6852,7 +6911,6 @@ begin
         raise Exception.CreateFmt('"%s" is held by another save context', [aFileName]);
     scFile := aFile;
     scFileName := aFileName;
-    scJoinIndex := Length(lContext.gcFiles);
     lContext.gcSaveContexts := lContext.gcSaveContexts + [Self];
     scBuildSlotTable;
   finally
@@ -7245,40 +7303,6 @@ begin
   end;
 end;
 
-function TwbGameContext.FilesWithSaves: TwbFiles;
-var
-  lSaves     : TwbFiles;
-  lPositions : TArray<Integer>;
-begin
-  TMonitor.Enter(gcSaveContextsLock);
-  try
-    SetLength(lSaves, Length(gcSaveContexts));
-    SetLength(lPositions, Length(gcSaveContexts));
-    for var lIdx := Low(gcSaveContexts) to High(gcSaveContexts) do begin
-      lSaves[lIdx] := gcSaveContexts[lIdx].scFile;
-      lPositions[lIdx] := gcSaveContexts[lIdx].scJoinIndex;
-    end;
-  finally
-    TMonitor.Exit(gcSaveContextsLock);
-  end;
-  if Length(lSaves) = 0 then
-    Exit(gcFiles);
-
-  SetLength(Result, Length(gcFiles) + Length(lSaves));
-  var lOut := 0;
-  for var lFileIdx := 0 to Length(gcFiles) do begin
-    for var lSaveIdx := Low(lSaves) to High(lSaves) do
-      if (lPositions[lSaveIdx] = lFileIdx) or ((lFileIdx = Length(gcFiles)) and (lPositions[lSaveIdx] > lFileIdx)) then begin
-        Result[lOut] := lSaves[lSaveIdx];
-        Inc(lOut);
-      end;
-    if lFileIdx < Length(gcFiles) then begin
-      Result[lOut] := gcFiles[lFileIdx];
-      Inc(lOut);
-    end;
-  end;
-end;
-
 function TwbGameContext.CreateSkipList: TStringList;
 begin
   Result := TwbFastStringList.Create;
@@ -7507,12 +7531,9 @@ begin
     end;
   end;
 
-  var lFiles := gcFiles;
-  if lFileID = TwbFileID.CreateFull($FF) then
-    lFiles := FilesWithSaves;
-  for var i:= Low(lFiles) to High(lFiles) do
-    if lFiles[i].LoadOrderFileID = lFileID then begin
-      Result := lFiles[i].ContainedRecordByLoadOrderFormID[aFormID, True];
+  for var i:= Low(gcFiles) to High(gcFiles) do
+    if gcFiles[i].LoadOrderFileID = lFileID then begin
+      Result := gcFiles[i].ContainedRecordByLoadOrderFormID[aFormID, True];
       if Assigned(Result) and Assigned(aSeenFromFile) then begin
         var lVisibleResult := Result.HighestOverrideVisibleForFile[aSeenFromFile];
         if Assigned(lVisibleResult) then
@@ -22857,12 +22878,8 @@ end;
 
 function TwbMainRecordStructFlags.IsLight(aGameDef: TwbGameDef): Boolean;
 begin
-  if aGameDef.IsStarfield then
-    Result := (gcLightPlugins in aGameDef.Capabilities) and
-      ((_Flags and $00000100) <> 0)
-  else
-    Result := (gcLightPlugins in aGameDef.Capabilities) and
-      ((_Flags and $00000200) <> 0);
+  Result := (gcLightPlugins in aGameDef.Capabilities) and
+    ((_Flags and aGameDef.LightFlags) <> 0);
 end;
 
 function TwbMainRecordStructFlags.IsUpdate(aGameDef: TwbGameDef): Boolean;
@@ -22944,18 +22961,12 @@ end;
 procedure TwbMainRecordStructFlags.SetLight(aGameDef: TwbGameDef; aValue: Boolean);
 begin
   if gcLightPlugins in aGameDef.Capabilities then
-    if aGameDef.IsStarfield then begin
-      if aValue then begin
-        _Flags := _Flags or $00000100;
-        SetMedium(aGameDef, False);
-        SetUpdate(aGameDef, False);
-      end else
-        _Flags := _Flags and not $00000100;
+    if aValue then begin
+      _Flags := _Flags or aGameDef.LightFlag;
+      SetMedium(aGameDef, False);
+      SetUpdate(aGameDef, False);
     end else
-      if aValue then
-        _Flags := _Flags or $00000200
-      else
-        _Flags := _Flags and not $00000200;
+      _Flags := _Flags and not aGameDef.LightFlags;
 end;
 
 procedure TwbMainRecordStructFlags.SetUpdate(aGameDef: TwbGameDef; aValue: Boolean);
@@ -26416,7 +26427,7 @@ begin
       miExtension := meESP
     else if miName.EndsWith(csDotEsu, True) then
       miExtension := meESU
-    else if miName.EndsWith(csDotEsl, True) and mlContext.GameDefObj.IsLightSupported then
+    else if miName.EndsWith(csDotEsl, True) and mlContext.GameDefObj.EslExtensionSupported then
       miExtension := meESL;
 
     if miExtension in [meESM, meESL] then

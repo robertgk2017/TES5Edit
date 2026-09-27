@@ -30,6 +30,8 @@ var
 
 type
   TwbLoadingGameContext = class(TwbGameContext)
+  private
+    lgcLoading: TArray<string>;
   public
     procedure DetachFilesFromModules; override;
     function LoadFile(const aFileName: string; aLoadOrder: Integer = -1; const aCompareTo: string = ''; aStates: TwbFileStates = []; const aData: TBytes = nil): IwbFile; override;
@@ -580,6 +582,7 @@ type
     function ResetLeafFirst: Boolean; override;
     function ResetChildrenLeafFirst: Boolean; virtual;
     procedure DoInit(aNeedSorted: Boolean); virtual;
+    procedure DoPendingFill; virtual;
 
     function HasErrors: Boolean; override;
     function ContentIsAllZero: Boolean; override;
@@ -696,6 +699,7 @@ type
     procedure RemoveMainRecord(const aRecord: IwbMainRecord);
     procedure InjectMainRecord(const aRecord: IwbMainRecord);
     procedure RemoveInjectedMainRecord(const aRecord: IwbMainRecord);
+    procedure ReleaseRecords;
     procedure ForceClosed;
     function ContextObj: TwbGameContext;
     function SaveContextObj: TwbSaveContext;
@@ -959,6 +963,7 @@ type
     procedure RemoveMainRecord(const aRecord: IwbMainRecord);
     procedure InjectMainRecord(const aRecord: IwbMainRecord);
     procedure RemoveInjectedMainRecord(const aRecord: IwbMainRecord);
+    procedure ReleaseRecords;
     procedure ForceClosed;
     procedure GetMasters(aMasters: TStrings); virtual;
     procedure IncGeneration;
@@ -1298,8 +1303,11 @@ type
     procedure DoAfterSet(const aOldValue, aNewValue: Variant); override;
     procedure SetParentModified; override;
     procedure SetModified(aValue: Boolean); override;
+    procedure DoPendingFill; override;
 
     function DoBuildRef(aRemove: Boolean): Boolean;
+    function NeedsOrderFill: Boolean;
+    procedure FillOrderBySort;
     procedure BuildRef; override;
     procedure AddReferencedFromID(const aFormID: TwbFormID); override;
     procedure ResetConflict; override;
@@ -1819,6 +1827,7 @@ type
     function CompareExchangeFormID(aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override;
     function IsElementEditable(const aElement: IwbElement): Boolean; override;
     function GetIsEditable: Boolean; override;
+    function GetIsRemovable: Boolean; override;
     procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer); override;
     function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override;
   end;
@@ -2750,7 +2759,7 @@ begin;
         t := ExtractFileExt(s);
         if SameText(t, '.esp') and (not flContextObj.Settings.AllowESPMasters) then
           raise Exception.CreateFmt('[AddMasters] You cannot add a .esp as a master in %s.', [flContextObj.GameDefObj.GameName]);
-        if SameText(t, '.esm') or SameText(t, '.esp') or (flContextObj.GameDefObj.IsLightSupported and SameText(t, '.esl')) then
+        if SameText(t, '.esm') or SameText(t, '.esp') or (flContextObj.GameDefObj.EslExtensionSupported and SameText(t, '.esl')) then
           lMasters.Add(s);
       end;
 
@@ -3439,8 +3448,8 @@ begin
   var lGameDef := flContextObj.GameDefObj;
   Assert(not (aIsLight and aIsMedium));
 
-  Assert((not aIsLight) or lGameDef.IsLightSupported);
-  Assert((not aIsMedium) or lGameDef.IsMediumSupported);
+  Assert((not aIsLight) or lGameDef.IsLightSupported or flContextObj.Settings.PseudoLight);
+  Assert((not aIsMedium) or lGameDef.IsMediumSupported or flContextObj.Settings.PseudoMedium);
 
   flLoadOrderFileID := TwbFileID.Invalid;
   Include(flStates, fsIsNew);
@@ -3464,11 +3473,15 @@ begin
   if aIsLight then begin
     Header.IsLight := True;
     Include(flModule.miFlags, mfHasLightFlag);
+    if flContextObj.Settings.PseudoLight then
+      Include(flStates, fsPseudoLight);
   end;
 
   if aIsMedium then begin
     Header.IsMedium := True;
     Include(flModule.miFlags, mfHasMediumFlag);
+    if flContextObj.Settings.PseudoMedium then
+      Include(flStates, fsPseudoMedium);
   end;
 
   flLoadFinished := True;
@@ -3477,9 +3490,9 @@ begin
 
   if flLoadOrder >= 0 then begin
     if lGameDef.IsLightSupported or flContextObj.Settings.PseudoLight or lGameDef.IsMediumSupported or flContextObj.Settings.PseudoMedium or flContextObj.Settings.PseudoUpdate then begin
-      if Header.IsLight and not flContextObj.Settings.IgnoreLight then
+      if (fsPseudoLight in flStates) or (Header.IsLight and not flContextObj.Settings.IgnoreLight) then
         flLoadOrderFileID := TwbFileID.CreateLight(flContextObj.AllocateLightSlot, flContextObj.SlotLayout)
-      else if Header.IsMedium and not flContextObj.Settings.IgnoreMedium then
+      else if (fsPseudoMedium in flStates) or (Header.IsMedium and not flContextObj.Settings.IgnoreMedium) then
         flLoadOrderFileID := TwbFileID.CreateMedium(flContextObj.AllocateMediumSlot, flContextObj.SlotLayout)
       else begin
         if (lGameDef.IsUpdateSupported or flContextObj.Settings.PseudoUpdate) and Header.IsUpdate and not flContextObj.Settings.IgnoreUpdate then
@@ -4046,18 +4059,28 @@ begin
     IncGeneration;
 end;
 
-procedure TwbFile.ForceClosed;
+procedure TwbFile.ReleaseRecords;
 var
-  i: Integer;
+  i       : Integer;
+  lRecord : IwbMainRecordInternal;
 begin
   flSaveTables := nil;
   for i := Low(flRecordsIndices) to High(flRecordsIndices) do
     FreeAndNil(flRecordsIndices[i]);
   flIndicesActive := False;
-  for i := High(flRecords) downto Low(flRecords) do
-    (flRecords[i] as IwbMainRecordInternal).ClearForRelease;
-  for i := High(flInjectedRecords) downto Low(flInjectedRecords) do
-    (flInjectedRecords[i] as IwbMainRecordInternal).ClearForRelease;
+  for i := High(flRecords) downto Low(flRecords) do begin
+    lRecord := flRecords[i] as IwbMainRecordInternal;
+    lRecord.ClearForRelease;
+  end;
+  for i := High(flInjectedRecords) downto Low(flInjectedRecords) do begin
+    lRecord := flInjectedRecords[i] as IwbMainRecordInternal;
+    lRecord.ClearForRelease;
+  end;
+end;
+
+procedure TwbFile.ForceClosed;
+begin
+  ReleaseRecords;
   flMasters                := nil;
   flRecords                := nil;
   flInjectedRecords        := nil;
@@ -4297,6 +4320,10 @@ end;
 
 procedure TwbFile.DetachModule;
 begin
+  if Assigned(flModule) and (flModule.miFile = Self) then begin
+    Exclude(flModule.miFlags, mfHasFile);
+    flModule.miFile := nil;
+  end;
   flModule := nil;
 end;
 
@@ -7330,8 +7357,11 @@ var
 begin
   if esDestroying in eStates then
     Exit;
-  if csInit in cntStates then
+  if csInit in cntStates then begin
+    if csFillPending in cntStates then
+      DoPendingFill;
     Exit;
+  end;
   if [csInitializing, csReseting] * cntStates <> [] then
     Exit;
   Exclude(cntStates, csSortedBySortOrder);
@@ -7423,7 +7453,7 @@ begin
       lock dec dword ptr [eax + cntElementRefs]
     end;
     {$ENDIF WIN32}
-    Exclude(cntStates, csInit);
+    cntStates := cntStates - [csInit, csFillPending];
   end;
 end;
 
@@ -8549,6 +8579,10 @@ begin
   { can be overriden }
 end;
 
+procedure TwbContainer.DoPendingFill;
+begin
+end;
+
 function TwbContainer.ResetChildrenLeafFirst: Boolean;
 var
   i       : Integer;
@@ -9633,8 +9667,10 @@ begin
   else begin
     UseKAC;
     if _FileRefsBuilding and not (esModified in eStates) then
-      if ResetChildrenLeafFirst then
+      if ResetChildrenLeafFirst then begin
+        Exclude(cntStates, csFillPending);
         Reset;
+      end;
   end;
 
   if wbHasProgressCallback then
@@ -10504,7 +10540,6 @@ var
   Dummy                : Integer;
   LastElementForMember : array of IwbElement;
   GroupRecord          : IwbGroupRecord;
-  GroupRecordInternal  : IwbGroupRecordInternal;
   RequiredRecords      : set of byte;
   PresentRecords       : set of byte;
   i                    : Integer;
@@ -10833,19 +10868,57 @@ begin
 
   Include(cntStates, csInitOnce);
 
-  if {$IFDEF USE_PARALLEL_BUILD_REFS}not lContext.BuildingRefsParallel and{$ENDIF} (gcCanSortINFO in lCapabilities) and lContext.Settings.SortINFO then
-    if not (GetIsDeleted or GetIsPartialForm) and ContextObj.BeginInternalEdit(False) then try
-      if lContext.Settings.FillPNAM and (GetSignature = 'INFO') and not Assigned(GetRecordBySignature('PNAM')) then begin
-        if Supports(IwbContainer(eContainer), IwbGroupRecordInternal, GroupRecordInternal) then
-          GroupRecordInternal.Sort(True);
-      end else if GetSignature = 'DIAL' then
-        if (lContext.Settings.FillINOM and not Assigned(GetRecordBySignature('INOM'))) or (lContext.Settings.FillINOA and not Assigned(GetRecordBySignature('INOA'))) then begin
-          if Supports(GetChildGroup, IwbGroupRecordInternal, GroupRecordInternal) then
-            GroupRecordInternal.Sort(True);
-        end;
-    finally
-      wbEndInternalEdit;
-    end;
+  if (gcCanSortINFO in lCapabilities) and lContext.Settings.SortINFO then
+    {$IFDEF USE_PARALLEL_BUILD_REFS}
+    if lContext.BuildingRefsParallel then begin
+      var lSignature := GetSignature;
+      if (lSignature = 'INFO') or (lSignature = 'DIAL') then
+        Include(cntStates, csFillPending);
+    end else
+    {$ENDIF}
+      FillOrderBySort;
+end;
+
+procedure TwbMainRecord.DoPendingFill;
+begin
+  if ContextObj.BuildingRefsParallel then
+    Exit;
+  Exclude(cntStates, csFillPending);
+  FillOrderBySort;
+end;
+
+function TwbMainRecord.NeedsOrderFill: Boolean;
+begin
+  var lSignature := GetSignature;
+  if (lSignature <> 'INFO') and (lSignature <> 'DIAL') then
+    Exit(False);
+  if GetIsDeleted or GetIsPartialForm then
+    Exit(False);
+  var lContext := ContextObj;
+  if lSignature = 'INFO' then
+    Result := lContext.Settings.FillPNAM and not Assigned(GetRecordBySignature('PNAM'))
+  else
+    Result := (lContext.Settings.FillINOM and not Assigned(GetRecordBySignature('INOM'))) or (lContext.Settings.FillINOA and not Assigned(GetRecordBySignature('INOA')));
+end;
+
+procedure TwbMainRecord.FillOrderBySort;
+var
+  GroupRecordInternal : IwbGroupRecordInternal;
+begin
+  if not NeedsOrderFill then
+    Exit;
+  if not ContextObj.BeginInternalEdit(False) then
+    Exit;
+  try
+    if GetSignature = 'INFO' then begin
+      if Supports(IwbContainer(eContainer), IwbGroupRecordInternal, GroupRecordInternal) then
+        GroupRecordInternal.Sort(True);
+    end else
+      if Supports(GetChildGroup, IwbGroupRecordInternal, GroupRecordInternal) then
+        GroupRecordInternal.Sort(True);
+  finally
+    wbEndInternalEdit;
+  end;
 end;
 
 function TwbMainRecord.FindReferencedBy(const aMainRecord: IwbMainRecord; var Index: Integer): Boolean;
@@ -24282,6 +24355,10 @@ end;
 
 procedure TwbLoadingGameContext.ForceClosedFiles;
 begin
+  for var lFile in Files do
+    (lFile as IwbFileInternal).ReleaseRecords;
+  for var lFile in SaveContextFiles do
+    (lFile as IwbFileInternal).ReleaseRecords;
   for var lFile in Files do begin
     (lFile as IwbFileInternal).ForceClosed;
     wbProgressCallback;
@@ -24404,12 +24481,19 @@ begin
   else
     FileName := ExpandFileName(aFileName);}
 
+  if not wbIsModule(FileName, GameDefObj.GameExeName) then
+    raise Exception.CreateFmt('Expected a module, found "%s"', [FileName]);
   Result := FileByName(FileName);
   if not Assigned(Result) then begin
-    if not wbIsModule(FileName, GameDefObj.GameExeName) then
-      Result := TwbFileSource.Create(Self, FileName, aLoadOrder, aCompareTo, aStates + [fsAddToMap], aData)
-    else
+    for var lLoading in lgcLoading do
+      if SameText(lLoading, FileName) then
+        raise Exception.CreateFmt('"%s" is its own master, directly or through its masters', [ExtractFileName(FileName)]);
+    lgcLoading := lgcLoading + [FileName];
+    try
       Result := TwbFile.Create(Self, FileName, aLoadOrder, aCompareTo, aStates + [fsAddToMap], aData);
+    finally
+      Delete(lgcLoading, High(lgcLoading), 1);
+    end;
   end;
 end;
 
@@ -24508,6 +24592,8 @@ begin
   GameDefObj.InitRecords;
 
   FileName := ExpandFileName(aFileName);
+  if not wbIsModule(FileName, GameDefObj.GameExeName) then
+    raise Exception.CreateFmt('Expected a module, found "%s"', [FileName]);
   if Assigned(FileByName(FileName)) then
     raise Exception.Create(FileName + ' exists already')
   else begin
@@ -24523,6 +24609,8 @@ begin
   GameDefObj.InitRecords;
 
   FileName := ExpandFileName(aFileName);
+  if not wbIsModule(FileName, GameDefObj.GameExeName) then
+    raise Exception.CreateFmt('Expected a module, found "%s"', [FileName]);
   if Assigned(FileByName(FileName)) then
     raise Exception.Create(FileName + ' exists already')
   else begin
@@ -25948,6 +26036,11 @@ begin
   Result := wbIsInternalEdit;
 end;
 
+function TwbRecordHeaderStruct.GetIsRemovable: Boolean;
+begin
+  Result := False;
+end;
+
 function TwbRecordHeaderStruct.IsElementEditable(const aElement: IwbElement): Boolean;
 begin
   Result := Assigned(aElement) and Assigned(aElement.ValueDef) and
@@ -26524,6 +26617,16 @@ begin
 
   var lSaveDef := flSaveDef;
 
+  var lMagic := AnsiString(lSaveDef.FileMagic);
+  var lFoundLength := NativeUInt(flEndPtr) - NativeUInt(flView);
+  if lFoundLength > NativeUInt(Length(lMagic)) then
+    lFoundLength := Length(lMagic);
+  var lFoundMagic: AnsiString;
+  SetString(lFoundMagic, PAnsiChar(flView), Integer(lFoundLength));
+  if lFoundMagic <> lMagic then
+    raise Exception.CreateFmt('Expected header Magic %s, found %s in file "%s"',
+      [lSaveDef.FileMagic, String(lFoundMagic), flFileName]);
+
   flLoadOrderFileID := TwbFileID.CreateFull($FF);
 
   flBaseOffset := NativeUInt(flView);
@@ -26533,10 +26636,6 @@ begin
 
   if (GetElementCount <> 1) or not Supports(GetElement(0), IwbFileHeader, Header) then
     raise Exception.CreateFmt('Unexpected error reading file "%s"', [flFileName]);
-
-  if Header.FileMagic <> lSaveDef.FileMagic then
-    raise Exception.CreateFmt('Expected header Magic %s, found %s in file "%s"',
-      [lSaveDef.FileMagic, String(Header.FileMagic), flFileName]);
 
   if fsOnlyHeader in flStates then
     Exit;

@@ -1547,7 +1547,9 @@ begin
   RegisterRecordDef(TES4, 'Main File Header',
     wbFlags(wbFlagsList([
       0, 'ESM',
-      4, 'Optimized'
+      4, 'Optimized',
+      9, wb<string>.Iff(gcLightPlugins in Capabilities, 'ESL', ''),
+      19, wb<string>.Iff(gcLightPlugins in Capabilities, 'ESL (OblivionESL)', '')
     ])), [
     wbHEDR,
     IfThen(DefineOptions.SimpleRecords,
@@ -3733,6 +3735,7 @@ begin
   gdNexusModsUrl := 'https://www.nexusmods.com/oblivion/mods/11536';
   gdLODGenNexusModsUrl := 'https://www.nexusmods.com/oblivion/mods/15781';
   gdHEDRVersion := 1.0;
+  gdLightFlags := $00080200;
   gdDefaultLandTexture := 'TerrainHDDirt01dds';
 end;
 
