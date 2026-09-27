@@ -3624,6 +3624,8 @@ begin
     Exclude(flModule.miFlags, mfHasFile);
     flModule.miFile := nil;
   end;
+  var lElements := ReleaseElements;
+  lElements := nil;
   flCloseFile;
   inherited;
 end;
@@ -4084,7 +4086,8 @@ begin
   flMasters                := nil;
   flRecords                := nil;
   flInjectedRecords        := nil;
-  ReleaseElements;
+  var lElements := ReleaseElements;
+  lElements := nil;
   flCloseFile;
 end;
 
@@ -5419,9 +5422,10 @@ begin
     if flModule.miExtension = meESM then
       SetIsESM(True);
 
-    if lGameDef.IsLightSupported and (flModule.miExtension = meESL) then begin
+    if flModule.miExtension = meESL then begin
       SetIsESM(True);
-      SetIsLight(True);
+      if lGameDef.IsLightSupported then
+        SetIsLight(True);
     end;
 
     if not flContextObj.Settings.AllowESPMastersOnSave then
@@ -5888,7 +5892,7 @@ var
       if lGameDef.IsLightSupported or flContextObj.Settings.PseudoLight or lGameDef.IsMediumSupported or flContextObj.Settings.PseudoMedium or lGameDef.IsUpdateSupported or flContextObj.Settings.PseudoUpdate then begin
         if (lGameDef.IsUpdateSupported or flContextObj.Settings.PseudoUpdate) and ((fsPseudoUpdate in flStates) or ((Header.IsUpdate) and not flContextObj.Settings.IgnoreUpdate)) then
           flLoadOrderFileID := TwbFileID.Invalid
-        else if (fsPseudoLight in flStates) or ((Header.IsLight or flFileName.EndsWith(csDotEsl, True)) and not flContextObj.Settings.IgnoreLight) then
+        else if (fsPseudoLight in flStates) or ((Header.IsLight or (lGameDef.IsLightSupported and lGameDef.EslExtensionSupported and flFileName.EndsWith(csDotEsl, True))) and not flContextObj.Settings.IgnoreLight) then
           flLoadOrderFileID := TwbFileID.CreateLight(flContextObj.AllocateLightSlot, flContextObj.SlotLayout)
         else if (fsPseudoMedium in flStates) or (Header.IsMedium and not flContextObj.Settings.IgnoreMedium) then
           flLoadOrderFileID := TwbFileID.CreateMedium(flContextObj.AllocateMediumSlot, flContextObj.SlotLayout)
@@ -10881,7 +10885,7 @@ end;
 
 procedure TwbMainRecord.DoPendingFill;
 begin
-  if ContextObj.BuildingRefsParallel then
+  if not Assigned(eContainer) or ContextObj.BuildingRefsParallel then
     Exit;
   Exclude(cntStates, csFillPending);
   FillOrderBySort;

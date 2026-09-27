@@ -135,7 +135,6 @@ var
   wbIKnowWhatImDoing                 : Boolean    = False;
   wbHideUnused                       : Boolean    = True;
   wbHideNeverShow                    : Boolean    = True;
-  wbShowFlagEnumValue                : Boolean    = False;
   wbShowGroupRecordCount             : Boolean    = False;
   wbShowFileFlags                    : Boolean    = False;
   wbDisplayShorterNames              : Boolean    = False;
@@ -146,8 +145,6 @@ var
   wdMakeUnknownElementsUnique        : Boolean    = False;
   wbResolveAlias                    : Boolean    = True;
   wbActorTemplateHide                : Boolean    = True;
-  wbAlignArrayElements               : Boolean    = True;
-  wbAlignArrayLimit                  : Integer    = 5000;
   wbCopyIsRunning                    : Integer    = 0;
   wbHasAddedOptimizedSupport         : Boolean    = False;
   wbEditInfoUseShortName             : Boolean    = False;
@@ -2341,19 +2338,6 @@ type
   TwbConflictMessageProc = reference to procedure(const aMessage: string);
   TwbConflictElementProc = reference to procedure(aColumn: Integer; const aElement: IwbElement);
 
-  TwbConflictConfig = record
-    TranslationMode    : Boolean;
-    AlignArrayElements : Boolean;
-    AlignArrayLimit    : Integer;
-    class function ForContext(aContext: TwbGameContext): TwbConflictConfig; static;
-  end;
-
-  TwbConflictPolicy = record
-    QuickShowConflicts : Boolean;
-    OnlyMasterAndLeafs : Boolean;
-    ModGroupsEnabled   : Boolean;
-  end;
-
   PwbConflictNodeData = ^TwbConflictNodeData;
   TwbConflictNodeData = record
     Element: IwbElement;
@@ -3865,6 +3849,7 @@ type
       read gdLightFlags;
     property EslExtensionSupported: Boolean
       read gdEslExtensionSupported;
+    function NewLightFileExtension: string;
 
     function FindRecordDef(const aSignature: TwbSignature; out aRecordDef: PwbMainRecordDef): Boolean; overload;
     function FindRecordDef(const aSignature: AnsiString; out aRecordDef: PwbMainRecordDef): Boolean; overload;
@@ -5715,13 +5700,6 @@ uses
   wbSort,
   wbSteamVDFParser;
 
-class function TwbConflictConfig.ForContext(aContext: TwbGameContext): TwbConflictConfig;
-begin
-  Result.TranslationMode := aContext.Settings.TranslationMode;
-  Result.AlignArrayElements := wbAlignArrayElements;
-  Result.AlignArrayLimit := wbAlignArrayLimit;
-end;
-
 procedure TwbConflictNodeData.UpdateRefs;
 begin
   if Assigned(Element) and (Element.ElementType = etMainRecord) then
@@ -6253,7 +6231,7 @@ begin
     gdIdentity.GameMasterEsm := 'Nehrim.esm';
   end;
   gdHardcodedRangeAdmitted := aInputs.HardcodedRange;
-  gdEslExtensionSupported := aInputs.EslExtension or (gcLightPlugins in gdCapabilities);
+  gdEslExtensionSupported := aInputs.EslExtension or (gcLightPlugins in ComputeCapabilities(aGameMode, Default(TwbGameDefInputs)));
 end;
 
 constructor TwbSaveDef.Create(aGameDef: TwbGameDef);
@@ -6270,6 +6248,14 @@ end;
 class function TwbGameDefInputs.Detect(aGameMode: TwbGameMode; const aDataPath: string): TwbGameDefInputs;
 
   function TomlBool(const aFileName, aSection, aKey: string; aDefault: Boolean): Boolean;
+
+    function Unquoted(const s: string): string;
+    begin
+      Result := Trim(s);
+      if (Length(Result) >= 2) and CharInSet(Result[1], ['"', '''']) and (Result[Length(Result)] = Result[1]) then
+        Result := Copy(Result, 2, Length(Result) - 2);
+    end;
+
   begin
     Result := aDefault;
     if not FileExists(aFileName) then
@@ -6289,10 +6275,10 @@ class function TwbGameDefInputs.Detect(aGameMode: TwbGameMode; const aDataPath: 
           Delete(s, p, MaxInt);
         s := Trim(s);
         if s.StartsWith('[') and s.EndsWith(']') then
-          lSection := Trim(Copy(s, 2, Length(s) - 2))
+          lSection := Unquoted(Copy(s, 2, Length(s) - 2))
         else if lSection = aSection then begin
           p := Pos('=', s);
-          if (p > 0) and (Trim(Copy(s, 1, p - 1)) = aKey) then begin
+          if (p > 0) and (Unquoted(Copy(s, 1, p - 1)) = aKey) then begin
             var lValue := Trim(Copy(s, p + 1, MaxInt));
             if lValue = 'true' then
               Result := True
@@ -6321,6 +6307,7 @@ begin
     gmTES5VR: begin
       Result.LightSupport := FileExists(aDataPath + 'SKSE\Plugins\skyrimvresl.dll');
       Result.UpdateSupport := Result.LightSupport;
+      Result.EslExtension := Result.LightSupport;
       Result.CS := FileExists(aDataPath + 'SKSE\Plugins\CommunityShaders.dll');
     end;
     gmFO4VR: begin
@@ -6331,7 +6318,7 @@ begin
         (lDaytripper4 and TomlBool(lDaytripper4Toml, 'Patches', 'SmallFileLoader', False));
       Result.UpdateSupport := lVRESL;
       Result.HardcodedRange := lDaytripper4 and TomlBool(lDaytripper4Toml, 'Patches', 'ExtendedFormRange', True);
-      Result.EslExtension := lDaytripper4 and TomlBool(lDaytripper4Toml, 'Patches', 'EslExtensionSupport', True);
+      Result.EslExtension := lVRESL or (lDaytripper4 and TomlBool(lDaytripper4Toml, 'Patches', 'EslExtensionSupport', True));
     end;
   end;
 end;
@@ -6722,6 +6709,14 @@ end;
 function TwbGameDef.GetIsLightSupported: Boolean;
 begin
   Result := gcLightPlugins in gdCapabilities;
+end;
+
+function TwbGameDef.NewLightFileExtension: string;
+begin
+  if gdEslExtensionSupported then
+    Result := csDotEsl
+  else
+    Result := csDotEsp;
 end;
 
 function TwbGameDef.GetIsMediumSupported: Boolean;
@@ -17002,8 +16997,6 @@ begin
           s :=  wbGetUnknownIntString(i);
       if GetFlagDontShow(aElement, i) then
         s := '<Unknown: ' + IntToStr(i) + '>';
-      if wbShowFlagEnumValue then
-        s := s + ' (0x' + IntToHex(Int64(1) shl i, 8) + ')';
       Add(s);
     end;
     Result := ToStringArray;
@@ -17023,8 +17016,6 @@ begin
     Exit(flgSummaries[aIndex]);
 
   Result := flgNames[aIndex];
-  if wbShowFlagEnumValue then
-    Result := Result + ' (0x' + IntToHex(Int64(1) shl aIndex, 8) + ')';
 end;
 
 function TwbFlagsDef.GetFlagCount: Integer;
@@ -17350,8 +17341,6 @@ begin
           HasUnknownFlags := True;
         end;
       end;
-      if not aForSummary and wbShowFlagEnumValue then
-        s := s + ' (0x' + IntToHex(Int64(1) shl i, 8) + ')';
       if not GetFlagDontShow(aElement, i) then
         Result := Result + s + ', ';
     end;
@@ -17469,10 +17458,7 @@ begin
           enNames[i] := lName;
         end;
 
-        if wbShowFlagEnumValue then
-          EditInfo.Add(lName + ' (' + IntToStr(i) + ')')
-        else
-          EditInfo.Add(lName);
+        EditInfo.Add(lName);
       end;
 
       var lSummary := '';
@@ -17529,10 +17515,7 @@ begin
             enDictionary.Add(snName, snIndex);
           end;
 
-          if wbShowFlagEnumValue then
-            EditInfo.Add(snName + ' (' + IntToStr(snIndex) + ')')
-          else
-            EditInfo.Add(snName);
+          EditInfo.Add(snName);
         end;
       end;
     end;
@@ -17781,17 +17764,7 @@ begin
   if aValue = '' then
     Result := 0
   else begin
-    var lValue := aValue;
-
-    if wbShowFlagEnumValue and (lValue[Length(lValue)] = ')') then begin
-      // remove an integer value of enum from enum string value
-      var lOpenParensIdx := LastDelimiter('(', lValue);
-      var lDummy: Integer;
-      if (lOpenParensIdx > 0) and TryStrToInt(Copy(lValue, Succ(lOpenParensIdx), Length(lValue) - Succ(lOpenParensIdx)), lDummy) then
-        Delete(lValue, Pred(lOpenParensIdx), Length(lValue));
-    end;
-
-    if enDictionary.TryGetValue(lValue, Result) then
+    if enDictionary.TryGetValue(aValue, Result) then
       Exit;
 
     (*
@@ -17819,7 +17792,7 @@ begin
       end;
     *)
 
-    Result := StrToInt64(lValue);
+    Result := StrToInt64(aValue);
   end;
 end;
 
@@ -17967,24 +17940,15 @@ var
 begin
   Result := '';
 
-  if (aInt >= Low(enNames)) and (aInt <= High(enNames)) then begin
+  if (aInt >= Low(enNames)) and (aInt <= High(enNames)) then
     Result := enNames[aInt];
-    if wbShowFlagEnumValue then
-      Result := Result + ' (' + IntToStr(aInt) + ')';
-  end;
 
   if Result = '' then
-    if FindSparseName(aInt, i) then begin
+    if FindSparseName(aInt, i) then
       Result := enSparseNamesMap[i].snName;
-      if wbShowFlagEnumValue then
-        Result := Result + ' (' + IntToStr(enSparseNamesMap[i].snIndex) + ')';
-    end;
 
-  if Result = '' then begin
+  if Result = '' then
     Result := IntToStr(aInt);
-    if wbShowFlagEnumValue then
-      Result := Result + ' (' + IntToStr(aInt) + ')';
-  end;
 end;
 
 function TwbEnumDef.ToSortKey(aInt: Int64; const aElement: IwbElement): string;
@@ -17999,14 +17963,11 @@ var
 begin
   Result := '';
 
-  if (aInt >= Low(enNames)) and (aInt <= High(enNames)) then begin
+  if (aInt >= Low(enNames)) and (aInt <= High(enNames)) then
     if aForSummary then
       Result := enSummaries[aInt]
     else
       Result := enNames[aInt];
-    if wbShowFlagEnumValue and (Result <> '') then
-      Result := Result + ' (' + IntToStr(aInt) + ')';
-  end;
 
   if Result = '' then begin
     if FindSparseName(aInt, i) then begin
@@ -18016,8 +17977,6 @@ begin
       else
         Result := enSparseNamesMap[i].snName;
 
-      if wbShowFlagEnumValue then
-        Result := Result + ' (' + IntToStr(enSparseNamesMap[i].snIndex) + ')';
     end else begin
       Result := wbGetUnknownIntString(aInt);
       if wbReportMode and wbReportUnknownEnums then begin

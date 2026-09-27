@@ -67,6 +67,9 @@ var
   xeTestNavCopyCount       : Integer = 12;
   xeTestNavCopyNew         : Boolean;
   xeTestNavCopySignature   : string = 'QUST';
+  xeTestViewText           : Boolean;
+  xeTestViewTextFile       : string;
+  xeTestViewTextRecord     : string = '00000007';
   xeTestSaveContexts       : Boolean;
   xeTestSaveContextsFile   : string;
   xeTestSaveContextsSave   : string;
@@ -208,7 +211,6 @@ begin
       xeContext.Settings.LoadBSAs := Settings.ReadBool('Options', 'LoadBSAs', xeContext.Settings.LoadBSAs);
       xeContext.GameDefObj.DefineOptions.SimpleRecords := Settings.ReadBool('Options', 'SimpleRecords', xeContext.GameDefObj.DefineOptions.SimpleRecords);
       xeContext.GameDefObj.DefineOptions.DecodeTextureHashes := Settings.ReadBool('Options', 'DecodeTextureHashes2', xeContext.GameDefObj.DefineOptions.DecodeTextureHashes); {changed name to enforce new default value}
-      wbShowFlagEnumValue := Settings.ReadBool('Options', 'ShowFlagEnumValue', wbShowFlagEnumValue);
       xeContext.Settings.TrackAllEditorID := Settings.ReadBool('Options', 'TrackAllEditorID', xeContext.Settings.TrackAllEditorID);
       xeContext.Settings.AllowDirectSave := Settings.ReadBool('Options', 'AllowDirectSave', xeContext.Settings.AllowDirectSave);
       xeContext.Settings.SortINFO := Settings.ReadBool('Options', 'SortINFO', xeContext.Settings.SortINFO);
@@ -931,6 +933,18 @@ begin
       xeTestNavCopyNew := FindCmdLineSwitch('testnavcopynew');
       if wbFindCmdLineParam('testnavcopysig', lValue) and (Length(lValue) = 4) then
         xeTestNavCopySignature := lValue;
+    end;
+
+    if wbFindCmdLineParam('testviewtext', xeTestViewTextFile) then begin
+      if xeTestViewTextFile = '' then begin
+        ShowMessage('testviewtext requires an output file, as -testviewtext:<filename>');
+        Exit(False);
+      end;
+      xeTestViewText := True;
+      xeAutoLoad     := True;
+      var lValue: string;
+      if wbFindCmdLineParam('testviewrecord', lValue) and (lValue <> '') then
+        xeTestViewTextRecord := lValue;
     end;
 
     if   FindCmdLineSwitch('autogamelink') or FindCmdLineSwitch('agl')

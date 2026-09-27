@@ -590,11 +590,9 @@ object frmOptions: TfrmOptions
         Width = 439
         Height = 17
         Hint = 
-          'Add integer values of flags and enumerations in () brackets at t' +
-          'he end'
-        Caption = 
-          'Show values of flags and enumerations (requires restart, interfe' +
-          'res with scripts)'
+          'Show a flag'#39's value (0x...) and an enumeration'#39's value (n) after ' +
+          'its name in the view and its edit lists'
+        Caption = 'Show values of flags and enumerations'
         TabOrder = 3
       end
       object cbSortINFO: TCheckBox
