@@ -134,7 +134,6 @@ var
   wbPrettyFormID                     : Boolean    = False;
   wbIKnowWhatImDoing                 : Boolean    = False;
   wbHideUnused                       : Boolean    = True;
-  wbHideNeverShow                    : Boolean    = True;
   wbShowGroupRecordCount             : Boolean    = False;
   wbShowFileFlags                    : Boolean    = False;
   wbDisplayShorterNames              : Boolean    = False;
@@ -919,6 +918,7 @@ type
   TwbSaveContext = class;
   TwbSaveContextClass = class of TwbSaveContext;
   TwbLocalizationHandler = class;
+  TwbHiddenSet = class;
   IwbFile = interface;
   IwbSaveTables = interface;
   IwbNamedDef = interface;
@@ -1249,9 +1249,7 @@ type
 
     function HasErrors: Boolean;
 
-    procedure Hide;
-    procedure Show;
-    function GetIsHidden: Boolean;
+    function IsHiddenIn(aHidden: TwbHiddenSet): Boolean;
 
     procedure MoveUp;
     procedure MoveDown;
@@ -1277,9 +1275,6 @@ type
     property Found: Boolean
       read GetFound
       write SetFound;
-
-    property IsHidden: Boolean
-      read GetIsHidden;
 
     procedure WriteToStream(aStream: TStream; aResetModified: TwbResetModified);
 
@@ -1535,6 +1530,10 @@ type
     procedure ResetMemoryOrder(aFrom: Integer = 0; aTo: Integer = High(Integer));
     procedure SortBySortOrder;
     procedure SetIsSortedBySortOrder(aForce: Boolean);
+    procedure MoveElementTo(const aElement: IwbElement; aIndex: Integer);
+
+    function CanAssignAligned(aIndex: Integer; aCheckDontShow: Boolean): Boolean;
+    function AssignAligned(aIndex, aMemoryIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement;
 
     property ElementByPath[const aPath: string]: IwbElement
       read GetElementByPath;
@@ -2085,10 +2084,9 @@ type
     function GetBaseRecordSignature: TwbSignature;
     function GetMasterAndLeafs: TDynMainRecords;
 
-    function GetConflictAll: TConflictAll;
-    procedure SetConflictAll(aValue: TConflictAll);
-    function GetConflictThis: TConflictThis;
-    procedure SetConflictThis(aValue: TConflictThis);
+    function DenseIDIn(aContext: TwbGameContext): Cardinal;
+    function GetChainStamp: Cardinal;
+    procedure MarkConflictStored;
 
     function GetIsESM: Boolean;
     procedure SetIsESM(aValue: Boolean);
@@ -2285,12 +2283,8 @@ type
       read GetIsUpdate
       write SetIsUpdate;
 
-    property ConflictAll: TConflictAll
-      read GetConflictAll
-      write SetConflictAll;
-    property ConflictThis: TConflictThis
-      read GetConflictThis
-      write SetConflictThis;
+    property ChainStamp: Cardinal
+      read GetChainStamp;
   end;
 
   IwbFileHeader = interface(IwbDataContainer)
@@ -2347,6 +2341,7 @@ type
     ElementGen   : Integer;
     ContainerGen : Integer;
     MissingElements : TDynElements;
+    RowElements  : TDynElements;
     ViewNodeFlags: TwbConflictNodeFlags;
     procedure UpdateRefs;
   end;
@@ -3903,6 +3898,7 @@ type
     CompareRawData        : Boolean;
     TranslationMode       : Boolean;
     HideIgnored           : Boolean;
+    HideNeverShow         : Boolean;
     EditAllowed           : Boolean;
     AllowInternalEdit     : Boolean;
     AllowEditGameMaster   : Boolean;
@@ -3988,8 +3984,6 @@ type
     mfIsGameMaster,
     mfNew,
     mfTemplate,
-    mfIsModGroupTarget,
-    mfIsModGroupSource,
     mfEphemeralModGroupTagged,
     mfTaggedForPluginMode,
     mfModGroupMissingCurrentCRC,
@@ -4028,9 +4022,6 @@ type
     miFile              : TObject;
     miContext           : TwbGameContext;
 
-    miModGroupTargets   : TwbModuleInfos;
-    miModGroupSources   : TwbModuleInfos;
-
     function IsValid: Boolean;
     function HasIndex: Boolean;
     function IsActive: Boolean;
@@ -4057,6 +4048,7 @@ type
     procedure ActivateMasters;
     function FilteredByFlag(aFlag: TwbModuleFlag; aHasFlag: Boolean = True): TwbModuleInfos;
     function FilteredBy(const aFunc: TFunc<PwbModuleInfo, Boolean>): TwbModuleInfos;
+    function Contains(aModule: PwbModuleInfo): Boolean;
   end;
 
   TwbDynModuleInfos = array of TwbModuleInfo;
@@ -4119,6 +4111,7 @@ type
     gcRetiredSoundBanks    : TArray<TwbSoundBankCache>;
     gcFaceGenCache         : TwbFaceGenCache;
     gcGlobalGeneration     : Integer;
+    gcStampCounter         : Cardinal;
     gcIdentities           : array[Byte] of TDictionary<string, Cardinal>;
     gcNextIDs              : array[Byte] of Cardinal;
     gcSaveContexts         : TArray<TwbSaveContext>;
@@ -4151,6 +4144,8 @@ type
     function AllocateMediumSlot: Integer;
     procedure ForceClosed;
     procedure IncGlobalGeneration;
+    function NextStamp: Cardinal;
+    procedure AllocateDenseIDs(const aRecords: TDynMainRecords); virtual; abstract;
     function BeginInternalEdit(aForce: Boolean = False): Boolean;
     procedure DetachFilesFromModules; virtual;
     function SlotLayout: TwbSlotLayout;
@@ -4169,6 +4164,8 @@ type
 
     property GlobalGeneration: Integer
       read gcGlobalGeneration;
+    property StampCounter: Cardinal
+      read gcStampCounter;
 
     function RecordByLoadOrderFormID(const aFormID: TwbFormID; const aSeenFromFile: IwbFile): IwbMainRecord;
     function GameMasterRecordByFormID(const aFormID: TwbFormID): IwbMainRecord;
@@ -4356,6 +4353,22 @@ type
     function GetLocalizationFileNameByElement(aElement: IwbElement): string;
     function GetLocalizationFileNameByType(const aPluginFile: string; ls: TwbLStringType): string;
     procedure GetStringsFromFile(const aFileName: string; const aList: TStrings);
+  end;
+
+  TwbHiddenSet = class
+  private
+    hsMembers : TDictionary<Pointer, IwbElement>;
+    function GetCount: Integer;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure Hide(const aElement: IwbElement);
+    procedure Show(const aElement: IwbElement);
+    function Contains(const aElement: IwbElement): Boolean;
+    function ContainsID(aElementID: Pointer): Boolean;
+    function IsHidden(const aElement: IwbElement): Boolean;
+    function Files: TwbFiles;
+    property Count: Integer read GetCount;
   end;
 
 const
@@ -7021,6 +7034,7 @@ begin
   Result.DelayLoadRecords := True;
   Result.AllowInternalEdit := True;
   Result.HideIgnored := True;
+  Result.HideNeverShow := True;
   Result.Encoding := wbMBCSEncoding(1252);
   Result.EncodingTrans := Result.Encoding;
   Result.LoadBSAs := True;
@@ -7337,6 +7351,11 @@ end;
 procedure TwbGameContext.IncGlobalGeneration;
 begin
   Inc(gcGlobalGeneration);
+end;
+
+function TwbGameContext.NextStamp: Cardinal;
+begin
+  Result := AtomicIncrement(gcStampCounter);
 end;
 
 function TwbGameContext.ExpandFileName(const aFileName: string): string;
@@ -21174,7 +21193,7 @@ function TwbDivDef.ToSortKey(aInt: Int64; const aElement: IwbElement): string;
 const
   PlusMinus : array[Boolean] of string = ('+', '-');
 begin
-  Result := PlusMinus[aInt < 0] + IntToHex64(Abs(FromEditValue(aElement.EditValue, aElement)), 16);
+  Result := PlusMinus[aInt < 0] + IntToHex64(Abs(FromEditValue(ToEditValue(aInt, aElement), aElement)), 16);
 end;
 
 function TwbDivDef.ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string;
@@ -21228,7 +21247,7 @@ function TwbDivFDef.ToSortKey(aInt: Int64; const aElement: IwbElement): string;
 const
   PlusMinus : array[Boolean] of string = ('+', '-');
 begin
-  Result := PlusMinus[aInt < 0] + IntToHex64(Abs(FromEditValue(aElement.EditValue, aElement)), 16);
+  Result := PlusMinus[aInt < 0] + IntToHex64(Abs(FromEditValue(ToEditValue(aInt, aElement), aElement)), 16);
 end;
 
 function TwbDivfDef.ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string;
@@ -25933,7 +25952,12 @@ end;
 
 function wbNeverShow(const aElement: IwbElement): Boolean;
 begin
-  Result := wbHideNeverShow;
+  Result := True;
+  if Assigned(aElement) then begin
+    var lContext := aElement.ContextObj;
+    if Assigned(lContext) then
+      Result := lContext.Settings.HideNeverShow;
+  end;
 end;
 
 var
@@ -26589,6 +26613,16 @@ begin
   ResetSimulatedLoad;
 end;
 
+function TwbModuleInfosHelper.Contains(aModule: PwbModuleInfo): Boolean;
+var
+  i: Integer;
+begin
+  for i := Low(Self) to High(Self) do
+    if Self[i] = aModule then
+      Exit(True);
+  Result := False;
+end;
+
 procedure TwbModuleInfosHelper.ExcludeAll(aFlag: TwbModuleFlag);
 var
   i: Integer;
@@ -27067,6 +27101,68 @@ begin
   finally
     FreeAndNil(sl);
   end;
+end;
+
+constructor TwbHiddenSet.Create;
+begin
+  inherited Create;
+  hsMembers := TDictionary<Pointer, IwbElement>.Create;
+end;
+
+destructor TwbHiddenSet.Destroy;
+begin
+  hsMembers.Free;
+  inherited;
+end;
+
+function TwbHiddenSet.GetCount: Integer;
+begin
+  Result := hsMembers.Count;
+end;
+
+procedure TwbHiddenSet.Hide(const aElement: IwbElement);
+begin
+  var lID := aElement.ElementID;
+  if not hsMembers.ContainsKey(lID) then begin
+    hsMembers.Add(lID, aElement);
+    aElement.ResetConflict;
+  end;
+end;
+
+procedure TwbHiddenSet.Show(const aElement: IwbElement);
+var
+  lMember : IwbElement;
+begin
+  var lID := aElement.ElementID;
+  if hsMembers.TryGetValue(lID, lMember) then begin
+    hsMembers.Remove(lID);
+    lMember.ResetConflict;
+  end;
+end;
+
+function TwbHiddenSet.Contains(const aElement: IwbElement): Boolean;
+begin
+  Result := hsMembers.ContainsKey(aElement.ElementID);
+end;
+
+function TwbHiddenSet.ContainsID(aElementID: Pointer): Boolean;
+begin
+  Result := hsMembers.ContainsKey(aElementID);
+end;
+
+function TwbHiddenSet.IsHidden(const aElement: IwbElement): Boolean;
+begin
+  Result := (hsMembers.Count > 0) and aElement.IsHiddenIn(Self);
+end;
+
+function TwbHiddenSet.Files: TwbFiles;
+var
+  lFile : IwbFile;
+begin
+  Result := nil;
+  for var lMember in hsMembers.Values do
+    if Supports(lMember, IwbFile, lFile) then
+      Result := Result + [lFile];
 end;
 
 constructor TwbLocalizationHandler.Create(aContext: TwbGameContext);

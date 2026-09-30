@@ -70,6 +70,50 @@ var
   xeTestViewText           : Boolean;
   xeTestViewTextFile       : string;
   xeTestViewTextRecord     : string = '00000007';
+  xeTestViewTree           : Boolean;
+  xeTestViewTreeFile       : string;
+  xeTestViewTreeList       : string;
+  xeTestViewTreeHide       : string;
+  xeTestViewTreeHideNoConflict : Boolean;
+  xeTestViewTreeLoading    : Boolean;
+  xeTestViewTreeReset      : Boolean;
+  xeTestViewTreeFocus      : Integer;
+  xeTestViewTreeFloor      : Boolean;
+  xeTestViewTreeTranslate  : Boolean;
+  xeTestViewTreeTime       : Integer;
+  xeTestViewTreeHeader     : Boolean;
+  xeTestViewTreeModal      : Boolean;
+  xeTestOptions            : Boolean;
+  xeTestOptionsFile        : string;
+  xeTestCopyIntoGap        : Boolean;
+  xeTestCopyIntoGapFile    : string;
+  xeTestCopyIntoGapRecord  : string;
+  xeTestCopyIntoGapSource  : string;
+  xeTestCopyIntoGapOp      : string;
+  xeTestDeltaPatch         : Boolean;
+  xeTestDeltaPatchFile     : string;
+  xeTestDeltaPatchMaster   : string;
+  xeTestDeltaPatchNewer    : string;
+  xeTestDeltaPatchName     : string;
+  xeTestDeltaPatchHide     : string;
+  xeTestDeltaPatchHideRecord : string;
+  xeTestDeltaPatchCancel   : Boolean;
+  xeTestDeltaPatchSave     : string;
+  xeTestMerge              : Boolean;
+  xeTestMergeFile          : string;
+  xeTestMergeSource        : string;
+  xeTestMergeTarget        : string;
+  xeTestMergeOut           : string;
+  xeTestHide               : Boolean;
+  xeTestHideFile           : string;
+  xeTestHideRecord         : string;
+  xeTestHideMaster         : string;
+  xeTestHideModule         : string;
+  xeTestFilter             : Boolean;
+  xeTestFilterFile         : string;
+  xeTestFilterPreset       : string;
+  xeTestFilterByValue      : string;
+  xeTestFilterRemove       : string;
   xeTestSaveContexts       : Boolean;
   xeTestSaveContextsFile   : string;
   xeTestSaveContextsSave   : string;
@@ -947,6 +991,111 @@ begin
         xeTestViewTextRecord := lValue;
     end;
 
+    if wbFindCmdLineParam('testviewtree', xeTestViewTreeFile) then begin
+      if (xeTestViewTreeFile = '') or not wbFindCmdLineParam('testviewrecords', xeTestViewTreeList) or (xeTestViewTreeList = '') then begin
+        ShowMessage('testviewtree requires an output file and a record list, as -testviewtree:<filename> -testviewrecords:<filename>');
+        Exit(False);
+      end;
+      xeTestViewTree := True;
+      xeAutoLoad     := True;
+      wbFindCmdLineParam('testviewtreehide', xeTestViewTreeHide);
+      xeTestViewTreeHideNoConflict := FindCmdLineSwitch('testviewtreehidenoconflict');
+      xeTestViewTreeLoading := FindCmdLineSwitch('testviewtreeloading');
+      xeTestViewTreeReset := FindCmdLineSwitch('testviewtreereset');
+      xeTestViewTreeFloor := FindCmdLineSwitch('testviewtreefloor');
+      xeTestViewTreeTranslate := FindCmdLineSwitch('testviewtreetranslate');
+      xeTestViewTreeHeader := FindCmdLineSwitch('testviewtreeheader');
+      xeTestViewTreeModal := FindCmdLineSwitch('testviewtreemodal');
+      var lFocus: string;
+      if wbFindCmdLineParam('testviewtreefocus', lFocus) then
+        xeTestViewTreeFocus := StrToIntDef(lFocus, 0);
+      if wbFindCmdLineParam('testviewtreetime', lFocus) then
+        xeTestViewTreeTime := StrToIntDef(lFocus, 0);
+    end;
+
+    if wbFindCmdLineParam('testoptions', xeTestOptionsFile) then begin
+      if xeTestOptionsFile = '' then begin
+        ShowMessage('testoptions requires an output file, as -testoptions:<filename>');
+        Exit(False);
+      end;
+      xeTestOptions := True;
+      xeAutoLoad    := True;
+    end;
+
+    if wbFindCmdLineParam('testcopyintogap', xeTestCopyIntoGapFile) then begin
+      if (xeTestCopyIntoGapFile = '') or
+         not wbFindCmdLineParam('testcopyintogaprecord', xeTestCopyIntoGapRecord) or
+         not wbFindCmdLineParam('testcopyintogapsource', xeTestCopyIntoGapSource) or
+         not wbFindCmdLineParam('testcopyintogapop', xeTestCopyIntoGapOp) or
+         not (SameText(xeTestCopyIntoGapOp, 'popup') or SameText(xeTestCopyIntoGapOp, 'dragover') or
+              SameText(xeTestCopyIntoGapOp, 'drop') or SameText(xeTestCopyIntoGapOp, 'add')) then begin
+        ShowMessage('testcopyintogap requires -testcopyintogap:<filename> -testcopyintogaprecord:<FormID> ' +
+          '-testcopyintogapsource:<module> -testcopyintogapop:<popup|dragover|drop|add>');
+        Exit(False);
+      end;
+      xeTestCopyIntoGap := True;
+      xeAutoLoad        := True;
+    end;
+
+    if wbFindCmdLineParam('testdeltapatch', xeTestDeltaPatchFile) then begin
+      if (xeTestDeltaPatchFile = '') or
+         not wbFindCmdLineParam('testdeltapatchmaster', xeTestDeltaPatchMaster) or
+         not wbFindCmdLineParam('testdeltapatchnewer', xeTestDeltaPatchNewer) or
+         not wbFindCmdLineParam('testdeltapatchname', xeTestDeltaPatchName) then begin
+        ShowMessage('testdeltapatch requires -testdeltapatch:<filename> -testdeltapatchmaster:<module> ' +
+          '-testdeltapatchnewer:<file> -testdeltapatchname:<name> [-testdeltapatchhide:<module>] [-testdeltapatchhiderec:<formid>] ' +
+          '[-testdeltapatchcancel] [-testdeltapatchsave:<file>]');
+        Exit(False);
+      end;
+      wbFindCmdLineParam('testdeltapatchhide', xeTestDeltaPatchHide);
+      wbFindCmdLineParam('testdeltapatchhiderec', xeTestDeltaPatchHideRecord);
+      wbFindCmdLineParam('testdeltapatchsave', xeTestDeltaPatchSave);
+      xeTestDeltaPatchCancel := FindCmdLineSwitch('testdeltapatchcancel');
+      xeTestDeltaPatch := True;
+      xeAutoLoad       := True;
+    end;
+
+    if wbFindCmdLineParam('testmerge', xeTestMergeFile) then begin
+      if (xeTestMergeFile = '') or
+         not wbFindCmdLineParam('testmergesource', xeTestMergeSource) or
+         not wbFindCmdLineParam('testmergetarget', xeTestMergeTarget) or
+         not wbFindCmdLineParam('testmergeout', xeTestMergeOut) then begin
+        ShowMessage('testmerge requires -testmerge:<filename> -testmergesource:<module> -testmergetarget:<module> ' +
+          '-testmergeout:<file>');
+        Exit(False);
+      end;
+      xeTestMerge := True;
+      xeAutoLoad  := True;
+    end;
+
+    if wbFindCmdLineParam('testhide', xeTestHideFile) then begin
+      if (xeTestHideFile = '') or
+         not wbFindCmdLineParam('testhiderecord', xeTestHideRecord) or
+         not wbFindCmdLineParam('testhidemaster', xeTestHideMaster) or
+         not wbFindCmdLineParam('testhidemodule', xeTestHideModule) then begin
+        ShowMessage('testhide requires -testhide:<filename> -testhiderecord:<formid> -testhidemaster:<module> ' +
+          '-testhidemodule:<module>');
+        Exit(False);
+      end;
+      xeTestHide := True;
+      xeAutoLoad := True;
+    end;
+
+    if wbFindCmdLineParam('testfilter', xeTestFilterFile) then begin
+      wbFindCmdLineParam('testfilterpreset', xeTestFilterPreset);
+      wbFindCmdLineParam('testfilterbyvalue', xeTestFilterByValue);
+      wbFindCmdLineParam('testfilterremove', xeTestFilterRemove);
+      if (xeTestFilterFile = '') or
+         not ((xeTestFilterPreset = '') or SameText(xeTestFilterPreset, 'cleaning') or SameText(xeTestFilterPreset, 'onlyone') or
+              SameText(xeTestFilterPreset, 'conflicts')) then begin
+        ShowMessage('testfilter requires -testfilter:<filename> [-testfilterpreset:<cleaning|onlyone|conflicts>] ' +
+          '[-testfilterbyvalue:<text>] [-testfilterremove:<module>]');
+        Exit(False);
+      end;
+      xeTestFilter := True;
+      xeAutoLoad := True;
+    end;
+
     if   FindCmdLineSwitch('autogamelink') or FindCmdLineSwitch('agl')
       or ExeName.Contains('autogamelink') or ExeName.Contains('agl') then begin
       xeAutoLoad := True;
@@ -1172,7 +1321,7 @@ begin
       xeContext.Settings.TranslationMode := True;
       wbHideUnused             := True;
       xeContext.Settings.HideIgnored := True;
-      wbHideNeverShow          := True;
+      xeContext.Settings.HideNeverShow := True;
     end;
   end;
 

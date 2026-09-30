@@ -32,7 +32,20 @@ type
   TwbLoadingGameContext = class(TwbGameContext)
   private
     lgcLoading: TArray<string>;
+  protected
+    lgcDenseRecords : TArray<Pointer>;
+    lgcFreeIDs      : TArray<Cardinal>;
+    lgcFreeCount    : Integer;
+    lgcNextDenseID  : Cardinal;
+    lgcLiveIDs      : Integer;
+    class var lgcIDLock: TObject;
+    class constructor CreateIDLock;
+    class destructor DestroyIDLock;
+    function TakeDenseID(aRecord: Pointer): Cardinal;
+    procedure ReturnDenseID(aID: Cardinal);
   public
+    destructor Destroy; override;
+    procedure AllocateDenseIDs(const aRecords: TDynMainRecords); override;
     procedure DetachFilesFromModules; override;
     function LoadFile(const aFileName: string; aLoadOrder: Integer = -1; const aCompareTo: string = ''; aStates: TwbFileStates = []; const aData: TBytes = nil): IwbFile; override;
     function NewFile(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean): IwbFile; overload; override;
@@ -336,9 +349,7 @@ type
     procedure SetElementState(aState: TwbElementState; Clear: Boolean = false);
     function Equals(const aElement: IwbElement): Boolean; reintroduce;
 
-    procedure Hide;
-    procedure Show;
-    function GetIsHidden: Boolean;
+    function IsHiddenIn(aHidden: TwbHiddenSet): Boolean;
 
     function HasErrors: Boolean; virtual;
 
@@ -569,6 +580,7 @@ type
     procedure ResetMemoryOrder(aFrom: Integer = 0; aTo: Integer = High(Integer)); virtual;
     procedure SortBySortOrder; virtual;
     procedure SetIsSortedBySortOrder(aForce: Boolean);
+    procedure MoveElementTo(const aElement: IwbElement; aIndex: Integer);
     procedure CreatedEmpty;
 
     function Reached: Boolean; override;
@@ -599,6 +611,8 @@ type
     function CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean; override;
     function AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override;
     function GetIsInSK(aIndex: Integer): Boolean; virtual;
+    function CanAssignAligned(aIndex: Integer; aCheckDontShow: Boolean): Boolean; virtual;
+    function AssignAligned(aIndex, aMemoryIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; virtual;
 
     procedure SetToDefaultInternal; override;
     procedure SetToDefaultIfAsCreatedEmpty; override;
@@ -1154,6 +1168,11 @@ type
     function IsSameData(aBase, aEnd: Pointer): Boolean;
 
     procedure PrepareOffsetData;
+
+    procedure ResetChain;
+    procedure ResetConflictMember;
+    procedure TakeDenseIDFrom(aContext: TwbLoadingGameContext; aMark: Cardinal);
+    procedure BumpChainStampAtMost(aMark: Cardinal);
   end;
 
   IwbMainRecordEntry = interface(IwbMainRecordInternal)
@@ -1212,7 +1231,8 @@ type
     mrsResettingConflict,
     mrsOFSTRemoved,
     mrsOFSTReserved,
-    mrsIndexKeysActive
+    mrsIndexKeysActive,
+    mrsConflictStored
   );
 
   TwbMainRecordStates = set of TwbMainRecordState;
@@ -1239,8 +1259,8 @@ type
     mrGridCell          : TwbGridCell;
     mrPrecombinedCellID : Cardinal;
     mrPrecombinedID     : Cardinal;
-    mrConflictAll       : TConflictAll;
-    mrConflictThis      : TConflictThis;
+    mrDenseID           : Cardinal;
+    mrChainStamp        : Cardinal;
     mrDataStorage       : TBytes;
     mrGroup             : IwbGroupRecord;
     mrGroupSearchGen    : Integer;
@@ -1306,6 +1326,7 @@ type
     procedure DoPendingFill; override;
 
     function DoBuildRef(aRemove: Boolean): Boolean;
+    function RecordHeaderStructDef: IwbStructDef;
     function NeedsOrderFill: Boolean;
     procedure FillOrderBySort;
     procedure BuildRef; override;
@@ -1406,10 +1427,9 @@ type
 
     procedure MakeHeaderWriteable;
 
-    function GetConflictAll: TConflictAll;
-    procedure SetConflictAll(aValue: TConflictAll);
-    function GetConflictThis: TConflictThis;
-    procedure SetConflictThis(aValue: TConflictThis);
+    function DenseIDIn(aContext: TwbGameContext): Cardinal;
+    function GetChainStamp: Cardinal;
+    procedure MarkConflictStored;
 
     function GetIsESM: Boolean;
     procedure SetIsESM(aValue: Boolean);
@@ -1485,6 +1505,10 @@ type
     procedure SaveRefsToStream(aStream: TStream; aSaveNames: Boolean);
     procedure LoadRefsFromStream(aStream: TStream; aLoadNames: Boolean);
     function IsSameData(aBase, aEnd: Pointer): Boolean;
+    procedure ResetChain;
+    procedure ResetConflictMember;
+    procedure TakeDenseIDFrom(aContext: TwbLoadingGameContext; aMark: Cardinal);
+    procedure BumpChainStampAtMost(aMark: Cardinal);
 
     {---IwbMainRecordEntry---}
     procedure RemoveEntry;
@@ -1629,6 +1653,8 @@ type
     function AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override;
     function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override;
     function GetIsInSK(aIndex: Integer): Boolean; override;
+    function CanAssignAligned(aIndex: Integer; aCheckDontShow: Boolean): Boolean; override;
+    function AssignAligned(aIndex, aMemoryIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override;
     function DoCheckSizeAfterWrite: Boolean; override;
 
     function GetDef: IwbNamedDef; override;
@@ -6827,6 +6853,7 @@ procedure TwbContainer.InsertElement(aPosition: Integer; const aElement: IwbElem
 begin
   if not Assigned(aElement) then
     Exit;
+  DoInit(False);
 
   SetLength(cntElements, Succ(Length(cntElements)));
 
@@ -6923,6 +6950,11 @@ begin
   end;
   {$ENDIF WIN32}
   Include(cntStates, csConstructionCompleted);
+end;
+
+function TwbContainer.AssignAligned(aIndex, aMemoryIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement;
+begin
+  Result := Assign(aIndex, aElement, aOnlySK);
 end;
 
 function TwbContainer.AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement;
@@ -7095,6 +7127,11 @@ begin
     if cntElements[i].CanContainFormIDs then
       cntElements[i].BuildRef;
   cntRefsBuildAt := eGeneration;
+end;
+
+function TwbContainer.CanAssignAligned(aIndex: Integer; aCheckDontShow: Boolean): Boolean;
+begin
+  Result := CanAssign(aIndex, nil, aCheckDontShow);
 end;
 
 function TwbContainer.CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean;
@@ -8171,6 +8208,42 @@ begin
     end;
 end;
 
+procedure TwbContainer.MoveElementTo(const aElement: IwbElement; aIndex: Integer);
+var
+  SelfRef  : IwbContainerElementRef;
+  lElement : IwbElementInternal;
+  i, j     : Integer;
+begin
+  if not Assigned(aElement) or (Length(cntElements) < 1) then
+    Exit;
+  SelfRef := Self as IwbContainerElementRef;
+
+  i := High(cntElements);
+  while (i >= 0) and not cntElements[i].Equals(aElement) do
+    Dec(i);
+  if i < 0 then
+    Exit;
+
+  aIndex := EnsureRange(aIndex, 0, High(cntElements));
+  if aIndex <> i then begin
+    lElement := cntElements[i];
+    if aIndex < i then
+      for j := i downto Succ(aIndex) do
+        cntElements[j] := cntElements[Pred(j)]
+    else
+      for j := i to Pred(aIndex) do
+        cntElements[j] := cntElements[Succ(j)];
+    cntElements[aIndex] := lElement;
+    if csSortedBySortOrder in cntStates then
+      SetIsSortedBySortOrder(False);
+  end;
+
+  SetModified(True);
+  if Length(cntElements) - GetAdditionalElementCount > 1 then
+    InvalidateStorage;
+  ResetMemoryOrder;
+end;
+
 procedure TwbContainer.MoveElementUp(const aElement: IwbElement);
 var
   i: Integer;
@@ -8549,6 +8622,7 @@ var
   SelfRef : IwbContainerElementRef;
 begin
   SelfRef := Self as IwbContainerElementRef;
+  DoInit(False);
 
   Result := nil;
 
@@ -9370,6 +9444,7 @@ begin
   (aMainRecord as IwbMainRecordInternal).SetMaster(Self);
   Exclude(mrStates, mrsOverridesSorted);
   mrMasterAndLeafs := nil;
+  mrChainStamp := ContextObj.NextStamp;
 end;
 
 {$IFDEF USE_PARALLEL_BUILD_REFS}
@@ -9690,7 +9765,7 @@ begin
   SelfRef := Self;
   DoInit(False);
   inherited;
-  if mrDef.IsReference and CheckChildOfCell then begin
+  if Assigned(mrDef) and mrDef.IsReference and CheckChildOfCell then begin
     if not Supports(GetRecordBySignature('DATA'), IwbContainerElementRef, DataRec) then
       Exit;
     if DataRec.ElementCount <> 2 then
@@ -9838,7 +9913,10 @@ begin
   Result := False;
   lComplex := gcComplexFileFileID in GameDefObj.Capabilities;
 
-  if dfExcludeFromBuildRef in mrDef.DefFlags then
+  if Assigned(mrDef) then begin
+    if dfExcludeFromBuildRef in mrDef.DefFlags then
+      Exit;
+  end else if not aRemove then
     Exit;
 
   if mrsBuildingRef in mrStates then
@@ -9969,7 +10047,7 @@ var
   SubRecord   : IwbSubRecord;
   NotRelevant : Boolean;
 begin
-  if Supports(aElement, IwbSubRecord, SubRecord) then begin
+  if Assigned(mrDef) and Supports(aElement, IwbSubRecord, SubRecord) then begin
     NotRelevant := False;
     if SubRecord.Signature = mrDef.KnownSubRecordSignatures[ksrEditorID] then begin
       mrEditorID := mrDef.GetEditorID(SubRecord);
@@ -10039,7 +10117,7 @@ begin
   if not wbIsInternalEdit then begin
     if not ContextObj.Settings.EditAllowed then
       Exit;
-    if dfInternalEditOnly in mrDef.DefFlags then
+    if Assigned(mrDef) and (dfInternalEditOnly in mrDef.DefFlags) then
       Exit;
   end;
 
@@ -10077,7 +10155,7 @@ begin
       Exit;
 
   if not Assigned(aElement) then begin
-    Result := (aIndex >= 0) and (aIndex < mrDef.MemberCount) and (GetElementBySortOrder(aIndex + GetAdditionalElementCount) = nil);
+    Result := Assigned(mrDef) and (aIndex >= 0) and (aIndex < mrDef.MemberCount) and (GetElementBySortOrder(aIndex + GetAdditionalElementCount) = nil);
     if Result and aCheckDontShow then
       Result := not mrDef.Members[aIndex].DontShow[Self];
     if Result and not wbIsInternalEdit then
@@ -10343,6 +10421,10 @@ var
   end;
 
 begin
+  var lRecordDef: PwbMainRecordDef;
+  if not aContainer.GameDefObj.FindRecordDef(aSignature, lRecordDef) then
+    raise Exception.Create('Can''t add main record with signature ' + aSignature + ': it is not a defined record type');
+
   Inner;
 
   var EndPtr: Pointer := nil;
@@ -10462,6 +10544,14 @@ begin
   }
 end;
 
+function TwbMainRecord.RecordHeaderStructDef: IwbStructDef;
+begin
+  if Assigned(mrDef) then
+    Result := mrDef.RecordHeaderStruct
+  else
+    Result := GameDefObj.MainRecordHeader as IwbStructDef;
+end;
+
 procedure TwbMainRecord.Delete;
 var
   SelfRef     : IwbContainerElementRef;
@@ -10494,7 +10584,7 @@ begin
     GroupRecord := nil;
 
     BasePtr := dcBasePtr;
-    with TwbRecordHeaderStruct.Create(Self, BasePtr, PByte(BasePtr) + GameDefObj.SizeOfMainRecordStruct, mrDef.RecordHeaderStruct, '') do begin
+    with TwbRecordHeaderStruct.Create(Self, BasePtr, PByte(BasePtr) + GameDefObj.SizeOfMainRecordStruct, RecordHeaderStructDef, '') do begin
       Include(dcFlags, dcfDontSave);
       SetSortOrder(-1);
       SetMemoryOrder(Low(Integer));
@@ -10526,6 +10616,17 @@ end;
 
 destructor TwbMainRecord.Destroy;
 begin
+  if mrDenseID <> 0 then begin
+    TMonitor.Enter(TwbLoadingGameContext.lgcIDLock);
+    try
+      if mrDenseID <> 0 then begin
+        TwbLoadingGameContext(mrContextObj).ReturnDenseID(mrDenseID);
+        mrDenseID := 0;
+      end;
+    finally
+      TMonitor.Exit(TwbLoadingGameContext.lgcIDLock);
+    end;
+  end;
   if mrsBasePtrAllocated in mrStates then
     FreeMem(dcBasePtr);
   inherited;
@@ -10634,7 +10735,7 @@ begin
       Element := TwbRecord.CreateForPtr(CurrentPtr, dcDataEndPtr, Self, nil);
       if Supports(Element, IwbSubRecord, CurrentRec) then begin
         var lSignature := CurrentRec.Signature;
-        if lGameDef.IgnoreRecords.Find(lSignature, Dummy) or mrDef.ShouldIgnore(lSignature) or lContext.SubRecordToSkip.Find(lSignature, Dummy) then
+        if lGameDef.IgnoreRecords.Find(lSignature, Dummy) or (Assigned(mrDef) and mrDef.ShouldIgnore(lSignature)) or lContext.SubRecordToSkip.Find(lSignature, Dummy) then
           CurrentRec.Skipped := True;
         {$IFDEF DBGSUBREC}
         if lSubRecordCount >= Length(lSubRecords) then
@@ -11455,14 +11556,42 @@ begin
   end;
 end;
 
-function TwbMainRecord.GetConflictAll: TConflictAll;
+function TwbMainRecord.DenseIDIn(aContext: TwbGameContext): Cardinal;
 begin
-  Result := mrConflictAll;
+  if mrContextObj = aContext then
+    Result := mrDenseID
+  else
+    Result := 0;
 end;
 
-function TwbMainRecord.GetConflictThis: TConflictThis;
+function TwbMainRecord.GetChainStamp: Cardinal;
 begin
-  Result := mrConflictThis;
+  if Assigned(mrMaster) then
+    Result := IwbMainRecord(mrMaster).ChainStamp
+  else
+    Result := mrChainStamp;
+end;
+
+procedure TwbMainRecord.MarkConflictStored;
+begin
+  Include(mrStates, mrsConflictStored);
+end;
+
+procedure TwbMainRecord.TakeDenseIDFrom(aContext: TwbLoadingGameContext; aMark: Cardinal);
+begin
+  if (mrDenseID <> 0) or (mrContextObj <> aContext) then
+    Exit;
+  mrDenseID := aContext.TakeDenseID(Self);
+  if Assigned(mrMaster) then
+    (IwbMainRecord(mrMaster) as IwbMainRecordInternal).BumpChainStampAtMost(aMark)
+  else
+    BumpChainStampAtMost(aMark);
+end;
+
+procedure TwbMainRecord.BumpChainStampAtMost(aMark: Cardinal);
+begin
+  if mrChainStamp <= aMark then
+    mrChainStamp := ContextObj.NextStamp;
 end;
 
 function TwbMainRecord.GetContainingMainRecord: IwbMainRecord;
@@ -11511,7 +11640,9 @@ begin
       (GetSignature = 'PBAR') or {>>> Skyrim <<<}
       (GetSignature = 'PHZD')    {>>> Skyrim <<<}
     then begin
-      if Supports(GetElementByName('Map Marker'), IwbContainerElementRef, MapMarker) then
+      if not Assigned(mrDef) then
+        Rec := nil
+      else if Supports(GetElementByName('Map Marker'), IwbContainerElementRef, MapMarker) then
         Rec := MapMarker.RecordBySignature[mrDef.KnownSubRecordSignatures[ksrFullName]]
       else
         Rec := GetRecordBySignature(mrDef.KnownSubRecordSignatures[ksrBaseRecord]);
@@ -11560,7 +11691,9 @@ begin
       (GetSignature = 'PBAR') or {>>> Skyrim <<<}
       (GetSignature = 'PHZD')    {>>> Skyrim <<<}
     then begin
-      if Supports(GetElementByName('Map Marker'), IwbContainerElementRef, MapMarker) then
+      if not Assigned(mrDef) then
+        Rec := nil
+      else if Supports(GetElementByName('Map Marker'), IwbContainerElementRef, MapMarker) then
         Rec := MapMarker.RecordBySignature[mrDef.KnownSubRecordSignatures[ksrFullName]]
       else
         Rec := GetRecordBySignature(mrDef.KnownSubRecordSignatures[ksrBaseRecord]);
@@ -11751,7 +11884,7 @@ var
 begin
   Result := False;
 
-  if not mrDef.ContainsKnownSubRecord[ksrGridCell] then
+  if not Assigned(mrDef) or not mrDef.ContainsKnownSubRecord[ksrGridCell] then
     Exit;
 
   SelfRef := Self;
@@ -11841,7 +11974,7 @@ var
 begin
   Result := False;
 
-  if not mrDef.ContainsKnownSubRecord[ksrGridCell] then
+  if not Assigned(mrDef) or not mrDef.ContainsKnownSubRecord[ksrGridCell] then
     Exit;
 
   SelfRef := Self as IwbContainerElementRef;
@@ -12156,7 +12289,7 @@ end;
 function TwbMainRecord.GetIsEditable: Boolean;
 begin
   Result := wbIsInternalEdit;
-  if Result or (dfInternalEditOnly in mrDef.DefFlags) then
+  if Result or (Assigned(mrDef) and (dfInternalEditOnly in mrDef.DefFlags)) then
     Exit;
 
   if Assigned(eContainer) and not IwbContainer(eContainer).IsElementEditable(Self) then
@@ -12823,7 +12956,19 @@ var
   p         : PwbMainRecordStruct;
 begin
   mrGameDefObj := inherited GameDefObj;
-  mrContextObj := inherited ContextObj;
+  var lContext := inherited ContextObj;
+  if Assigned(mrContextObj) and (lContext <> mrContextObj) then begin
+    TMonitor.Enter(TwbLoadingGameContext.lgcIDLock);
+    try
+      if mrDenseID <> 0 then begin
+        TwbLoadingGameContext(mrContextObj).ReturnDenseID(mrDenseID);
+        mrDenseID := 0;
+      end;
+    finally
+      TMonitor.Exit(TwbLoadingGameContext.lgcIDLock);
+    end;
+  end;
+  mrContextObj := lContext;
   if Assigned(dcEndPtr) then
     if (gcReferencesEmbeddedInCell in mrGameDefObj.Capabilities) and ((PwbSignature(dcBasePtr)^ = 'FRMR') or (PwbSignature(dcBasePtr)^ = 'CNDT')) then begin
       Assert(not (mrsBasePtrAllocated in mrStates));
@@ -13499,7 +13644,7 @@ begin
     mrName := '';
     mrShortName := '';
     mrDisplayName := '';
-    if (mrsQuickInitDone in mrStates) or (csInitOnce in cntStates) then begin
+    if Assigned(mrDef) and ((mrsQuickInitDone in mrStates) or (csInitOnce in cntStates)) then begin
       FULLRec := GetRecordBySignature(mrDef.KnownSubRecordSignatures[ksrFullName]);
       if Assigned(FULLRec) then
         mrFullName := FULLRec.EditValue;
@@ -14231,8 +14376,7 @@ begin
   mrFixedFormID := TwbFormID.Null;
   mrLoadOrderFormID := TwbFormID.Null;
   Exclude(mrStates, mrsIsInjectedChecked);
-  mrConflictAll := caUnknown;
-  mrConflictThis := ctUnknown;
+  Exclude(mrStates, mrsConflictStored);
 
   if Assigned(lMaster) then
     lMaster.ResetConflict;
@@ -14254,7 +14398,7 @@ begin
   if aMarkModified then
     if Assigned(Result) and (Result.ElementType = etSubRecord) then begin
       var SubRecord : IwbSubRecord;
-      if Supports(Result, IwbSubRecord, SubRecord) then begin
+      if Assigned(mrDef) and Supports(Result, IwbSubRecord, SubRecord) then begin
         var NotRelevant := False;
         if SubRecord.Signature = mrDef.KnownSubRecordSignatures[ksrEditorID] then begin
           mrEditorID := '';
@@ -14459,27 +14603,38 @@ begin
 end;
 
 procedure TwbMainRecord.ResetConflict;
-var
-  i: Integer;
 begin
   if mrsResettingConflict in mrStates then
     Exit;
   Include(mrStates, mrsResettingConflict);
   try
-    inherited;
-    if (mrConflictAll <> caUnknown) or (mrConflictThis <> ctUnknown) then begin
-      mrConflictAll := caUnknown;
-      mrConflictThis := ctUnknown;
-      Inc(eGeneration);
-      ContextObj.IncGlobalGeneration;
-    end;
-    if Assigned(mrMaster) then
-      IwbElement(mrMaster).ResetConflict
-    else
-      for i := Low(mrOverrides) to High(mrOverrides) do
-        mrOverrides[i].ResetConflict;
+    if Assigned(mrMaster) then begin
+      ResetConflictMember;
+      (IwbMainRecord(mrMaster) as IwbMainRecordInternal).ResetChain;
+    end else
+      ResetChain;
   finally
     Exclude(mrStates, mrsResettingConflict);
+  end;
+end;
+
+procedure TwbMainRecord.ResetChain;
+begin
+  var lContext := ContextObj;
+  if Assigned(lContext) then
+    mrChainStamp := lContext.NextStamp;
+  ResetConflictMember;
+  for var i := Low(mrOverrides) to High(mrOverrides) do
+    (mrOverrides[i] as IwbMainRecordInternal).ResetConflictMember;
+end;
+
+procedure TwbMainRecord.ResetConflictMember;
+begin
+  inherited ResetConflict;
+  if mrsConflictStored in mrStates then begin
+    Exclude(mrStates, mrsConflictStored);
+    Inc(eGeneration);
+    ContextObj.IncGlobalGeneration;
   end;
 end;
 
@@ -14596,16 +14751,6 @@ begin
   mrGroup := aGroup;
 end;
 
-procedure TwbMainRecord.SetConflictAll(aValue: TConflictAll);
-begin
-  mrConflictAll := aValue;
-end;
-
-procedure TwbMainRecord.SetConflictThis(aValue: TConflictThis);
-begin
-  mrConflictThis := aValue;
-end;
-
 procedure TwbMainRecord.SetContainer(const aContainer: IwbContainer);
 begin
   inherited;
@@ -14647,7 +14792,7 @@ begin
   if not wbIsInternalEdit then begin
     if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be edited.');
-    if dfInternalEditOnly in mrDef.DefFlags then
+    if Assigned(mrDef) and (dfInternalEditOnly in mrDef.DefFlags) then
       Exit;
   end;
 
@@ -14699,7 +14844,7 @@ begin
       GroupRecord := nil;
 
       BasePtr := dcBasePtr;
-      with TwbRecordHeaderStruct.Create(Self, BasePtr, PByte(BasePtr) + GameDefObj.SizeOfMainRecordStruct, mrDef.RecordHeaderStruct, '') do begin
+      with TwbRecordHeaderStruct.Create(Self, BasePtr, PByte(BasePtr) + GameDefObj.SizeOfMainRecordStruct, RecordHeaderStructDef, '') do begin
         Include(dcFlags, dcfDontSave);
         SetSortOrder(-1);
         SetMemoryOrder(Low(Integer));
@@ -14708,9 +14853,10 @@ begin
 
       BeginUpdate;
       try
-        for i := 0 to Pred(mrDef.MemberCount) do
-          if mrDef.Members[i].Required then
-            Assign(i, nil, False);
+        if Assigned(mrDef) then
+          for i := 0 to Pred(mrDef.MemberCount) do
+            if mrDef.Members[i].Required then
+              Assign(i, nil, False);
 
         Master := GetMaster;
 
@@ -14980,8 +15126,7 @@ begin
     mrReferencedByCount := 0;
     mrReferencedBySize := 0;
     Exclude(mrStates, mrsIsInjectedChecked);
-    mrConflictAll := caUnknown;
-    mrConflictThis := ctUnknown;
+    Exclude(mrStates, mrsConflictStored);
 
     if Assigned(mrGroup) or (GetChildGroup <> nil)  then
       Assert(mrGroup.GroupLabel = GetFormID.ToCardinal);
@@ -15024,7 +15169,7 @@ begin
   if not wbIsInternalEdit then begin
     if not ContextObj.Settings.EditAllowed then
       raise Exception.Create(GetName + ' can not be edited.');
-    if dfInternalEditOnly in mrDef.DefFlags then
+    if Assigned(mrDef) and (dfInternalEditOnly in mrDef.DefFlags) then
       Exit;
   end;
 
@@ -15671,6 +15816,7 @@ begin
     (mrOverrides[lOverrideIndex] as IwbMainRecordInternal).SetMaster(Self);
   Exclude(mrStates, mrsOverridesSorted);
   mrMasterAndLeafs := nil;
+  mrChainStamp := ContextObj.NextStamp;
 
   mrReferencedBy := aReferencedBy;
   mrReferencedBySize := Length(mrReferencedBy);
@@ -15719,6 +15865,7 @@ begin
     (mrOverrides[lSetMasterIdx] as IwbMainRecordInternal).SetMaster(Self);
   Exclude(mrStates, mrsOverridesSorted);
   mrMasterAndLeafs := nil;
+  mrChainStamp := ContextObj.NextStamp;
 
   mrReferencedBy := aReferencedBy;
   mrReferencedBySize := Length(mrReferencedBy);
@@ -15954,6 +16101,16 @@ begin
     inherited AddIfMissingInternal(aElement, aAsNew, aDeepCopy, aPrefixRemove, aSuffixRemove, aPrefix, aSuffix, aAllowOverwrite);
 end;
 
+function TwbSubRecord.AssignAligned(aIndex, aMemoryIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement;
+begin
+  if GetAlignable then begin
+    Result := Assign(wbAssignAdd, aElement, aOnlySK);
+    if Assigned(Result) then
+      MoveElementTo(Result, aMemoryIndex);
+  end else
+    Result := inherited;
+end;
+
 function TwbSubRecord.AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement;
 var
   Element       : IwbElement;
@@ -15964,7 +16121,6 @@ var
   i             : Integer;
   SelfRef       : IwbContainerElementRef;
   p, q          : Pointer;
-  AlignedCreate : Boolean;
 begin
   Result := nil;
 
@@ -16069,8 +16225,7 @@ begin
             aIndex := wbAssignAdd;
 
           if (aIndex >= 0) and (ArrayDef.ElementCount <= 0) then begin
-            AlignedCreate := ( (aIndex < wbAssignAdd) and GetAlignable and (csSortedBySortOrder in cntStates) and not Assigned(GetElementBySortOrder(aIndex)) );
-            if AlignedCreate or ((aIndex = wbAssignAdd) or ArrayDef.Element.CanAssign(Self, wbAssignThis, lDef)) then begin
+            if (aIndex = wbAssignAdd) or ArrayDef.Element.CanAssign(Self, wbAssignThis, lDef) then begin
               {add one entry}
 
               if srsSorted in srStates then
@@ -16107,11 +16262,6 @@ begin
                   end;
                 end;
                 Result := Element;
-              end;
-              if AlignedCreate then begin
-                Result.SortOrder := aIndex;
-                SortBySortOrder;
-                ResetMemoryOrder;
               end;
             end;
           end;
@@ -16189,6 +16339,14 @@ begin
   inherited;
 end;
 
+function TwbSubRecord.CanAssignAligned(aIndex: Integer; aCheckDontShow: Boolean): Boolean;
+begin
+  if GetAlignable then
+    Result := CanAssign(wbAssignAdd, nil, aCheckDontShow)
+  else
+    Result := inherited;
+end;
+
 function TwbSubRecord.CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean;
 var
   ArrayDef: IwbArrayDef;
@@ -16235,7 +16393,7 @@ begin
   if srsIsArray in srStates then begin
     ArrayDef := srValueDef as IwbArrayDef;
     if not Assigned(aElement) then begin
-      if (aIndex = wbAssignAdd) or ((aIndex >= 0) and GetAlignable and (csSortedBySortOrder in cntStates) and not Assigned(GetElementBySortOrder(aIndex)) )  then
+      if aIndex = wbAssignAdd then
         Result := ArrayDef.ElementCount <= 0;
       Exit;
     end;
@@ -20535,16 +20693,18 @@ begin
   Result := wbIsInternalEdit;
 end;
 
-function TwbElement.GetIsHidden: Boolean;
+function TwbElement.IsHiddenIn(aHidden: TwbHiddenSet): Boolean;
+var
+  lElement : TwbElement;
 begin
-  if [esHidden, esParentHiddenChecked] * eStates = [] then begin
-    Include(eStates, esParentHiddenChecked);
-    if Assigned(eContainer) and IwbContainer(eContainer).IsHidden then
-      Include(eStates, esParentHidden)
-    else
-      Exclude(eStates, esParentHidden);
-  end;
-  Result := eStates * [esHidden, esParentHidden] <> [];
+  lElement := Self;
+  repeat
+    if aHidden.ContainsID(lElement) then
+      Exit(True);
+    if not Assigned(lElement.eContainer) then
+      Exit(False);
+    lElement := TwbElement(IwbContainer(lElement.eContainer).ElementID);
+  until False;
 end;
 
 function TwbElement.GetIsInjected: Boolean;
@@ -20850,14 +21010,6 @@ begin
   Result := Trim(GetCheck) <> '';
 end;
 
-procedure TwbElement.Hide;
-begin
-  if not (esHidden in eStates) then begin
-    Include(eStates, esHidden);
-    ResetConflict;
-  end;
-end;
-
 procedure TwbElement.InformStorage(var aBasePtr: Pointer; aEndPtr: Pointer);
 begin
   {can be overriden}
@@ -21103,8 +21255,6 @@ end;
 
 procedure TwbElement.ResetConflict;
 begin
-  Exclude(eStates, esParentHiddenChecked);
-  Exclude(eStates, esParentHidden);
   Exclude(eStates, esSortKeyValid);
   Exclude(eStates, esExtendedSortKeyValid);
 end;
@@ -21322,14 +21472,6 @@ begin
   State := TwbElementState(Ord(esReportedErrorReading) + Ord(aErrorType));
   Result := not (State in eStates);
   Include(eStates, State);
-end;
-
-procedure TwbElement.Show;
-begin
-  if esHidden in eStates then begin
-    Exclude(eStates, esHidden);
-    ResetConflict;
-  end;
 end;
 
 procedure TwbElement.Tag;
@@ -24473,6 +24615,71 @@ begin
       (gcFiles[lIdx] as IwbFileInternal).DetachModule;
 end;
 
+class constructor TwbLoadingGameContext.CreateIDLock;
+begin
+  lgcIDLock := TObject.Create;
+end;
+
+class destructor TwbLoadingGameContext.DestroyIDLock;
+begin
+  FreeAndNil(lgcIDLock);
+end;
+
+destructor TwbLoadingGameContext.Destroy;
+begin
+  TMonitor.Enter(lgcIDLock);
+  try
+    for var lID := 1 to High(lgcDenseRecords) do
+      if Assigned(lgcDenseRecords[lID]) then
+        TwbMainRecord(lgcDenseRecords[lID]).mrDenseID := 0;
+    lgcDenseRecords := nil;
+    lgcFreeIDs := nil;
+    lgcFreeCount := 0;
+    lgcLiveIDs := 0;
+  finally
+    TMonitor.Exit(lgcIDLock);
+  end;
+  inherited;
+end;
+
+procedure TwbLoadingGameContext.AllocateDenseIDs(const aRecords: TDynMainRecords);
+begin
+  var lMark := gcStampCounter;
+  TMonitor.Enter(lgcIDLock);
+  try
+    for var lRecord in aRecords do
+      if Assigned(lRecord) then
+        (lRecord as IwbMainRecordInternal).TakeDenseIDFrom(Self, lMark);
+  finally
+    TMonitor.Exit(lgcIDLock);
+  end;
+end;
+
+function TwbLoadingGameContext.TakeDenseID(aRecord: Pointer): Cardinal;
+begin
+  if lgcFreeCount > 0 then begin
+    Dec(lgcFreeCount);
+    Result := lgcFreeIDs[lgcFreeCount];
+  end else begin
+    Inc(lgcNextDenseID);
+    Result := lgcNextDenseID;
+  end;
+  if Result >= Cardinal(Length(lgcDenseRecords)) then
+    SetLength(lgcDenseRecords, Max(2 * Length(lgcDenseRecords), Integer(Result) + 1));
+  lgcDenseRecords[Result] := aRecord;
+  Inc(lgcLiveIDs);
+end;
+
+procedure TwbLoadingGameContext.ReturnDenseID(aID: Cardinal);
+begin
+  lgcDenseRecords[aID] := nil;
+  if lgcFreeCount >= Length(lgcFreeIDs) then
+    SetLength(lgcFreeIDs, Max(2 * Length(lgcFreeIDs), 16));
+  lgcFreeIDs[lgcFreeCount] := aID;
+  Inc(lgcFreeCount);
+  Dec(lgcLiveIDs);
+end;
+
 function TwbLoadingGameContext.LoadFile(const aFileName: string; aLoadOrder: Integer; const aCompareTo: string; aStates: TwbFileStates; const aData: TBytes): IwbFile;
 var
   FileName: string;
@@ -26082,7 +26289,8 @@ end;
 
 function TwbStringListTerminator.GetDontShow: Boolean;
 begin
-  Result := wbHideNeverShow;
+  var lContext := ContextObj;
+  Result := not Assigned(lContext) or lContext.Settings.HideNeverShow;
 end;
 
 function TwbStringListTerminator.GetElementType: TwbElementType;

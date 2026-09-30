@@ -23,11 +23,13 @@ implementation
 
 uses
   System.Classes,
+  System.Generics.Collections,
   System.SysUtils,
   System.Variants,
 
   VirtualTrees,
 
+  wbConflict,
   wbDataFormat,
   wbHelpers,
   wbInterface,
@@ -35,7 +37,8 @@ uses
 
   xeFileSelectForm,
   xeInit,
-  xeMainForm;
+  xeMainForm,
+  xejviScriptArguments;
 
 const
   cUnit = 'Dummy';
@@ -302,7 +305,7 @@ var
   MainRecord: IwbMainRecord;
 begin
   if Supports(IInterface(Args.Values[0]), IwbMainRecord, MainRecord) then
-    Value := IsPositionChanged(MainRecord)
+    Value := frmMain.IsPositionChanged(MainRecord)
   else
     JvInterpreterError(ieDirectInvalidArgument, 0);
 end;
@@ -443,7 +446,7 @@ var
 begin
   if Args.Count = 3 then begin
     Value := caUnknown;
-    List := TList(V2O(Args.Values[0]));
+    List := TList(ObjectArgument(Args.Values[0], TList, 0));
     if Assigned(List) then
     for i := 0 to Pred(List.Count) do begin
       if not Supports(IInterface(Pointer(List[i])), IwbElement, Element) then
@@ -474,6 +477,100 @@ begin
         procedure(const aMessage: string) begin frmMain.PostAddMessage(aMessage); end)
     else
       Value := frmMain.ConflictLevelForNodeDatas(@NodeDatas[0], Length(NodeDatas), Args.Values[i+1], Args.Values[i+2]);
+end;
+
+function AlignedConflictTree(const aElement: IwbElement; out aNode: TwbConflictTreeNode; out aColumn: Integer): TwbConflictTree;
+var
+  MainRecord: IwbMainRecord;
+begin
+  Result := nil;
+  aNode := nil;
+  aColumn := -1;
+  MainRecord := aElement.ContainingMainRecord;
+  if not Assigned(MainRecord) or not Assigned(frmMain) or not Assigned(frmMain.ConflictView) then
+    Exit;
+  Result := TwbConflictTree.CreateForMainRecord(frmMain.ConflictView, MainRecord, frmMain.Files,
+    procedure(const aMessage: string) begin frmMain.PostAddMessage(aMessage); end);
+  try
+    aNode := Result.NodeFor(aElement, aColumn);
+  except
+    FreeAndNil(Result);
+    raise;
+  end;
+end;
+
+procedure _AlignedElementIndices(var Value: Variant; Args: TJvInterpreterArgs);
+var
+  Element: IwbElement;
+  List: TStrings;
+  Tree: TwbConflictTree;
+  Node: TwbConflictTreeNode;
+  Column: Integer;
+  Container: IwbContainerElementRef;
+  Indices: TDictionary<Pointer, Integer>;
+  Entry: IwbElement;
+  Index: Integer;
+  MemoryIndex: Integer;
+  i: Integer;
+begin
+  if not Supports(IInterface(Args.Values[0]), IwbElement, Element) then
+    JvInterpreterError(ieDirectInvalidArgument, 0);
+  List := TStrings(ObjectArgument(Args.Values[1], TStrings, 1, True));
+  Value := -1;
+  Tree := AlignedConflictTree(Element, Node, Column);
+  try
+    if not Assigned(Node) then
+      Exit;
+    Indices := TDictionary<Pointer, Integer>.Create;
+    try
+      Container := Node.Datas[Column].Container;
+      if Assigned(Container) then
+        for i := 0 to Pred(Container.ElementCount) do
+          Indices.AddOrSetValue(Container.Elements[i].ElementID, i);
+      List.Clear;
+      for i := 0 to Pred(Node.ChildCount) do begin
+        Entry := Node.RowElement(Column, i);
+        if Assigned(Entry) and Indices.TryGetValue(Entry.ElementID, Index) then
+          List.Add(IntToStr(Index))
+        else if Node.IsAlignedGap(Column, i, MemoryIndex) then
+          List.Add('-1')
+        else
+          List.Add('-2');
+      end;
+      Value := Node.ChildCount;
+    finally
+      Indices.Free;
+    end;
+  finally
+    Tree.Free;
+  end;
+end;
+
+procedure _AlignedElementAssign(var Value: Variant; Args: TJvInterpreterArgs);
+var
+  Element: IwbElement;
+  Source: IwbElement;
+  NewElement: IwbElement;
+  Tree: TwbConflictTree;
+  Node: TwbConflictTreeNode;
+  Column: Integer;
+  Row: Integer;
+begin
+  if not Supports(IInterface(Args.Values[0]), IwbElement, Element) then
+    JvInterpreterError(ieDirectInvalidArgument, 0);
+  NewElement := nil;
+  Source := nil;
+  if (V2O(Args.Values[2]) = nil) or Supports(IInterface(Args.Values[2]), IwbElement, Source) then begin
+    Row := Args.Values[1];
+    Tree := AlignedConflictTree(Element, Node, Column);
+    try
+      if Assigned(Node) and Node.CanAssignAligned(Column, Row, Source, False) then
+        NewElement := Node.AssignAligned(Column, Row, Source, Args.Values[3]);
+    finally
+      Tree.Free;
+    end;
+  end;
+  Value := NewElement;
 end;
 
 procedure _JumpTo(var Value: Variant; Args: TJvInterpreterArgs);
@@ -545,8 +642,8 @@ end;
 procedure _wbGetUVRangeTexturesList(var Value: Variant; Args: TJvInterpreterArgs);
 begin
   wbGetUVRangeTexturesList(xeContext,
-    TStrings(V2O(Args.Values[0])),  // TStrings list of meshes
-    TStrings(V2O(Args.Values[1])),  // TStrings list of textures, output
+    TStrings(ObjectArgument(Args.Values[0], TStrings, 0)),  // TStrings list of meshes
+    TStrings(ObjectArgument(Args.Values[1], TStrings, 1)),  // TStrings list of textures, output
     Single(Args.Values[2])          // UVRange
   );
 end;
@@ -554,7 +651,7 @@ end;
 procedure _wbBuildAtlasFromTexturesList(var Value: Variant; Args: TJvInterpreterArgs);
 begin
   wbBuildAtlasFromTexturesList(xeContext,
-    TStrings(V2O(Args.Values[0])),  // TStrings list of textures
+    TStrings(ObjectArgument(Args.Values[0], TStrings, 0)),  // TStrings list of textures
     Args.Values[1], // max texture size
     Args.Values[2], // max tile size
     Args.Values[3], // atlas width
@@ -568,7 +665,7 @@ end;
 procedure _wbBuildAtlasFromAtlasMap(var Value: Variant; Args: TJvInterpreterArgs);
 begin
   wbBuildAtlasFromAtlasMap(xeContext,
-    TStrings(V2O(Args.Values[0])),  // TStrings atlas map
+    TStrings(ObjectArgument(Args.Values[0], TStrings, 0)),  // TStrings atlas map
     Args.Values[1],                // brightness
     Args.Values[2],                // GammaR
     Args.Values[3],                // GammaG
@@ -588,7 +685,7 @@ var
   i, j: Integer;
   Found: Boolean;
 begin
-  List := TList(V2O(Args.Values[0]));
+  List := TList(ObjectArgument(Args.Values[0], TList, 0));
   if not Assigned(List) then
     Exit;
 
@@ -637,10 +734,8 @@ var
   Nodes: TNodeArray;
   i: Integer;
 begin
-  if not (V2O(Args.Values[0]) is TStrings) then begin
-    JvInterpreterErrorN(ieDirectInvalidArgument, 0, 'Expected a TStrings or TStringsList'); // or ieNotEnoughParams, ieIncompatibleTypes or others.
-  end;
-  
+  var lList := TStrings(ObjectArgument(Args.Values[0], TStrings, 0, True, 'Expected a TStrings or TStringList'));
+
   Nodes := frmMain.vstNav.GetSortedSelection(True);
 
   for i := Low(Nodes) to High(Nodes) do begin
@@ -649,16 +744,16 @@ begin
       Continue;
     Element := NodeData.Element;
     if Supports(Element, IwbFile, _File) then begin
-      if TStrings(V2O(Args.Values[0])).IndexOf(_File.FileName) = -1 then
-        TStrings(V2O(Args.Values[0])).AddObject(_File.FileName, TObject(Pointer(Element)));
+      if lList.IndexOf(_File.FileName) = -1 then
+        lList.AddObject(_File.FileName, TObject(Pointer(Element)));
     end
     else if Supports(Element, IwbMainRecord, MainRecord) then begin
-      if TStrings(V2O(Args.Values[0])).IndexOf(MainRecord._File.FileName) = -1 then
-        TStrings(V2O(Args.Values[0])).AddObject(MainRecord._File.FileName, TObject(Pointer(MainRecord._File)));
+      if lList.IndexOf(MainRecord._File.FileName) = -1 then
+        lList.AddObject(MainRecord._File.FileName, TObject(Pointer(MainRecord._File)));
     end
 	else if Supports(Element, IwbGroupRecord, Container) then begin
-	  if TStrings(V2O(Args.Values[0])).IndexOf(Container._File.FileName) = -1 then
-	    TStrings(V2O(Args.Values[0])).AddObject(Container._File.FileName, TObject(Pointer(Container._File)));
+	  if lList.IndexOf(Container._File.FileName) = -1 then
+	    lList.AddObject(Container._File.FileName, TObject(Pointer(Container._File)));
 	end;
   end;
 end;
@@ -714,6 +809,8 @@ begin
     AddFunction(cUnit, 'ConflictThisForNode', _ConflictThisForNode, 1, [varEmpty], varEmpty);
     AddFunction(cUnit, 'ConflictAllForNode', _ConflictAllForNode, 1, [varEmpty], varEmpty);
     AddFunction(cUnit, 'ConflictAllForElements', _ConflictAllForElements, -1, [], varEmpty);
+    AddFunction(cUnit, 'AlignedElementIndices', _AlignedElementIndices, 2, [varEmpty, varEmpty], varEmpty);
+    AddFunction(cUnit, 'AlignedElementAssign', _AlignedElementAssign, 4, [varEmpty, varEmpty, varEmpty, varBoolean], varEmpty);
     AddFunction(cUnit, 'JumpTo', _JumpTo, 2, [varEmpty, varEmpty], varEmpty);
     AddFunction(cUnit, 'ApplyFilter', _ApplyFilter, 0, [], varEmpty);
     AddFunction(cUnit, 'RemoveFilter', _RemoveFilter, 0, [], varEmpty);

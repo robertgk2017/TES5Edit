@@ -3,21 +3,132 @@ unit wbConflict;
 interface
 
 uses
+  System.Generics.Collections,
   wbInterface;
 
 type
+  TwbConflictEntry = record
+    Stamp        : Cardinal;
+    Epoch        : Cardinal;
+    ConflictAll  : TConflictAll;
+    ConflictThis : TConflictThis;
+  end;
+
+  TwbConflictTree = class;
+
   TwbConflictView = class
   private
-    cvContextRef       : IwbGameContext;
+    cvContextRef         : IwbGameContext;
+    cvTrees              : TList<TwbConflictTree>;
+    cvQuickShowConflicts : Boolean;
+    cvOnlyMasterAndLeafs : Boolean;
+    cvModGroupsEnabled   : Boolean;
+    cvAlignArrayElements : Boolean;
+    cvAlignArrayLimit    : Integer;
+    cvModGroupTargets    : TDictionary<PwbModuleInfo, TwbModuleInfos>;
+    cvHidden             : TwbHiddenSet;
+    cvEpoch              : Cardinal;
+    procedure SetQuickShowConflicts(aValue: Boolean);
+    procedure SetOnlyMasterAndLeafs(aValue: Boolean);
+    procedure SetModGroupsEnabled(aValue: Boolean);
+    procedure SetAlignArrayElements(aValue: Boolean);
+    procedure SetAlignArrayLimit(aValue: Integer);
+    function Lookup(const aRecord: IwbMainRecord; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis): Boolean;
+    procedure Store(const aRecord: IwbMainRecord; aConflictAll: TConflictAll; aConflictThis: TConflictThis);
+  protected
+    cvEntries            : TArray<TwbConflictEntry>;
   public
-    Context            : TwbGameContext;
-    QuickShowConflicts : Boolean;
-    OnlyMasterAndLeafs : Boolean;
-    ModGroupsEnabled   : Boolean;
-    AlignArrayElements : Boolean;
-    AlignArrayLimit    : Integer;
+    Context : TwbGameContext;
+    Hits    : Int64;
+    Misses  : Int64;
     constructor Create(aContext: TwbGameContext);
+    destructor Destroy; override;
+    procedure RulesChanged;
+    procedure Peek(const aRecord: IwbMainRecord; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
+    function ModGroupTargets(aModule: PwbModuleInfo): TwbModuleInfos;
+    procedure SetModGroupTargets(aTargets: TDictionary<PwbModuleInfo, TwbModuleInfos>); overload;
+    procedure SetModGroupTargets(aFrom: TwbConflictView); overload;
+    property QuickShowConflicts: Boolean read cvQuickShowConflicts write SetQuickShowConflicts;
+    property OnlyMasterAndLeafs: Boolean read cvOnlyMasterAndLeafs write SetOnlyMasterAndLeafs;
+    property ModGroupsEnabled: Boolean read cvModGroupsEnabled write SetModGroupsEnabled;
+    property AlignArrayElements: Boolean read cvAlignArrayElements write SetAlignArrayElements;
+    property AlignArrayLimit: Integer read cvAlignArrayLimit write SetAlignArrayLimit;
+    property Hidden: TwbHiddenSet read cvHidden;
+    property Epoch: Cardinal read cvEpoch;
   end;
+
+  TwbConflictTreeNode = class
+  private
+    tnTree     : TwbConflictTree;
+    tnParent   : TwbConflictTreeNode;
+    tnIndex    : Integer;
+    tnDatas    : TwbDynConflictNodeDatas;
+    tnStates   : TwbConflictNodeStates;
+    tnChildren : TArray<TwbConflictTreeNode>;
+    tnCounted  : Boolean;
+    tnVisible  : Boolean;
+    function GetChildCount: Integer;
+    function GetChild(aIndex: Integer): TwbConflictTreeNode;
+  public
+    destructor Destroy; override;
+    function RowElement(aColumn, aRow: Integer): IwbElement;
+    function IsAlignedGap(aColumn, aRow: Integer; out aMemoryIndex: Integer): Boolean;
+    function CanAssignAligned(aColumn, aRow: Integer; const aSource: IwbElement; aCheckDontShow: Boolean): Boolean;
+    function AssignAligned(aColumn, aRow: Integer; const aSource: IwbElement; aOnlySK: Boolean): IwbElement;
+    property Tree: TwbConflictTree read tnTree;
+    property Parent: TwbConflictTreeNode read tnParent;
+    property Index: Integer read tnIndex;
+    property Datas: TwbDynConflictNodeDatas read tnDatas;
+    property States: TwbConflictNodeStates read tnStates;
+    property Visible: Boolean read tnVisible;
+    property ChildCount: Integer read GetChildCount;
+    property Children[aIndex: Integer]: TwbConflictTreeNode read GetChild;
+  end;
+
+  TwbConflictTree = class
+  private
+    ctView           : TwbConflictView;
+    ctContextRef     : IwbGameContext;
+    ctEpoch          : Cardinal;
+    ctStamps         : TArray<Cardinal>;
+    ctFileCount      : Integer;
+    ctSiblingCompare : Boolean;
+    ctInjected       : Boolean;
+    ctRootCount      : Integer;
+    ctOnMessage      : TwbConflictMessageProc;
+    ctRoot           : TwbConflictTreeNode;
+    ctHideNoConflict : Boolean;
+    procedure Setup(aView: TwbConflictView; const aRootDatas: TwbDynConflictNodeDatas; aSiblingCompare, aInjected: Boolean;
+      aRootCount: Integer; const aOnMessage: TwbConflictMessageProc);
+    procedure ResolveNode(aNode: TwbConflictTreeNode);
+  public
+    constructor CreateForMainRecord(aView: TwbConflictView; const aMainRecord: IwbMainRecord; const aFiles: TwbFiles;
+      const aOnMessage: TwbConflictMessageProc);
+    constructor CreateForRecords(aView: TwbConflictView; const aRecords: TDynMainRecords;
+      const aOnMessage: TwbConflictMessageProc);
+    constructor CreateForElement(aView: TwbConflictView; const aElement: IwbElement;
+      const aOnMessage: TwbConflictMessageProc);
+    constructor CreateForContainer(aView: TwbConflictView; const aContainer: IwbDataContainer; const aFiles: TwbFiles;
+      const aOnMessage: TwbConflictMessageProc);
+    destructor Destroy; override;
+    function IsStale: Boolean;
+    procedure Resolve(aHideNoConflict: Boolean = False);
+    function NodeFor(const aElement: IwbElement; out aColumn: Integer): TwbConflictTreeNode;
+    property View: TwbConflictView read ctView;
+    property Root: TwbConflictTreeNode read ctRoot;
+    property SiblingCompare: Boolean read ctSiblingCompare;
+    property Injected: Boolean read ctInjected;
+  end;
+
+  TwbDeltaPatchCounts = record
+    Copied     : Integer;
+    Processed  : Integer;
+    Candidates : Integer;
+    Removed    : Integer;
+    CantRemove : Integer;
+  end;
+
+function wbConflictCellElement(const aParentData: TwbConflictNodeData; aIndex: Cardinal): IwbElement;
 
 function wbConflictLevelForNodeDatas(const aNodeDatas: PwbConflictNodeDatas; aNodeCount: Integer; aSiblingCompare, aInjected: Boolean): TConflictAll;
 
@@ -31,11 +142,17 @@ procedure wbConflictInitNodes(const aNodeDatas: PwbConflictNodeDatas;
 procedure wbConflictInitChildren(const aNodeDatas: PwbConflictNodeDatas; aNodeCount: Integer;
   var aChildCount: Cardinal; aView: TwbConflictView; const aOnMessage: TwbConflictMessageProc);
 
+function wbConflictAlignedGap(const aParentData: TwbConflictNodeData; aRow: Integer; out aMemoryIndex: Integer): Boolean;
+
 function wbConflictLevelForChildNodeDatas(const aNodeDatas: TwbDynConflictNodeDatas; aSiblingCompare, aInjected: Boolean; aView: TwbConflictView; const aOnMessage: TwbConflictMessageProc; const aOnField: TwbFieldConflictProc = nil): TConflictAll;
 
 function wbConflictNodeDatasForMainRecord(const aMainRecord: IwbMainRecord; const aFiles: TwbFiles; aView: TwbConflictView): TwbDynConflictNodeDatas;
 
+function wbConflictNodeDatasForContainer(const aContainer: IwbDataContainer; const aFiles: TwbFiles): TwbDynConflictNodeDatas;
+
 procedure wbConflictLevelForMainRecord(const aMainRecord: IwbMainRecord; const aFiles: TwbFiles; aView: TwbConflictView; const aOnMessage: TwbConflictMessageProc; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
+
+function wbConflictMakeDeltaPatch(const aOld, aNew: IwbFile; aTemplate: TwbConflictView; const aOnMessage: TwbConflictMessageProc): TwbDeltaPatchCounts;
 
 implementation
 
@@ -53,8 +170,129 @@ begin
   inherited Create;
   Context := aContext;
   cvContextRef := aContext;
-  AlignArrayElements := True;
-  AlignArrayLimit := 5000;
+  cvAlignArrayElements := True;
+  cvAlignArrayLimit := 5000;
+  cvModGroupTargets := TDictionary<PwbModuleInfo, TwbModuleInfos>.Create;
+  cvHidden := TwbHiddenSet.Create;
+  cvTrees := TList<TwbConflictTree>.Create;
+  cvEpoch := 1;
+end;
+
+destructor TwbConflictView.Destroy;
+begin
+  if Assigned(cvTrees) then
+    for var lTree in cvTrees do
+      lTree.ctView := nil;
+  cvTrees.Free;
+  cvHidden.Free;
+  cvModGroupTargets.Free;
+  inherited;
+end;
+
+procedure TwbConflictView.RulesChanged;
+begin
+  Inc(cvEpoch);
+end;
+
+function TwbConflictView.ModGroupTargets(aModule: PwbModuleInfo): TwbModuleInfos;
+begin
+  if not cvModGroupTargets.TryGetValue(aModule, Result) then
+    Result := nil;
+end;
+
+procedure TwbConflictView.SetModGroupTargets(aTargets: TDictionary<PwbModuleInfo, TwbModuleInfos>);
+begin
+  if aTargets <> cvModGroupTargets then begin
+    cvModGroupTargets.Clear;
+    for var lPair in aTargets do
+      cvModGroupTargets.Add(lPair.Key, Copy(lPair.Value));
+  end;
+  RulesChanged;
+end;
+
+procedure TwbConflictView.SetModGroupTargets(aFrom: TwbConflictView);
+begin
+  SetModGroupTargets(aFrom.cvModGroupTargets);
+end;
+
+procedure TwbConflictView.SetQuickShowConflicts(aValue: Boolean);
+begin
+  if cvQuickShowConflicts <> aValue then begin
+    cvQuickShowConflicts := aValue;
+    RulesChanged;
+  end;
+end;
+
+procedure TwbConflictView.SetOnlyMasterAndLeafs(aValue: Boolean);
+begin
+  if cvOnlyMasterAndLeafs <> aValue then begin
+    cvOnlyMasterAndLeafs := aValue;
+    RulesChanged;
+  end;
+end;
+
+procedure TwbConflictView.SetModGroupsEnabled(aValue: Boolean);
+begin
+  if cvModGroupsEnabled <> aValue then begin
+    cvModGroupsEnabled := aValue;
+    RulesChanged;
+  end;
+end;
+
+procedure TwbConflictView.SetAlignArrayElements(aValue: Boolean);
+begin
+  if cvAlignArrayElements <> aValue then begin
+    cvAlignArrayElements := aValue;
+    RulesChanged;
+  end;
+end;
+
+procedure TwbConflictView.SetAlignArrayLimit(aValue: Integer);
+begin
+  if cvAlignArrayLimit <> aValue then begin
+    cvAlignArrayLimit := aValue;
+    RulesChanged;
+  end;
+end;
+
+function TwbConflictView.Lookup(const aRecord: IwbMainRecord; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis): Boolean;
+begin
+  var lID := aRecord.DenseIDIn(Context);
+  Result := (lID > 0) and (lID < Cardinal(Length(cvEntries)));
+  if Result then
+    with cvEntries[lID] do begin
+      Result := (Epoch = cvEpoch) and (Stamp = aRecord.ChainStamp);
+      if Result then begin
+        aConflictAll := ConflictAll;
+        aConflictThis := ConflictThis;
+      end;
+    end;
+  if not Result then begin
+    aConflictAll := caUnknown;
+    aConflictThis := ctUnknown;
+  end;
+end;
+
+procedure TwbConflictView.Store(const aRecord: IwbMainRecord; aConflictAll: TConflictAll; aConflictThis: TConflictThis);
+begin
+  var lID := aRecord.DenseIDIn(Context);
+  if lID = 0 then
+    Exit;
+  if lID >= Cardinal(Length(cvEntries)) then
+    SetLength(cvEntries, Max(2 * Length(cvEntries), Integer(lID) + 1));
+  with cvEntries[lID] do begin
+    Stamp := aRecord.ChainStamp;
+    Epoch := cvEpoch;
+    ConflictAll := aConflictAll;
+    ConflictThis := aConflictThis;
+  end;
+  if (aConflictAll <> caUnknown) or (aConflictThis <> ctUnknown) then
+    aRecord.MarkConflictStored;
+end;
+
+procedure TwbConflictView.Peek(const aRecord: IwbMainRecord; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
+begin
+  Lookup(aRecord, aConflictAll, aConflictThis);
 end;
 
 function wbConflictLevelForNodeDatas(const aNodeDatas: PwbConflictNodeDatas; aNodeCount: Integer; aSiblingCompare, aInjected: Boolean): TConflictAll;
@@ -353,6 +591,28 @@ begin
   end;
 end;
 
+function wbConflictCellElement(const aParentData: TwbConflictNodeData; aIndex: Cardinal): IwbElement;
+var
+  Container         : IwbContainerElementRef;
+  SortableContainer : IwbSortableContainer;
+begin
+  Result := nil;
+  Container := aParentData.Container;
+  if not Assigned(Container) then
+    Exit;
+  if (vnfUseSortOrder in aParentData.ViewNodeFlags) or (Supports(Container, IwbSortableContainer, SortableContainer) and SortableContainer.Sorted) then begin
+    if aIndex < Cardinal(Length(aParentData.RowElements)) then
+      Result := aParentData.RowElements[aIndex];
+  end else
+    case Container.ElementType of
+      etMainRecord, etSubRecordStruct:
+        Result := Container.ElementBySortOrder[aIndex];
+      etSubRecordArray, etArray, etStruct, etSubRecord, etValue, etUnion, etStructChapter:
+        if aIndex < Cardinal(Container.ElementCount) then
+          Result := Container.Elements[aIndex];
+    end;
+end;
+
 procedure wbConflictInitNodes(const aNodeDatas: PwbConflictNodeDatas;
   const aParentDatas: PwbConflictNodeDatas;
   aNodeCount: Integer;
@@ -363,7 +623,6 @@ var
   NodeData                    : PwbConflictNodeData;
   ParentData                  : PwbConflictNodeData;
   Container                   : IwbContainerElementRef;
-  SortableContainer           : IwbSortableContainer;
   i                           : Integer;
 begin
   for i := 0 to Pred(aNodeCount) do begin
@@ -371,18 +630,7 @@ begin
     ParentData := @aParentDatas[i];
 
     Container := ParentData.Container;
-    if Assigned(Container) then begin
-      if (vnfUseSortOrder in ParentData.ViewNodeFlags) or (Supports(Container, IwbSortableContainer, SortableContainer) and SortableContainer.Sorted) then
-        NodeData.Element := Container.ElementBySortOrder[aIndex]
-      else
-        case Container.ElementType of
-          etMainRecord, etSubRecordStruct:
-            NodeData.Element := Container.ElementBySortOrder[aIndex];
-          etSubRecordArray, etArray, etStruct, etSubRecord, etValue, etUnion, etStructChapter:
-            if aIndex < Cardinal(Container.ElementCount) then
-              NodeData.Element := Container.Elements[aIndex];
-        end;
-    end;
+    NodeData.Element := wbConflictCellElement(ParentData^, aIndex);
     if Assigned(NodeData.Element) then begin
       if Assigned(aOnElement) then
         aOnElement(i, NodeData.Element);
@@ -456,6 +704,8 @@ begin
   FirstContainer := nil;
   for i := 0 to Pred(aNodeCount) do begin
     NodeData := @aNodeDatas[i];
+    NodeData.RowElements := nil;
+    NodeData.ViewNodeFlags := NodeData.ViewNodeFlags - [vnfUseSortOrder, vnfIsSorted, vnfIsAligned];
     Container := NodeData.Container;
     if not Assigned(FirstContainer) then
       FirstContainer := Container;
@@ -525,17 +775,15 @@ begin
 
       aChildCount := SortedKeys[aNodeCount].Count;
 
+      for i := 0 to Pred(aNodeCount) do
+        if Assigned(Sortables[i]) then
+          SetLength(aNodeDatas[i].RowElements, aChildCount);
+
       for j := 0 to Pred(aChildCount) do begin
         SortKey := SortedKeys[aNodeCount].Strings[j];
         for i := 0 to Pred(aNodeCount) do
           if SortedKeys[i].Find(SortKey, k) then
-            IwbElement(Pointer(SortedKeys[i].Objects[k])).SortOrder := j;
-      end;
-
-      for i := 0 to Pred(aNodeCount) do begin
-        NodeData := @aNodeDatas[i];
-        if Assigned(NodeData.Container) then
-          NodeData.Container.SetIsSortedBySortOrder(False);
+            aNodeDatas[i].RowElements[j] := IwbElement(Pointer(SortedKeys[i].Objects[k]));
       end;
 
     finally
@@ -557,7 +805,7 @@ begin
 
         if Assigned(Container) then begin
           case Container.ElementType of
-            etMainRecord, etSubRecordStruct: begin
+            etMainRecord, etSubRecordStruct: if Assigned(Container.Def) then begin
                 aChildCount := (Container.Def as IwbRecordDef).MemberCount;
                 Inc(aChildCount, Container.AdditionalElementCount);
                 if (Cardinal(Container.ElementCount) > aChildCount) and Assigned(aOnMessage) then begin
@@ -661,11 +909,11 @@ begin
               NodeData := @aNodeDatas[i];
               Include(NodeData.ViewNodeFlags, vnfUseSortOrder);
               Include(NodeData.ViewNodeFlags, vnfIsAligned);
-              for j := Low(KeyedElements[i]) to High(KeyedElements[i]) do
-                if Assigned(KeyedElements[i, j]) then
-                  IwbElement(KeyedElements[i, j]).SortOrder := j;
-              if Assigned(NodeData.Container) then
-                NodeData.Container.SetIsSortedBySortOrder(True);
+              if Assigned(NodeData.Container) then begin
+                SetLength(NodeData.RowElements, aChildCount);
+                for j := Low(KeyedElements[i]) to High(KeyedElements[i]) do
+                  NodeData.RowElements[j] := IwbElement(KeyedElements[i, j]);
+              end;
             end;
           end;
         end;
@@ -675,6 +923,35 @@ begin
       AllKeys.Free;
     end;
   end;
+end;
+
+function wbConflictAlignedGap(const aParentData: TwbConflictNodeData; aRow: Integer; out aMemoryIndex: Integer): Boolean;
+var
+  i, lCount, lBefore : Integer;
+begin
+  aMemoryIndex := -1;
+  Result := False;
+
+  if not (vnfIsAligned in aParentData.ViewNodeFlags) or not Assigned(aParentData.Container) then
+    Exit;
+  if (aRow < 0) or (aRow >= Length(aParentData.RowElements)) or Assigned(aParentData.RowElements[aRow]) then
+    Exit;
+
+  lCount := 0;
+  lBefore := 0;
+  for i := Low(aParentData.RowElements) to High(aParentData.RowElements) do
+    if Assigned(aParentData.RowElements[i]) then begin
+      if (lCount >= aParentData.Container.ElementCount) or not aParentData.RowElements[i].Equals(aParentData.Container.Elements[lCount]) then
+        Exit;
+      if i < aRow then
+        Inc(lBefore);
+      Inc(lCount);
+    end;
+  if lCount <> aParentData.Container.ElementCount then
+    Exit;
+
+  aMemoryIndex := lBefore;
+  Result := True;
 end;
 
 function wbConflictLevelForChildNodeDatas(const aNodeDatas: TwbDynConflictNodeDatas; aSiblingCompare, aInjected: Boolean; aView: TwbConflictView; const aOnMessage: TwbConflictMessageProc; const aOnField: TwbFieldConflictProc): TConflictAll;
@@ -781,6 +1058,8 @@ var
   Modules       : TwbModuleInfos;
   FirstModule   : PwbModuleInfo;
   LastModule    : PwbModuleInfo;
+  Targets       : TwbModuleInfos;
+  Hidden        : TwbModuleInfos;
 begin
   MainRecords := nil;
   Result := nil;
@@ -865,31 +1144,24 @@ begin
 
   if aView.ModGroupsEnabled and (Length(MainRecords) > 2) then begin
     SetLength(Modules, Length(MainRecords));
-    for i := Low(MainRecords) to High(MainRecords) do begin
-      Modules[i] := MainRecords[i]._File.ModuleInfo;
-      if Assigned(Modules[i]) then
-        Exclude(Modules[i].miFlags, mfEphemeralModGroupTagged);
-    end;
     FirstModule := nil;
     LastModule := nil;
-    for i := Low(Modules) to High(Modules) do
+    Hidden := nil;
+    for i := Low(MainRecords) to High(MainRecords) do begin
+      Modules[i] := MainRecords[i]._File.ModuleInfo;
       if Assigned(Modules[i]) then begin
         if not Assigned(FirstModule) then
           FirstModule := Modules[i];
-        with Modules[i]^ do
-          for j := Low(miModGroupTargets) to High(miModGroupTargets) do
-            Include(miModGroupTargets[j].miFlags, mfEphemeralModGroupTagged);
         LastModule := Modules[i];
+        Targets := aView.ModGroupTargets(Modules[i]);
+        if Length(Targets) > 0 then
+          Hidden := Hidden + Targets;
       end;
-
-    if Assigned(FirstModule) then
-      Exclude(FirstModule.miFlags, mfEphemeralModGroupTagged);
-    if Assigned(LastModule) then
-      Exclude(LastModule.miFlags, mfEphemeralModGroupTagged);
+    end;
 
     j := 0;
     for i := Low(Modules) to High(Modules) do
-      if not Assigned(Modules[i]) or not (mfEphemeralModGroupTagged in Modules[i].miFlags) then begin
+      if not Assigned(Modules[i]) or (Modules[i] = FirstModule) or (Modules[i] = LastModule) or not Hidden.Contains(Modules[i]) then begin
         if i <> j then
           MainRecords[j] := MainRecords[i];
         Inc(j);
@@ -897,14 +1169,16 @@ begin
     SetLength(MainRecords, j);
   end;
 
-  j := 0;
-  for i := Low(MainRecords) to High(MainRecords) do
-    if not MainRecords[i].IsHidden then begin
-      if i <> j then
-        MainRecords[j] := MainRecords[i];
-      Inc(j);
-    end;
-  SetLength(MainRecords, j);
+  if aView.Hidden.Count > 0 then begin
+    j := 0;
+    for i := Low(MainRecords) to High(MainRecords) do
+      if not MainRecords[i].IsHiddenIn(aView.Hidden) then begin
+        if i <> j then
+          MainRecords[j] := MainRecords[i];
+        Inc(j);
+      end;
+    SetLength(MainRecords, j);
+  end;
 
   if Length(MainRecords) < 1 then
     MainRecords := [aMainRecord];
@@ -923,16 +1197,67 @@ begin
     end;
 end;
 
-procedure wbConflictLevelForMainRecord(const aMainRecord: IwbMainRecord; const aFiles: TwbFiles; aView: TwbConflictView; const aOnMessage: TwbConflictMessageProc; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
+function wbConflictNodeDatasForContainer(const aContainer: IwbDataContainer; const aFiles: TwbFiles): TwbDynConflictNodeDatas;
+var
+  i, l    : Integer;
+  p       : string;
+  Element : IwbElement;
+begin
+  SetLength(Result, 0);
+  l := 0;
+  p := Copy(aContainer.Path, Succ(Length(aContainer.GetFile.Path + ' \ ')));
+  repeat
+    i := Pos(' \ ', p);
+    if i>0 then begin
+      Delete(p, i, 1);
+      Delete(p, i+1, 1);
+    end;
+  until i = 0;  // Convert GetPath to ByPath
 
-  procedure Fix(const aMainRecord: IwbMainRecord);
-  begin
-    with aMainRecord do begin
-      ConflictAll := aConflictAll;
-      if ConflictThis = ctUnknown then begin
-        ConflictThis := ctHiddenByModGroup;
+  for i := 0 to pred(Length(aFiles)) do
+    if aFiles[i].IsNotPlugin then begin
+      Element := aFiles[i].ElementByPath[p];
+      if Assigned(Element) then begin
+        SetLength(Result, Succ(l));
+        Result[l].Element := Element;
+        Result[l].Container := Element as IwbContainerElementRef;
+        if Result[l].Container.ElementCount < 1 then
+          Result[l].Container := nil;
+        Inc(l);
       end;
     end;
+  Assert(Length(Result)>0); // At least there should be ourself
+end;
+
+procedure wbConflictLevelForMainRecord(const aMainRecord: IwbMainRecord; const aFiles: TwbFiles; aView: TwbConflictView; const aOnMessage: TwbConflictMessageProc; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
+var
+  ThisConflict                : TConflictThis;
+
+  procedure Put(const aRecord: IwbMainRecord; aAll: TConflictAll; aThis: TConflictThis);
+  begin
+    aView.Store(aRecord, aAll, aThis);
+    if aRecord.Equals(aMainRecord) then
+      ThisConflict := aThis;
+  end;
+
+  procedure Fix(const aRecord: IwbMainRecord);
+  var
+    lAll  : TConflictAll;
+    lThis : TConflictThis;
+  begin
+    aView.Lookup(aRecord, lAll, lThis);
+    if lThis = ctUnknown then
+      lThis := ctHiddenByModGroup;
+    Put(aRecord, aConflictAll, lThis);
+  end;
+
+  procedure Allocate(const aRecords: TDynMainRecords);
+  begin
+    for var lRecord in aRecords do
+      if lRecord.DenseIDIn(aView.Context) = 0 then begin
+        aView.Context.AllocateDenseIDs(aRecords);
+        Exit;
+      end;
   end;
 
 var
@@ -983,19 +1308,21 @@ var
 begin
   KeepAliveRoot := wbCreateKeepAliveRoot;
 
-  aConflictAll := aMainRecord.ConflictAll;
-  aConflictThis := aMainRecord.ConflictThis;
+  aView.Lookup(aMainRecord, aConflictAll, aConflictThis);
 
-  if aConflictAll > caUnknown then
+  if aConflictAll > caUnknown then begin
+    Inc(aView.Hits);
     Exit;
+  end;
+  Inc(aView.Misses);
 
   TranslationMode := aView.Context.Settings.TranslationMode;
   Master := aMainRecord.MasterOrSelf;
   if (Master.OverrideCount = 0) and not TranslationMode and not ((Master.Signature = 'GMST') or (Master.Signature = 'DFOB')) then begin
     aConflictAll := caOnlyOne;
     aConflictThis := ctOnlyOne;
-    aMainRecord.ConflictAll := aConflictAll;
-    aMainRecord.ConflictThis := aConflictThis;
+    Allocate([aMainRecord]);
+    aView.Store(aMainRecord, aConflictAll, aConflictThis);
   end else begin
     NodeDatas := wbConflictNodeDatasForMainRecord(aMainRecord, aFiles, aView);
     if (Length(NodeDatas) = 1) and not TranslationMode then begin
@@ -1020,20 +1347,677 @@ begin
     end else
       aConflictAll := wbConflictLevelForChildNodeDatas(NodeDatas, False, (aMainRecord.MasterOrSelf.IsInjected and not ((aMainRecord.Signature = 'GMST') or (aMainRecord.Signature = 'DFOB')) ), aView, aOnMessage);
 
+    var lWritten: TDynMainRecords;
+    SetLength(lWritten, Length(NodeDatas) + 1 + Master.OverrideCount);
+    var lCount := 0;
     for i := Low(NodeDatas) to High(NodeDatas) do
-      with NodeDatas[i] do
-        if Assigned(Element) then
-          with (Element as IwbMainRecord) do begin
-            ConflictAll := aConflictAll;
-            ConflictThis := NodeDatas[i].ConflictThis;
-          end;
+      if Assigned(NodeDatas[i].Element) then begin
+        lWritten[lCount] := NodeDatas[i].Element as IwbMainRecord;
+        Inc(lCount);
+      end;
+    lWritten[lCount] := Master;
+    Inc(lCount);
+    for i := 0 to Pred(Master.OverrideCount) do begin
+      lWritten[lCount] := Master.Overrides[i];
+      Inc(lCount);
+    end;
+    SetLength(lWritten, lCount);
+    Allocate(lWritten);
+
+    ThisConflict := ctUnknown;
+    for i := Low(NodeDatas) to High(NodeDatas) do
+      if Assigned(NodeDatas[i].Element) then begin
+        if NodeDatas[i].ConflictThis = ctUnknown then
+          NodeDatas[i].ConflictThis := ctNotDefined;
+        Put(NodeDatas[i].Element as IwbMainRecord, aConflictAll, NodeDatas[i].ConflictThis);
+      end;
 
     Fix(Master);
     for i := 0 to Pred(Master.OverrideCount) do
       Fix(Master.Overrides[i]);
 
-    aConflictThis := aMainRecord.ConflictThis;
+    aConflictThis := ThisConflict;
   end;
+end;
+
+type
+  TwbByteSet = set of Byte;
+
+  TwbDeltaPatchNode = class
+  private
+    dnElement   : IwbElement;
+    dnContainer : IwbContainer;
+    dnChildren  : TArray<TwbDeltaPatchNode>;
+    dnGone      : Boolean;
+    dnOwn       : TConflictThis;
+    dnThis      : TConflictThis;
+    function LiveChildCount: Integer;
+  public
+    constructor Create(const aElement: IwbElement; const aContainer: IwbContainer; const aParented: TwbByteSet);
+    destructor Destroy; override;
+  end;
+
+constructor TwbDeltaPatchNode.Create(const aElement: IwbElement; const aContainer: IwbContainer; const aParented: TwbByteSet);
+var
+  lRecord : IwbMainRecord;
+  lGroup  : IwbGroupRecord;
+  lChild  : IwbContainer;
+  i       : Integer;
+begin
+  inherited Create;
+  dnElement := aElement;
+  dnContainer := aContainer;
+  if not Assigned(dnContainer) then
+    Exit;
+  i := 0;
+  while i < dnContainer.ElementCount do begin
+    var lElement := dnContainer.Elements[i];
+    lChild := nil;
+    if Supports(lElement, IwbMainRecord, lRecord) then begin
+      if (Succ(i) < dnContainer.ElementCount) and
+         Supports(dnContainer.Elements[Succ(i)], IwbGroupRecord, lGroup) and
+         (lGroup.GroupType in aParented) and
+         (lRecord.FormID.ToCardinal = lGroup.GroupLabel)
+      then begin
+        lChild := lGroup;
+        Inc(i);
+      end;
+    end else if Supports(lElement, IwbGroupRecord, lGroup) then
+      lChild := lGroup;
+    dnChildren := dnChildren + [TwbDeltaPatchNode.Create(lElement, lChild, aParented)];
+    Inc(i);
+  end;
+end;
+
+destructor TwbDeltaPatchNode.Destroy;
+begin
+  for var lChild in dnChildren do
+    lChild.Free;
+  inherited;
+end;
+
+function TwbDeltaPatchNode.LiveChildCount: Integer;
+begin
+  Result := 0;
+  for var lChild in dnChildren do
+    if not lChild.dnGone then
+      Inc(Result);
+end;
+
+function wbConflictMakeDeltaPatch(const aOld, aNew: IwbFile; aTemplate: TwbConflictView; const aOnMessage: TwbConflictMessageProc): TwbDeltaPatchCounts;
+var
+  lContext      : TwbGameContext;
+  lView         : TwbConflictView;
+  lFiles        : TwbFiles;
+  lParented     : TwbByteSet;
+  lCounts       : TwbDeltaPatchCounts;
+
+  procedure Verdicts(aNode: TwbDeltaPatchNode; aOnlyOne: Boolean);
+  var
+    lRecord : IwbMainRecord;
+    lMaster : IwbMainRecord;
+    lAll    : TConflictAll;
+  begin
+    for var i := High(aNode.dnChildren) downto Low(aNode.dnChildren) do
+      Verdicts(aNode.dnChildren[i], aOnlyOne);
+    wbTick;
+    aNode.dnOwn := ctUnknown;
+    aNode.dnThis := ctUnknown;
+    if Supports(aNode.dnElement, IwbMainRecord, lRecord) then begin
+      if aOnlyOne and (aNode.LiveChildCount = 0) then begin
+        lMaster := lRecord.MasterOrSelf;
+        if lMaster.OverrideCount > 0 then begin
+          var lVisible := 0;
+          if not lView.Hidden.IsHidden(lMaster) then
+            Inc(lVisible);
+          for var i := 0 to Pred(lMaster.OverrideCount) do
+            if not lView.Hidden.IsHidden(lMaster.Overrides[i]) then begin
+              Inc(lVisible);
+              if lVisible > 1 then
+                Break;
+            end;
+          if lVisible > 1 then begin
+            aNode.dnGone := True;
+            Exit;
+          end;
+        end;
+      end;
+      wbConflictLevelForMainRecord(lRecord, lFiles, lView, aOnMessage, lAll, aNode.dnOwn);
+      aNode.dnThis := aNode.dnOwn;
+    end;
+    if aNode.LiveChildCount > 0 then begin
+      for var lChild in aNode.dnChildren do
+        if not lChild.dnGone and (lChild.dnThis > aNode.dnThis) then
+          aNode.dnThis := lChild.dnThis;
+    end else if aNode.dnElement.Skipped then
+      aNode.dnGone := True;
+  end;
+
+  procedure CopyDeleted(aNode: TwbDeltaPatchNode);
+  var
+    lRecord : IwbMainRecord;
+    lCopy   : IwbMainRecord;
+  begin
+    wbTick;
+    if Supports(aNode.dnElement, IwbMainRecord, lRecord) and
+       (lRecord.Signature <> 'TES4') and
+       not lRecord.IsDeleted and
+       (aNode.dnThis = ctOnlyOne) and
+       Supports(wbCopyElementToFile(lRecord, aNew, False, False, '', '', '', '', False), IwbMainRecord, lCopy)
+    then begin
+      lCopy.IsDeleted := True;
+      Inc(lCounts.Copied);
+    end;
+    for var lChild in aNode.dnChildren do
+      if not lChild.dnGone then
+        CopyDeleted(lChild);
+  end;
+
+  procedure RemoveIdentical(aNode: TwbDeltaPatchNode);
+  var
+    lRecord : IwbMainRecord;
+    lIsRec  : Boolean;
+  begin
+    for var i := High(aNode.dnChildren) downto Low(aNode.dnChildren) do
+      if not aNode.dnChildren[i].dnGone then
+        RemoveIdentical(aNode.dnChildren[i]);
+    wbTick;
+    Inc(lCounts.Processed);
+    lIsRec := Supports(aNode.dnElement, IwbMainRecord, lRecord);
+    if (aNode.LiveChildCount = 0) and
+       (
+         (aNode.dnThis = ctIdenticalToMaster) or
+         ((aNode.dnThis = ctConflictBenign) and lIsRec and (lRecord.Signature = 'NAVM')) or
+         Supports(aNode.dnElement, IwbGroupRecord)
+       ) and
+       not (lIsRec and lRecord.MasterOrSelf.IsInjected)
+    then begin
+      Inc(lCounts.Candidates);
+      if not aNode.dnElement.IsRemovable then begin
+        if Assigned(aOnMessage) then
+          aOnMessage('Can''t remove: ' + aNode.dnElement.Name);
+        Inc(lCounts.CantRemove);
+      end else begin
+        if Assigned(aNode.dnContainer) and not aNode.dnContainer.Equals(aNode.dnElement) then
+          aNode.dnContainer.Remove;
+        aNode.dnElement.Remove;
+        aNode.dnGone := True;
+        if lIsRec then
+          Inc(lCounts.Removed);
+      end;
+    end;
+  end;
+
+var
+  lTree : TwbDeltaPatchNode;
+begin
+  lCounts := Default(TwbDeltaPatchCounts);
+  lContext := aNew.ContextObj;
+  if aOld.ContextObj <> lContext then
+    raise Exception.Create('Delta patch: ' + aOld.FileName + ' and ' + aNew.FileName + ' are not loaded in the same context');
+  if not (fsIsDeltaPatch in aNew.FileStates) or not aOld.Equals(aNew.CompareToFile) then
+    raise Exception.Create('Delta patch: ' + aNew.FileName + ' is not loaded as a delta patch of ' + aOld.FileName);
+  if not aNew.IsEditable then
+    raise Exception.Create('Delta patch: ' + aNew.FileName + ' is not editable');
+  if lContext.Settings.TranslationMode then
+    raise Exception.Create('Delta patch: not available in translation mode');
+
+  lFiles := lContext.Files;
+  lParented := [1, 6, 7];
+  if gcVWDAsQuestChildren in lContext.GameDefObj.Capabilities then
+    Include(lParented, 10);
+
+  lView := TwbConflictView.Create(lContext);
+  try
+    if Assigned(aTemplate) then begin
+      lView.AlignArrayElements := aTemplate.AlignArrayElements;
+      lView.AlignArrayLimit := aTemplate.AlignArrayLimit;
+    end;
+    for var lFile in lFiles do
+      if not lFile.Equals(aOld) and not lFile.Equals(aNew) then
+        lView.Hidden.Hide(lFile);
+
+    lTree := TwbDeltaPatchNode.Create(aOld, aOld, lParented);
+    try
+      Verdicts(lTree, True);
+      CopyDeleted(lTree);
+    finally
+      lTree.Free;
+    end;
+
+    aNew.RemoveIdenticalDeltaFast;
+
+    lTree := TwbDeltaPatchNode.Create(aNew, aNew, lParented);
+    try
+      Verdicts(lTree, False);
+      for var i := High(lTree.dnChildren) downto Low(lTree.dnChildren) do
+        if not lTree.dnChildren[i].dnGone then
+          RemoveIdentical(lTree.dnChildren[i]);
+    finally
+      lTree.Free;
+    end;
+  finally
+    lView.Free;
+  end;
+  Result := lCounts;
+end;
+
+destructor TwbConflictTreeNode.Destroy;
+begin
+  for var lChild in tnChildren do
+    lChild.Free;
+  inherited;
+end;
+
+function TwbConflictTreeNode.GetChildCount: Integer;
+begin
+  if not tnCounted then begin
+    var lCount: Cardinal := 0;
+    if not Assigned(tnParent) then
+      lCount := tnTree.ctRootCount
+    else if cnsHasChildren in tnStates then begin
+      if not Assigned(tnTree.ctView) then
+        raise Exception.Create('The conflict view of this conflict tree has been freed');
+      wbConflictInitChildren(@tnDatas[0], Length(tnDatas), lCount, tnTree.ctView, tnTree.ctOnMessage);
+    end;
+    SetLength(tnChildren, lCount);
+    tnCounted := True;
+  end;
+  Result := Length(tnChildren);
+end;
+
+function TwbConflictTreeNode.GetChild(aIndex: Integer): TwbConflictTreeNode;
+var
+  lStates : TwbConflictNodeStates;
+begin
+  if (aIndex < 0) or (aIndex >= GetChildCount) then
+    raise Exception.CreateFmt('Conflict tree row %d has no child row %d', [tnIndex, aIndex]);
+  Result := tnChildren[aIndex];
+  if not Assigned(Result) then begin
+    Result := TwbConflictTreeNode.Create;
+    Result.tnTree := tnTree;
+    Result.tnParent := Self;
+    Result.tnIndex := aIndex;
+    SetLength(Result.tnDatas, Length(tnDatas));
+    lStates := [];
+    wbConflictInitNodes(@Result.tnDatas[0], @tnDatas[0], Length(tnDatas), aIndex, lStates, nil);
+    Result.tnStates := lStates;
+    tnChildren[aIndex] := Result;
+  end;
+end;
+
+function TwbConflictTreeNode.RowElement(aColumn, aRow: Integer): IwbElement;
+begin
+  Result := nil;
+  if (aRow >= 0) and (aRow < GetChildCount) then
+    Result := wbConflictCellElement(tnDatas[aColumn], aRow);
+end;
+
+function TwbConflictTreeNode.IsAlignedGap(aColumn, aRow: Integer; out aMemoryIndex: Integer): Boolean;
+begin
+  GetChildCount;
+  Result := wbConflictAlignedGap(tnDatas[aColumn], aRow, aMemoryIndex);
+end;
+
+function TwbConflictTreeNode.CanAssignAligned(aColumn, aRow: Integer; const aSource: IwbElement; aCheckDontShow: Boolean): Boolean;
+var
+  lMemoryIndex : Integer;
+begin
+  Result := not tnTree.IsStale and IsAlignedGap(aColumn, aRow, lMemoryIndex);
+  if Result then
+    with tnDatas[aColumn] do
+      if Assigned(aSource) then
+        Result := Container.CanAssign(aRow - Container.AdditionalElementCount, aSource, aCheckDontShow)
+      else
+        Result := Container.CanAssignAligned(aRow - Container.AdditionalElementCount, aCheckDontShow);
+end;
+
+function TwbConflictTreeNode.AssignAligned(aColumn, aRow: Integer; const aSource: IwbElement; aOnlySK: Boolean): IwbElement;
+var
+  lMemoryIndex : Integer;
+  lContainer   : IwbContainerElementRef;
+begin
+  Result := nil;
+  if tnTree.IsStale or not IsAlignedGap(aColumn, aRow, lMemoryIndex) then
+    Exit;
+  lContainer := tnDatas[aColumn].Container;
+  Result := lContainer.AssignAligned(aRow - lContainer.AdditionalElementCount, lMemoryIndex, aSource, aOnlySK);
+  if Assigned(Result) then
+    lContainer.MoveElementTo(Result, lMemoryIndex);
+end;
+
+constructor TwbConflictTree.CreateForMainRecord(aView: TwbConflictView; const aMainRecord: IwbMainRecord; const aFiles: TwbFiles;
+  const aOnMessage: TwbConflictMessageProc);
+var
+  lMaster : IwbMainRecord;
+  lCount  : Integer;
+begin
+  inherited Create;
+  lMaster := aMainRecord.MasterOrSelf;
+  lCount := 0;
+  if Assigned(lMaster.Def) then
+    lCount := (lMaster.Def as IwbRecordDef).MemberCount + lMaster.AdditionalElementCount;
+  Setup(aView, wbConflictNodeDatasForMainRecord(aMainRecord, aFiles, aView), False,
+    lMaster.IsInjected and not ((lMaster.Signature = 'GMST') or (lMaster.Signature = 'DFOB')), lCount, aOnMessage);
+end;
+
+constructor TwbConflictTree.CreateForRecords(aView: TwbConflictView; const aRecords: TDynMainRecords;
+  const aOnMessage: TwbConflictMessageProc);
+var
+  lDatas : TwbDynConflictNodeDatas;
+  lCount : Integer;
+begin
+  inherited Create;
+  if Length(aRecords) < 1 then
+    raise Exception.Create('A conflict tree needs at least one record');
+  SetLength(lDatas, Length(aRecords));
+  for var i := Low(aRecords) to High(aRecords) do begin
+    lDatas[i].Element := aRecords[i];
+    lDatas[i].Container := aRecords[i] as IwbContainerElementRef;
+  end;
+  lCount := 0;
+  if Assigned(aRecords[0].Def) then
+    lCount := (aRecords[0].Def as IwbRecordDef).MemberCount + aRecords[0].AdditionalElementCount;
+  Setup(aView, lDatas, True, False, lCount, aOnMessage);
+end;
+
+function ContainerRootCount(const aContainer: IwbContainer): Integer;
+begin
+  if Supports(aContainer.Def, IwbStructDef) then
+    Result := (aContainer.Def as IwbStructDef).MemberCount + aContainer.AdditionalElementCount
+  else
+    Result := 1;
+end;
+
+constructor TwbConflictTree.CreateForElement(aView: TwbConflictView; const aElement: IwbElement;
+  const aOnMessage: TwbConflictMessageProc);
+var
+  lDatas  : TwbDynConflictNodeDatas;
+  lRecord : IwbMainRecord;
+  lCount  : Integer;
+begin
+  inherited Create;
+  SetLength(lDatas, 1);
+  lDatas[0].Element := aElement;
+  lDatas[0].Container := aElement as IwbContainerElementRef;
+  if Supports(aElement, IwbMainRecord, lRecord) then begin
+    lCount := 0;
+    if Assigned(lRecord.Def) then
+      lCount := (lRecord.Def as IwbRecordDef).MemberCount + lRecord.AdditionalElementCount;
+    Setup(aView, lDatas, False, lRecord.IsInjected and not ((lRecord.Signature = 'GMST') or (lRecord.Signature = 'DFOB')),
+      lCount, aOnMessage);
+  end else
+    Setup(aView, lDatas, False, False, ContainerRootCount(aElement as IwbContainer), aOnMessage);
+end;
+
+constructor TwbConflictTree.CreateForContainer(aView: TwbConflictView; const aContainer: IwbDataContainer; const aFiles: TwbFiles;
+  const aOnMessage: TwbConflictMessageProc);
+begin
+  inherited Create;
+  Assert(aView.Context.LoaderDone);
+  Setup(aView, wbConflictNodeDatasForContainer(aContainer, aFiles), False, False, ContainerRootCount(aContainer), aOnMessage);
+end;
+
+procedure TwbConflictTree.Setup(aView: TwbConflictView; const aRootDatas: TwbDynConflictNodeDatas; aSiblingCompare, aInjected: Boolean;
+  aRootCount: Integer; const aOnMessage: TwbConflictMessageProc);
+var
+  lRecord : IwbMainRecord;
+begin
+  ctView := aView;
+  ctContextRef := aView.cvContextRef;
+  aView.cvTrees.Add(Self);
+  ctEpoch := aView.Epoch;
+  ctFileCount := aView.cvContextRef.FileCount;
+  ctSiblingCompare := aSiblingCompare;
+  ctInjected := aInjected;
+  ctRootCount := aRootCount;
+  ctOnMessage := aOnMessage;
+  ctRoot := TwbConflictTreeNode.Create;
+  ctRoot.tnTree := Self;
+  ctRoot.tnIndex := -1;
+  ctRoot.tnDatas := aRootDatas;
+  SetLength(ctStamps, Length(aRootDatas));
+  for var i := Low(aRootDatas) to High(aRootDatas) do
+    with ctRoot.tnDatas[i] do begin
+      if Supports(Element, IwbMainRecord, lRecord) then
+        ctStamps[i] := lRecord.ChainStamp;
+      if Assigned(Element) then
+        ElementGen := Element.ElementGeneration;
+      if Assigned(Container) then
+        ContainerGen := Container.ElementGeneration;
+    end;
+end;
+
+destructor TwbConflictTree.Destroy;
+begin
+  if Assigned(ctView) then
+    ctView.cvTrees.Remove(Self);
+  ctRoot.Free;
+  inherited;
+end;
+
+function TwbConflictTree.IsStale: Boolean;
+var
+  lRecord : IwbMainRecord;
+begin
+  if not Assigned(ctView) or (ctView.Epoch <> ctEpoch) or (ctView.cvContextRef.FileCount <> ctFileCount) then
+    Exit(True);
+  for var i := Low(ctRoot.tnDatas) to High(ctRoot.tnDatas) do
+    with ctRoot.tnDatas[i] do begin
+      if Supports(Element, IwbMainRecord, lRecord) and (lRecord.ChainStamp <> ctStamps[i]) then
+        Exit(True);
+      if Assigned(Element) and (Element.ElementGeneration <> ElementGen) then
+        Exit(True);
+      if Assigned(Container) and (Container.ElementGeneration <> ContainerGen) then
+        Exit(True);
+    end;
+  Result := False;
+end;
+
+procedure TwbConflictTree.Resolve(aHideNoConflict: Boolean);
+begin
+  if not Assigned(ctView) then
+    raise Exception.Create('The conflict view of this conflict tree has been freed');
+  ctHideNoConflict := aHideNoConflict;
+  ResolveNode(ctRoot);
+  for var i := Low(ctRoot.tnDatas) to High(ctRoot.tnDatas) do
+    with ctRoot.tnDatas[i] do begin
+      if Assigned(Element) then
+        ElementGen := Element.ElementGeneration;
+      if Assigned(Container) then
+        ContainerGen := Container.ElementGeneration;
+    end;
+end;
+
+procedure TwbConflictTree.ResolveNode(aNode: TwbConflictTreeNode);
+var
+  lDatas          : TwbDynConflictNodeDatas;
+  lChild          : TwbConflictTreeNode;
+  lConflictAll    : TConflictAll;
+  lConflictThis   : TConflictThis;
+  lHasElement     : Boolean;
+  lTranslation    : Boolean;
+  lHideIgnored    : Boolean;
+  lDontShow       : Boolean;
+  lVisible        : Boolean;
+  lParentDatas    : TwbDynConflictNodeDatas;
+  lElement        : IwbElement;
+  lMemberCount    : Integer;
+  lAdditional     : Integer;
+begin
+  lDatas := aNode.tnDatas;
+  if aNode.ChildCount = 0 then
+    lDatas[0].ConflictAll := wbConflictLevelForNodeDatas(@lDatas[0], Length(lDatas), ctSiblingCompare, ctInjected)
+  else
+    for var c := 0 to Pred(aNode.ChildCount) do begin
+      lChild := aNode.Children[c];
+      ResolveNode(lChild);
+      for var i := Low(lDatas) to High(lDatas) do begin
+        if lChild.tnDatas[i].ConflictAll > lDatas[i].ConflictAll then
+          lDatas[i].ConflictAll := lChild.tnDatas[i].ConflictAll;
+        if lChild.tnDatas[i].ConflictThis > lDatas[i].ConflictThis then
+          lDatas[i].ConflictThis := lChild.tnDatas[i].ConflictThis;
+      end;
+    end;
+
+  lConflictAll := caUnknown;
+  lConflictThis := ctUnknown;
+  lHasElement := False;
+  for var i := Low(lDatas) to High(lDatas) do begin
+    lHasElement := lHasElement or Assigned(lDatas[i].Element);
+    if lDatas[i].ConflictAll > lConflictAll then
+      lConflictAll := lDatas[i].ConflictAll;
+    if lDatas[i].ConflictThis > lConflictThis then
+      lConflictThis := lDatas[i].ConflictThis;
+  end;
+
+  lTranslation := ctView.Context.Settings.TranslationMode;
+  if not lHasElement and lTranslation then
+    lConflictThis := ctIgnored;
+
+  if (lConflictAll in [caUnknown, caOnlyOne]) and ctSiblingCompare then
+    lConflictAll := caNoConflict;
+
+  for var i := Low(lDatas) to High(lDatas) do
+    lDatas[i].ConflictAll := lConflictAll;
+
+  if not Assigned(aNode.tnParent) then
+    Exit;
+
+  lHideIgnored := ctView.Context.Settings.HideIgnored;
+  lDontShow := False;
+  for var i := Low(lDatas) to High(lDatas) do begin
+    if vnfDontShow in lDatas[i].ViewNodeFlags then
+      lDontShow := True;
+    if Assigned(lDatas[i].Container) then begin
+      lDontShow := False;
+      Break;
+    end;
+  end;
+
+  case lConflictThis of
+    ctUnknown: lVisible := not lDontShow and not lTranslation;
+    ctIgnored: lVisible := not lHideIgnored;
+    ctNotDefined: begin
+        lParentDatas := aNode.tnParent.tnDatas;
+
+        lElement := nil;
+        for var i := Low(lParentDatas) to High(lParentDatas) do begin
+          lElement := lParentDatas[i].Container;
+          if Assigned(lElement) then
+            Break;
+        end;
+
+        if Assigned(lElement) and (lElement.ElementType in [etMainRecord, etSubRecordStruct]) then begin
+          lMemberCount := (lElement.Def as IwbRecordDef).MemberCount;
+          lAdditional := (lElement as IwbContainer).AdditionalElementCount;
+          if (aNode.tnIndex >= lAdditional) and (aNode.tnIndex - lAdditional < lMemberCount) then
+            with (lElement.Def as IwbRecordDef).Members[aNode.tnIndex - lAdditional] do begin
+              if (lTranslation and not (dfTranslatable in DefFlags)) or (lTranslation and (ConflictPriority[nil] = cpIgnore)) then begin
+                lConflictThis := ctIgnored;
+                for var k := Low(lDatas) to High(lDatas) do
+                  lDatas[k].ConflictThis := lConflictThis;
+              end;
+
+              if (lConflictThis <> ctIgnored) and HasDontShow then begin
+                lDontShow := True;
+                for var k := Low(lParentDatas) to High(lParentDatas) do begin
+                  lElement := lParentDatas[k].Container;
+                  if Assigned(lElement) then begin
+                    lDontShow := DontShow[lElement];
+                    if not lDontShow then
+                      Break;
+                  end;
+                end;
+              end;
+            end;
+        end;
+
+        if not Assigned(lElement) then
+          if lTranslation then
+            lConflictThis := ctIgnored;
+
+        if lConflictThis = ctNotDefined then begin
+          for var i := Low(lParentDatas) to High(lParentDatas) do begin
+            lElement := lParentDatas[i].Container;
+            if Assigned(lElement) then
+              Break;
+          end;
+          if Assigned(lElement) and (lElement.ElementType in [etMainRecord, etSubRecordStruct]) then begin
+            lMemberCount := (lElement.Def as IwbRecordDef).MemberCount;
+            lAdditional := (lElement as IwbContainer).AdditionalElementCount;
+            if (aNode.tnIndex >= lAdditional) and (aNode.tnIndex - lAdditional < lMemberCount) then
+              with (lElement.Def as IwbRecordDef).Members[aNode.tnIndex - lAdditional] do
+                if ConflictPriority[nil] = cpIgnore then
+                  lConflictThis := ctIgnored;
+          end;
+        end;
+
+        lVisible := ((lConflictThis <> ctIgnored) or not lHideIgnored) and not lDontShow;
+      end;
+  else
+    lVisible := not lDontShow;
+  end;
+
+  if lVisible then
+    if ctHideNoConflict then
+      if Length(lDatas) > 1 then begin
+        if ctSiblingCompare then begin
+          if lConflictAll < caConflictBenign then
+            lVisible := False;
+        end else begin
+          if lConflictThis < ctOverride then
+            lVisible := False;
+        end;
+      end else
+        if not lHasElement then
+          lVisible := False;
+
+  aNode.tnVisible := lVisible;
+end;
+
+function TwbConflictTree.NodeFor(const aElement: IwbElement; out aColumn: Integer): TwbConflictTreeNode;
+var
+  lPath    : TDynElements;
+  lElement : IwbElement;
+  lNode    : TwbConflictTreeNode;
+  lFound   : Integer;
+begin
+  Result := nil;
+  aColumn := -1;
+  lPath := nil;
+  lElement := aElement;
+  while Assigned(lElement) do begin
+    for var i := Low(ctRoot.tnDatas) to High(ctRoot.tnDatas) do
+      if Assigned(ctRoot.tnDatas[i].Element) and ctRoot.tnDatas[i].Element.Equals(lElement) then begin
+        aColumn := i;
+        Break;
+      end;
+    if aColumn >= 0 then
+      Break;
+    lPath := [lElement] + lPath;
+    lElement := lElement.Container;
+  end;
+  if aColumn < 0 then
+    Exit;
+
+  lNode := ctRoot;
+  for var lStep in lPath do begin
+    lFound := -1;
+    for var r := 0 to Pred(lNode.ChildCount) do begin
+      lElement := wbConflictCellElement(lNode.tnDatas[aColumn], r);
+      if Assigned(lElement) and lElement.Equals(lStep) then begin
+        lFound := r;
+        Break;
+      end;
+    end;
+    if lFound < 0 then begin
+      aColumn := -1;
+      Exit;
+    end;
+    lNode := lNode.Children[lFound];
+  end;
+  Result := lNode;
 end;
 
 end.

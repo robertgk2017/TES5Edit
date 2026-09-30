@@ -25,7 +25,10 @@ uses
   System.TypInfo,
 
   wbImplementation,
-  wbInterface;
+  wbInterface,
+  wbConflict,
+  xeMainForm,
+  xejviScriptArguments;
 
 const
   cUnit = 'Dummy';
@@ -50,6 +53,25 @@ begin
   else
     Result := esDummy;
   end;
+end;
+
+function TryHiddenState(const aElement: IwbElement; aState: TwbElementState; out aValue: Boolean): Boolean;
+var
+  lContainer : IwbContainer;
+begin
+  aValue := False;
+  Result := aState in [esHidden, esParentHidden, esParentHiddenChecked];
+  if Result then
+    case aState of
+      esHidden:
+        aValue := frmMain.ConflictView.Hidden.Contains(aElement);
+      esParentHidden: begin
+        lContainer := aElement.Container;
+        aValue := Assigned(lContainer) and frmMain.ConflictView.Hidden.IsHidden(lContainer);
+      end;
+    else
+      aValue := True;
+    end;
 end;
 
 
@@ -179,13 +201,20 @@ procedure IwbElement_ClearElementState(var Value: Variant; Args: TJvInterpreterA
 var
   Element : IwbElement;
   eState  : TwbElementState;
+  Was     : Boolean;
 begin
   Value := '';
   if Supports(IInterface(Args.Values[0]), IwbElement, Element) then begin
     try
       eState := IntToEsState(Args.Values[1]);
-      Value := eState in Element.ElementStates;
-      Element.SetElementState(eState, True);
+      if TryHiddenState(Element, eState, Was) then begin
+        Value := Was;
+        if eState = esHidden then
+          frmMain.ConflictView.Hidden.Show(Element);
+      end else begin
+        Value := eState in Element.ElementStates;
+        Element.SetElementState(eState, True);
+      end;
     except
 
     end;
@@ -367,12 +396,15 @@ procedure IwbElement_GetElementState(var Value: Variant; Args: TJvInterpreterArg
 var
   Element : IwbElement;
   eState  : TwbElementState;
+  Current : Boolean;
 begin
   Value := '';
   if Supports(IInterface(Args.Values[0]), IwbElement, Element) then begin
     try
       eState := IntToEsState(Args.Values[1]);
-      Value := eState in Element.ElementStates;
+      if not TryHiddenState(Element, eState, Current) then
+        Current := eState in Element.ElementStates;
+      Value := Current;
     except
 
     end;
@@ -512,7 +544,7 @@ var
   Element: IwbElement;
 begin
   if Supports(IInterface(Args.Values[0]), IwbElement, Element) then begin
-    var lStrings := TStrings(V2O(Args.Values[1]));
+    var lStrings := TStrings(ObjectArgument(Args.Values[1], TStrings, 1));
     var lMasters := TwbFilesSet.Create;
     try
       Element.ReportRequiredMasters(lMasters, Args.Values[2], Args.Values[3]);
@@ -545,13 +577,20 @@ procedure IwbElement_SetElementState(var Value: Variant; Args: TJvInterpreterArg
 var
   Element : IwbElement;
   eState  : TwbElementState;
+  Was     : Boolean;
 begin
   Value := '';
   if Supports(IInterface(Args.Values[0]), IwbElement, Element) then begin
     try
       eState := IntToEsState(Args.Values[1]);
-      Value := eState in Element.ElementStates;
-      Element.SetElementState(eState);
+      if TryHiddenState(Element, eState, Was) then begin
+        Value := Was;
+        if eState = esHidden then
+          frmMain.ConflictView.Hidden.Hide(Element);
+      end else begin
+        Value := eState in Element.ElementStates;
+        Element.SetElementState(eState);
+      end;
     except
 
     end;

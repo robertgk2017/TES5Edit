@@ -823,6 +823,52 @@ type
     TestNavCopyControlMisses : Integer;
     TestNavCopyStartGiven    : Boolean;
 
+    TestOptionsTimer         : TTimer;
+    TestOptionsAnswer        : TTimer;
+    TestOptionsToggle        : Boolean;
+    TestOptionsShown         : Boolean;
+    TestOptionsDialogAlign   : Boolean;
+    TestOptionsToggleNeverShow : Boolean;
+    TestOptionsDialogNeverShow : Boolean;
+
+    TestCopyIntoGapTimer     : TTimer;
+
+    TestDeltaPatchLines      : TStringList;
+    TestDeltaPatchTimer      : TTimer;
+    TestDeltaPatchCancelled  : Boolean;
+
+    TestHideTimer            : TTimer;
+
+    TestMergeLines           : TStringList;
+    TestMergeTimer           : TTimer;
+    TestMergeAnswer          : TTimer;
+    TestMergeTarget          : IwbFile;
+    TestMergeNotOffered      : Boolean;
+
+    TestFilterAnswer         : TTimer;
+    TestFilterAnswered       : string;
+
+    TestViewModalAnswer      : TTimer;
+    TestViewModalFactory     : TFunc<TwbConflictTree>;
+    TestViewModalSeen        : string;
+    TestViewModalMemo        : string;
+
+    procedure TestFilterAnswerTimer(Sender: TObject);
+    procedure TestViewModalAnswerTimer(Sender: TObject);
+
+    procedure TestMergeRunTimer(Sender: TObject);
+    procedure TestMergeAnswerTimer(Sender: TObject);
+    procedure TestMergeWrite;
+
+    procedure TestDeltaPatchStates(const aWhen: string);
+    procedure TestDeltaPatchWrite;
+    procedure TestDeltaPatchCancelTimer(Sender: TObject);
+    procedure TestHideRunTimer(Sender: TObject);
+
+    procedure TestOptionsRunTimer(Sender: TObject);
+    procedure TestOptionsAnswerTimer(Sender: TObject);
+    procedure TestCopyIntoGapRunTimer(Sender: TObject);
+
     function TestNavCopyLastPhase: Integer;
     procedure TestNavCopyPhaseTimer(Sender: TObject);
     procedure TestNavCopyAnswerTimer(Sender: TObject);
@@ -854,12 +900,21 @@ type
     procedure UpdatePnlCancelVisible;
   public
     procedure ConflictLevelForMainRecord(const aMainRecord: IwbMainRecord; out aConflictAll: TConflictAll; out aConflictThis: TConflictThis);
+    function IsPositionChanged(const aMainRecord: IwbMainRecord): Boolean;
     function ConflictLevelForChildNodeDatas(const aNodeDatas: TDynViewNodeDatas; aSiblingCompare, aInjected: Boolean; aView: TwbConflictView; const aOnMessage: TwbConflictMessageProc; const aOnField: TFieldConflictProc = nil): TConflictAll;
     function ConflictLevelForNodeDatas(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer; aSiblingCompare, aInjected: Boolean): TConflictAll;
 
     procedure DoTestConflictsDump;
     procedure DoTestNavCopy;
     procedure DoTestViewText;
+    procedure DoTestViewTree;
+    procedure DoTestOptions;
+    procedure DoTestCopyIntoGap;
+    procedure DoTestDeltaPatchStart;
+    procedure DoTestDeltaPatchReport;
+    procedure DoTestMerge;
+    procedure DoTestHide;
+    procedure DoTestFilter;
     procedure DoTestSaveContextsCompare;
 
     function ViewName(const aElement: IwbElement; const aName: string): string;
@@ -871,20 +926,17 @@ type
 
     function GetUniqueLinksTo(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer): TDynMainRecords;
 
-    procedure InitChildren(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer; var aChildCount: Cardinal; aView: TwbConflictView; const aOnMessage: TwbConflictMessageProc);
-    procedure InitNodes(const aNodeDatas, aParentDatas: PViewNodeDatas; aNodeCount: Integer; aIndex: Cardinal; var aStates: TwbConflictNodeStates; const aOnElement: TwbConflictElementProc);
-    procedure InitConflictStatus(aNode: PVirtualNode; aInjected: Boolean; aNodeDatas: PViewNodeDatas = nil);
     procedure InheritStateFromChildren(Node: PVirtualNode; NodeData: PNavNodeData);
 
     function NodeDatasForMainRecord(const aMainRecord: IwbMainRecord): TDynViewNodeDatas;
-    function NodeDatasForContainer(const aContainer: IwbDataContainer): TDynViewNodeDatas;
 
     procedure ShowChangeReferencedBy(const OldFormID, NewFormID: TwbFormID; const ReferencedBy: TDynMainRecords; aSilent: Boolean);
-    function GetTargetElement(Target: TBaseVirtualTree; var TargetNode: PVirtualNode; TargetColumn: Integer; out TargetIndex: Integer; out TargetElement: IwbElement): Boolean;
-    function PerformDrop(TargetTree: TBaseVirtualTree; TargetNode: PVirtualNode; TargetColumn: Integer; const SourceElement: IwbElement): Boolean;
+    function GetTargetElement(Target: TBaseVirtualTree; var TargetNode: PVirtualNode; TargetColumn: Integer; out TargetIndex: Integer; out TargetElement: IwbElement; out aAlignedMemoryIndex: Integer): Boolean;
+    function PerformDrop(TargetTree: TBaseVirtualTree; TargetNode: PVirtualNode; TargetColumn: Integer; const SourceElement: IwbElement): Boolean; overload;
+    function PerformDrop(const TargetElement: IwbElement; TargetIndex, AlignedMemoryIndex: Integer; TargetCell: TViewNodeData; const SourceElement: IwbElement): Boolean; overload;
     function GetSourceElement(Source: TObject; out SourceElement: IwbElement): Boolean;
 
-    function GetAddElement(out TargetNode: PVirtualNode; out TargetIndex: Integer; out TargetElement: IwbElement): Boolean;
+    function GetAddElement(out TargetNode: PVirtualNode; out TargetIndex: Integer; out TargetElement: IwbElement; out aAlignedMemoryIndex: Integer): Boolean;
 
     procedure ClearConflict(Sender: TBaseVirtualTree; Node: PVirtualNode; Data: Pointer; var Abort: Boolean);
 
@@ -975,7 +1027,10 @@ type
     ActiveRecordLock: Integer;
     ActiveRecord: IwbMainRecord;
     ActiveMaster: IwbMainRecord;
-    ActiveRecords: TDynViewNodeDatas;
+    ViewTree: TwbConflictTree;
+    ViewTreeFactory: TFunc<TwbConflictTree>;
+    ViewTreeGeneration: Cardinal;
+    ViewRootDatas: TDynViewNodeDatas;
     ActiveContainer: IwbDataContainer;
     ViewFocusedElement : IwbElement;
     EditAddedElement: Boolean;
@@ -991,6 +1046,14 @@ type
     ParentedGroupRecordType: set of Byte;
     RebuildingViewTree: Boolean;
     DelayedExpandView: Boolean;
+    function ViewRow(aNode: PVirtualNode): TwbConflictTreeNode;
+    function ViewCells(aNode: PVirtualNode): PViewNodeDatas;
+    procedure SetViewTree(const aFactory: TFunc<TwbConflictTree>);
+    procedure ClearViewTree;
+    procedure BuildViewTree;
+    procedure ApplyViewVisibility(aNode: PVirtualNode);
+    procedure FindViewFocusedNode;
+    property ActiveRecords: TDynViewNodeDatas read ViewRootDatas;
 
   public
     FilterPreset: Boolean; // new: flag to skip filter window
@@ -1328,8 +1391,6 @@ procedure DoProcessMessages;
 
 procedure xeApplyFontAndScale(aForm: TForm);
 
-function IsPositionChanged(MainRecord: IwbMainRecord): Boolean;
-
 implementation
 
 {$R *.dfm}
@@ -1339,6 +1400,7 @@ uses
   System.IOUtils,
   System.Math,
   System.RegularExpressionsCore,
+  System.Rtti,
   System.StrUtils,
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   System.SyncObjs,
@@ -4446,7 +4508,7 @@ var
 begin
   if not xeContext.Settings.BuildRefs then
     Exit;
-  if xeTestConflicts or xeTestNavCopy then
+  if xeTestConflicts or xeTestNavCopy or (xeTestViewTreeFile <> '') then
     Exit;
   if xeContext.Settings.DontCache then
     Exit;
@@ -4476,68 +4538,9 @@ begin
 end;
 
 procedure TfrmMain.ClearActiveContainer;
-var
-  aMainrecords : TDynMainRecords;
 begin
   UserWasActive := True;
-
-  if Length(aMainRecords) < 2 then begin
-    if Length(aMainRecords) = 1 then
-      if Supports(aMainRecords[0], IwbMainrecord) then
-        SetActiveRecord(aMainRecords[0] as IwbMainRecord)
-      else
-        SetActiveContainer(aMainRecords[0])
-    else
-      SetActiveContainer(IwbDataContainer(nil));
-    Exit;
-  end;
-  if Supports(aMainRecords[0], IwbMainrecord) then begin
-    SetLength(aMainRecords, 0);
-    SetActiveRecord(aMainRecords);
-    Exit;
-  end;
-
-  ComparingSiblings := True;
-  CompareRecords := aMainRecords;
-  lvReferencedBy.Items.BeginUpdate;
-  try
-    vstView.BeginUpdate;
-    try
-      ClearReferencedByListData;
-      vstView.Clear;
-      vstView.NodeDataSize := 0;
-      SetLength(ActiveRecords, 0);
-      ActiveMaster := nil;
-      ActiveRecord := nil;
-      ActiveIndex := NoColumn;
-
-      SetLength(ActiveRecords, 0);
-
-      with vstView.Header.Columns do begin
-        BeginUpdate;
-        try
-          Clear;
-          with Add do begin
-            Text := '';
-            Width := Trunc(ColumnWidth * (GetCurrentPPIScreen / PixelsPerInch));
-            Options := Options - [coDraggable, coShowDropMark];
-            Options := Options + [coFixed, coFiller];
-          end;
-        finally
-          EndUpdate;
-        end;
-      end;
-
-      vstView.NodeDataSize := SizeOf(TViewNodeData) * Length(ActiveRecords);
-      vstView.RootNodeCount := 0;
-      pgMain.ActivePage := tbsView;
-    finally
-      vstView.EndUpdate;
-    end;
-    tbsReferencedBy.TabVisible := False;
-  finally
-    lvReferencedBy.Items.EndUpdate;
-  end;
+  SetActiveContainer(IwbDataContainer(nil));
 end;
 
 procedure TfrmMain.ClearConflict(Sender: TBaseVirtualTree; Node: PVirtualNode; Data: Pointer; var Abort: Boolean);
@@ -4567,7 +4570,7 @@ begin
   j := 0;
   Node := vstView.GetLastChild(nil);
   while Assigned(Node) do begin
-    NodeDatas := vstView.GetNodeData(Node);
+    NodeDatas := ViewCells(Node);
     if Assigned(NodeDatas) then
       for i := Low(ActiveRecords) to High(ActiveRecords) do
         if Assigned(NodeDatas[i].Container) then begin
@@ -4594,6 +4597,7 @@ end;
 destructor TfrmMain.Destroy;
 begin
   inherited;
+  ClearViewTree;
   FreeAndNil(ConflictView);
   FreeAndNil(lvReferencedByAllItems);
   FreeAndNil(lvReferencedByFilteredItems);
@@ -4972,7 +4976,7 @@ begin
     end;
 
     wbPatron := Settings.ReadBool('Options', 'Patron', wbPatron);
-    if (not wbPatron or not xeAutoLoad) and not (xeTestConflicts or xeTestNavCopy or xeTestViewText or xeTestSaveContexts) then
+    if (not wbPatron or not xeAutoLoad) and not (xeTestConflicts or xeTestNavCopy or xeTestViewText or xeTestViewTree or xeTestOptions or xeTestCopyIntoGap or xeTestDeltaPatch or xeTestMerge or xeTestHide or xeTestFilter or xeTestSaveContexts) then
       ShowDeveloperMessage;
   end;
 
@@ -5243,7 +5247,7 @@ begin
   if not xeContext.Settings.TranslationMode then begin
     wbHideUnused := Settings.ReadBool('Options', 'HideUnused', wbHideUnused);
     xeContext.Settings.HideIgnored := Settings.ReadBool('Options', 'HideIgnored', xeContext.Settings.HideIgnored);
-    wbHideNeverShow := Settings.ReadBool('Options', 'HideNeverShow', wbHideNeverShow);
+    xeContext.Settings.HideNeverShow := Settings.ReadBool('Options', 'HideNeverShow', xeContext.Settings.HideNeverShow);
   end;
   wbActorTemplateHide := Settings.ReadBool('Options', 'ActorTemplateHide', wbActorTemplateHide);
   ColumnWidth := Settings.ReadInteger('Options', 'ColumnWidth', ColumnWidth);
@@ -5371,7 +5375,7 @@ begin
     while Assigned(Node) do begin
       // don't search in hidden elements
       NodeData := vstNav.GetNodeData(Node);
-      if Assigned(NodeData) and Assigned(NodeData.Element) and not NodeData.Element.IsHidden then
+      if Assigned(NodeData) and Assigned(NodeData.Element) and not ConflictView.Hidden.IsHidden(NodeData.Element) then
         if StartsWith(vstNav.Text[Node, 1, False], EditorID) then begin
           if not vstNav.FullyVisible[Node] then begin
             vstNav.FullyVisible[Node] := True;
@@ -5522,7 +5526,7 @@ begin
           if not Assigned(Node) then
             for i := 0 to Pred(MainRecord.OverrideCount) do begin
               // don't search in hidden elements
-              if MainRecord.Overrides[i].IsHidden then
+              if ConflictView.Hidden.IsHidden(MainRecord.Overrides[i]) then
                 Continue;
               Node := FindNodeForElement(MainRecord.Overrides[i]);
               if Assigned(Node) then
@@ -5719,7 +5723,7 @@ begin
     vstView.FullExpand;
     Node := vstView.GetLast(nil);
     while Assigned(Node) do begin
-      NodeDatas := vstView.GetNodeData(Node);
+      NodeDatas := ViewCells(Node);
       if Assigned(NodeDatas) then
         for i := Low(ActiveRecords) to High(ActiveRecords) do
           with NodeDatas[i] do
@@ -6305,6 +6309,8 @@ begin
     TestNavCopyAnswer.OnTimer := TestNavCopyAnswerTimer;
     TestNavCopyAnswer.Enabled := True;
   end;
+  if xeTestMerge or (xeTestFilterRemove <> '') then
+    UseLatestCommonDialogs := False;
 
   try
     if not Assigned(Settings) and (xeSettingsFileName <> '')  then
@@ -6543,12 +6549,13 @@ begin
 end;
 
 function TfrmMain.GetAddElement(out TargetNode: PVirtualNode; out TargetIndex: Integer;
-  out TargetElement: IwbElement): Boolean;
+  out TargetElement: IwbElement; out aAlignedMemoryIndex: Integer): Boolean;
 var
   NodeDatas                   : PViewNodeDatas;
   Container                   : IwbContainerElementRef;
 begin
   TargetIndex := High(Integer);
+  aAlignedMemoryIndex := -1;
   Result := False;
 
   if Pred(vstView.FocusedColumn) > High(ActiveRecords) then
@@ -6559,10 +6566,12 @@ begin
     if TargetNode = vstView.RootNode then
       NodeDatas := @ActiveRecords[0]
     else
-      NodeDatas := vstView.GetNodeData(TargetNode);
+      NodeDatas := ViewCells(TargetNode);
     if Assigned(NodeDatas) then begin
       TargetElement := NodeDatas[Pred(vstView.FocusedColumn)].Element;
       if Assigned(TargetElement) then begin
+        if TargetIndex < High(Integer) then
+          wbConflictAlignedGap(NodeDatas[Pred(vstView.FocusedColumn)], TargetIndex, aAlignedMemoryIndex);
         if (TargetIndex < High(Integer)) and Supports(TargetElement, IwbContainerElementRef, Container) then
           Dec(TargetIndex, Container.AdditionalElementCount);
         Break;
@@ -6580,13 +6589,15 @@ begin
 end;
 
 function TfrmMain.GetTargetElement(Target: TBaseVirtualTree;
-  var TargetNode: PVirtualNode; TargetColumn: Integer; out TargetIndex: Integer; out TargetElement: IwbElement): Boolean;
+  var TargetNode: PVirtualNode; TargetColumn: Integer; out TargetIndex: Integer; out TargetElement: IwbElement;
+  out aAlignedMemoryIndex: Integer): Boolean;
 var
   NodeDatas                   : PViewNodeDatas;
   Container                   : IwbContainerElementRef;
 begin
   TargetIndex := Low(Integer);
   TargetElement := nil;
+  aAlignedMemoryIndex := -1;
   Result := False;
 
   if TargetColumn < 1 then
@@ -6598,10 +6609,12 @@ begin
     if TargetNode = Target.RootNode then
       NodeDatas := @ActiveRecords[0]
     else
-      NodeDatas := Target.GetNodeData(TargetNode);
+      NodeDatas := ViewCells(TargetNode);
     if Assigned(NodeDatas) then begin
       TargetElement := NodeDatas[Pred(TargetColumn)].Element;
       if Assigned(TargetElement) then begin
+        if TargetIndex >= 0 then
+          wbConflictAlignedGap(NodeDatas[Pred(TargetColumn)], TargetIndex, aAlignedMemoryIndex);
         if (TargetIndex >= 0) and Supports(TargetElement, IwbContainerElementRef, Container) then
           Dec(TargetIndex, Container.AdditionalElementCount);
         Break;
@@ -6672,7 +6685,7 @@ begin
     if Pred(lSourceTree.DragColumn) > High(ActiveRecords) then
       Exit;
 
-    var lSourceViewNodeDatas: PViewNodeDatas := lSourceTree.GetNodeData(lSourceTree.DragSelection[0]);
+    var lSourceViewNodeDatas: PViewNodeDatas := ViewCells(lSourceTree.DragSelection[0]);
     if not Assigned(lSourceViewNodeDatas) then
       Exit;
 
@@ -6786,194 +6799,6 @@ begin
   end;
 end;
 
-procedure TfrmMain.InitChildren(const aNodeDatas: PViewNodeDatas; aNodeCount: Integer;
-  var aChildCount: Cardinal; aView: TwbConflictView; const aOnMessage: TwbConflictMessageProc);
-begin
-  wbConflictInitChildren(aNodeDatas, aNodeCount, aChildCount, aView, aOnMessage);
-end;
-procedure TfrmMain.InitConflictStatus(aNode: PVirtualNode; aInjected: Boolean; aNodeDatas: PViewNodeDatas = nil);
-
-  procedure InheritConflict(Parent, Child: PViewNodeData);
-  begin
-    if Child.ConflictAll > Parent.ConflictAll then
-      Parent.ConflictAll := Child.ConflictAll;
-    if Child.ConflictThis > Parent.ConflictThis then
-      Parent.ConflictThis := Child.ConflictThis;
-  end;
-
-var
-  ChildNode      : PVirtualNode;
-  ChildNodeDatas : PViewNodeDatas;
-  NodeDatas      : PViewNodeDatas;
-  i,j,k          : Integer;
-  ConflictAll    : TConflictAll;
-  ConflictThis   : TConflictThis;
-  Element        : IwbElement;
-  ElementCount   : Integer;
-  HasElement     : Boolean;
-  lDontShow      : Boolean;
-begin
-  HasElement := False;
-  lDontShow := False;
-  if not Assigned(aNodeDatas) then begin
-    aNodeDatas := vstView.GetNodeData(aNode);
-    if Assigned(ActiveMaster) then
-      aInjected := ActiveMaster.IsInjected;
-  end;
-
-  ChildNode := vstView.GetFirstChild(aNode);
-  if not Assigned(ChildNode) then
-    aNodeDatas[0].ConflictAll := ConflictLevelForNodeDatas(aNodeDatas, Length(ActiveRecords), ComparingSiblings, aInjected)
-  else
-    while Assigned(ChildNode) do begin
-      ChildNodeDatas := vstView.GetNodeData(ChildNode);
-      InitConflictStatus(ChildNode, aInjected, ChildNodeDatas);
-      for i := Low(ActiveRecords) to High(ActiveRecords) do
-        InheritConflict(@aNodeDatas[i], @ChildNodeDatas[i]);
-      ChildNode := vstView.GetNextSibling(ChildNode);
-    end;
-
-  ConflictAll := caUnknown;
-  ConflictThis := ctUnknown;
-  for i := Low(ActiveRecords) to High(ActiveRecords) do begin
-    HasElement := HasElement or Assigned(aNodeDatas[i].Element);
-    if aNodeDatas[i].ConflictAll > ConflictAll then
-      ConflictAll := aNodeDatas[i].ConflictAll;
-    if aNodeDatas[i].ConflictThis > ConflictThis then
-      ConflictThis := aNodeDatas[i].ConflictThis;
-  end;
-
-  if not HasElement then
-    if xeContext.Settings.TranslationMode then
-      ConflictThis := ctIgnored;
-
-  if (ConflictAll in [caUnknown, caOnlyOne]) and ComparingSiblings then
-    ConflictAll := caNoConflict;
-
-  for i := Low(ActiveRecords) to High(ActiveRecords) do
-    aNodeDatas[i].ConflictAll := ConflictAll;
-
-  if aNode <> vstView.RootNode then begin
-
-    for i := Low(ActiveRecords) to High(ActiveRecords) do begin
-      if vnfDontShow in aNodeDatas[i].ViewNodeFlags then
-        lDontShow := True;
-      if Assigned(aNodeDatas[i].Container) then begin
-        lDontShow := False;
-        Break;
-      end;
-    end;
-
-    case ConflictThis of
-      ctUnknown: vstView.IsVisible[aNode] := not lDontShow and not xeContext.Settings.TranslationMode;
-      ctIgnored: vstView.IsVisible[aNode] := not xeContext.Settings.HideIgnored;
-      ctNotDefined: begin
-          if aNode.Parent = vstView.RootNode then
-            ChildNodeDatas := @ActiveRecords[0]
-          else
-            ChildNodeDatas := vstView.GetNodeData(aNode.Parent);
-
-          Element := nil;
-          for i := Low(ActiveRecords) to High(ActiveRecords) do begin
-            Element := ChildNodeDatas[i].Container;
-            if Assigned(Element) then
-              Break;
-          end;
-
-          if Assigned(Element) and (Element.ElementType in [etMainRecord, etSubRecordStruct]) then begin
-            ElementCount := (Element.Def as IwbRecordDef).MemberCount;
-            i := (Element as IwbContainer).AdditionalElementCount;
-            j := Integer(aNode.Index);
-            if (j >= i) and ((j-i) < ElementCount) then
-              with (Element.Def as IwbRecordDef).Members[j - i] do begin
-                if (xeContext.Settings.TranslationMode and (not (dfTranslatable in DefFlags))) or
-                  (xeContext.Settings.TranslationMode and (ConflictPriority[nil] = cpIgnore)) then begin
-                  ConflictThis := ctIgnored;
-                  for k := Low(ActiveRecords) to High(ActiveRecords) do
-                    aNodeDatas[k].ConflictThis := ConflictThis;
-                end;
-
-                if (ConflictThis <> ctIgnored) and HasDontShow then begin
-                  lDontShow := True;
-                  for k := Low(ActiveRecords) to High(ActiveRecords) do begin
-                    Element := ChildNodeDatas[k].Container;
-                    if Assigned(Element) then begin
-                      lDontShow := DontShow[Element];
-                      if not lDontShow then
-                        Break;
-                    end;
-                  end;
-                end;
-              end;
-          end;
-
-          if not Assigned(Element) then
-            if xeContext.Settings.TranslationMode then
-              ConflictThis := ctIgnored;
-
-          if ConflictThis = ctNotDefined then begin
-            NodeDatas := vstView.GetNodeData(aNode.Parent);
-            if not Assigned(NodeDatas) then
-              NodeDatas := @ActiveRecords[0];
-            for i := Low(ActiveRecords) to High(ActiveRecords) do begin
-              Element := NodeDatas[i].Container;
-              if Assigned(Element) then
-                Break;
-            end;
-            if Assigned(Element) and (Element.ElementType in [etMainRecord, etSubRecordStruct]) then begin
-              ElementCount := (Element.Def as IwbRecordDef).MemberCount;
-              i := (Element as IwbContainer).AdditionalElementCount;
-              j := Integer(aNode.Index);
-              if (j >= i) and ((j-i) < ElementCount) then
-                with (Element.Def as IwbRecordDef).Members[Integer(aNode.Index) - i] do
-                  if ConflictPriority[nil] = cpIgnore then
-                    ConflictThis := ctIgnored;
-            end;
-          end;
-
-          vstView.IsVisible[aNode] := ((ConflictThis <> ctIgnored) or not xeContext.Settings.HideIgnored) and not lDontShow;
-        end;
-    else
-      vstView.IsVisible[aNode] := not lDontShow;
-    end;
-
-    if vstView.IsVisible[aNode] then
-      if HideNoConflict then
-        if Length(ActiveRecords) > 1 then begin
-          if ComparingSiblings then begin
-            if ConflictAll < caConflictBenign then
-              vstView.IsVisible[aNode] := False;
-          end else begin
-            if ConflictThis < ctOverride then
-              vstView.IsVisible[aNode] := False;
-          end;
-        end else
-          if not HasElement then
-            vstView.IsVisible[aNode] := False;
-  end;
-
-  for i := Low(ActiveRecords) to High(ActiveRecords) do
-    with aNodeDatas[i] do begin
-      if Assigned(Element) then
-        ElementGen := Element.ElementGeneration
-      else
-        ElementGen := 0;
-      if Assigned(Container) then
-        ContainerGen := Container.ElementGeneration
-      else
-        ContainerGen := 0;
-    end;
-end;
-
-procedure TfrmMain.InitNodes(const aNodeDatas: PViewNodeDatas;
-  const aParentDatas: PViewNodeDatas;
-  aNodeCount: Integer;
-  aIndex: Cardinal;
-  var aStates: TwbConflictNodeStates;
-  const aOnElement: TwbConflictElementProc);
-begin
-  wbConflictInitNodes(aNodeDatas, aParentDatas, aNodeCount, aIndex, aStates, aOnElement);
-end;
 procedure TfrmMain.InvalidateElementsTreeView;
 var
   Node                        : PVirtualNode;
@@ -6994,10 +6819,7 @@ begin
 
       if Assigned(NodeData.Element) and (NodeData.Element.ElementType = etMainRecord) then begin
         MainRecord := (NodeData.Element as IwbMainRecord);
-        with MainRecord do begin
-          ConflictAll := caUnknown;
-          ConflictThis := ctUnknown;
-        end;
+        MainRecord.ResetConflict;
         ConflictLevelForMainRecord(MainRecord, NodeData.ConflictAll, NodeData.ConflictThis);
         with NodeData^ do begin
           OrgConflictAll  := ConflictAll;
@@ -7179,10 +7001,7 @@ begin
 
         if Assigned(NodeData.Element) and (NodeData.Element.ElementType = etMainRecord) then begin
           MainRecord := (NodeData.Element as IwbMainRecord);
-          with MainRecord do begin
-            ConflictAll := caUnknown;
-            ConflictThis := ctUnknown;
-          end;
+          MainRecord.ResetConflict;
           ConflictLevelForMainRecord(MainRecord, NodeData.ConflictAll, NodeData.ConflictThis);
           with NodeData^ do begin
             OrgConflictAll  := ConflictAll;
@@ -7466,6 +7285,7 @@ var
   TargetNode                  : PVirtualNode;
   TargetIndex                 : Integer;
   TargetElement               : IwbElement;
+  AlignedMemoryIndex          : Integer;
   NewElement                  : IwbElement;
   Control                     : Boolean;
 begin
@@ -7474,7 +7294,7 @@ begin
   if xeContext.Settings.TranslationMode then
     Exit;
 
-  if GetAddElement(TargetNode, TargetIndex, TargetElement) then begin
+  if GetAddElement(TargetNode, TargetIndex, TargetElement, AlignedMemoryIndex) then begin
     if not EditWarn then
       Exit;
 
@@ -7490,7 +7310,10 @@ begin
             lTemplate := lTemplates[lTemplateIdx];
         end;
 
-        NewElement := TargetElement.Assign(TargetIndex, lTemplate, False);
+        if AlignedMemoryIndex >= 0 then
+          NewElement := (TargetElement as IwbContainerElementRef).AssignAligned(TargetIndex, AlignedMemoryIndex, lTemplate, False)
+        else
+          NewElement := TargetElement.Assign(TargetIndex, lTemplate, False);
         if Assigned(NewElement) then
           NewElement.SetToDefaultIfAsCreatedEmpty;
 
@@ -7582,7 +7405,7 @@ var
   NodeDatas                   : PViewNodeDatas;
   Records                     : TDynMainRecords;
 begin
-  NodeDatas := vstView.GetNodeData(vstViewFocusedNode);
+  NodeDatas := ViewCells(vstViewFocusedNode);
   if not Assigned(NodeDatas) then
     Exit;
   Records := GetUniqueLinksTo(NodeDatas, Length(ActiveRecords));
@@ -7590,6 +7413,14 @@ begin
 end;
 
 procedure TfrmMain.mniViewCopyToSelectedRecordsClick(Sender: TObject);
+type
+  TDropTarget = record
+    Found              : Boolean;
+    Index              : Integer;
+    Element            : IwbElement;
+    AlignedMemoryIndex : Integer;
+    Cell               : TViewNodeData;
+  end;
 var
   Node             : PVirtualNode;
   NodeDatas        : PViewNodeDatas;
@@ -7597,6 +7428,7 @@ var
   SourceElement    : IwbElement;
   i, j             : Integer;
   TargetColumns    : array of Integer;
+  Targets          : array of TDropTarget;
 begin
   if not xeContext.Settings.EditAllowed then
     Exit;
@@ -7609,7 +7441,7 @@ begin
   if (SourceColumn < 1) or (Pred(SourceColumn) > High(ActiveRecords)) then
     Exit;
 
-  NodeDatas := vstView.GetNodeData(Node);
+  NodeDatas := ViewCells(Node);
   if not Assigned(NodeDatas) then
     Exit;
 
@@ -7617,6 +7449,15 @@ begin
 
   if not Assigned(SourceElement) then
     Exit;
+
+  SetLength(Targets, Length(ActiveRecords));
+  for i := Low(Targets) to High(Targets) do
+    if (i <> Pred(SourceColumn)) and Assigned(ActiveRecords[i].Element) then begin
+      var lNode := Node;
+      Targets[i].Found := GetTargetElement(vstView, lNode, Succ(i), Targets[i].Index, Targets[i].Element,
+        Targets[i].AlignedMemoryIndex);
+      Targets[i].Cell := ActiveRecords[i];
+    end;
 
   with TfrmFileSelect.Create(Self) do try
 
@@ -7649,8 +7490,11 @@ begin
   if not EditWarn then
     Exit;
 
-  for i := Low(TargetColumns) to High(TargetColumns) do
-    PerformDrop(vstView, Node, TargetColumns[i], SourceElement);
+  for i := Low(TargetColumns) to High(TargetColumns) do begin
+    var lTarget := Targets[Pred(TargetColumns[i])];
+    if lTarget.Found then
+      PerformDrop(lTarget.Element, lTarget.Index, lTarget.AlignedMemoryIndex, lTarget.Cell, SourceElement);
+  end;
 
   InvalidateElementsTreeView(NoNodes);
   ViewFocusedElement := SourceElement;
@@ -7662,7 +7506,7 @@ end;
 
 procedure TfrmMain.mniViewCopyMultipleToSelectedRecordsClick(Sender: TObject);
 var
-  AllNodeDatas                : array of PViewNodeDatas;
+  AllRows                     : array of TArray<IwbElement>;
   NodeDatas                   : PViewNodeDatas;
   NodeData                    : PNavNodeData;
   Element                     : IwbElement;
@@ -7674,22 +7518,24 @@ var
   SelectedNodes               : TNodeArray;
   i, j, k                     : Integer;
   Node                        : PVirtualNode;
+  Column                      : Integer;
 begin
   if not xeContext.Settings.EditAllowed then
     Exit;
 
+  Column := Pred(vstView.FocusedColumn);
+  if (Column < 0) or (Column > High(ActiveRecords)) then
+    Exit;
+
   SourceMainRecord := nil;
-  SetLength(AllNodeDatas, 0);
+  SetLength(AllRows, 0);
   SetLength(Names, 0);
   for Node in vstView.LevelNodes(0) do begin
-    NodeDatas := vstView.GetNodeData(Node);
+    NodeDatas := ViewCells(Node);
     if Assigned(NodeDatas) then begin
-      Element := nil;
-      if (vstView.FocusedColumn > 0) and (Pred(vstView.FocusedColumn) <= High(ActiveRecords)) then begin
-        Element := NodeDatas[Pred(vstView.FocusedColumn)].Element;
-        if Assigned(Element) and not Assigned(SourceMainRecord) then
-          SourceMainRecord := Element.ContainingMainRecord;
-      end;
+      Element := NodeDatas[Column].Element;
+      if Assigned(Element) and not Assigned(SourceMainRecord) then
+        SourceMainRecord := Element.ContainingMainRecord;
       if not Assigned(Element) then
         for i := Low(ActiveRecords) to High(ActiveRecords) do begin
           Element := NodeDatas[i].Element;
@@ -7698,14 +7544,16 @@ begin
         end;
 
       if Assigned(Element) and (Element.Name <> 'Record Header') and not Element.Name.StartsWith('EDID') then begin
-        SetLength(AllNodeDatas, Succ(Length(AllNodeDatas)));
-        SetLength(Names, Length(AllNodeDatas));
-        AllNodeDatas[High(AllNodeDatas)] := NodeDatas;
-        Names[High(Names)] := Element.Name;
+        var lRow: TArray<IwbElement>;
+        SetLength(lRow, Length(ActiveRecords));
+        for i := Low(lRow) to High(lRow) do
+          lRow[i] := NodeDatas[i].Element;
+        AllRows := AllRows + [lRow];
+        Names := Names + [Element.Name];
       end;
     end;
   end;
-  if Length(AllNodeDatas) < 1 then
+  if Length(AllRows) < 1 then
     Exit;
 
   SelectedNodes := vstNav.GetSortedSelection(True);
@@ -7731,7 +7579,7 @@ begin
 
     Caption := 'What subrecords do you want to copy?';
 
-    for i := Low(AllNodeDatas) to High(AllNodeDatas) do begin
+    for i := Low(AllRows) to High(AllRows) do begin
       CheckListBox1.AddItem(Names[i], nil);
       CheckListBox1.Checked[Pred(CheckListBox1.Items.Count)] := True;
     end;
@@ -7743,15 +7591,15 @@ begin
     for i := 0 to Pred(CheckListBox1.Items.Count) do
       if CheckListBox1.Checked[i] then begin
         if j <> i then
-          AllNodeDatas[j] := AllNodeDatas[i];
+          AllRows[j] := AllRows[i];
         Inc(j);
       end;
-    SetLength(AllNodeDatas, j);
+    SetLength(AllRows, j);
     Names := nil; //not valid anymore
   finally
     Free;
   end;
-  if Length(AllNodeDatas) < 1 then
+  if Length(AllRows) < 1 then
     Exit;
 
   with TfrmFileSelect.Create(Self) do try
@@ -7766,11 +7614,10 @@ begin
     if ShowModal <> mrOk then
       Exit;
 
+    LockProcessMessages;
     try
-      for j := Low(AllNodeDatas) to High(AllNodeDatas) do begin
-        NodeDatas := AllNodeDatas[j];
-
-        Element := NodeDatas[Pred(vstView.FocusedColumn)].Element;
+      for j := Low(AllRows) to High(AllRows) do begin
+        Element := AllRows[j][Column];
         if Assigned(Element) then begin
           for i := Low(MainRecords) to High(MainRecords) do begin
             if CheckListBox1.Checked[i] then begin
@@ -7783,8 +7630,8 @@ begin
         end else begin
           for k := Low(MainRecords) to High(MainRecords) do begin
             if CheckListBox1.Checked[k] then begin
-              for i := Low(ActiveRecords) to High(ActiveRecords) do begin
-                Element := NodeDatas[i].Element;
+              for i := Low(AllRows[j]) to High(AllRows[j]) do begin
+                Element := AllRows[j][i];
                 if Assigned(Element) then begin
                   TargetMainRecord := Element.ContainingMainRecord;
                   if Assigned(TargetMainRecord) and MainRecords[k].Equals(TargetMainRecord) then begin
@@ -7793,7 +7640,7 @@ begin
                         Exit;
                       Element.Remove;
                       Element := nil;
-                      NodeDatas[i].Element := nil;
+                      AllRows[j][i] := nil;
                     end;
                     Break;
                   end;
@@ -7812,6 +7659,7 @@ begin
       InvalidateElementsTreeView(SelectedNodes);
       PostResetActiveTree;
       vstNav.Invalidate;
+      UnLockProcessMessages;
     end;
   finally
     Free;
@@ -8539,7 +8387,7 @@ begin
     if (Length(AllModGroups) < 1) or (ShowModal = mrOk) then begin
       SaveModGroupsSelection(SelectedModGroups);
       WasModGroupsExist := ModGroupsExist;
-      ModGroupsExist := SelectedModGroups.Activate(xeContext);
+      ModGroupsExist := SelectedModGroups.Activate(ConflictView);
       if WasModGroupsExist or ModGroupsExist then begin
         ConflictView.ModGroupsEnabled := ModGroupsExist;
         ResetAllConflict;
@@ -8560,7 +8408,7 @@ begin
   if not xeContext.Settings.EditAllowed then
     Exit;
 
-  NodeDatas := vstView.GetNodeData(vstViewFocusedNode);
+  NodeDatas := ViewCells(vstViewFocusedNode);
   if Assigned(NodeDatas) then begin
     Element := NodeDatas[Pred(vstView.FocusedColumn)].Element;
     if Assigned(Element) then begin
@@ -8588,7 +8436,7 @@ begin
   if not xeContext.Settings.EditAllowed then
     Exit;
 
-  NodeDatas := vstView.GetNodeData(vstViewFocusedNode);
+  NodeDatas := ViewCells(vstViewFocusedNode);
   if Assigned(NodeDatas) then begin
     Element := NodeDatas[Pred(vstView.FocusedColumn)].Element;
     if Assigned(Element) then begin
@@ -9612,9 +9460,17 @@ begin
   if not xeContext.Settings.EditAllowed then
     Exit;
 
-  NodeDatas := vstView.GetNodeData(vstViewFocusedNode);
-  if Assigned(NodeDatas) then begin
-    Element := NodeDatas[Pred(vstView.FocusedColumn)].Element;
+  NodeDatas := ViewCells(vstViewFocusedNode);
+  var lColumn := Pred(vstView.FocusedColumn);
+  if Assigned(NodeDatas) and (lColumn >= 0) and (lColumn <= High(ActiveRecords)) then begin
+    var lColumnCell := ActiveRecords[lColumn];
+    var lRow: TArray<IwbElement>;
+    SetLength(lRow, Length(ActiveRecords));
+    for var c := Low(lRow) to High(lRow) do
+      lRow[c] := NodeDatas[c].Element;
+    var lPath := vstView.Path(vstViewFocusedNode, 0, '\');
+    var lMaster := ActiveMaster;
+    Element := lRow[lColumn];
     if Assigned(Element) then begin
       if not EditWarn then
         Exit;
@@ -9676,17 +9532,16 @@ begin
       begin
         with TfrmViewElements.Create(Self) do
         try
-          Caption := vstView.Path(vstViewFocusedNode, 0, '\');
+          Caption := lPath;
           Settings := Self.Settings;
 
-          if Assigned(ActiveMaster) then
-            Caption := ActiveMaster.Name + '\' + Caption;
+          if Assigned(lMaster) then
+            Caption := lMaster.Name + '\' + Caption;
 
-          for var J := Low(ActiveRecords) to High(ActiveRecords) do
-          begin
-            var lNodeElement := NodeDatas[J].Element;
+          for var lIndex := Low(lRow) to High(lRow) do begin
+            var lNodeElement := lRow[lIndex];
             if Assigned(lNodeElement) then
-              AddElement(lNodeElement, vstView.FocusedColumn = Succ(J), lNodeElement.IsEditable);
+              AddElement(lNodeElement, lColumn = lIndex, lNodeElement.IsEditable);
           end;
 
           ShowModal;
@@ -9694,6 +9549,9 @@ begin
           Free;
         end;
 
+        lColumnCell.UpdateRefs;
+        ViewFocusedElement := Element;
+        EditFocusedViewElement := False;
         PostResetActiveTree;
         InvalidateElementsTreeView(NoNodes);
         Exit;
@@ -9711,7 +9569,7 @@ begin
       end;
 
       Element.EditValue := EditValue;
-      ActiveRecords[Pred(vstView.FocusedColumn)].UpdateRefs;
+      lColumnCell.UpdateRefs;
       ViewFocusedElement := Element;
       EditFocusedViewElement := False;
       Element := nil;
@@ -9729,7 +9587,7 @@ begin
   if not xeContext.Settings.EditAllowed then
     Exit;
 
-  NodeDatas := vstView.GetNodeData(vstViewFocusedNode);
+  NodeDatas := ViewCells(vstViewFocusedNode);
   if Assigned(NodeDatas) then begin
     Element := NodeDatas[Pred(vstView.FocusedColumn)].Element;
     if Assigned(Element) then begin
@@ -9892,9 +9750,9 @@ begin
   if not Supports(Element, IwbMainRecord, MainRecord) then
     Exit;
   if mniViewHeaderHidden.Checked then
-    MainRecord.Hide
+    ConflictView.Hidden.Hide(MainRecord)
   else
-    MainRecord.Show;
+    ConflictView.Hidden.Show(MainRecord);
   PostResetActiveTree;
   InvalidateElementsTreeView(NoNodes);
 end;
@@ -11432,6 +11290,7 @@ var
   i                           : Integer;
   MainRecord                  : IwbMainRecord;
   GroupRecord                 : IwbGroupRecord;
+  IsRecord                    : Boolean;
   AutoModeCheckForITM         : Boolean;
   Operation, Plugin           : String;
   PluginCRC32                 : Cardinal;
@@ -11542,6 +11401,7 @@ begin
               not (Supports(NodeData.Element, IwbMainRecord, MainRecord) and MainRecord.MasterOrSelf.IsInjected)
             then begin
               MainRecord := nil;
+              IsRecord := Supports(NodeData.Element, IwbMainRecord);
 
               if Assigned(NodeData.Element._File) then
                 with NodeData.Element._File do begin
@@ -11575,7 +11435,8 @@ begin
                 end else
                   if not HideRemoveMessage then
                     PostAddMessage(Operation+'ing: ' + NodeData.Element.Name);
-                Inc(RemovedCount);
+                if IsRecord then
+                  Inc(RemovedCount);
               end;
             end;
         end;
@@ -11696,9 +11557,9 @@ begin
     Element := ActiveRecords[i].Element;
     if Supports(Element, IwbMainRecord, MainRecord) then begin
       MainRecord := MainRecord.MasterOrSelf;
-      MainRecord.Show;
+      ConflictView.Hidden.Show(MainRecord);
       for j := 0 to Pred(MainRecord.OverrideCount) do
-        MainRecord.Overrides[j].Show;
+        ConflictView.Hidden.Show(MainRecord.Overrides[j]);
       Break;
     end;
   end;
@@ -11721,7 +11582,7 @@ begin
 
   LockProcessMessages;
   try
-    NodeDatas := vstView.GetNodeData(vstViewFocusedNode);
+    NodeDatas := ViewCells(vstViewFocusedNode);
     NextNode := vstView.GetNextVisibleSibling(vstViewFocusedNode);
     if not Assigned(NextNode) then
       NextNode := vstView.GetPreviousVisibleSibling(vstViewFocusedNode);
@@ -11736,7 +11597,7 @@ begin
       if Assigned(Element) then begin
 
         if Assigned(NextNode) then begin
-          NodeDatas := vstView.GetNodeData(NextNode);
+          NodeDatas := ViewCells(NextNode);
           ViewFocusedElement := NodeDatas[Pred(vstView.FocusedColumn)].Element;
           EditFocusedViewElement := False;
         end;
@@ -11768,7 +11629,7 @@ begin
 
   LockProcessMessages;
   try
-    NodeDatas := vstView.GetNodeData(vstViewFocusedNode);
+    NodeDatas := ViewCells(vstViewFocusedNode);
     NextNode := vstView.GetNextVisibleSibling(vstViewFocusedNode);
     if not Assigned(NextNode) then
       NextNode := vstView.GetPreviousVisibleSibling(vstViewFocusedNode);
@@ -11783,7 +11644,7 @@ begin
       if Assigned(Element) then begin
 
         if Assigned(NextNode) then begin
-          NodeDatas := vstView.GetNodeData(NextNode);
+          NodeDatas := ViewCells(NextNode);
           ViewFocusedElement := NodeDatas[Pred(vstView.FocusedColumn)].Element;
           EditFocusedViewElement := False;
         end;
@@ -11811,18 +11672,28 @@ begin
   if xeContext.Settings.TranslationMode then
     Exit;
 
-  NodeDatas := vstView.GetNodeData(vstViewFocusedNode);
-  if Assigned(NodeDatas) then
-    for i := Low(ActiveRecords) to High(ActiveRecords) do begin
-      Element := NodeDatas[i].Element;
+  NodeDatas := ViewCells(vstViewFocusedNode);
+  if Assigned(NodeDatas) then begin
+    var lRow: TArray<IwbElement>;
+    var lRecords: TArray<IwbElement>;
+    SetLength(lRow, Length(ActiveRecords));
+    SetLength(lRecords, Length(ActiveRecords));
+    for i := Low(lRow) to High(lRow) do begin
+      lRow[i] := NodeDatas[i].Element;
+      lRecords[i] := ActiveRecords[i].Element;
+    end;
+    for i := Low(lRow) to High(lRow) do begin
+      Element := lRow[i];
       if Assigned(Element) and Element.IsRemovable then begin
         if not EditWarn then
           Exit;
         Element.Remove;
-        (ActiveRecords[i].Element as IwbMainRecord).UpdateRefs;
+        (lRecords[i] as IwbMainRecord).UpdateRefs;
         Element := nil;
+        lRow[i] := nil;
       end;
     end;
+  end;
   PostResetActiveTree;
   InvalidateElementsTreeView(NoNodes);
 end;
@@ -11868,7 +11739,7 @@ var
   Recs                        : TDynMainRecords;
   OffsetXY                    : TPoint;
 begin
-  NodeDatas := vstView.GetNodeData(vstViewFocusedNode);
+  NodeDatas := ViewCells(vstViewFocusedNode);
 
   sl := TStringList.Create;
   try
@@ -11944,9 +11815,9 @@ begin
     NodeData := vstNav.GetNodeData(Nodes[i]);
     if Assigned(NodeData) and Assigned(NodeData.Element) then begin
       if mniNavHidden.Checked then
-        NodeData.Element.Hide
+        ConflictView.Hidden.Hide(NodeData.Element)
       else
-        NodeData.Element.Show;
+        ConflictView.Hidden.Show(NodeData.Element);
       NodeData.ConflictAll := caUnknown;
       NodeData.ConflictThis := ctUnknown;
       vstNav.InvalidateNode(Nodes[i]);
@@ -11983,7 +11854,7 @@ function TfrmMain.GetFocusedViewElementSafely: IwbElement;
 begin
   Result := nil;
 
-  var NodeDatas: PViewNodeDatas := vstView.GetNodeData(vstViewFocusedNode);
+  var NodeDatas: PViewNodeDatas := ViewCells(vstViewFocusedNode);
   if not Assigned(NodeDatas) then
     Exit;
 
@@ -12736,24 +12607,27 @@ begin
     not MainRecord.Master.IsPersistent;
 end;
 
-function IsPositionChanged(MainRecord: IwbMainRecord): Boolean;
+function TfrmMain.IsPositionChanged(const aMainRecord: IwbMainRecord): Boolean;
 var
-  Master    : IwbMainRecord;
-  MasterPos : IwbRecord;
-  ThisPos   : IwbRecord;
+  Master       : IwbMainRecord;
+  MasterPos    : IwbRecord;
+  ThisPos      : IwbRecord;
+  ConflictAll  : TConflictAll;
+  ConflictThis : TConflictThis;
 begin
   Result := False;
-  if MainRecord.ConflictThis in [ctMaster, ctIdenticalToMaster] then
+  ConflictView.Peek(aMainRecord, ConflictAll, ConflictThis);
+  if ConflictThis in [ctMaster, ctIdenticalToMaster] then
     Exit;
-  if MainRecord.IsMaster then
+  if aMainRecord.IsMaster then
     Exit;
-  if MainRecord.Flags.IsDeleted then
+  if aMainRecord.Flags.IsDeleted then
     Exit;
-  Master := MainRecord.Master;
+  Master := aMainRecord.Master;
   if not Assigned(Master) then
     Exit;
   MasterPos := Master.RecordBySignature['DATA'];
-  ThisPos := MainRecord.RecordBySignature['DATA'];
+  ThisPos := aMainRecord.RecordBySignature['DATA'];
 
   if Assigned(MasterPos) <> Assigned(ThisPos) then begin
     Result := True;
@@ -13236,7 +13110,7 @@ begin
             (FilterRequiresMainRecord and
               (
                 not Supports(NodeData.Element, IwbMainRecord, MainRecord) or
-                (FilterRequiresReference and not MainRecord.Def.IsReference) or
+                (FilterRequiresReference and not (Assigned(MainRecord.Def) and MainRecord.Def.IsReference)) or
                 (FilterRequiresBaseRecord and not Supports(MainRecord.BaseRecord, IwbMainRecord, BaseRecord)) or
 
                 (FilterDeleted and not MainRecord.IsDeleted) or
@@ -13439,10 +13313,10 @@ begin
                   Master := MainRecord.MasterOrSelf;
                   if Master.OverrideCount > 0 then begin
                     j := 0;
-                    if not Master.IsHidden then
+                    if not ConflictView.Hidden.IsHidden(Master) then
                       Inc(j);
                     for i := 0 to Pred(Master.OverrideCount) do
-                      if not Master.Overrides[i].IsHidden then begin
+                      if not ConflictView.Hidden.IsHidden(Master.Overrides[i]) then begin
                         Inc(j);
                         if j > 1 then
                           Break;
@@ -13745,6 +13619,9 @@ begin
   FilterByBaseName := False;
   FilterBaseName := '';
 
+  FilterByElementValue := False;
+  FilterElementValue := '';
+
   FilterScaledActors := False;
 
   FilterByPersistent := False;
@@ -13816,6 +13693,9 @@ begin
 
   FilterByBaseName := False;
   FilterBaseName := '';
+
+  FilterByElementValue := False;
+  FilterElementValue := '';
 
   FilterScaledActors := False;
 
@@ -13899,6 +13779,9 @@ begin
   FilterByBaseName := False;
   FilterBaseName := '';
 
+  FilterByElementValue := False;
+  FilterElementValue := '';
+
   FilterScaledActors := False;
 
   FilterByPersistent := False;
@@ -13974,7 +13857,7 @@ begin
     end else begin
       cbHideUnused.Checked := wbHideUnused;
       cbHideIgnored.Checked := xeContext.Settings.HideIgnored;
-      cbHideNeverShow.Checked := wbHideNeverShow;
+      cbHideNeverShow.Checked := xeContext.Settings.HideNeverShow;
     end;
     cbActorTemplateHide.Checked := wbActorTemplateHide;
     cbLoadBSAs.Checked := xeContext.Settings.LoadBSAs;
@@ -14037,7 +13920,7 @@ begin
     if not xeContext.Settings.TranslationMode then begin
       wbHideUnused := cbHideUnused.Checked;
       xeContext.Settings.HideIgnored := cbHideIgnored.Checked;
-      wbHideNeverShow := cbHideNeverShow.Checked;
+      xeContext.Settings.HideNeverShow := cbHideNeverShow.Checked;
     end;
     wbActorTemplateHide := cbActorTemplateHide.Checked;
     xeContext.Settings.LoadBSAs := cbLoadBSAs.Checked;
@@ -14102,7 +13985,7 @@ begin
     if not xeContext.Settings.TranslationMode then begin
       Settings.WriteBool('Options', 'HideUnused', wbHideUnused);
       Settings.WriteBool('Options', 'HideIgnored', xeContext.Settings.HideIgnored);
-      Settings.WriteBool('Options', 'HideNeverShow', wbHideNeverShow);
+      Settings.WriteBool('Options', 'HideNeverShow', xeContext.Settings.HideNeverShow);
     end;
     Settings.WriteBool('Options', 'ActorTemplateHide', wbActorTemplateHide);
     Settings.WriteBool('Options', 'LoadBSAs', xeContext.Settings.LoadBSAs);
@@ -14178,7 +14061,7 @@ begin
   if not xeContext.Settings.EditAllowed then
     Exit;
 
-  NodeDatas := vstView.GetNodeData(vstViewFocusedNode);
+  NodeDatas := ViewCells(vstViewFocusedNode);
   if Assigned(NodeDatas) then begin
     Element := NodeDatas[Pred(vstView.FocusedColumn)].Element;
     if Assigned(Element) then begin
@@ -14190,40 +14073,6 @@ begin
       PostResetActiveTree;
     end;
   end;
-end;
-
-function TfrmMain.NodeDatasForContainer(const aContainer: IwbDataContainer): TDynViewNodeDatas;
-var
-  i, l    : Integer;
-  p       : string;
-  Element : IwbElement;
-begin
-  Assert(xeContext.LoaderDone);
-
-  SetLength(Result, 0);
-  l := 0;
-  p := Copy(aContainer.Path, Succ(Length(aContainer.GetFile.Path + ' \ ')));
-  repeat
-    i := Pos(' \ ', p);
-    if i>0 then begin
-      Delete(p, i, 1);
-      Delete(p, i+1, 1);
-    end;
-  until i = 0;  // Convert GetPath to ByPath
-
-  for i := 0 to pred(Length(Files)) do
-    if Files[i].IsNotPlugin then begin
-      Element := Files[i].ElementByPath[p];
-      if Assigned(Element) then begin
-        SetLength(Result, Succ(l));
-        Result[l].Element := Element;
-        Result[l].Container := Element as IwbContainerElementRef;
-        if Result[l].Container.ElementCount < 1 then
-          Result[l].Container := nil;
-        Inc(l);
-      end;
-    end;
-  Assert(Length(Result)>0); // At least there should be ourself
 end;
 
 function TfrmMain.NodeDatasForMainRecord(const aMainRecord: IwbMainRecord): TDynViewNodeDatas;
@@ -14274,51 +14123,53 @@ function TfrmMain.PerformDrop(TargetTree    : TBaseVirtualTree;
                         const SourceElement : IwbElement)
                                             : Boolean;
 var
-  TargetIndex     : Integer;
-  TargetElement   : IwbElement;
-  NewElement      : IwbElement;
-  TargetNodeDatas : PViewNodeDatas;
-  TargetNodeData  : PViewNodeData;
-  TargetContainer : IwbContainerElementRef;
+  TargetIndex        : Integer;
+  TargetElement      : IwbElement;
+  AlignedMemoryIndex : Integer;
+begin
+  Result :=
+    GetTargetElement(TargetTree, TargetNode, TargetColumn, TargetIndex, TargetElement, AlignedMemoryIndex) and
+    PerformDrop(TargetElement, TargetIndex, AlignedMemoryIndex, ActiveRecords[Pred(TargetColumn)], SourceElement);
+end;
+
+function TfrmMain.PerformDrop(const TargetElement      : IwbElement;
+                                    TargetIndex        : Integer;
+                                    AlignedMemoryIndex : Integer;
+                                    TargetCell         : TViewNodeData;
+                              const SourceElement      : IwbElement)
+                                                       : Boolean;
+var
+  NewElement         : IwbElement;
+  TargetContainer    : IwbContainerElementRef;
 begin
   Result := False;
 
-  if GetTargetElement(TargetTree, TargetNode, TargetColumn, TargetIndex, TargetElement) then begin
+  if SourceElement.Equals(TargetElement) then
+    Exit;
 
-    if SourceElement.Equals(TargetElement) then
-      Exit;
+  if not EditWarn then
+    Exit;
 
-    if not EditWarn then
-      Exit;
+  if not AddRequiredMasters(SourceElement, TargetElement._File, False) then
+    Exit;
 
-    if not AddRequiredMasters(SourceElement, TargetElement._File, False) then
-      Exit;
-
-    vstView.BeginUpdate;
-    try
+  vstView.BeginUpdate;
+  try
+    if AlignedMemoryIndex >= 0 then begin
+      TargetContainer := TargetElement as IwbContainerElementRef;
+      NewElement := TargetContainer.AssignAligned(TargetIndex, AlignedMemoryIndex, SourceElement, False);
+      if Assigned(NewElement) then
+        TargetContainer.MoveElementTo(NewElement, AlignedMemoryIndex);
+    end else
       NewElement := TargetElement.Assign(TargetIndex, SourceElement, False);
-      if Assigned(NewElement) and (TargetIndex >= 0) and (TargetIndex < High(Integer)) then begin
-        TargetNodeDatas := vstView.GetNodeData(TargetNode);
-        if Assigned(TargetNodeDatas) then begin
-          TargetNodeData := @TargetNodeDatas[Pred(TargetColumn)];
-          if vnfIsAligned in TargetNodeData.ViewNodeFlags then
-            if Supports(TargetElement, IwbContainerElementRef, TargetContainer) then begin
-              NewElement.SortOrder := TargetIndex;
-              TargetContainer.SortBySortOrder;
-              TargetContainer.ResetMemoryOrder;
-            end;
-        end;
-      end;
 
-      ActiveRecords[Pred(TargetColumn)].UpdateRefs;
-      ViewFocusedElement := NewElement;
-      EditFocusedViewElement := False;
-      NewElement := nil;
-      TargetElement := nil;
-      Result := True;
-    finally
-      vstView.EndUpdate;
-    end;
+    TargetCell.UpdateRefs;
+    ViewFocusedElement := NewElement;
+    EditFocusedViewElement := False;
+    NewElement := nil;
+    Result := True;
+  finally
+    vstView.EndUpdate;
   end;
 end;
 
@@ -14511,7 +14362,7 @@ begin
     Element := NodeData.Element;
 
   mniNavHidden.Visible := Assigned(Element);
-  mniNavHidden.Checked := Assigned(Element) and (esHidden in Element.ElementStates);
+  mniNavHidden.Checked := Assigned(Element) and ConflictView.Hidden.Contains(Element);
 
   mniNavChangeFormID.Visible :=
     not xeContext.Settings.TranslationMode and
@@ -14888,13 +14739,13 @@ begin
 
   mniViewHeaderJumpTo.Visible := True;
   mniViewHeaderHidden.Visible := True;
-  mniViewHeaderHidden.Checked := esHidden in MainRecord.ElementStates;
+  mniViewHeaderHidden.Checked := ConflictView.Hidden.Contains(MainRecord);
 
   MainRecord := MainRecord.MasterOrSelf;
-  AnyHidden := MainRecord.IsHidden;
+  AnyHidden := ConflictView.Hidden.Contains(MainRecord);
   if not AnyHidden then
     for i := 0 to Pred(MainRecord.OverrideCount) do
-      if MainRecord.Overrides[i].IsHidden then begin
+      if ConflictView.Hidden.Contains(MainRecord.Overrides[i]) then begin
         AnyHidden := True;
         Break;
       end;
@@ -14913,6 +14764,7 @@ var
   TargetNode    : PVirtualNode;
   TargetIndex   : Integer;
   TargetElement : IwbElement;
+  AlignedIndex  : Integer;
   NodeLabel     : String;
 begin
   Element := GetFocusedViewElementSafely;
@@ -14962,7 +14814,7 @@ begin
   end;
 
   if vstView.FocusedColumn > 0 then begin
-    NodeDatas := vstView.GetNodeData(vstViewFocusedNode);
+    NodeDatas := ViewCells(vstViewFocusedNode);
     if Assigned(NodeDatas) then begin
       Element := NodeDatas[Pred(vstView.FocusedColumn)].Element;
       mniViewEdit.Visible := Assigned(Element) and Element.IsEditable;
@@ -14981,8 +14833,10 @@ begin
       mniViewNextMember.Visible := not xeContext.Settings.TranslationMode and Assigned(Element) and Element.CanChangeMember;
       mniViewPreviousMember.Visible := not xeContext.Settings.TranslationMode and Assigned(Element) and Element.CanChangeMember;
     end;
-    mniViewAdd.Visible := not xeContext.Settings.TranslationMode and GetAddElement(TargetNode, TargetIndex, TargetElement) and
-      TargetElement.CanAssign(TargetIndex, nil, True) and not (esNotSuitableToAddTo in TargetElement.ElementStates);
+    mniViewAdd.Visible := not xeContext.Settings.TranslationMode and GetAddElement(TargetNode, TargetIndex, TargetElement, AlignedIndex) and
+      ( ((AlignedIndex >= 0) and (TargetElement as IwbContainerElementRef).CanAssignAligned(TargetIndex, True)) or
+        ((AlignedIndex < 0) and TargetElement.CanAssign(TargetIndex, nil, True)) ) and
+      not (esNotSuitableToAddTo in TargetElement.ElementStates);
   end;
 
   mniViewAdd.Tag := -1;
@@ -15078,7 +14932,7 @@ begin
   if not xeContext.Settings.EditAllowed then
     Exit;
 
-  NodeDatas := vstView.GetNodeData(vstViewFocusedNode);
+  NodeDatas := ViewCells(vstViewFocusedNode);
   if Assigned(NodeDatas) then begin
     Element := NodeDatas[Pred(vstView.FocusedColumn)].Element;
     if Assigned(Element) then begin
@@ -15164,10 +15018,96 @@ begin
   SetLength(Result, j);
 end;
 
+function TfrmMain.ViewRow(aNode: PVirtualNode): TwbConflictTreeNode;
+begin
+  if not Assigned(aNode) or not Assigned(ViewTree) then
+    Exit(nil);
+  if aNode = vstView.RootNode then
+    Exit(ViewTree.Root);
+  Result := TwbConflictTreeNode(PPointer(TBaseVirtualTree(vstView).GetNodeData(aNode))^);
+end;
+
+function TfrmMain.ViewCells(aNode: PVirtualNode): PViewNodeDatas;
+begin
+  if not Assigned(aNode) or (aNode = vstView.RootNode) then
+    Exit(nil);
+  var lRow := ViewRow(aNode);
+  if not Assigned(lRow) then
+    Exit(nil);
+  Result := @lRow.Datas[0];
+end;
+
+procedure TfrmMain.SetViewTree(const aFactory: TFunc<TwbConflictTree>);
+begin
+  Inc(ViewTreeGeneration);
+  FreeAndNil(ViewTree);
+  ViewRootDatas := nil;
+  ViewTreeFactory := aFactory;
+  ViewTree := aFactory();
+  ViewRootDatas := ViewTree.Root.Datas;
+end;
+
+procedure TfrmMain.ClearViewTree;
+begin
+  Inc(ViewTreeGeneration);
+  FreeAndNil(ViewTree);
+  ViewRootDatas := nil;
+  ViewTreeFactory := nil;
+  if not (csDestroying in ComponentState) then
+    vstView.Header.Background := clBtnFace;
+end;
+
+procedure TfrmMain.BuildViewTree;
+begin
+  vstView.RootNodeCount := ViewTree.Root.ChildCount;
+  ViewTree.Resolve(HideNoConflict);
+  if (Length(ActiveRecords) > 0) and (ActiveRecords[0].ConflictAll >= caNoConflict) then
+    vstView.Header.Background := wbLighter(ConflictAllToColor(ActiveRecords[0].ConflictAll), 0.85)
+  else
+    vstView.Header.Background := clBtnFace;
+  ApplyViewVisibility(vstView.RootNode);
+  FindViewFocusedNode;
+end;
+
+procedure TfrmMain.ApplyViewVisibility(aNode: PVirtualNode);
+begin
+  var lNode := vstView.GetFirstChild(aNode);
+  while Assigned(lNode) do begin
+    vstView.IsVisible[lNode] := ViewRow(lNode).Visible;
+    ApplyViewVisibility(lNode);
+    lNode := vstView.GetNextSibling(lNode);
+  end;
+end;
+
+procedure TfrmMain.FindViewFocusedNode;
+var
+  lColumn : Integer;
+  lPath   : TArray<Integer>;
+begin
+  if not Assigned(ViewFocusedElement) or Assigned(NodeForViewFocusedElement) then
+    Exit;
+  var lRow := ViewTree.NodeFor(ViewFocusedElement, lColumn);
+  if not Assigned(lRow) or not Assigned(lRow.Parent) then
+    Exit;
+  while Assigned(lRow.Parent) do begin
+    lPath := [lRow.Index] + lPath;
+    lRow := lRow.Parent;
+  end;
+  var lNode := vstView.RootNode;
+  for var lIndex in lPath do begin
+    lNode := vstView.GetFirstChild(lNode);
+    while Assigned(lNode) and (Integer(lNode.Index) <> lIndex) do
+      lNode := vstView.GetNextSibling(lNode);
+    if not Assigned(lNode) then
+      Exit;
+  end;
+  NodeForViewFocusedElement := lNode;
+  ColumnForViewFocusedElement := Succ(lColumn);
+end;
+
 procedure TfrmMain.ResetActiveTree;
 var
   OffsetXY                    : TPoint;
-  RootNodeCount               : Integer;
   MainRecord                  : IwbMainRecord;
   Column                      : TColumnIndex;
   Node                        : PVirtualNode;
@@ -15196,7 +15136,7 @@ begin
         r := vstView.GetDisplayRect(Node, Column, False);
         if not Assigned(ViewFocusedElement) then
           if (Column > 0) and (Pred(Column) <= High(ActiveRecords)) then begin
-            NodeDatas := vstView.GetNodeData(Node);
+            NodeDatas := ViewCells(Node);
             ViewFocusedElement := NodeDatas[Pred(Column)].Element;
             EditFocusedViewElement := False;
           end;
@@ -15210,10 +15150,9 @@ begin
         DoSetActiveRecord(MainRecord);
       end
       else if Length(ActiveRecords) > 0 then begin
-        RootNodeCount := vstView.RootNodeCount;
         vstView.Clear;
-        vstView.RootNodeCount := RootNodeCount;
-        InitConflictStatus(vstView.RootNode, False, @ActiveRecords[0]);
+        SetViewTree(ViewTreeFactory);
+        BuildViewTree;
         ExpandView;
       end;
       Containers := nil;
@@ -15266,6 +15205,7 @@ var
   _File : IwbFile;
 begin
   wbStartTime := Now;
+  ConflictView.RulesChanged;
 
   pnlClient.Enabled := False;
   UpdatePnlCancelVisible;
@@ -15792,8 +15732,7 @@ begin
     try
       ClearReferencedByListData;
       vstView.Clear;
-      vstView.NodeDataSize := 0;
-      SetLength(ActiveRecords, 0);
+      ClearViewTree;
       ActiveMaster := nil;
       ActiveIndex := NoColumn;
       ActiveContainer := aContainer;
@@ -15802,13 +15741,27 @@ begin
         bnPinned.Enabled := True;
         ActiveMaster := nil;
 
-        if xeContext.LoaderDone then begin
-          ActiveRecords := NodeDatasForContainer(ActiveContainer);
-        end else begin
-          SetLength(ActiveRecords, 1);
-          ActiveRecords[0].Element := ActiveContainer;
-          ActiveRecords[0].Container := ActiveContainer as IwbContainerElementRef;
-        end;
+        var lContainer := ActiveContainer;
+        if xeContext.LoaderDone then
+          SetViewTree(
+            function: TwbConflictTree
+            begin
+              Result := TwbConflictTree.CreateForContainer(ConflictView, lContainer, Files,
+                procedure(const aMessage: string)
+                begin
+                  PostAddMessage(aMessage);
+                end);
+            end)
+        else
+          SetViewTree(
+            function: TwbConflictTree
+            begin
+              Result := TwbConflictTree.CreateForElement(ConflictView, lContainer,
+                procedure(const aMessage: string)
+                begin
+                  PostAddMessage(aMessage);
+                end);
+            end);
 
         vstView.ShowHint := True;
         vstView.Header.Options := vstView.Header.Options + [hoShowHint];
@@ -15849,12 +15802,7 @@ begin
             EndUpdate;
           end;
         end;
-        vstView.NodeDataSize := SizeOf(TViewNodeData) * Length(ActiveRecords);
-        if Supports(ActiveContainer.Def, IwbStructDef) then
-          vstView.RootNodeCount := (ActiveContainer.Def as IwbStructDef).MemberCount + ActiveContainer.AdditionalElementCount
-        else
-          vstView.RootNodeCount := 1;
-        InitConflictStatus(vstView.RootNode, False, @ActiveRecords[0]);
+        BuildViewTree;
         ExpandView;
         UpdateColumnWidths;
         if pgMain.ActivePage <> tbsReferencedBy then
@@ -15934,18 +15882,21 @@ begin
     try
       lvReferencedBy.Items.Clear;
       vstView.Clear;
-      vstView.NodeDataSize := 0;
-      SetLength(ActiveRecords, 0);
+      ClearViewTree;
       ActiveMaster := nil;
       ActiveRecord := nil;
       ActiveIndex := NoColumn;
 
-      SetLength(ActiveRecords, Length(aMainRecords));
-      for var i := Low(ActiveRecords) to High(ActiveRecords) do
-        with ActiveRecords[i] do begin
-          Element := aMainRecords[i];
-          Container := aMainRecords[i] as IwbContainerElementRef;
-        end;
+      var lRecords := aMainRecords;
+      SetViewTree(
+        function: TwbConflictTree
+        begin
+          Result := TwbConflictTree.CreateForRecords(ConflictView, lRecords,
+            procedure(const aMessage: string)
+            begin
+              PostAddMessage(aMessage);
+            end);
+        end);
 
       vstView.ShowHint := True;
       vstView.Header.Options := vstView.Header.Options + [hoShowHint];
@@ -15984,9 +15935,7 @@ begin
         end;
       end;
 
-      vstView.NodeDataSize := SizeOf(TViewNodeData) * Length(ActiveRecords);
-      vstView.RootNodeCount := (aMainRecords[0].Def as IwbRecordDef).MemberCount + aMainRecords[0].AdditionalElementCount;
-      InitConflictStatus(vstView.RootNode, False, @ActiveRecords[0]);
+      BuildViewTree;
       ExpandView;
       UpdateColumnWidths;
     finally
@@ -16221,8 +16170,7 @@ begin
 
       ClearReferencedByListData;
       vstView.Clear;
-      vstView.NodeDataSize := 0;
-      SetLength(ActiveRecords, 0);
+      ClearViewTree;
       ActiveMaster := nil;
       ActiveIndex := NoColumn;
       ActiveRecord := aMainRecord;
@@ -16237,13 +16185,27 @@ begin
         else
           ActiveMaster := ActiveRecord;
 
-        if xeContext.LoaderDone then begin
-          ActiveRecords := NodeDatasForMainRecord(ActiveRecord);
-        end else begin
-          SetLength(ActiveRecords, 1);
-          ActiveRecords[0].Element := ActiveRecord;
-          ActiveRecords[0].Container := ActiveRecord as IwbContainerElementRef;
-        end;
+        var lRecord := ActiveRecord;
+        if xeContext.LoaderDone then
+          SetViewTree(
+            function: TwbConflictTree
+            begin
+              Result := TwbConflictTree.CreateForMainRecord(ConflictView, lRecord, Files,
+                procedure(const aMessage: string)
+                begin
+                  PostAddMessage(aMessage);
+                end);
+            end)
+        else
+          SetViewTree(
+            function: TwbConflictTree
+            begin
+              Result := TwbConflictTree.CreateForElement(ConflictView, lRecord,
+                procedure(const aMessage: string)
+                begin
+                  PostAddMessage(aMessage);
+                end);
+            end);
 
         vstView.ShowHint := True;
         vstView.Header.Options := vstView.Header.Options + [hoShowHint];
@@ -16290,10 +16252,8 @@ begin
             EndUpdate;
           end;
         end;
-        vstView.NodeDataSize := SizeOf(TViewNodeData) * Length(ActiveRecords);
         if Assigned(ActiveMaster) and Assigned(ActiveMaster.Def) then begin
-          vstView.RootNodeCount := (ActiveMaster.Def as IwbRecordDef).MemberCount + ActiveMaster.AdditionalElementCount;
-          InitConflictStatus(vstView.RootNode, ActiveMaster.IsInjected and not ((ActiveMaster.Signature = 'GMST') or (ActiveMaster.Signature = 'DFOB')), @ActiveRecords[0]);
+          BuildViewTree;
           ExpandView;
         end;
 
@@ -17096,13 +17056,20 @@ begin
   if GeneratorStarted then
     Exit;
   GeneratorStarted := True;
-  if xeToolMode = tmLODGen then
-    DoGenerateLOD
-  else if xeToolMode = tmScript then
-    DoRunScript;
-
-  if xeAutoExit then
-    tmrShutdown.Enabled := True;
+  try
+    if xeToolMode = tmLODGen then
+      DoGenerateLOD
+    else if xeToolMode = tmScript then
+      try
+        DoRunScript;
+      except
+        CheckResult := 1;
+        raise;
+      end;
+  finally
+    if xeAutoExit then
+      tmrShutdown.Enabled := True;
+  end;
 end;
 
 procedure TfrmMain.tmrMessagesTimer(Sender: TObject);
@@ -17411,7 +17378,7 @@ var
   NodeDatas                   : PViewNodeDatas;
   Factor                      : Double;
 begin
-  NodeDatas := Sender.GetNodeData(Node);
+  NodeDatas := ViewCells(Node);
   Dec(Column);
   if Column > High(ActiveRecords) then
     Column := High(ActiveRecords);
@@ -17446,7 +17413,7 @@ procedure TfrmMain.vstViewBeforeItemErase(Sender: TBaseVirtualTree;
 var
   NodeDatas                   : PViewNodeDatas;
 begin
-  NodeDatas := Sender.GetNodeData(Node);
+  NodeDatas := ViewCells(Node);
   if NodeDatas[0].ConflictAll >= caNoConflict then
     ItemColor := wbLighter(ConflictAllToColor(NodeDatas[0].ConflictAll), 0.85)
   else
@@ -17473,7 +17440,7 @@ begin
   if (HotColumn < Low(ActiveRecords)) or (HotColumn > High(ActiveRecords)) then
     Exit;
 
-  NodeDatas := vstView.GetNodeData(HotNode);
+  NodeDatas := ViewCells(HotNode);
   if not Assigned(NodeDatas) then
     Exit;
 
@@ -17503,7 +17470,7 @@ begin
   if (Pred(vstView.HotColumn) < Low(ActiveRecords)) or (Pred(vstView.HotColumn) > High(ActiveRecords)) then
     Exit;
 
-  NodeDatas := vstView.GetNodeData(vstView.HotNode);
+  NodeDatas := ViewCells(vstView.HotNode);
   if not Assigned(NodeDatas) then
     Exit;
 
@@ -17532,7 +17499,7 @@ begin
 
   Shift := GetKeyState(VK_CONTROL) < 0;
 
-  NodeDatas := Sender.GetNodeData(Node);
+  NodeDatas := ViewCells(Node);
   if not Assigned(NodeDatas) then
     Exit;
   for i := Low(ActiveRecords) to High(ActiveRecords) do
@@ -17589,7 +17556,7 @@ begin
   if (Column < Low(ActiveRecords)) or (Column > High(ActiveRecords)) then
     Exit;
 
-  NodeDatas := vstView.GetNodeData(Node);
+  NodeDatas := ViewCells(Node);
   if not Assigned(NodeDatas) then
     Exit;
 
@@ -17737,7 +17704,7 @@ begin
     Exit;
   end;
 
-  var NodeDatas : PViewNodeDatas := vstView.GetNodeData(vstViewFocusedNode);
+  var NodeDatas : PViewNodeDatas := ViewCells(vstViewFocusedNode);
   if Assigned(NodeDatas) then begin
 
     var ViewFocusedElement: IwbElement;
@@ -17796,7 +17763,7 @@ begin
   Dec(Column);
   if Column > High(ActiveRecords) then
     Exit;
-  NodeDatas := vstView.GetNodeData(Node);
+  NodeDatas := ViewCells(Node);
   Allowed := Assigned(NodeDatas[Column].Element);
 end;
 
@@ -17823,6 +17790,7 @@ var
   TargetColumn                : Integer;
   TargetIndex                 : Integer;
   TargetElement               : IwbElement;
+  AlignedMemoryIndex          : Integer;
   SourceElement               : IwbElement;
 begin
   Accept := False;
@@ -17833,7 +17801,7 @@ begin
   TargetNode := Sender.DropTargetNode;
   TargetColumn := Sender.DropTargetColumn;
 
-  Accept := GetSourceElement(Source, SourceElement) and GetTargetElement(Sender, TargetNode, TargetColumn, TargetIndex, TargetElement) and
+  Accept := GetSourceElement(Source, SourceElement) and GetTargetElement(Sender, TargetNode, TargetColumn, TargetIndex, TargetElement, AlignedMemoryIndex) and
     (TargetElement <> SourceElement) and
     TargetElement.CanAssign(TargetIndex, SourceElement, True);
 end;
@@ -17878,7 +17846,7 @@ begin
     end;
 
     if DefaultDraw then begin
-      var NodeDatas : PViewNodeDatas := vstView.GetNodeData(Node);
+      var NodeDatas : PViewNodeDatas := ViewCells(Node);
       with NodeDatas[Column] do
         if Assigned(Element) and (dfHideText in Element.Def.DefFlags) then
           DefaultDraw := False;
@@ -17900,7 +17868,7 @@ begin
   if lColumn > High(ActiveRecords) then
     Exit;
 
-  var NodeDatas: PViewNodeDatas := vstView.GetNodeData(Node);
+  var NodeDatas: PViewNodeDatas := ViewCells(Node);
   if not Assigned(NodeDatas) then
     Exit;
 
@@ -17930,16 +17898,19 @@ begin
     Exit;
   end;
 
+  var lGeneration := ViewTreeGeneration;
   if Element.IsEditable then begin
-    Allowed := EditWarn;
+    Allowed := EditWarn and (ViewTreeGeneration = lGeneration);
   end else begin
     for var lChildNode in vstView.ChildNodes(Node) do begin
       var lAllowed := False;
       vstViewEditing(Sender, lChildNode, Column, lAllowed);
+      if ViewTreeGeneration <> lGeneration then
+        Exit;
       if EditFocusedViewElement then
         Exit;
       if lAllowed then begin
-        NodeDatas := vstView.GetNodeData(lChildNode);
+        NodeDatas := ViewCells(lChildNode);
         if not Assigned(NodeDatas) then
           Exit;
 
@@ -17996,7 +17967,7 @@ begin
 
   Shift := GetKeyState(VK_CONTROL) < 0;
 
-  NodeDatas := Sender.GetNodeData(Node);
+  NodeDatas := ViewCells(Node);
   if not Assigned(NodeDatas) then
     Exit;
   for i := Low(ActiveRecords) to High(ActiveRecords) do
@@ -18039,7 +18010,7 @@ begin
   if (Column < Low(ActiveRecords)) or (Column > High(ActiveRecords)) then
     Exit;
 
-  NodeDatas := Sender.GetNodeData(Node);
+  NodeDatas := ViewCells(Node);
   if not Assigned(NodeDatas) then
     Exit;
 
@@ -18072,16 +18043,7 @@ end;
 
 procedure TfrmMain.vstViewFreeNode(Sender: TBaseVirtualTree;
   Node: PVirtualNode);
-var
-  NodeDatas                   : PViewNodeDatas;
-  i                           : integer;
 begin
-  NodeDatas := Sender.GetNodeData(Node);
-
-  for i := Low(ActiveRecords) to High(ActiveRecords) do begin
-    NodeDatas[i].Element := nil;
-    NodeDatas[i].Container := nil;
-  end;
 end;
 
 procedure TfrmMain.vstViewGetEditText(Sender: TBaseVirtualTree;
@@ -18097,7 +18059,7 @@ begin
   if Column > High(ActiveRecords) then
     Exit;
 
-  NodeDatas := Sender.GetNodeData(Node);
+  NodeDatas := ViewCells(Node);
   if not Assigned(NodeDatas) then
     Exit;
 
@@ -18149,7 +18111,7 @@ var
   FocusedColumn: TColumnIndex;
 begin
   CellText := '';
-  NodeDatas := Sender.GetNodeData(Node);
+  NodeDatas := ViewCells(Node);
 
   if Pred(Column) > High(ActiveRecords) then
     Exit;
@@ -18202,7 +18164,7 @@ begin
     end
   end else if TextType = ttNormal then
     if Column < 1 then begin
-      NodeDatas := Sender.GetNodeData(Node.Parent);
+      NodeDatas := ViewCells(Node.Parent);
       if not Assigned(NodeDatas) then
         NodeDatas := @ActiveRecords[0];
       for i := Low(ActiveRecords) to High(ActiveRecords) do begin
@@ -18283,6 +18245,7 @@ begin
     Exit;
 
   if TargetElement.CanAssign(Low(Integer), SourceElement, False) then begin
+    var lTargetCell := ActiveRecords[Pred(TargetColumn)];
 
     if not EditWarn then
       Exit;
@@ -18293,7 +18256,7 @@ begin
     vstView.BeginUpdate;
     try
       TargetElement.Assign(Low(Integer), SourceElement, False);
-      ActiveRecords[Pred(TargetColumn)].UpdateRefs;
+      lTargetCell.UpdateRefs;
       TargetElement := nil;
       SourceElement := nil;
       PostResetActiveTree;
@@ -18363,8 +18326,6 @@ begin
         Style := Style - [fsUnderline];
     end;
 
-    if ActiveRecords[0].ConflictAll >= caNoConflict then
-      Sender.Background := wbLighter(ConflictAllToColor(ActiveRecords[0].ConflictAll), 0.85);
     PaintInfo.TargetCanvas.Brush.Color := Sender.Background;
     Sender.Font.Color := wbDarker(ConflictThisToColor(
       ActiveRecords[Pred(PaintInfo.Column.Index)].ConflictThis));
@@ -18373,37 +18334,23 @@ end;
 
 procedure TfrmMain.vstViewInitChildren(Sender: TBaseVirtualTree; Node: PVirtualNode; var ChildCount: Cardinal);
 begin
-  InitChildren(Sender.GetNodeData(Node), Length(ActiveRecords), ChildCount, ConflictView,
-    procedure(const aMessage: string)
-    begin
-      PostAddMessage(aMessage);
-    end);
+  ChildCount := ViewRow(Node).ChildCount;
 end;
 
 procedure TfrmMain.vstViewInitNode(Sender: TBaseVirtualTree; ParentNode,
   Node: PVirtualNode; var InitialStates: TVirtualNodeInitStates);
 var
-  NodeDatas                   : PViewNodeDatas;
-  ParentDatas                 : PViewNodeDatas;
-  States                      : TwbConflictNodeStates;
+  Row                         : TwbConflictTreeNode;
 begin
-  NodeDatas := Sender.GetNodeData(Node);
-  ParentDatas := Sender.GetNodeData(ParentNode);
-  if not Assigned(ParentDatas) then
-    ParentDatas := @ActiveRecords[0];
-  InitNodes(NodeDatas, ParentDatas, Length(ActiveRecords), Node.Index, States,
-    procedure(aColumn: Integer; const aElement: IwbElement)
-    begin
-      if Assigned(ViewFocusedElement) and not Assigned(NodeForViewFocusedElement) then
-        if ViewFocusedElement.Equals(aElement) then begin
-          NodeForViewFocusedElement := Node;
-          ColumnForViewFocusedElement := Succ(aColumn);
-        end;
-    end);
+  if Assigned(ParentNode) then
+    Row := ViewRow(ParentNode).Children[Node.Index]
+  else
+    Row := ViewTree.Root.Children[Node.Index];
+  PPointer(Sender.GetNodeData(Node))^ := Row;
   InitialStates := [];
-  if cnsDisabled in States then
+  if cnsDisabled in Row.States then
     Include(InitialStates, ivsDisabled);
-  if cnsHasChildren in States then
+  if cnsHasChildren in Row.States then
     Include(InitialStates, ivsHasChildren);
 end;
 
@@ -18422,7 +18369,7 @@ begin
   if Column < Low(ActiveRecords) then
     Exit;
 
-  NodeDatas := vstView.GetNodeData(vstViewFocusedNode);
+  NodeDatas := ViewCells(vstViewFocusedNode);
   if Assigned(NodeDatas) then
     Element := NodeDatas[Column].Element;
 
@@ -18576,7 +18523,7 @@ procedure TfrmMain.vstViewMeasureTextWidth(Sender: TBaseVirtualTree; TargetCanva
 begin
   Dec(Column);
   if InRange(Column, Low(ActiveRecords), High(ActiveRecords)) then begin
-    var NodeDatas : PViewNodeDatas := vstView.GetNodeData(Node);
+    var NodeDatas : PViewNodeDatas := ViewCells(Node);
     with NodeDatas[Column] do
       if Assigned(Element) and (dfHideText in Element.Def.DefFlags) then
         Extent := 0;
@@ -18600,7 +18547,7 @@ begin
   if Pred(Column) > High(ActiveRecords) then
     Exit;
 
-  NodeDatas := vstView.GetNodeData(Node);
+  NodeDatas := ViewCells(Node);
   if Assigned(NodeDatas) then begin
     Element := NodeDatas[Pred(Column)].Element;
     if Assigned(Element) and Element.IsEditable then begin
@@ -18642,7 +18589,7 @@ var
   SortKeyThis                 : string;
   FocusedColumn               : TColumnIndex;
 begin
-  NodeDatas := Sender.GetNodeData(Node);
+  NodeDatas := ViewCells(Node);
   Dec(Column);
   if Column > High(ActiveRecords) then
     Exit;
@@ -18729,7 +18676,7 @@ begin
   Result := s;
   Dec(Column);
   if InRange(Column, Low(ActiveRecords), High(ActiveRecords)) then begin
-    var NodeDatas : PViewNodeDatas := vstView.GetNodeData(Node);
+    var NodeDatas : PViewNodeDatas := ViewCells(Node);
     with NodeDatas[Column] do
       if Assigned(Element) and (dfHideText in Element.Def.DefFlags) then
         Done := True;
@@ -20350,7 +20297,7 @@ begin
         lHeader.Add('#   wbFlagsAsArray       = ' + BoolToStr(xeContext.Settings.FlagsAsArray, True));
         lHeader.Add('#   wbHideIgnored        = ' + BoolToStr(xeContext.Settings.HideIgnored, True));
         lHeader.Add('#   wbHideLargeSubrecords = ' + BoolToStr(xeContext.GameDefObj.DefinedOptions.HideLargeSubrecords, True));
-        lHeader.Add('#   wbHideNeverShow      = ' + BoolToStr(wbHideNeverShow, True));
+        lHeader.Add('#   wbHideNeverShow      = ' + BoolToStr(xeContext.Settings.HideNeverShow, True));
         lHeader.Add('#   wbHideUnused         = ' + BoolToStr(wbHideUnused, True));
         lHeader.Add('#   wbShowFlagEnumValue  = False');
         lHeader.Add('#   wbSimpleRecords      = ' + BoolToStr(xeContext.GameDefObj.DefinedOptions.SimpleRecords, True));
@@ -20982,6 +20929,8 @@ var
   lNode    : PVirtualNode;
   lNodeCA  : string;
   lRecord  : IwbMainRecord;
+  lCA, lMasterCA : TConflictAll;
+  lCT, lMasterCT : TConflictThis;
 
   function SortedFlags(const aRecord: IwbMainRecord): string;
   var
@@ -21006,9 +20955,11 @@ begin
       lNodeCA := wbNameConflictAll[PNavNodeData(vstNav.GetNodeData(lNode)).ConflictAll] + ' gen ' + IntToStr(PNavNodeData(vstNav.GetNodeData(lNode)).ElementGen)
     else
       lNodeCA := 'no node';
+    ConflictView.Peek(lRecord, lCA, lCT);
+    ConflictView.Peek(TestNavCopyRecordsA[i], lMasterCA, lMasterCT);
     AddMessage(Format('[Test Nav Copy]   %s: record %s / %s gen %d sorted%s; master %s / %s gen %d sorted%s; node %s',
-      [lRecord.EditorID, wbNameConflictAll[lRecord.ConflictAll], wbNameConflictThis[lRecord.ConflictThis], lRecord.ElementGeneration, SortedFlags(lRecord),
-       wbNameConflictAll[TestNavCopyRecordsA[i].ConflictAll], wbNameConflictThis[TestNavCopyRecordsA[i].ConflictThis], TestNavCopyRecordsA[i].ElementGeneration, SortedFlags(TestNavCopyRecordsA[i]),
+      [lRecord.EditorID, wbNameConflictAll[lCA], wbNameConflictThis[lCT], lRecord.ElementGeneration, SortedFlags(lRecord),
+       wbNameConflictAll[lMasterCA], wbNameConflictThis[lMasterCT], TestNavCopyRecordsA[i].ElementGeneration, SortedFlags(TestNavCopyRecordsA[i]),
        lNodeCA]));
   end;
 end;
@@ -21258,6 +21209,1755 @@ begin
   end;
 end;
 
+procedure TfrmMain.DoTestViewTree;
+const
+  cFlagChars: array[TwbConflictNodeFlag] of Char = ('D', 'I', 'U', 'S', 'A', 'P');
+var
+  lLines   : TStringList;
+  lList    : TStringList;
+  lRecords : TDynMainRecords;
+  lTmp     : string;
+
+  function FindRecord(const aFormID: string): IwbMainRecord;
+  begin
+    Result := nil;
+    var lParts := Trim(aFormID).Split(['@']);
+    var lFormID := TwbFormID.FromStr(lParts[0]);
+    for var i := High(Files) downto Low(Files) do
+      if (Length(lParts) = 1) or SameText(Files[i].FileName, lParts[1]) then begin
+        Result := Files[i].RecordByFormID[lFormID, True, True];
+        if Assigned(Result) then
+          Exit;
+      end;
+    raise Exception.Create('no record ' + aFormID);
+  end;
+
+  function Cells(aDatas: PViewNodeDatas): string;
+  begin
+    Result := '';
+    for var i := Low(ActiveRecords) to High(ActiveRecords) do begin
+      var lFlags := '';
+      for var lFlag := Low(TwbConflictNodeFlag) to High(TwbConflictNodeFlag) do
+        if lFlag in aDatas[i].ViewNodeFlags then
+          lFlags := lFlags + cFlagChars[lFlag];
+      Result := Result + #9 + IfThen(Assigned(aDatas[i].Element), 'E', '-') + ':' +
+        wbNameConflictThis[aDatas[i].ConflictThis] + ':' + lFlags;
+    end;
+  end;
+
+  function Path(aNode: PVirtualNode): string;
+  begin
+    Result := '';
+    while Assigned(aNode) and (aNode <> vstView.RootNode) do begin
+      if Result = '' then
+        Result := IntToStr(aNode.Index)
+      else
+        Result := IntToStr(aNode.Index) + '.' + Result;
+      aNode := aNode.Parent;
+    end;
+  end;
+
+  procedure Build(const aRecords: TDynMainRecords);
+  begin
+    var lLoaderDone := xeContext.LoaderDone;
+    if xeTestViewTreeLoading then
+      xeContext.LoaderDone := False;
+    try
+      DoSetActiveRecord(IwbMainRecord(nil));
+      if Length(aRecords) = 1 then
+        DoSetActiveRecord(aRecords[0], True)
+      else
+        DoSetActiveRecord(aRecords);
+      if xeTestViewTreeReset then
+        ResetActiveTree;
+    finally
+      xeContext.LoaderDone := lLoaderDone;
+    end;
+  end;
+
+  procedure FocusProbe(aEntry: Integer; const aRecords: TDynMainRecords);
+  var
+    lNodes    : TArray<PVirtualNode>;
+    lPaths    : TArray<string>;
+    lColumns  : TArray<Integer>;
+    lElements : TArray<IwbElement>;
+  begin
+    for var lNode in vstView.Nodes(False) do
+      lNodes := lNodes + [lNode];
+    var lStep := Max(1, Length(lNodes) div xeTestViewTreeFocus);
+    var lIndex := 0;
+    while lIndex <= High(lNodes) do begin
+      var lNode := lNodes[lIndex];
+      var lDatas: PViewNodeDatas := ViewCells(lNode);
+      var lParent: PViewNodeDatas;
+      if lNode.Parent = vstView.RootNode then
+        lParent := @ActiveRecords[0]
+      else
+        lParent := ViewCells(lNode.Parent);
+      for var c := Low(ActiveRecords) to High(ActiveRecords) do begin
+        var lElement := lDatas[c].Element;
+        if not Assigned(lElement) and Assigned(lParent) then
+          lElement := wbConflictCellElement(lParent[c], lNode.Index);
+        if Assigned(lElement) then begin
+          lPaths := lPaths + [Path(lNode)];
+          lColumns := lColumns + [c];
+          lElements := lElements + [lElement];
+        end;
+      end;
+      Inc(lIndex, lStep);
+    end;
+    for var k := Low(lElements) to High(lElements) do begin
+      ViewFocusedElement := lElements[k];
+      NodeForViewFocusedElement := nil;
+      ColumnForViewFocusedElement := NoColumn;
+      Build(aRecords);
+      var lFound := 'none';
+      if Assigned(NodeForViewFocusedElement) then
+        lFound := Path(NodeForViewFocusedElement);
+      lLines.Add(Format('# focus %d'#9'%s'#9'%d'#9'%s'#9'%d', [aEntry, lPaths[k], lColumns[k], lFound, ColumnForViewFocusedElement]));
+    end;
+    ViewFocusedElement := nil;
+    NodeForViewFocusedElement := nil;
+    ColumnForViewFocusedElement := NoColumn;
+  end;
+
+  procedure HeldMemory(out aBytes, aBlocks: Int64);
+  var
+    lState : TMemoryManagerState;
+  begin
+    GetMemoryManagerState(lState);
+    aBytes := lState.TotalAllocatedMediumBlockSize + lState.TotalAllocatedLargeBlockSize;
+    aBlocks := lState.AllocatedMediumBlockCount + lState.AllocatedLargeBlockCount;
+    for var i := Low(lState.SmallBlockTypeStates) to High(lState.SmallBlockTypeStates) do begin
+      Inc(aBytes, Int64(lState.SmallBlockTypeStates[i].AllocatedBlockCount) * lState.SmallBlockTypeStates[i].UseableBlockSize);
+      Inc(aBlocks, lState.SmallBlockTypeStates[i].AllocatedBlockCount);
+    end;
+  end;
+
+  procedure TimeProbe(aEntry: Integer; const aRecords: TDynMainRecords);
+  var
+    lTicks   : TArray<Int64>;
+    lBytes0  : Int64;
+    lBlocks0 : Int64;
+    lBytes1  : Int64;
+    lBlocks1 : Int64;
+  begin
+    DoSetActiveRecord(IwbMainRecord(nil));
+    HeldMemory(lBytes0, lBlocks0);
+    Build(aRecords);
+    HeldMemory(lBytes1, lBlocks1);
+    for var k := 1 to xeTestViewTreeTime do begin
+      var lWatch := TStopwatch.StartNew;
+      Build(aRecords);
+      lTicks := lTicks + [lWatch.ElapsedTicks];
+    end;
+    TArray.Sort<Int64>(lTicks);
+    lLines.Add(Format('# time %d'#9'min %.3f ms'#9'median %.3f ms'#9'held %d bytes %d blocks',
+      [aEntry, lTicks[0] * 1000 / TStopwatch.Frequency, lTicks[Length(lTicks) div 2] * 1000 / TStopwatch.Frequency,
+       lBytes1 - lBytes0, lBlocks1 - lBlocks0]));
+  end;
+
+  function RootLine: string;
+  begin
+    Result := wbNameConflictAll[ActiveRecords[0].ConflictAll] + Cells(@ActiveRecords[0]);
+  end;
+
+  procedure Collapsed(aEntry: Integer);
+  begin
+    var lCount := 0;
+    var lPaths := '';
+    for var lNode in vstView.Nodes(False) do
+      if vstView.HasChildren[lNode] and not vstView.Expanded[lNode] then begin
+        Inc(lCount);
+        lPaths := lPaths + ' ' + Path(lNode);
+      end;
+    lLines.Add(Format('# collapsed %d'#9'%d'#9'%s', [aEntry, lCount, Trim(lPaths)]));
+  end;
+
+  procedure FloorProbe(aEntry: Integer; const aRecords: TDynMainRecords);
+  begin
+    var lHeaderRows := ActiveRecords[0].Container.AdditionalElementCount;
+    var lEdits := 0;
+    if xeContext.BeginInternalEdit(True) then try
+      for var lNode in vstView.Nodes(False) do begin
+        if vstView.HasChildren[lNode] then
+          Continue;
+        var lTop := lNode;
+        while lTop.Parent <> vstView.RootNode do
+          lTop := lTop.Parent;
+        if Integer(lTop.Index) < lHeaderRows then
+          Continue;
+        var lDatas: PViewNodeDatas := ViewCells(lNode);
+        if not Assigned(lDatas[0].Element) then
+          Continue;
+        var lValue := lDatas[0].Element.EditValue;
+        for var c := Succ(Low(ActiveRecords)) to High(ActiveRecords) do
+          if Assigned(lDatas[c].Element) and (lDatas[c].Element.EditValue <> lValue) then begin
+            lDatas[c].Element.EditValue := lValue;
+            Inc(lEdits);
+          end;
+      end;
+    finally
+      wbEndInternalEdit;
+    end;
+    lLines.Add(Format('# floor %d'#9'edits'#9'%d', [aEntry, lEdits]));
+    lLines.Add(Format('# floor %d'#9'before'#9'%s', [aEntry, RootLine]));
+    ResetActiveTree;
+    lLines.Add(Format('# floor %d'#9'reset'#9'%s', [aEntry, RootLine]));
+    DoSetActiveRecord(IwbMainRecord(nil));
+    DoSetActiveRecord(aRecords);
+    lLines.Add(Format('# floor %d'#9'fresh'#9'%s', [aEntry, RootLine]));
+  end;
+
+  function Dominant(aBitmap: Vcl.Graphics.TBitmap; aLeft, aRight: Integer): string;
+  begin
+    var lCounts := TDictionary<TColor, Integer>.Create;
+    try
+      var lTotal := 0;
+      for var y := 2 to aBitmap.Height - 3 do
+        for var x := Max(aLeft, 0) to Min(aRight, aBitmap.Width - 1) do begin
+          var lColor := aBitmap.Canvas.Pixels[x, y];
+          var lCount := 0;
+          lCounts.TryGetValue(lColor, lCount);
+          lCounts.AddOrSetValue(lColor, lCount + 1);
+          Inc(lTotal);
+        end;
+      var lBest: TColor := clNone;
+      var lBestCount := 0;
+      var lSecond: TColor := clNone;
+      var lSecondCount := 0;
+      for var lPair in lCounts do
+        if lPair.Value > lBestCount then begin
+          lSecond := lBest;
+          lSecondCount := lBestCount;
+          lBest := lPair.Key;
+          lBestCount := lPair.Value;
+        end else if lPair.Value > lSecondCount then begin
+          lSecond := lPair.Key;
+          lSecondCount := lPair.Value;
+        end;
+      if lTotal = 0 then
+        Result := 'empty'
+      else
+        Result := Format('%.6x %d%% / %.6x %d%%', [ColorToRGB(lBest), lBestCount * 100 div lTotal, ColorToRGB(lSecond),
+          lSecondCount * 100 div lTotal]);
+    finally
+      lCounts.Free;
+    end;
+  end;
+
+  function PaintHeader(const aMode: string): string;
+  begin
+    var lColumns := vstView.Header.Columns;
+    var lBitmap := Vcl.Graphics.TBitmap.Create;
+    try
+      lBitmap.PixelFormat := pf32bit;
+      lBitmap.SetSize(lColumns.TotalWidth + 40, vstView.Header.Height);
+      lBitmap.Canvas.Brush.Color := $FF00FF;
+      lBitmap.Canvas.FillRect(Rect(0, 0, lBitmap.Width, lBitmap.Height));
+      lColumns.PaintHeader(lBitmap.Canvas, Rect(0, 0, lBitmap.Width, lBitmap.Height), Point(0, 0));
+      Result := Format('%s'#9'themes %s'#9'background %.6x', [aMode, BoolToStr(tsUseThemes in vstView.TreeStates, True),
+        ColorToRGB(vstView.Header.Background)]);
+      for var c := 0 to Pred(lColumns.Count) do
+        Result := Result + #9 + Dominant(lBitmap, lColumns[c].Left + 3, lColumns[c].Left + lColumns[c].Width - 4);
+      Result := Result + #9'tail ' + Dominant(lBitmap, lColumns.TotalWidth + 3, lBitmap.Width - 4);
+    finally
+      lBitmap.Free;
+    end;
+  end;
+
+  procedure HeaderProbe(aEntry: Integer);
+  begin
+    var lExpected := 'none';
+    var lRoot := caUnknown;
+    if Length(ActiveRecords) > 0 then
+      lRoot := ActiveRecords[0].ConflictAll;
+    if lRoot >= caNoConflict then
+      lExpected := Format('%.6x', [ColorToRGB(wbLighter(ConflictAllToColor(lRoot), 0.85))]);
+    for var i := Low(ActiveRecords) to High(ActiveRecords) do
+      lExpected := lExpected + Format(' | %s text %.6x', [wbNameConflictThis[ActiveRecords[i].ConflictThis],
+        ColorToRGB(wbDarker(ConflictThisToColor(ActiveRecords[i].ConflictThis)))]);
+    var lOptions := vstView.TreeOptions.PaintOptions;
+    vstView.TreeOptions.PaintOptions := lOptions - [toThemeAware];
+    try
+      lLines.Add(Format('# header %d'#9'%s'#9'expected %s'#9'style %s'#9'%s',
+        [aEntry, wbNameConflictAll[lRoot], lExpected, TStyleManager.ActiveStyle.Name, PaintHeader('unthemed first')]));
+    finally
+      vstView.TreeOptions.PaintOptions := lOptions;
+    end;
+    lLines.Add(Format('# header %d'#9'%s'#9'expected %s'#9'style %s'#9'%s',
+      [aEntry, wbNameConflictAll[lRoot], lExpected, TStyleManager.ActiveStyle.Name, PaintHeader('as is')]));
+    vstView.TreeOptions.PaintOptions := lOptions - [toThemeAware];
+    try
+      lLines.Add(Format('# header %d'#9'%s'#9'expected %s'#9'style %s'#9'%s',
+        [aEntry, wbNameConflictAll[lRoot], lExpected, TStyleManager.ActiveStyle.Name, PaintHeader('unthemed')]));
+    finally
+      vstView.TreeOptions.PaintOptions := lOptions;
+    end;
+  end;
+
+  procedure ModalProbe(aEntry: Integer; const aRecord, aTarget, aSwitchTo: IwbMainRecord);
+
+    procedure Restore;
+    begin
+      for var lRecord in [aRecord, aTarget] do
+        if lRecord.IsEditable and not lRecord.IsMaster then begin
+          lRecord.Assign(Low(Integer), lRecord.Master, False);
+          lRecord.UpdateRefs;
+        end;
+    end;
+
+    procedure SelectInNav;
+    begin
+      vstNav.ClearSelection;
+      for var lRecord in [aRecord, aTarget] do begin
+        var lNode := FindNodeForElement(lRecord);
+        if not Assigned(lNode) then
+          raise Exception.Create('no nav node for ' + lRecord.Name);
+        vstNav.Selected[lNode] := True;
+      end;
+      if tmrPendingSetActive.Enabled then
+        tmrPendingSetActiveTimer(tmrPendingSetActive);
+    end;
+
+    function Digest(const aMainRecord: IwbMainRecord): string;
+    begin
+      var lText := '';
+      for var i := 0 to Pred(aMainRecord.ElementCount) do
+        lText := lText + aMainRecord.Elements[i].Name + '=' + aMainRecord.Elements[i].EditValue + #10;
+      var lHash: Cardinal := 2166136261;
+      for var lChar in lText do
+        lHash := Cardinal((UInt64(lHash xor Ord(lChar)) * 16777619) and $FFFFFFFF);
+      Result := Format('%d elements, %d chars, hash %.8x', [aMainRecord.ElementCount, Length(lText), lHash]);
+    end;
+
+    procedure BeginGesture(const aName: string; aRow: PVirtualNode; aColumn: Integer; aSwitch: Boolean; out aDelay, aFocused: Integer);
+    begin
+      TFile.AppendAllText(xeTestViewTreeFile + '.progress', Format('%d'#9'%s', [aEntry, aName]) + sLineBreak);
+      vstViewFocusedNode := aRow;
+      vstView.FocusedColumn := aColumn;
+      EditWarnOk := False;
+      TestViewModalFactory := ViewTreeFactory;
+      TestViewModalSeen := '';
+      aDelay := tmrPendingSetActive.Interval;
+      if aSwitch then begin
+        tmrPendingSetActive.Interval := 50;
+        SetActiveRecord(aSwitchTo);
+      end;
+      aFocused := vstView.FocusedColumn;
+      TestViewModalAnswer.Enabled := True;
+    end;
+
+    procedure EndGesture(const aName, aResult: string; aDelay, aFocused: Integer);
+    begin
+      TestViewModalAnswer.Enabled := False;
+      TestViewModalFactory := nil;
+      tmrPendingSetActive.Enabled := False;
+      tmrPendingSetActive.Interval := aDelay;
+      EditWarnOk := True;
+      if vstView.IsEditing then
+        vstView.CancelEditNode;
+      ViewFocusedElement := nil;
+      EditFocusedViewElement := False;
+      var lShown: string := '-';
+      if (Length(ActiveRecords) > 0) and Assigned(ActiveRecords[0].Element) then
+        lShown := ActiveRecords[0].Element.Name;
+      lLines.Add(Format('# modal %d'#9'%s'#9'column %d'#9'dialogs%s'#9'%s'#9'shows %s',
+        [aEntry, aName, aFocused, TestViewModalSeen, aResult, lShown]));
+    end;
+
+    procedure Run(const aName: string; aSwitch, aCopy: Boolean);
+    begin
+      Restore;
+      if aCopy then
+        SelectInNav;
+      Build([aRecord]);
+      var lRow: PVirtualNode := nil;
+      for var lNode in vstView.Nodes(False) do
+        if (lNode.Parent = vstView.RootNode) and Assigned(ViewCells(lNode)[0].Element) and
+           ViewCells(lNode)[0].Element.Name.StartsWith('EDID') then begin
+          lRow := lNode;
+          Break;
+        end;
+      if not Assigned(lRow) then begin
+        lLines.Add(Format('# modal %d'#9'%s'#9'no EDID row', [aEntry, aName]));
+        Exit;
+      end;
+      var lDelay, lFocused: Integer;
+      BeginGesture(aName, lRow, Length(ActiveRecords), aSwitch, lDelay, lFocused);
+      var lResult := 'returned';
+      try
+        if aCopy then
+          mniViewCopyMultipleToSelectedRecordsClick(nil)
+        else
+          mniViewEditClick(nil);
+      except
+        on E: Exception do
+          lResult := E.ClassName + ': ' + E.Message;
+      end;
+      EndGesture(aName, lResult, lDelay, lFocused);
+      if aCopy then
+        lLines.Add(Format('# modal %d'#9'%s'#9'target %s', [aEntry, aName, Digest(aTarget)]));
+    end;
+
+    procedure RunMemo(const aName: string);
+    begin
+      Restore;
+      Build([aRecord]);
+      var lColumn := Pred(Length(ActiveRecords));
+      var lRow: PVirtualNode := nil;
+      for var lNode in vstView.Nodes(False) do
+        if (lNode.Parent = vstView.RootNode) and Assigned(ViewCells(lNode)[lColumn].Element) and
+           ViewCells(lNode)[lColumn].Element.Name.StartsWith('EDID') then begin
+          lRow := lNode;
+          Break;
+        end;
+      if not Assigned(lRow) then begin
+        lLines.Add(Format('# modal %d'#9'%s'#9'no EDID row', [aEntry, aName]));
+        Exit;
+      end;
+      var lEdited := ViewCells(lRow)[lColumn].Element;
+      var lBefore := lEdited.EditValue;
+      TestViewModalMemo := 'D174Probe';
+      var lDelay, lFocused: Integer;
+      BeginGesture(aName, lRow, Succ(lColumn), False, lDelay, lFocused);
+      var lResult := 'returned';
+      try
+        mniViewEditClick(nil);
+      except
+        on E: Exception do
+          lResult := E.ClassName + ': ' + E.Message;
+      end;
+      EndGesture(aName, lResult, lDelay, lFocused);
+      TestViewModalMemo := '';
+      lLines.Add(Format('# modal %d'#9'%s'#9'value before %s'#9'after %s'#9'record %s',
+        [aEntry, aName, lBefore, lEdited.EditValue, aRecord.EditorID]));
+    end;
+
+  const
+    mgCopyToSelected = 0;
+    mgSetToDefault   = 1;
+    mgDrop           = 2;
+    mgAdd            = 3;
+    mgEditLeaf       = 4;
+    mgEditStruct     = 5;
+    mgRemove         = 6;
+    mgHeaderDropped  = 7;
+
+    function CompareRow(aGesture: Integer): PVirtualNode;
+    begin
+      Result := nil;
+      var lHeaderRows := 0;
+      if Assigned(ActiveRecords[0].Container) then
+        lHeaderRows := ActiveRecords[0].Container.AdditionalElementCount;
+      for var lNode in vstView.Nodes(False) do begin
+        if (lNode.Parent <> vstView.RootNode) or (Integer(lNode.Index) < lHeaderRows) then
+          Continue;
+        var lCells: PViewNodeDatas := ViewCells(lNode);
+        if not Assigned(lCells) then
+          Continue;
+        var lFirst := lCells[0].Element;
+        var lSecond := lCells[1].Element;
+        var lFound := False;
+        case aGesture of
+          mgCopyToSelected, mgDrop:
+            lFound := Assigned(lFirst) and Assigned(lSecond) and lSecond.IsEditable and not lFirst.Name.StartsWith('EDID') and
+              (lFirst.EditValue <> lSecond.EditValue);
+          mgSetToDefault:
+            lFound := Assigned(lSecond) and lSecond.IsEditable and not vstView.HasChildren[lNode] and lSecond.CanContainFormIDs;
+          mgAdd:
+            lFound := Assigned(lFirst) <> Assigned(lSecond);
+          mgEditLeaf:
+            lFound := Assigned(lSecond) and lSecond.IsEditable and not vstView.HasChildren[lNode] and
+              not lSecond.Name.StartsWith('EDID');
+          mgEditStruct:
+            lFound := Assigned(lSecond) and not lSecond.IsEditable and vstView.HasChildren[lNode];
+          mgRemove:
+            lFound := Assigned(lFirst) and Assigned(lSecond) and lFirst.IsRemovable and lSecond.IsRemovable;
+          mgHeaderDropped:
+            lFound := True;
+        end;
+        if lFound then
+          Exit(lNode);
+      end;
+    end;
+
+    procedure RunCompare(const aName: string; aSwitch: Boolean; aGesture: Integer);
+    begin
+      Restore;
+      Build([aRecord, aTarget]);
+      if Length(ActiveRecords) <> 2 then begin
+        lLines.Add(Format('# modal %d'#9'%s'#9'no compare view', [aEntry, aName]));
+        Exit;
+      end;
+      var lRow := CompareRow(aGesture);
+      if not Assigned(lRow) then begin
+        lLines.Add(Format('# modal %d'#9'%s'#9'no row', [aEntry, aName]));
+        Exit;
+      end;
+      var lColumn := 2;
+      if (aGesture in [mgCopyToSelected, mgDrop, mgRemove, mgHeaderDropped]) or
+         (aGesture = mgAdd) and not Assigned(ViewCells(lRow)[0].Element) then
+        lColumn := 1;
+      var lSource := ViewCells(lRow)[0].Element;
+      var lEdited := ViewCells(lRow)[Pred(lColumn)].Element;
+      var lRowName := '';
+      for var c := 0 to 1 do
+        if (lRowName = '') and Assigned(ViewCells(lRow)[c].Element) then
+          lRowName := ViewCells(lRow)[c].Element.Name;
+      var lDelay, lFocused: Integer;
+      BeginGesture(aName, lRow, lColumn, aSwitch, lDelay, lFocused);
+      var lResult := 'returned';
+      try
+        case aGesture of
+          mgCopyToSelected:
+            mniViewCopyToSelectedRecordsClick(nil);
+          mgSetToDefault:
+            mniViewSetToDefaultClick(nil);
+          mgDrop:
+            PerformDrop(vstView, lRow, 2, lSource);
+          mgAdd: begin
+            pmuViewPopup(Self);
+            if mniViewAdd.Visible and mniViewAdd.Enabled and (mniViewAdd.Count = 0) then
+              mniViewAdd.Click
+            else
+              lResult := 'add not offered';
+          end;
+          mgEditLeaf, mgEditStruct:
+            vstView.EditNode(lRow, 2);
+          mgRemove:
+            mniViewRemoveFromSelectedClick(nil);
+          mgHeaderDropped: begin
+            var lHandled := False;
+            vstViewHeaderDropped(vstView.Header, 1, 2, lHandled);
+          end;
+        end;
+      except
+        on E: Exception do
+          lResult := E.ClassName + ': ' + E.Message;
+      end;
+      EndGesture(aName, lResult, lDelay, lFocused);
+      var lRefs := '';
+      for var i := 0 to Pred(aTarget.ReferencesCount) do
+        lRefs := lRefs + ' ' + aTarget.References[i].Signature + ':' + IntToHex64(Cardinal(aTarget.References[i].LoadOrderFormID), 8);
+      var lValue: string := '-';
+      if Assigned(lEdited) then
+        lValue := lEdited.EditValue;
+      lLines.Add(Format('# modal %d'#9'%s'#9'row %s'#9'value %s'#9'focus after %d'#9'records %s, refs %d | %s, refs%s',
+        [aEntry, aName, lRowName, lValue, vstView.FocusedColumn, Digest(aRecord), aRecord.ReferencesCount, Digest(aTarget),
+         lRefs]));
+    end;
+
+  begin
+    RunCompare('set to default', False, mgSetToDefault);
+    RunCompare('set to default, switched', True, mgSetToDefault);
+    RunCompare('drop', False, mgDrop);
+    RunCompare('drop, switched', True, mgDrop);
+    RunCompare('copy to selected', False, mgCopyToSelected);
+    RunCompare('copy to selected, switched', True, mgCopyToSelected);
+    RunCompare('add', False, mgAdd);
+    RunCompare('add, switched', True, mgAdd);
+    RunCompare('edit in place', False, mgEditLeaf);
+    RunCompare('edit in place, switched', True, mgEditLeaf);
+    RunCompare('edit in place, struct', False, mgEditStruct);
+    RunCompare('edit in place, struct, switched', True, mgEditStruct);
+    RunCompare('remove from selected', False, mgRemove);
+    RunCompare('remove from selected, switched', True, mgRemove);
+    RunCompare('header drop', False, mgHeaderDropped);
+    RunCompare('header drop, switched', True, mgHeaderDropped);
+    Run('edit', False, False);
+    Run('edit, switched', True, False);
+    RunMemo('edit, memo changed');
+    Run('copy multiple', False, True);
+    Run('copy multiple, switched', True, True);
+  end;
+
+begin
+  lLines := TStringList.Create;
+  lList := TStringList.Create;
+  try
+    lLines.Add('# xEdit view tree probe');
+    lLines.Add('# ' + xeApplicationTitle);
+    lLines.Add('# list = ' + xeTestViewTreeList + ', hide = ' + xeTestViewTreeHide + ', hide no conflict = ' +
+      BoolToStr(xeTestViewTreeHideNoConflict, True) + ', loading = ' + BoolToStr(xeTestViewTreeLoading, True) + ', reset = ' +
+      BoolToStr(xeTestViewTreeReset, True) + ', focus = ' + IntToStr(xeTestViewTreeFocus) + ', floor = ' +
+      BoolToStr(xeTestViewTreeFloor, True) + ', translate = ' + BoolToStr(xeTestViewTreeTranslate, True) + ', time = ' +
+      IntToStr(xeTestViewTreeTime) + ', hide ignored = ' +
+      BoolToStr(xeContext.Settings.HideIgnored, True) + ', hide never show = ' + BoolToStr(xeContext.Settings.HideNeverShow, True));
+    lLines.Add('# Columns, tab separated: entry / row path / row ConflictAll / visible / per record column: element:ConflictThis:flags');
+    CheckResult := 2;
+    try
+      if xeTestViewTreeHide <> '' then begin
+        var lHidden := False;
+        for var i := Low(Files) to High(Files) do
+          if SameText(Files[i].FileName, xeTestViewTreeHide) then begin
+            ConflictView.Hidden.Hide(Files[i]);
+            lHidden := True;
+          end;
+        if not lHidden then
+          raise Exception.Create('no module ' + xeTestViewTreeHide);
+      end;
+      if xeTestViewTreeHideNoConflict then
+        HideNoConflict := True;
+      if xeTestViewTreeTranslate then
+        xeContext.Settings.TranslationMode := True;
+      if xeTestViewTreeFloor then
+        xeContext.Settings.DontSave := True;
+      if xeTestViewTreeModal then begin
+        xeContext.Settings.DontSave := True;
+        TestViewModalAnswer := TTimer.Create(Self);
+        TestViewModalAnswer.Enabled := False;
+        TestViewModalAnswer.Interval := 300;
+        TestViewModalAnswer.OnTimer := TestViewModalAnswerTimer;
+        System.SysUtils.DeleteFile(xeTestViewTreeFile + '.progress');
+      end;
+      lList.LoadFromFile(xeTestViewTreeList);
+      var lEntry := 0;
+      for var lLine in lList do begin
+        if (Trim(lLine) = '') or lLine.StartsWith('#') then
+          Continue;
+        Inc(lEntry);
+        lRecords := nil;
+        for var lFormID in lLine.Split([',']) do
+          lRecords := lRecords + [FindRecord(lFormID)];
+        Build(lRecords);
+        var lColumns := '';
+        for var i := Low(ActiveRecords) to High(ActiveRecords) do
+          if Assigned(ActiveRecords[i].Element) then
+            lColumns := lColumns + ' ' + ActiveRecords[i].Element._File.FileName
+          else
+            lColumns := lColumns + ' -';
+        lLines.Add(Format('# entry %d: %s -> %s | %d columns:%s | %d root rows',
+          [lEntry, Trim(lLine), lRecords[0].Name, Length(ActiveRecords), lColumns, vstView.RootNodeCount]));
+        if Length(ActiveRecords) = 0 then
+          Continue;
+        lLines.Add(IntToStr(lEntry) + #9 + 'root' + #9 + wbNameConflictAll[ActiveRecords[0].ConflictAll] + #9 + '-' +
+          Cells(@ActiveRecords[0]));
+        for var lNode in vstView.Nodes(False) do
+          lLines.Add(IntToStr(lEntry) + #9 + Path(lNode) + #9 +
+            wbNameConflictAll[PViewNodeDatas(ViewCells(lNode))[0].ConflictAll] + #9 +
+            IfThen(vstView.IsVisible[lNode], 'V', 'h') + Cells(ViewCells(lNode)));
+        var lStale := False;
+        for var i := Low(ActiveRecords) to High(ActiveRecords) do
+          with ActiveRecords[i] do
+            if Assigned(Element) and (ElementGen <> Element.ElementGeneration) or
+               Assigned(Container) and (ContainerGen <> Container.ElementGeneration) then
+              lStale := True;
+        lLines.Add(Format('# stale %d'#9'%s', [lEntry, BoolToStr(lStale, True)]));
+        Collapsed(lEntry);
+        if xeTestViewTreeHeader then
+          HeaderProbe(lEntry);
+        if xeTestViewTreeModal and (Length(lRecords) > 1) then
+          ModalProbe(lEntry, lRecords[0], lRecords[1], lRecords[High(lRecords)]);
+        if xeTestViewTreeFocus > 0 then
+          FocusProbe(lEntry, lRecords);
+        if xeTestViewTreeFloor and (Length(lRecords) > 1) then
+          FloorProbe(lEntry, lRecords);
+        if xeTestViewTreeTime > 0 then
+          TimeProbe(lEntry, lRecords);
+      end;
+      DoSetActiveRecord(IwbMainRecord(nil));
+      if xeTestViewTreeHeader then
+        HeaderProbe(0);
+      CheckResult := 0;
+    except
+      on E: Exception do begin
+        AddMessage('[Test View Tree] FAILED: ' + E.ClassName + ': ' + E.Message);
+        lLines.Add('# FAILED: ' + E.ClassName + ': ' + E.Message);
+      end;
+    end;
+    lLines.Add('# checkResult = ' + IntToStr(CheckResult));
+    lTmp := xeTestViewTreeFile + '.partial';
+    lLines.SaveToFile(lTmp, TEncoding.UTF8);
+    if not MoveFileEx(PChar(lTmp), PChar(xeTestViewTreeFile), MOVEFILE_REPLACE_EXISTING) then
+      RaiseLastOSError;
+  finally
+    lList.Free;
+    lLines.Free;
+  end;
+end;
+
+procedure TfrmMain.DoTestOptions;
+begin
+  xeContext.Settings.DontSave := True;
+  TestOptionsAnswer := TTimer.Create(Self);
+  TestOptionsAnswer.Enabled := False;
+  TestOptionsAnswer.Interval := 250;
+  TestOptionsAnswer.OnTimer := TestOptionsAnswerTimer;
+  TestOptionsTimer := TTimer.Create(Self);
+  TestOptionsTimer.Interval := 500;
+  TestOptionsTimer.OnTimer := TestOptionsRunTimer;
+  TestOptionsTimer.Enabled := True;
+end;
+
+procedure TfrmMain.TestOptionsRunTimer(Sender: TObject);
+const
+  cArms    : array[0..4] of string = ('unchanged', 'toggle', 'restore', 'toggle never show', 'restore never show');
+  cVerdict : array[Boolean] of string = ('FAIL', 'PASS');
+var
+  lLines           : TStringList;
+  lFailed          : Integer;
+  lEpochBefore     : Cardinal;
+  lEpochAfter      : Cardinal;
+  lAlignBefore     : Boolean;
+  lAlignAfter      : Boolean;
+  lNeverShowBefore : Boolean;
+  lNeverShowAfter  : Boolean;
+  lPass            : Boolean;
+  lTmp             : string;
+begin
+  TestOptionsTimer.Enabled := False;
+  lLines := TStringList.Create;
+  try
+    lLines.Add('# xEdit options epoch probe');
+    lLines.Add('# ' + xeApplicationTitle);
+    lLines.Add('# Columns, tab separated: arm, toggled, dialog shown, dialog align, epoch before, epoch after, align before, align after, ' +
+      'dialog never show, never show before, never show after, verdict');
+    lFailed := 0;
+    try
+      for var lArm := Low(cArms) to High(cArms) do begin
+        TestOptionsToggle := lArm in [1, 2];
+        TestOptionsToggleNeverShow := lArm in [3, 4];
+        TestOptionsShown := False;
+        lEpochBefore := ConflictView.Epoch;
+        lAlignBefore := ConflictView.AlignArrayElements;
+        lNeverShowBefore := xeContext.Settings.HideNeverShow;
+        TestOptionsAnswer.Enabled := True;
+        try
+          mniNavOptionsClick(nil);
+        finally
+          TestOptionsAnswer.Enabled := False;
+        end;
+        lEpochAfter := ConflictView.Epoch;
+        lAlignAfter := ConflictView.AlignArrayElements;
+        lNeverShowAfter := xeContext.Settings.HideNeverShow;
+        lPass := TestOptionsShown and (TestOptionsDialogAlign = lAlignBefore) and (TestOptionsDialogNeverShow = lNeverShowBefore) and
+          ((lAlignAfter <> lAlignBefore) = TestOptionsToggle) and ((lNeverShowAfter <> lNeverShowBefore) = TestOptionsToggleNeverShow);
+        if not TestOptionsToggleNeverShow then
+          lPass := lPass and ((lEpochAfter <> lEpochBefore) = TestOptionsToggle);
+        if not lPass then
+          Inc(lFailed);
+        lLines.Add(string.Join(#9, [cArms[lArm], BoolToStr(TestOptionsToggle, True), BoolToStr(TestOptionsShown, True),
+          BoolToStr(TestOptionsDialogAlign, True), lEpochBefore.ToString, lEpochAfter.ToString, BoolToStr(lAlignBefore, True),
+          BoolToStr(lAlignAfter, True), BoolToStr(TestOptionsDialogNeverShow, True), BoolToStr(lNeverShowBefore, True),
+          BoolToStr(lNeverShowAfter, True), cVerdict[lPass]]));
+        AddMessage(Format('[Test Options] %s: epoch %d -> %d, align %s -> %s, never show %s -> %s, %s', [cArms[lArm], lEpochBefore,
+          lEpochAfter, BoolToStr(lAlignBefore, True), BoolToStr(lAlignAfter, True), BoolToStr(lNeverShowBefore, True),
+          BoolToStr(lNeverShowAfter, True), cVerdict[lPass]]));
+      end;
+      if lFailed = 0 then
+        CheckResult := 0
+      else
+        CheckResult := 1;
+    except
+      on E: Exception do begin
+        AddMessage('[Test Options] FAILED: ' + E.ClassName + ': ' + E.Message);
+        lLines.Add('# FAILED: ' + E.ClassName + ': ' + E.Message);
+        CheckResult := 255;
+      end;
+    end;
+    lLines.Add('# checkResult = ' + IntToStr(CheckResult));
+    lTmp := xeTestOptionsFile + '.partial';
+    lLines.SaveToFile(lTmp, TEncoding.UTF8);
+    if not MoveFileEx(PChar(lTmp), PChar(xeTestOptionsFile), MOVEFILE_REPLACE_EXISTING) then
+      RaiseLastOSError;
+  finally
+    lLines.Free;
+    if xeAutoExit then
+      tmrShutdown.Enabled := True;
+  end;
+end;
+
+procedure TfrmMain.TestOptionsAnswerTimer(Sender: TObject);
+var
+  lForm: TfrmOptions;
+begin
+  for var i := 0 to Pred(Screen.CustomFormCount) do
+    if (Screen.CustomForms[i] is TfrmOptions) and Screen.CustomForms[i].Visible and
+       (fsModal in Screen.CustomForms[i].FormState) and (Screen.CustomForms[i].ModalResult = mrNone) then begin
+      lForm := TfrmOptions(Screen.CustomForms[i]);
+      TestOptionsShown := True;
+      TestOptionsDialogAlign := lForm.cbAlignArrayElements.Checked;
+      TestOptionsDialogNeverShow := lForm.cbHideNeverShow.Checked;
+      if TestOptionsToggle then
+        lForm.cbAlignArrayElements.Checked := not lForm.cbAlignArrayElements.Checked;
+      if TestOptionsToggleNeverShow then
+        lForm.cbHideNeverShow.Checked := not lForm.cbHideNeverShow.Checked;
+      lForm.ModalResult := mrOk;
+      Exit;
+    end;
+end;
+
+procedure TfrmMain.TestViewModalAnswerTimer(Sender: TObject);
+begin
+  for var i := 0 to Pred(Screen.CustomFormCount) do
+    if (Screen.CustomForms[i] <> Self) and Screen.CustomForms[i].Visible and
+       (fsModal in Screen.CustomForms[i].FormState) and (Screen.CustomForms[i].ModalResult = mrNone) then begin
+      var lReplaced := PPointer(@ViewTreeFactory)^ <> PPointer(@TestViewModalFactory)^;
+      TestViewModalSeen := TestViewModalSeen + ' ' + Screen.CustomForms[i].ClassName + IfThen(lReplaced, ':replaced', ':kept');
+      if (TestViewModalMemo <> '') and (Screen.CustomForms[i] is TfrmViewElements) then begin
+        var lPage := TfrmViewElements(Screen.CustomForms[i]).pcView.ActivePage;
+        if Assigned(lPage) then
+          for var c := 0 to Pred(lPage.ControlCount) do
+            if (lPage.Controls[c] is TMemo) and not TMemo(lPage.Controls[c]).ReadOnly then begin
+              TMemo(lPage.Controls[c]).Text := TestViewModalMemo;
+              TMemo(lPage.Controls[c]).Modified := True;
+              TestViewModalSeen := TestViewModalSeen + '(memo set on ' + lPage.Caption + ')';
+            end;
+      end;
+      Screen.CustomForms[i].ModalResult := mrOk;
+      Exit;
+    end;
+  var lWnd: HWND := 0;
+  repeat
+    lWnd := FindWindowEx(0, lWnd, '#32770', nil);
+    if (lWnd <> 0) and IsWindowVisible(lWnd) and IsWindowEnabled(lWnd) and
+       (GetWindowThreadProcessId(lWnd, nil) = MainThreadID) then begin
+      var lReplaced := PPointer(@ViewTreeFactory)^ <> PPointer(@TestViewModalFactory)^;
+      var lCaption: array[0..255] of Char;
+      GetWindowText(lWnd, lCaption, Length(lCaption));
+      TestViewModalSeen := TestViewModalSeen + ' "' + string(lCaption) + '"' + IfThen(lReplaced, ':replaced', ':kept');
+      SendMessage(lWnd, WM_USER + 102, IDYES, 0);
+      Exit;
+    end;
+  until lWnd = 0;
+end;
+
+procedure TfrmMain.DoTestCopyIntoGap;
+begin
+  xeContext.Settings.DontSave := True;
+  EditWarnOk := True;
+  TestCopyIntoGapTimer := TTimer.Create(Self);
+  TestCopyIntoGapTimer.Interval := 500;
+  TestCopyIntoGapTimer.OnTimer := TestCopyIntoGapRunTimer;
+  TestCopyIntoGapTimer.Enabled := True;
+end;
+
+procedure TfrmMain.TestCopyIntoGapRunTimer(Sender: TObject);
+
+  function ElementText(const aElement: IwbElement): string;
+  var
+    lContainer : IwbContainerElementRef;
+  begin
+    if Supports(aElement, IwbContainerElementRef, lContainer) and (lContainer.ElementCount > 0) then begin
+      Result := '';
+      for var i := 0 to Pred(lContainer.ElementCount) do begin
+        if i > 0 then
+          Result := Result + ' | ';
+        Result := Result + ElementText(lContainer.Elements[i]);
+      end;
+    end else
+      Result := aElement.EditValue;
+  end;
+
+  procedure AddContainer(aLines: TStrings; const aTag: string; const aContainer: IwbContainerElementRef);
+  var
+    lRows : string;
+  begin
+    lRows := '';
+    for var i := 0 to Pred(aContainer.ElementCount) do begin
+      aLines.Add(aTag + #9 + IntToStr(i) + #9 + ElementText(aContainer.Elements[i]));
+      lRows := lRows + ' ' + IntToStr(aContainer.Elements[i].SortOrder);
+    end;
+    aLines.Add('# ' + aTag + ' rows:' + lRows);
+  end;
+
+var
+  lLines       : TStringList;
+  lSource      : IwbMainRecord;
+  lRecord      : IwbMainRecord;
+  lColumn      : Integer;
+  lGapNode     : PVirtualNode;
+  lNodeDatas   : PViewNodeDatas;
+  lParentDatas : PViewNodeDatas;
+  lGapSource   : IwbElement;
+  lContainer   : IwbContainerElementRef;
+  lTmp         : string;
+begin
+  TestCopyIntoGapTimer.Enabled := False;
+  lLines := TStringList.Create;
+  try
+    lLines.Add('# xEdit copy-into-gap probe');
+    lLines.Add('# ' + xeApplicationTitle);
+    lLines.Add('# record = ' + xeTestCopyIntoGapRecord + ', source = ' + xeTestCopyIntoGapSource + ', op = ' + xeTestCopyIntoGapOp);
+    lLines.Add('# Columns, tab separated: what / index / text; the "#" rows lines carry each element''s SortOrder');
+    CheckResult := 2;
+    try
+      lSource := nil;
+      var lFormID := TwbFormID.FromStr(xeTestCopyIntoGapRecord);
+      for var i := Low(Files) to High(Files) do
+        if SameText(Files[i].FileName, xeTestCopyIntoGapSource) then
+          lSource := Files[i].RecordByFormID[lFormID, True, True];
+      if not Assigned(lSource) then
+        raise Exception.Create('no record ' + xeTestCopyIntoGapRecord + ' in ' + xeTestCopyIntoGapSource);
+
+      var lFile := AddNewFileName('CopyIntoGap.esp', False, False);
+      if not AddRequiredMasters(lSource, lFile, False, True) then
+        raise Exception.Create('the masters of ' + lSource.Name + ' could not be added');
+      lRecord := wbCopyElementToFile(lSource, lFile, False, True, '', '', '', '', False) as IwbMainRecord;
+      if not Assigned(lRecord) then
+        raise Exception.Create('no override of ' + lSource.Name + ' was created');
+
+      DoSetActiveRecord(lRecord);
+      vstView.FullExpand;
+      lColumn := -1;
+      for var i := Low(ActiveRecords) to High(ActiveRecords) do
+        if Assigned(ActiveRecords[i].Element) and ActiveRecords[i].Element.Equals(lRecord) then
+          lColumn := i;
+      if lColumn < 0 then
+        raise Exception.Create('the override is not a column of the View tab');
+      lLines.Add('columns' + #9 + IntToStr(Length(ActiveRecords)) + #9 + 'target ' + IntToStr(lColumn) + ' ' + lFile.FileName);
+
+      lGapNode := nil;
+      lGapSource := nil;
+      lParentDatas := nil;
+      for var lNode in vstView.Nodes(False) do begin
+        lNodeDatas := ViewCells(lNode);
+        if lNode.Parent = vstView.RootNode then
+          lParentDatas := @ActiveRecords[0]
+        else
+          lParentDatas := ViewCells(lNode.Parent);
+        if not Assigned(lNodeDatas) or not Assigned(lParentDatas) then
+          Continue;
+        if not (vnfIsAligned in lParentDatas[lColumn].ViewNodeFlags) or Assigned(lNodeDatas[lColumn].Element) or
+           not Assigned(lParentDatas[lColumn].Element) then
+          Continue;
+        for var k := Low(ActiveRecords) to High(ActiveRecords) do
+          if (k <> lColumn) and Assigned(lNodeDatas[k].Element) then begin
+            lGapSource := lNodeDatas[k].Element;
+            Break;
+          end;
+        if Assigned(lGapSource) then begin
+          lGapNode := lNode;
+          Break;
+        end;
+      end;
+      if not Assigned(lGapNode) then
+        raise Exception.Create('no aligned gap in the override''s column');
+      if not Supports(lParentDatas[lColumn].Element, IwbContainerElementRef, lContainer) then
+        raise Exception.Create('the gap''s parent is not a container');
+      lLines.Add('gap' + #9 + IntToStr(lGapNode.Index) + #9 + lContainer.Path);
+      var lGapMemoryIndex: Integer;
+      var lGapValid := wbConflictAlignedGap(lParentDatas[lColumn], lGapNode.Index, lGapMemoryIndex);
+      lLines.Add('# gap valid' + #9 + BoolToStr(lGapValid, True) + #9 + 'memory index ' + IntToStr(lGapMemoryIndex));
+      lLines.Add('source' + #9 + '-' + #9 + ElementText(lGapSource));
+      AddContainer(lLines, 'before', lContainer);
+
+      if SameText(xeTestCopyIntoGapOp, 'popup') then begin
+        OverrideViewFocusedNode := lGapNode;
+        try
+          vstView.FocusedColumn := Succ(lColumn);
+          pmuViewPopup(Self);
+          lLines.Add('popup' + #9 + 'add visible' + #9 + BoolToStr(mniViewAdd.Visible and mniViewAdd.Enabled, True));
+        finally
+          OverrideViewFocusedNode := nil;
+        end;
+      end else if SameText(xeTestCopyIntoGapOp, 'dragover') then begin
+        var lTargetNode := lGapNode;
+        var lTargetIndex: Integer;
+        var lTargetElement: IwbElement;
+        var lAlignedMemoryIndex: Integer;
+        var lAccept := GetTargetElement(vstView, lTargetNode, Succ(lColumn), lTargetIndex, lTargetElement, lAlignedMemoryIndex) and
+          (lTargetElement <> lGapSource) and lTargetElement.CanAssign(lTargetIndex, lGapSource, True);
+        lLines.Add('dragover' + #9 + 'accept' + #9 + BoolToStr(lAccept, True));
+        lLines.Add('# dragover aligned memory index' + #9 + IntToStr(lAlignedMemoryIndex));
+      end else if SameText(xeTestCopyIntoGapOp, 'drop') then begin
+        lLines.Add('drop' + #9 + 'performed' + #9 + BoolToStr(PerformDrop(vstView, lGapNode, Succ(lColumn), lGapSource), True));
+        AddContainer(lLines, 'after', lContainer);
+      end else begin
+        OverrideViewFocusedNode := lGapNode;
+        try
+          vstView.FocusedColumn := Succ(lColumn);
+          pmuViewPopup(Self);
+          var lClicked := mniViewAdd.Visible and mniViewAdd.Enabled;
+          if lClicked then
+            if mniViewAdd.Count > 0 then
+              mniViewAdd.Items[0].Click
+            else
+              mniViewAdd.Click;
+          lLines.Add('add' + #9 + 'clicked' + #9 + BoolToStr(lClicked, True));
+        finally
+          OverrideViewFocusedNode := nil;
+        end;
+        AddContainer(lLines, 'after', lContainer);
+      end;
+      CheckResult := 0;
+    except
+      on E: Exception do begin
+        AddMessage('[Test Copy Into Gap] FAILED: ' + E.ClassName + ': ' + E.Message);
+        lLines.Add('# FAILED: ' + E.ClassName + ': ' + E.Message);
+      end;
+    end;
+    lLines.Add('# checkResult = ' + IntToStr(CheckResult));
+    lTmp := xeTestCopyIntoGapFile + '.partial';
+    lLines.SaveToFile(lTmp, TEncoding.UTF8);
+    if not MoveFileEx(PChar(lTmp), PChar(xeTestCopyIntoGapFile), MOVEFILE_REPLACE_EXISTING) then
+      RaiseLastOSError;
+  finally
+    lLines.Free;
+    if xeAutoExit then
+      tmrShutdown.Enabled := True;
+  end;
+end;
+
+procedure TfrmMain.TestDeltaPatchStates(const aWhen: string);
+var
+  lRecord : IwbMainRecord;
+begin
+  for var i := Low(Files) to High(Files) do
+    TestDeltaPatchLines.Add('file' + #9 + aWhen + #9 + Files[i].FileName + #9 +
+      'member=' + BoolToStr(ConflictView.Hidden.Contains(Files[i]), True) + #9 + 'hidden=' + BoolToStr(ConflictView.Hidden.IsHidden(Files[i]), True));
+  if xeTestDeltaPatchHideRecord = '' then
+    Exit;
+  lRecord := nil;
+  for var i := Low(Files) to High(Files) do
+    if SameText(Files[i].FileName, xeTestDeltaPatchMaster) then
+      lRecord := Files[i].RecordByFormID[TwbFormID.FromStr(xeTestDeltaPatchHideRecord), True, True];
+  if Assigned(lRecord) then
+    TestDeltaPatchLines.Add('record' + #9 + aWhen + #9 + lRecord.Name + #9 +
+      'member=' + BoolToStr(ConflictView.Hidden.Contains(lRecord), True) + #9 + 'hidden=' + BoolToStr(ConflictView.Hidden.IsHidden(lRecord), True));
+end;
+
+procedure TfrmMain.TestDeltaPatchWrite;
+var
+  lTmp : string;
+begin
+  try
+    TestDeltaPatchLines.Add('# checkResult = ' + IntToStr(CheckResult));
+    lTmp := xeTestDeltaPatchFile + '.partial';
+    TestDeltaPatchLines.SaveToFile(lTmp, TEncoding.UTF8);
+    if not MoveFileEx(PChar(lTmp), PChar(xeTestDeltaPatchFile), MOVEFILE_REPLACE_EXISTING) then
+      RaiseLastOSError;
+  finally
+    FreeAndNil(TestDeltaPatchLines);
+    if xeAutoExit then
+      tmrShutdown.Enabled := True;
+  end;
+end;
+
+procedure TfrmMain.DoTestDeltaPatchStart;
+var
+  lMaster : IwbFile;
+  lRecord : IwbMainRecord;
+  lTarget : string;
+begin
+  xeContext.Settings.DontSave := True;
+  EditWarnOk := True;
+  CheckResult := 2;
+  TestDeltaPatchLines := TStringList.Create;
+  TestDeltaPatchLines.Add('# xEdit delta patch probe');
+  TestDeltaPatchLines.Add('# ' + xeApplicationTitle);
+  TestDeltaPatchLines.Add('# master = ' + xeTestDeltaPatchMaster + ', newer = ' + xeTestDeltaPatchNewer +
+    ', name = ' + xeTestDeltaPatchName + ', hide = ' + xeTestDeltaPatchHide + ', hide record = ' + xeTestDeltaPatchHideRecord);
+  TestDeltaPatchLines.Add('# Columns, tab separated: what / when / name / states');
+  try
+    lMaster := nil;
+    for var i := Low(Files) to High(Files) do
+      if SameText(Files[i].FileName, xeTestDeltaPatchMaster) then
+        lMaster := Files[i];
+    if not Assigned(lMaster) then
+      raise Exception.Create('no module ' + xeTestDeltaPatchMaster);
+    TestDeltaPatchStates('loaded');
+    if xeTestDeltaPatchHide <> '' then
+      for var i := Low(Files) to High(Files) do
+        if SameText(Files[i].FileName, xeTestDeltaPatchHide) then
+          ConflictView.Hidden.Hide(Files[i]);
+    if xeTestDeltaPatchHideRecord <> '' then begin
+      lRecord := lMaster.RecordByFormID[TwbFormID.FromStr(xeTestDeltaPatchHideRecord), True, True];
+      if not Assigned(lRecord) then
+        raise Exception.Create('no record ' + xeTestDeltaPatchHideRecord + ' in ' + xeTestDeltaPatchMaster);
+      ConflictView.Hidden.Hide(lRecord);
+    end;
+    TestDeltaPatchStates('before');
+
+    lTarget := xeContext.Settings.DataPath + xeTestDeltaPatchName + '.esu';
+    if FileExists(lTarget) then
+      raise Exception.Create(lTarget + ' already exists');
+    if not CopyFile(PChar(xeTestDeltaPatchNewer), PChar(lTarget), True) then
+      RaiseLastOSError;
+    TestDeltaPatchLines.Add('# delta patch file = ' + lTarget);
+
+    vstNav.PopupMenu := nil;
+    bnMainMenu.Enabled := False;
+    xeContext.LoaderDone := False;
+    xeContext.LoaderError := False;
+    DoSetActiveRecord(nil);
+    mniNavFilterRemoveClick(Self);
+    wbStartTime := Now;
+    DoSetActiveRecord(nil);
+    pgMain.ActivePage := tbsMessages;
+    TLoaderThread.Create(lTarget, lMaster, [fsIsDeltaPatch]);
+    if xeTestDeltaPatchCancel then begin
+      TestDeltaPatchTimer := TTimer.Create(Self);
+      TestDeltaPatchTimer.Interval := 50;
+      TestDeltaPatchTimer.OnTimer := TestDeltaPatchCancelTimer;
+      TestDeltaPatchTimer.Enabled := True;
+    end;
+  except
+    on E: Exception do begin
+      AddMessage('[Test Delta Patch] FAILED: ' + E.ClassName + ': ' + E.Message);
+      TestDeltaPatchLines.Add('# FAILED: ' + E.ClassName + ': ' + E.Message);
+      TestDeltaPatchWrite;
+    end;
+  end;
+end;
+
+procedure TfrmMain.TestDeltaPatchCancelTimer(Sender: TObject);
+begin
+  if not Assigned(TestDeltaPatchLines) then begin
+    TestDeltaPatchTimer.Enabled := False;
+    Exit;
+  end;
+  if not TestDeltaPatchCancelled then begin
+    if SameText(wbCurrentAction, 'Applying Filter') then begin
+      AddMessage('[Test Delta Patch] cancelling the delta patch while "' + wbCurrentAction + '" runs');
+      TestDeltaPatchLines.Add('# cancelled while: ' + wbCurrentAction);
+      TestDeltaPatchCancelled := True;
+      wbForceTerminate := True;
+    end;
+  end else if not SameText(wbCurrentAction, 'Applying Filter') and not SameText(wbCurrentAction, 'Creating Delta Patch') then begin
+    TestDeltaPatchTimer.Enabled := False;
+    wbForceTerminate := False;
+    DoTestDeltaPatchReport;
+  end;
+end;
+
+procedure TfrmMain.DoTestDeltaPatchReport;
+
+  procedure AddTree(const aContainer: IwbContainer; aDepth: Integer);
+  var
+    lGroup  : IwbGroupRecord;
+    lRecord : IwbMainRecord;
+  begin
+    for var i := 0 to Pred(aContainer.ElementCount) do
+      if Supports(aContainer.Elements[i], IwbGroupRecord, lGroup) then begin
+        TestDeltaPatchLines.Add('patchtree' + #9 + IntToStr(aDepth) + #9 + 'GRUP' + #9 + IntToStr(lGroup.GroupType) + #9 +
+          IntToHex(lGroup.GroupLabel, 8));
+        AddTree(lGroup, Succ(aDepth));
+      end else if Supports(aContainer.Elements[i], IwbMainRecord, lRecord) then
+        TestDeltaPatchLines.Add('patchtree' + #9 + IntToStr(aDepth) + #9 + string(lRecord.Signature) + #9 +
+          IntToHex(lRecord.LoadOrderFormID.ToCardinal, 8) + #9 + 'flags=' + IntToHex(lRecord.Flags._Flags, 8) + #9 + lRecord.EditorID);
+  end;
+
+var
+  lRecord : IwbMainRecord;
+  lStream : TMemoryStream;
+begin
+  if not Assigned(TestDeltaPatchLines) then
+    Exit;
+  try
+    if xeContext.LoaderError then
+      raise Exception.Create('the delta patch load failed');
+    TestDeltaPatchStates('after');
+    var lFound := False;
+    for var i := Low(Files) to High(Files) do
+      if fsIsDeltaPatch in Files[i].FileStates then begin
+        lFound := True;
+        TestDeltaPatchLines.Add('patch' + #9 + Files[i].FileName + #9 + 'records ' + IntToStr(Files[i].RecordCount));
+        for var j := 0 to Pred(Files[i].RecordCount) do begin
+          lRecord := Files[i].Records[j];
+          TestDeltaPatchLines.Add('patchrecord' + #9 + string(lRecord.Signature) + #9 + IntToHex(lRecord.LoadOrderFormID.ToCardinal, 8) + #9 +
+            'deleted=' + BoolToStr(lRecord.IsDeleted, True) + #9 + lRecord.EditorID);
+        end;
+        AddTree(Files[i], 0);
+        for var lInfo in LOOTPluginInfos do
+          TestDeltaPatchLines.Add('loot' + #9 + lInfo.Plugin + #9 + IntToHex(lInfo.CRC32, 8) + #9 + 'itm=' + IntToStr(lInfo.ITM));
+        lStream := TMemoryStream.Create;
+        try
+          Files[i].WriteToStream(lStream, rmNo);
+          TestDeltaPatchLines.Add('patchbytes' + #9 + IntToStr(lStream.Size) + #9 + IntToHex(TwbHash.XXH64(lStream.Memory, lStream.Size), 16));
+          if xeTestDeltaPatchSave <> '' then begin
+            lStream.SaveToFile(xeTestDeltaPatchSave);
+            TestDeltaPatchLines.Add('patchsaved' + #9 + xeTestDeltaPatchSave);
+          end;
+        finally
+          lStream.Free;
+        end;
+      end;
+    if not lFound then
+      raise Exception.Create('no delta patch file is loaded');
+    CheckResult := 0;
+  except
+    on E: Exception do begin
+      AddMessage('[Test Delta Patch] FAILED: ' + E.ClassName + ': ' + E.Message);
+      TestDeltaPatchLines.Add('# FAILED: ' + E.ClassName + ': ' + E.Message);
+    end;
+  end;
+  TestDeltaPatchWrite;
+end;
+
+procedure TfrmMain.DoTestMerge;
+begin
+  xeContext.Settings.DontSave := True;
+  EditWarnOk := True;
+  CheckResult := 2;
+  TestMergeLines := TStringList.Create;
+  TestMergeLines.Add('# xEdit merge into master probe');
+  TestMergeLines.Add('# ' + xeApplicationTitle);
+  TestMergeLines.Add('# source = ' + xeTestMergeSource + ', target = ' + xeTestMergeTarget + ', out = ' + xeTestMergeOut);
+  TestMergeLines.Add('# Columns, tab separated: what / details');
+  TestMergeTimer := TTimer.Create(Self);
+  TestMergeTimer.Interval := 500;
+  TestMergeTimer.OnTimer := TestMergeRunTimer;
+  TestMergeTimer.Enabled := True;
+end;
+
+procedure TfrmMain.TestMergeRunTimer(Sender: TObject);
+
+  function OwnRecords(const aFile: IwbFile): Integer;
+  begin
+    Result := 0;
+    var lLayout := xeContext.SlotLayout;
+    for var i := 0 to Pred(aFile.RecordCount) do
+      if aFile.Records[i].LoadOrderFormID.FileID[lLayout] = aFile.LoadOrderFileID then
+        Inc(Result);
+  end;
+
+  procedure AddTree(const aContainer: IwbContainer; aDepth: Integer);
+  var
+    lGroup  : IwbGroupRecord;
+    lRecord : IwbMainRecord;
+  begin
+    for var i := 0 to Pred(aContainer.ElementCount) do
+      if Supports(aContainer.Elements[i], IwbGroupRecord, lGroup) then begin
+        TestMergeLines.Add('targettree' + #9 + IntToStr(aDepth) + #9 + 'GRUP' + #9 + IntToStr(lGroup.GroupType) + #9 +
+          IntToHex(lGroup.GroupLabel, 8));
+        AddTree(lGroup, Succ(aDepth));
+      end else if Supports(aContainer.Elements[i], IwbMainRecord, lRecord) then
+        TestMergeLines.Add('targettree' + #9 + IntToStr(aDepth) + #9 + string(lRecord.Signature) + #9 +
+          IntToHex(lRecord.LoadOrderFormID.ToCardinal, 8) + #9 + 'flags=' + IntToHex(lRecord.Flags._Flags, 8) + #9 + lRecord.EditorID);
+  end;
+
+var
+  lSource : IwbFile;
+  lTarget : IwbFile;
+  lNode   : PVirtualNode;
+  lBefore : Integer;
+  lGroups : Integer;
+  lStream : TMemoryStream;
+begin
+  TestMergeTimer.Enabled := False;
+  try
+    lSource := nil;
+    lTarget := nil;
+    for var i := Low(Files) to High(Files) do
+      if SameText(Files[i].FileName, xeTestMergeSource) then
+        lSource := Files[i]
+      else if SameText(Files[i].FileName, xeTestMergeTarget) then
+        lTarget := Files[i];
+    if not Assigned(lSource) or not Assigned(lTarget) then
+      raise Exception.Create(xeTestMergeSource + ' and ' + xeTestMergeTarget + ' must both be loaded');
+    TestMergeTarget := lTarget;
+    TestMergeLines.Add('source' + #9 + lSource.FileName + #9 + 'records ' + IntToStr(lSource.RecordCount) + #9 +
+      'own ' + IntToStr(OwnRecords(lSource)));
+    TestMergeLines.Add('target' + #9 + lTarget.FileName + #9 + 'records ' + IntToStr(lTarget.RecordCount));
+
+    TestMergeAnswer := TTimer.Create(Self);
+    TestMergeAnswer.Interval := 100;
+    TestMergeAnswer.OnTimer := TestMergeAnswerTimer;
+    TestMergeAnswer.Enabled := True;
+
+    lNode := FindNodeForElement(lSource);
+    if not Assigned(lNode) then
+      raise Exception.Create('no nav node for ' + lSource.FileName);
+    vstNav.ClearSelection;
+    vstNav.Selected[lNode] := True;
+    vstNav.FocusedNode := lNode;
+    lBefore := OwnRecords(lSource);
+    mniNavRenumberFormIDsFromClick(mniNavRenumberFormIDsInject);
+    if TestMergeNotOffered then
+      raise Exception.Create(lTarget.FileName + ' was not offered by the inject''s module picker');
+    TestMergeLines.Add('inject' + #9 + 'own records before ' + IntToStr(lBefore) + ', after ' + IntToStr(OwnRecords(lSource)));
+
+    vstNav.ClearSelection;
+    lGroups := 0;
+    for var i := 0 to Pred(lSource.ElementCount) do
+      if Supports(lSource.Elements[i], IwbGroupRecord) then begin
+        lNode := FindNodeForElement(lSource.Elements[i]);
+        if not Assigned(lNode) then
+          raise Exception.Create('no nav node for ' + lSource.Elements[i].Name);
+        vstNav.Selected[lNode] := True;
+        if lGroups = 0 then
+          vstNav.FocusedNode := lNode;
+        Inc(lGroups);
+        TestMergeLines.Add('selected' + #9 + lSource.Elements[i].Name);
+      end;
+    if lGroups > 0 then
+      mniNavCopyIntoClick(mniNavDeepCopyAsOverrideWithOverwriting)
+    else
+      TestMergeLines.Add('copy' + #9 + 'no top level group in ' + lSource.FileName + ', nothing to copy');
+    TestMergeAnswer.Enabled := False;
+    if TestMergeNotOffered then
+      raise Exception.Create(lTarget.FileName + ' was not offered by the copy''s module picker');
+
+    TestMergeLines.Add('target' + #9 + lTarget.FileName + #9 + 'records ' + IntToStr(lTarget.RecordCount) + #9 +
+      'masters ' + IntToStr(lTarget.MasterCount[True]));
+    AddTree(lTarget, 0);
+    lStream := TMemoryStream.Create;
+    try
+      lTarget.WriteToStream(lStream, rmNo);
+      lStream.SaveToFile(xeTestMergeOut);
+      TestMergeLines.Add('merged' + #9 + xeTestMergeOut + #9 + IntToStr(lStream.Size) + #9 +
+        IntToHex(TwbHash.XXH64(lStream.Memory, lStream.Size), 16));
+    finally
+      lStream.Free;
+    end;
+    CheckResult := 0;
+  except
+    on E: Exception do begin
+      AddMessage('[Test Merge] FAILED: ' + E.ClassName + ': ' + E.Message);
+      TestMergeLines.Add('# FAILED: ' + E.ClassName + ': ' + E.Message);
+    end;
+  end;
+  if Assigned(TestMergeAnswer) then
+    TestMergeAnswer.Enabled := False;
+  TestMergeWrite;
+end;
+
+procedure TfrmMain.TestMergeAnswerTimer(Sender: TObject);
+var
+  lForm   : TCustomForm;
+  lResult : TModalResult;
+  lText   : string;
+
+  function HasButton(aOwner: TComponent; aResult: TModalResult): Boolean;
+  begin
+    Result := False;
+    for var i := 0 to Pred(aOwner.ComponentCount) do begin
+      if (aOwner.Components[i] is TButton) and (TButton(aOwner.Components[i]).ModalResult = aResult) then
+        Exit(True);
+      if HasButton(aOwner.Components[i], aResult) then
+        Exit(True);
+    end;
+  end;
+
+  procedure CollectText(aOwner: TComponent);
+  begin
+    for var i := 0 to Pred(aOwner.ComponentCount) do begin
+      if aOwner.Components[i] is TLabel then
+        lText := lText + ' ' + TLabel(aOwner.Components[i]).Caption;
+      CollectText(aOwner.Components[i]);
+    end;
+  end;
+
+begin
+  if not Assigned(TestMergeLines) then
+    Exit;
+  lForm := nil;
+  for var i := 0 to Pred(Screen.CustomFormCount) do
+    if (Screen.CustomForms[i] <> Self) and Screen.CustomForms[i].Visible and
+       (fsModal in Screen.CustomForms[i].FormState) and (Screen.CustomForms[i].ModalResult = mrNone) then begin
+      lForm := Screen.CustomForms[i];
+      Break;
+    end;
+  if not Assigned(lForm) then
+    Exit;
+  lText := '';
+  CollectText(lForm);
+  lResult := mrNone;
+  if lForm is TfrmModuleSelect then begin
+    var lOffered := False;
+    for var lInfo in TfrmModuleSelect(lForm).AllModules do
+      if lInfo = PwbModuleInfo(TestMergeTarget.ModuleInfo) then
+        lOffered := True;
+    if lOffered then begin
+      Include(PwbModuleInfo(TestMergeTarget.ModuleInfo).miFlags, mfTagged);
+      lResult := mrOk;
+    end else begin
+      TestMergeNotOffered := True;
+      lResult := mrCancel;
+    end;
+  end else if HasButton(lForm, mrYesToAll) then
+    lResult := mrYesToAll
+  else if HasButton(lForm, mrYes) then
+    lResult := mrYes
+  else if HasButton(lForm, mrOk) then
+    lResult := mrOk;
+  if lResult = mrNone then
+    Exit;
+  lText := lText.Replace(#13, ' ').Replace(#10, ' ');
+  if Length(lText) > 300 then
+    lText := Copy(lText, 1, 300) + '...';
+  TestMergeLines.Add('answer' + #9 + lForm.Caption + #9 + IntToStr(lResult) + #9 + lText.Trim);
+  lForm.ModalResult := lResult;
+end;
+
+procedure TfrmMain.TestMergeWrite;
+var
+  lTmp : string;
+begin
+  try
+    TestMergeLines.Add('# checkResult = ' + IntToStr(CheckResult));
+    lTmp := xeTestMergeFile + '.partial';
+    TestMergeLines.SaveToFile(lTmp, TEncoding.UTF8);
+    if not MoveFileEx(PChar(lTmp), PChar(xeTestMergeFile), MOVEFILE_REPLACE_EXISTING) then
+      RaiseLastOSError;
+  finally
+    FreeAndNil(TestMergeLines);
+    if xeAutoExit then
+      tmrShutdown.Enabled := True;
+  end;
+end;
+
+procedure TfrmMain.DoTestHide;
+begin
+  xeContext.Settings.DontSave := True;
+  TestHideTimer := TTimer.Create(Self);
+  TestHideTimer.Interval := 500;
+  TestHideTimer.OnTimer := TestHideRunTimer;
+  TestHideTimer.Enabled := True;
+end;
+
+procedure TfrmMain.TestHideRunTimer(Sender: TObject);
+var
+  lLines    : TStringList;
+  lMaster   : IwbMainRecord;
+  lOverride : IwbMainRecord;
+  lModule   : IwbFile;
+  lTmp      : string;
+
+  procedure Verdict(const aArm, aWhen: string);
+  var
+    lCA      : TConflictAll;
+    lCT      : TConflictThis;
+    lColumns : string;
+  begin
+    DoSetActiveRecord(lMaster, True);
+    lColumns := '';
+    for var i := Low(ActiveRecords) to High(ActiveRecords) do
+      if Assigned(ActiveRecords[i].Element) then
+        lColumns := lColumns + ' ' + ActiveRecords[i].Element._File.FileName;
+    ConflictLevelForMainRecord(lMaster, lCA, lCT);
+    lLines.Add(string.Join(#9, [aArm, aWhen, 'view', IntToStr(Length(ActiveRecords)) + ' columns:' + lColumns,
+      wbNameConflictAll[lCA] + ' / ' + wbNameConflictThis[lCT]]));
+  end;
+
+  procedure NavFocus(const aElement: IwbElement);
+  var
+    lNode : PVirtualNode;
+  begin
+    lNode := FindNodeForElement(aElement);
+    if not Assigned(lNode) then
+      raise Exception.Create('no navigation node for ' + aElement.Name);
+    vstNav.ClearSelection;
+    vstNav.FocusedNode := lNode;
+    vstNav.Selected[lNode] := True;
+    pmuNavPopup(nil);
+  end;
+
+  procedure NavMenu(const aArm, aWhen: string; const aElement: IwbElement);
+  begin
+    NavFocus(aElement);
+    lLines.Add(string.Join(#9, [aArm, aWhen, 'nav Hidden', 'visible ' + BoolToStr(mniNavHidden.Visible, True) + ', checked ' +
+      BoolToStr(mniNavHidden.Checked, True)]));
+  end;
+
+  procedure NavToggle(const aElement: IwbElement);
+  begin
+    NavFocus(aElement);
+    mniNavHidden.Click;
+  end;
+
+  procedure HeaderMenu(const aArm, aWhen: string; const aRecord: IwbMainRecord);
+  var
+    lColumn : Integer;
+  begin
+    DoSetActiveRecord(lMaster, True);
+    lColumn := -1;
+    for var i := Low(ActiveRecords) to High(ActiveRecords) do
+      if Assigned(ActiveRecords[i].Element) and ActiveRecords[i].Element.Equals(aRecord) then
+        lColumn := i;
+    if lColumn < 0 then
+      raise Exception.Create(aRecord.Name + ' is not a column of the View tab');
+    var lRtti := TRttiContext.Create;
+    lRtti.GetType(vstView.Header.Columns.ClassType).GetField('FPopupIndex').SetValue(vstView.Header.Columns, lColumn + 1);
+    pmuViewHeaderPopup(nil);
+    lLines.Add(string.Join(#9, [aArm, aWhen, 'header column ' + IntToStr(lColumn), 'Hide visible ' +
+      BoolToStr(mniViewHeaderHidden.Visible, True) + ', checked ' + BoolToStr(mniViewHeaderHidden.Checked, True) +
+      ', Unhide all visible ' + BoolToStr(mniViewHeaderUnhideAll.Visible, True)]));
+  end;
+
+  procedure Search(const aArm, aWhen: string);
+  var
+    lKey  : Word;
+    lData : PNavNodeData;
+  begin
+    edEditorIDSearch.Text := lMaster.EditorID;
+    vstNav.ClearSelection;
+    vstNav.FocusedNode := vstNav.GetFirst;
+    lKey := VK_RETURN;
+    edEditorIDSearchKeyDown(nil, lKey, []);
+    lData := vstNav.GetNodeData(vstNav.FocusedNode);
+    if Assigned(lData) and Assigned(lData.Element) then
+      lLines.Add(string.Join(#9, [aArm, aWhen, 'EditorID search', 'found ' + lData.Element.Name + ' in ' + lData.Element._File.FileName]))
+    else
+      lLines.Add(string.Join(#9, [aArm, aWhen, 'EditorID search', 'found nothing']));
+  end;
+
+begin
+  TestHideTimer.Enabled := False;
+  lLines := TStringList.Create;
+  try
+    lLines.Add('# xEdit hide probe');
+    lLines.Add('# ' + xeApplicationTitle);
+    lLines.Add('# record = ' + xeTestHideRecord + ' of ' + xeTestHideMaster + ', module = ' + xeTestHideModule);
+    lLines.Add('# Columns, tab separated: arm / when / what / state');
+    CheckResult := 2;
+    try
+      lMaster := nil;
+      lModule := nil;
+      for var i := Low(Files) to High(Files) do begin
+        if SameText(Files[i].FileName, xeTestHideMaster) then
+          lMaster := Files[i].RecordByFormID[TwbFormID.FromStr(xeTestHideRecord), True, True];
+        if SameText(Files[i].FileName, xeTestHideModule) then
+          lModule := Files[i];
+      end;
+      if not Assigned(lMaster) then
+        raise Exception.Create('no record ' + xeTestHideRecord + ' in ' + xeTestHideMaster);
+      if not Assigned(lModule) then
+        raise Exception.Create('no module ' + xeTestHideModule);
+      lMaster := lMaster.MasterOrSelf;
+      lOverride := nil;
+      for var i := 0 to Pred(lMaster.OverrideCount) do
+        if lMaster.Overrides[i]._File.Equals(lModule) then
+          lOverride := lMaster.Overrides[i];
+      if not Assigned(lOverride) then
+        raise Exception.Create(lMaster.Name + ' has no override in ' + xeTestHideModule);
+      if lMaster.EditorID = '' then
+        raise Exception.Create(lMaster.Name + ' has no EditorID to search for');
+      lLines.Add('# master = ' + lMaster.Name + ' in ' + lMaster._File.FileName + ', override in ' + lModule.FileName);
+
+      Verdict('base', 'before');
+
+      NavMenu('navRecord', 'before', lOverride);
+      NavToggle(lOverride);
+      NavMenu('navRecord', 'hidden', lOverride);
+      Verdict('navRecord', 'hidden');
+      NavToggle(lOverride);
+      NavMenu('navRecord', 'shown', lOverride);
+      Verdict('navRecord', 'shown');
+
+      HeaderMenu('header', 'before', lOverride);
+      mniViewHeaderHidden.Click;
+      Verdict('header', 'hidden');
+      HeaderMenu('header', 'master column', lMaster);
+      mniViewHeaderUnhideAll.Click;
+      Verdict('header', 'unhidden');
+      HeaderMenu('header', 'after', lOverride);
+
+      NavMenu('navFile', 'before', lModule);
+      NavToggle(lModule);
+      NavMenu('navFile', 'hidden', lModule);
+      Verdict('navFile', 'hidden');
+      NavToggle(lModule);
+      Verdict('navFile', 'shown');
+
+      Search('search', 'nothing hidden');
+      NavToggle(lMaster);
+      Search('search', 'master hidden');
+      NavToggle(lMaster);
+      Search('search', 'master shown');
+
+      NavToggle(lModule);
+      HeaderMenu('unhideAll', 'file hidden', lMaster);
+      mniViewHeaderUnhideAll.Click;
+      NavMenu('unhideAll', 'clicked', lModule);
+      Verdict('unhideAll', 'clicked');
+      HeaderMenu('unhideAll', 'clicked', lMaster);
+      NavToggle(lModule);
+      Verdict('unhideAll', 'file shown');
+
+      CheckResult := 0;
+    except
+      on E: Exception do begin
+        AddMessage('[Test Hide] FAILED: ' + E.ClassName + ': ' + E.Message);
+        lLines.Add('# FAILED: ' + E.ClassName + ': ' + E.Message);
+      end;
+    end;
+    lLines.Add('# checkResult = ' + IntToStr(CheckResult));
+    lTmp := xeTestHideFile + '.partial';
+    lLines.SaveToFile(lTmp, TEncoding.UTF8);
+    if not MoveFileEx(PChar(lTmp), PChar(xeTestHideFile), MOVEFILE_REPLACE_EXISTING) then
+      RaiseLastOSError;
+  finally
+    lLines.Free;
+    if xeAutoExit then
+      tmrShutdown.Enabled := True;
+  end;
+end;
+
+procedure TfrmMain.DoTestFilter;
+var
+  lLines : TStringList;
+  lTmp   : string;
+  lNode  : PVirtualNode;
+  lData  : PNavNodeData;
+  lCount : Integer;
+begin
+  lLines := TStringList.Create;
+  try
+    lLines.Add('# xEdit filter probe');
+    lLines.Add('# ' + xeApplicationTitle);
+    if xeTestFilterPreset = '' then
+      lLines.Add('# filter = by persistent, everything else off')
+    else
+      lLines.Add('# filter = the "' + xeTestFilterPreset + '" preset');
+    if xeTestFilterByValue <> '' then
+      lLines.Add('# before the filter: FilterByElementValue = True, FilterElementValue = ' + xeTestFilterByValue +
+        ' (what the filter dialog''s apply leaves after a filter by element value)');
+    lLines.Add('# Columns, tab separated: record left in the tree / file');
+    CheckResult := 2;
+    try
+      if xeTestFilterByValue <> '' then begin
+        FilterByElementValue := True;
+        FilterElementValue := xeTestFilterByValue;
+      end;
+      if SameText(xeTestFilterPreset, 'cleaning') then
+        mniNavFilterForCleaningClick(nil)
+      else if SameText(xeTestFilterPreset, 'onlyone') then
+        mniNavFilterForOnlyOneClick(nil)
+      else if SameText(xeTestFilterPreset, 'conflicts') then
+        mniNavFilterConflictsClick(nil)
+      else begin
+        FilterConflictAll := False;
+        FilterConflictThis := False;
+        FilterByInjectStatus := False;
+        FilterInjectStatus := False;
+        FilterByNotReachableStatus := False;
+        FilterNotReachableStatus := False;
+        FilterByReferencesInjectedStatus := False;
+        FilterReferencesInjectedStatus := False;
+        FilterByEditorID := False;
+        FilterEditorID := '';
+        FilterByName := False;
+        FilterName := '';
+        FilterByBaseEditorID := False;
+        FilterBaseEditorID := '';
+        FilterByBaseName := False;
+        FilterBaseName := '';
+        FilterScaledActors := False;
+        FilterByPersistent := True;
+        FilterPersistent := True;
+        FilterUnnecessaryPersistent := False;
+        FilterMasterIsTemporary := False;
+        FilterIsMaster := False;
+        FilterPersistentPosChanged := False;
+        FilterDeleted := False;
+        FilterByVWD := False;
+        FilterVWD := False;
+        FilterByHasVWDMesh := False;
+        FilterHasVWDMesh := False;
+        FilterByHasPrecombinedMesh := False;
+        FilterHasPrecombinedMesh := False;
+        FilterBySignature := False;
+        FilterSignatures := '';
+        FilterByBaseSignature := False;
+        FilterBaseSignatures := '';
+        FilterConflictAllSet := [];
+        FilterConflictThisSet := [];
+        FlattenBlocks := True;
+        FlattenCellChilds := True;
+        AssignPersWrldChild := True;
+        InheritConflictByParent := True;
+        FilterPreset := True;
+        try
+          mniNavFilterApplyClick(nil);
+        finally
+          FilterPreset := False;
+        end;
+      end;
+      lLines.Add('# after the filter: FilterByElementValue = ' + BoolToStr(FilterByElementValue, True));
+      lCount := 0;
+      lNode := vstNav.GetFirst;
+      while Assigned(lNode) do begin
+        lData := vstNav.GetNodeData(lNode);
+        if Assigned(lData) and Supports(lData.Element, IwbMainRecord) then begin
+          Inc(lCount);
+          if xeTestFilterPreset = '' then
+            lLines.Add(lData.Element.Name + #9 + lData.Element._File.FileName);
+        end;
+        lNode := vstNav.GetNext(lNode);
+      end;
+      lLines.Add('# records left: ' + IntToStr(lCount));
+      if xeTestFilterRemove <> '' then begin
+        xeContext.Settings.DontSave := True;
+        EditWarnOk := True;
+        var lFile : IwbFile := nil;
+        for var i := Low(Files) to High(Files) do
+          if SameText(Files[i].FileName, xeTestFilterRemove) then
+            lFile := Files[i];
+        if not Assigned(lFile) then
+          raise Exception.Create('no module ' + xeTestFilterRemove);
+        lNode := FindNodeForElement(lFile);
+        if not Assigned(lNode) then
+          raise Exception.Create('no nav node for ' + lFile.FileName);
+        var lBefore := lFile.RecordCount;
+        vstNav.ClearSelection;
+        vstNav.Selected[lNode] := True;
+        vstNav.FocusedNode := lNode;
+        TestFilterAnswered := '';
+        TestFilterAnswer := TTimer.Create(Self);
+        TestFilterAnswer.Interval := 100;
+        TestFilterAnswer.OnTimer := TestFilterAnswerTimer;
+        TestFilterAnswer.Enabled := True;
+        try
+          mniNavRemoveIdenticalToMasterClick(nil);
+        finally
+          TestFilterAnswer.Enabled := False;
+        end;
+        if TestFilterAnswered <> '' then
+          lLines.Add('# remove: a dialog was answered: ' + TestFilterAnswered);
+        lLines.Add('# remove: ' + lFile.FileName + ' records before ' + IntToStr(lBefore) + ', after ' + IntToStr(lFile.RecordCount));
+      end;
+      CheckResult := 0;
+    except
+      on E: Exception do begin
+        AddMessage('[Test Filter] FAILED: ' + E.ClassName + ': ' + E.Message);
+        lLines.Add('# FAILED: ' + E.ClassName + ': ' + E.Message);
+      end;
+    end;
+    lLines.Add('# checkResult = ' + IntToStr(CheckResult));
+    lTmp := xeTestFilterFile + '.partial';
+    lLines.SaveToFile(lTmp, TEncoding.UTF8);
+    if not MoveFileEx(PChar(lTmp), PChar(xeTestFilterFile), MOVEFILE_REPLACE_EXISTING) then
+      RaiseLastOSError;
+  finally
+    lLines.Free;
+    if xeAutoExit then
+      tmrShutdown.Enabled := True;
+  end;
+end;
+
+procedure TfrmMain.TestFilterAnswerTimer(Sender: TObject);
+var
+  lForm : TCustomForm;
+  lText : string;
+
+  procedure CollectText(aOwner: TComponent);
+  begin
+    for var i := 0 to Pred(aOwner.ComponentCount) do begin
+      if aOwner.Components[i] is TLabel then
+        lText := lText + ' ' + TLabel(aOwner.Components[i]).Caption;
+      CollectText(aOwner.Components[i]);
+    end;
+  end;
+
+begin
+  lForm := nil;
+  for var i := 0 to Pred(Screen.CustomFormCount) do
+    if (Screen.CustomForms[i] <> Self) and Screen.CustomForms[i].Visible and
+       (fsModal in Screen.CustomForms[i].FormState) and (Screen.CustomForms[i].ModalResult = mrNone) then begin
+      lForm := Screen.CustomForms[i];
+      Break;
+    end;
+  if not Assigned(lForm) then
+    Exit;
+  lText := '';
+  CollectText(lForm);
+  TestFilterAnswered := TestFilterAnswered + '[' + lForm.Caption + ']' + lText.Replace(#13, ' ').Replace(#10, ' ');
+  lForm.ModalResult := mrOk;
+end;
+
 procedure TfrmMain.WMUserLoaderDone(var Message: TMessage);
 
   procedure SetupTreeView(aTreeView: TVirtualEditTree);
@@ -21304,7 +23004,7 @@ begin
         end;
 
         if xeContext.LoaderError then begin
-          if xeTestConflicts or xeTestNavCopy then begin
+          if xeTestConflicts or xeTestNavCopy or xeTestMerge then begin
             wbProgress('Test mode FAILED: an error occured while loading modules');
             CheckResult := 255;
             if xeAutoExit then
@@ -21388,7 +23088,7 @@ begin
               end;
             end;
 
-        ModGroupsExist := ModGroups.Activate(xeContext);
+        ModGroupsExist := ModGroups.Activate(ConflictView);
         ConflictView.ModGroupsEnabled := ModGroupsExist;
         mniModGroupsEnabled.Checked := ConflictView.ModGroupsEnabled;
         mniModGroupsDisabled.Checked := not ConflictView.ModGroupsEnabled;
@@ -21503,6 +23203,30 @@ begin
             tmrShutdown.Enabled := True;
         end;
 
+        if xeTestViewTree then begin
+          DoTestViewTree;
+          if xeAutoExit then
+            tmrShutdown.Enabled := True;
+        end;
+
+        if xeTestOptions then
+          DoTestOptions;
+
+        if xeTestCopyIntoGap then
+          DoTestCopyIntoGap;
+
+        if xeTestDeltaPatch then
+          DoTestDeltaPatchStart;
+
+        if xeTestMerge then
+          DoTestMerge;
+
+        if xeTestHide then
+          DoTestHide;
+
+        if xeTestFilter then
+          DoTestFilter;
+
         if xeTestSaveContexts then
           DoTestSaveContextsCompare;
       finally
@@ -21526,55 +23250,41 @@ begin
 
           PerformLongAction('Creating Delta Patch', '', procedure
           var
-            i          : Integer;
-            Node       : PVirtualNode;
-            NodeData   : PNavNodeData;
-            MainRecord : IwbMainRecord;
+            Counts    : TwbDeltaPatchCounts;
+            DirtyInfo : PLOOTPluginInfo;
           begin
             HideRemoveMessage := True;
             xeQuickClean := True;
 
-            for i := High(Files) downto Low(Files) do
-              Files[i].Hide;
-
-            MasterFile.Show;
-            NewFile.Show;
-
             DoSetActiveRecord(nil);
             pgMain.ActivePage := tbsMessages;
 
-            lModules.ModulesByLoadOrder(False).ExcludeAll(mfTaggedForPluginMode);
-            Include(PwbModuleInfo(MasterFile.ModuleInfo).miFlags, mfTaggedForPluginMode);
-            mniNavFilterForOnlyOneClick(Self);
+            UserWasActive := True;
+            if EditWarn then begin
+              wbStartTime := Now;
+              Counts := wbConflictMakeDeltaPatch(MasterFile, NewFile, ConflictView,
+                procedure(const aMessage: string) begin PostAddMessage(aMessage); end);
 
-            Node := vstNav.GetFirst;
-            while Assigned(Node) do begin
-              NodeData := vstNav.GetNodeData(Node);
-              if Assigned(NodeData) then
-                if Supports(NodeData.Element, IwbMainRecord, MainRecord) then
-                  if MainRecord.Signature <> 'TES4' then
-                    if not MainRecord.IsDeleted then
-                      if NodeData.ConflictThis = ctOnlyOne then
-                        if Supports(wbCopyElementToFile(NodeData.Element, NewFile, False, False, '', '', '', '', False), IwbMainRecord, MainRecord) then
-                          MainRecord.IsDeleted := True;
-              Node := vstNav.GetNext(Node);
+              PostAddMessage('[Removing "Identical to Master" records done] ' + ' Processed Records: ' + IntToStr(Counts.Processed) +
+                ', Removed Records: ' + IntToStr(Counts.Removed) +
+                ', Elapsed Time: ' + wbFormatElapsedTime( Now - wbStartTime));
+
+              if Counts.Candidates > 0 then begin
+                DirtyInfo := nil;
+                for var i := Low(LOOTPluginInfos) to High(LOOTPluginInfos) do
+                  if (LOOTPluginInfos[i].Plugin = NewFile.FileName) and (LOOTPluginInfos[i].CRC32 = NewFile.CRC32) then begin
+                    DirtyInfo := @LOOTPluginInfos[i];
+                    Break;
+                  end;
+                if not Assigned(DirtyInfo) then begin
+                  SetLength(LOOTPluginInfos, Succ(Length(LOOTPluginInfos)));
+                  DirtyInfo := @LOOTPluginInfos[Pred(Length(LOOTPluginInfos))];
+                end;
+                DirtyInfo.Plugin := NewFile.FileName;
+                DirtyInfo.CRC32 := NewFile.CRC32;
+                DirtyInfo.ITM := Counts.Removed;
+              end;
             end;
-
-            NewFile.RemoveIdenticalDeltaFast;
-
-            lModules.ModulesByLoadOrder(False).ExcludeAll(mfTaggedForPluginMode);
-            Include(PwbModuleInfo(NewFile.ModuleInfo).miFlags, mfTaggedForPluginMode);
-            mniNavFilterForCleaning.Click;
-            JumpTo(NewFile.Header, False);
-            vstNav.ClearSelection;
-            vstNav.FocusedNode := vstNav.FocusedNode.Parent;
-            vstNav.Selected[vstNav.FocusedNode] := True;
-            DoSetActiveRecord(nil);
-            pgMain.ActivePage := tbsMessages;
-            mniNavRemoveIdenticalToMaster.Click;
-
-            for i := High(Files) downto Low(Files) do
-              Files[i].Show;
 
             lModules.ModulesByLoadOrder(False).ExcludeAll(mfTaggedForPluginMode);
             Include(PwbModuleInfo(NewFile.ModuleInfo).miFlags, mfTaggedForPluginMode);
@@ -21593,6 +23303,9 @@ begin
           HideRemoveMessage := False;
         end;
       end;
+
+      if xeTestDeltaPatch then
+        DoTestDeltaPatchReport;
 
       if xeTestConflicts then begin
         if xeContext.LoaderError then begin
