@@ -83,13 +83,22 @@ var
   xeTestViewTreeTime       : Integer;
   xeTestViewTreeHeader     : Boolean;
   xeTestViewTreeModal      : Boolean;
+  xeTestViewTreeWalk       : Boolean;
+  xeTestViewTreeIdle       : Boolean;
+  xeTestViewTreeRemove     : Boolean;
   xeTestOptions            : Boolean;
+  xeTestOptionsNav         : string;
+  xeTestOptionsPath        : string;
+  xeTestOptionsClose       : Boolean;
   xeTestOptionsFile        : string;
   xeTestCopyIntoGap        : Boolean;
   xeTestCopyIntoGapFile    : string;
   xeTestCopyIntoGapRecord  : string;
   xeTestCopyIntoGapSource  : string;
   xeTestCopyIntoGapOp      : string;
+  xeTestDropMaster         : Boolean;
+  xeTestDropMasterFile     : string;
+  xeTestDropMasterSpec     : string;
   xeTestDeltaPatch         : Boolean;
   xeTestDeltaPatchFile     : string;
   xeTestDeltaPatchMaster   : string;
@@ -114,6 +123,7 @@ var
   xeTestFilterPreset       : string;
   xeTestFilterByValue      : string;
   xeTestFilterRemove       : string;
+  xeTestFilterImages       : Integer;
   xeTestSaveContexts       : Boolean;
   xeTestSaveContextsFile   : string;
   xeTestSaveContextsSave   : string;
@@ -1006,6 +1016,9 @@ begin
       xeTestViewTreeTranslate := FindCmdLineSwitch('testviewtreetranslate');
       xeTestViewTreeHeader := FindCmdLineSwitch('testviewtreeheader');
       xeTestViewTreeModal := FindCmdLineSwitch('testviewtreemodal');
+      xeTestViewTreeWalk := FindCmdLineSwitch('testviewtreewalk');
+      xeTestViewTreeIdle := FindCmdLineSwitch('testviewtreeidle');
+      xeTestViewTreeRemove := FindCmdLineSwitch('testviewtreeremove');
       var lFocus: string;
       if wbFindCmdLineParam('testviewtreefocus', lFocus) then
         xeTestViewTreeFocus := StrToIntDef(lFocus, 0);
@@ -1019,6 +1032,9 @@ begin
         Exit(False);
       end;
       xeTestOptions := True;
+      wbFindCmdLineParam('testoptionsnav', xeTestOptionsNav);
+      wbFindCmdLineParam('testoptionspath', xeTestOptionsPath);
+      xeTestOptionsClose := FindCmdLineSwitch('testoptionsclose');
       xeAutoLoad    := True;
     end;
 
@@ -1035,6 +1051,16 @@ begin
       end;
       xeTestCopyIntoGap := True;
       xeAutoLoad        := True;
+    end;
+
+    if wbFindCmdLineParam('testdropmaster', xeTestDropMasterFile) then begin
+      if (xeTestDropMasterFile = '') or not wbFindCmdLineParam('testdropmasterspec', xeTestDropMasterSpec) then begin
+        ShowMessage('testdropmaster requires -testdropmaster:<filename> ' +
+          '-testdropmasterspec:<FormID>@<target module>,<FormID>@<source module>,<container>,<plain|modified|detach|mastersonly|unheld>');
+        Exit(False);
+      end;
+      xeTestDropMaster := True;
+      xeAutoLoad       := True;
     end;
 
     if wbFindCmdLineParam('testdeltapatch', xeTestDeltaPatchFile) then begin
@@ -1085,6 +1111,8 @@ begin
       wbFindCmdLineParam('testfilterpreset', xeTestFilterPreset);
       wbFindCmdLineParam('testfilterbyvalue', xeTestFilterByValue);
       wbFindCmdLineParam('testfilterremove', xeTestFilterRemove);
+      if wbFindCmdLineParam('testfilterimages', s) then
+        xeTestFilterImages := StrToIntDef(s, 0);
       if (xeTestFilterFile = '') or
          not ((xeTestFilterPreset = '') or SameText(xeTestFilterPreset, 'cleaning') or SameText(xeTestFilterPreset, 'onlyone') or
               SameText(xeTestFilterPreset, 'conflicts')) then begin

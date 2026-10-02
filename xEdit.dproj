@@ -8,7 +8,7 @@
         <Platform Condition="'$(Platform)'==''">Win64</Platform>
         <ProjectGuid>{BB5B51E2-CC9A-4404-A582-958449C5049E}</ProjectGuid>
         <ProjectName Condition="'$(ProjectName)'==''">xEdit</ProjectName>
-        <ProjectVersion>20.3</ProjectVersion>
+        <ProjectVersion>20.5</ProjectVersion>
         <TargetedPlatforms>3</TargetedPlatforms>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
@@ -196,7 +196,6 @@
         <DCCReference Include="Core\wbSaveInterface.pas"/>
         <DCCReference Include="Core\wbSort.pas"/>
         <DCCReference Include="Core\wbStreams.pas"/>
-        <DCCReference Include="xEdit\xeInit.pas"/>
         <DCCReference Include="xEdit\xeDeveloperMessageForm.pas">
             <Form>frmDeveloperMessage</Form>
             <FormType>dfm</FormType>
@@ -213,6 +212,10 @@
             <Form>frmFilterOptions</Form>
             <FormType>dfm</FormType>
         </DCCReference>
+        <DCCReference Include="xEdit\xeGameSelectForm.pas">
+            <Form>frmGameSelect</Form>
+        </DCCReference>
+        <DCCReference Include="xEdit\xeInit.pas"/>
         <DCCReference Include="xEdit\JvI\xejviScriptAdapter.pas"/>
         <DCCReference Include="xEdit\JvI\xejviScriptAdapterContainer.pas"/>
         <DCCReference Include="xEdit\JvI\xejviScriptAdapterDF.pas"/>
@@ -225,59 +228,45 @@
         <DCCReference Include="xEdit\JvI\xejviScriptAdapterMiscVcl.pas"/>
         <DCCReference Include="xEdit\JvI\xejviScriptAdapterRecord.pas"/>
         <DCCReference Include="xEdit\JvI\xejviScriptAdapterResource.pas"/>
+        <DCCReference Include="xEdit\JvI\xejviScriptArguments.pas"/>
         <DCCReference Include="xEdit\JvI\xejviScriptHost.pas"/>
         <DCCReference Include="xEdit\xeLegendForm.pas">
             <Form>frmLegend</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="xEdit\xeLocalizationForm.pas">
             <Form>frmLocalization</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="xEdit\xeLocalizePluginForm.pas">
             <Form>frmLocalizePlugin</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="xEdit\xeLODGenForm.pas"/>
         <DCCReference Include="xEdit\xeLogAnalyzerForm.pas">
             <Form>frmLogAnalyzer</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="xEdit\xeMainForm.pas">
             <Form>frmMain</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="xEdit\xeModGroupEditForm.pas"/>
         <DCCReference Include="xEdit\xeModGroupSelectForm.pas"/>
         <DCCReference Include="xEdit\xeModuleSelectForm.pas"/>
         <DCCReference Include="xEdit\xeOptionsForm.pas">
             <Form>frmOptions</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="xEdit\xeRichEditForm.pas">
             <Form>frmRichEdit</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="xEdit\xeScriptForm.pas">
             <Form>frmScript</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="xEdit\xeTipForm.pas"/>
         <DCCReference Include="xEdit\xeViewElementsForm.pas">
             <Form>frmViewElements</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="xEdit\xeWaitForm.pas">
             <Form>frmWait</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <DCCReference Include="xEdit\xeWorldspaceCellDetailsForm.pas">
             <Form>frmWorldspaceCellDetails</Form>
-            <FormType>dfm</FormType>
-        </DCCReference>
-        <DCCReference Include="xEdit\xeGameSelectForm.pas">
-            <Form>frmGameSelect</Form>
-            <FormType>dfm</FormType>
         </DCCReference>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>

@@ -75,6 +75,7 @@ type
     function IsAlignedGap(aColumn, aRow: Integer; out aMemoryIndex: Integer): Boolean;
     function CanAssignAligned(aColumn, aRow: Integer; const aSource: IwbElement; aCheckDontShow: Boolean): Boolean;
     function AssignAligned(aColumn, aRow: Integer; const aSource: IwbElement; aOnlySK: Boolean): IwbElement;
+    function AddTarget(aColumn: Integer; out aRow: Integer): TwbConflictTreeNode;
     property Tree: TwbConflictTree read tnTree;
     property Parent: TwbConflictTreeNode read tnParent;
     property Index: Integer read tnIndex;
@@ -98,9 +99,13 @@ type
     ctOnMessage      : TwbConflictMessageProc;
     ctRoot           : TwbConflictTreeNode;
     ctHideNoConflict : Boolean;
+    ctUndefinedChain : Boolean;
+    ctFiles          : TwbFiles;
     procedure Setup(aView: TwbConflictView; const aRootDatas: TwbDynConflictNodeDatas; aSiblingCompare, aInjected: Boolean;
       aRootCount: Integer; const aOnMessage: TwbConflictMessageProc);
+    procedure SettleDenseIDs(aView: TwbConflictView; const aRootDatas: TwbDynConflictNodeDatas);
     procedure ResolveNode(aNode: TwbConflictTreeNode);
+    procedure ResolveUndefinedChain;
   public
     constructor CreateForMainRecord(aView: TwbConflictView; const aMainRecord: IwbMainRecord; const aFiles: TwbFiles;
       const aOnMessage: TwbConflictMessageProc);
@@ -143,6 +148,8 @@ procedure wbConflictInitChildren(const aNodeDatas: PwbConflictNodeDatas; aNodeCo
   var aChildCount: Cardinal; aView: TwbConflictView; const aOnMessage: TwbConflictMessageProc);
 
 function wbConflictAlignedGap(const aParentData: TwbConflictNodeData; aRow: Integer; out aMemoryIndex: Integer): Boolean;
+
+function wbConflictAssignAligned(const aContainer: IwbContainerElementRef; aIndex, aMemoryIndex: Integer; const aSource: IwbElement; aOnlySK: Boolean): IwbElement;
 
 function wbConflictLevelForChildNodeDatas(const aNodeDatas: TwbDynConflictNodeDatas; aSiblingCompare, aInjected: Boolean; aView: TwbConflictView; const aOnMessage: TwbConflictMessageProc; const aOnField: TwbFieldConflictProc = nil): TConflictAll;
 
@@ -954,6 +961,13 @@ begin
   Result := True;
 end;
 
+function wbConflictAssignAligned(const aContainer: IwbContainerElementRef; aIndex, aMemoryIndex: Integer; const aSource: IwbElement; aOnlySK: Boolean): IwbElement;
+begin
+  Result := aContainer.AssignAligned(aIndex, aMemoryIndex, aSource, aOnlySK);
+  if Assigned(Result) then
+    aContainer.MoveElementTo(Result, aMemoryIndex);
+end;
+
 function wbConflictLevelForChildNodeDatas(const aNodeDatas: TwbDynConflictNodeDatas; aSiblingCompare, aInjected: Boolean; aView: TwbConflictView; const aOnMessage: TwbConflictMessageProc; const aOnField: TwbFieldConflictProc): TConflictAll;
 var
   ChildCount       : Cardinal;
@@ -1681,9 +1695,20 @@ begin
   if tnTree.IsStale or not IsAlignedGap(aColumn, aRow, lMemoryIndex) then
     Exit;
   lContainer := tnDatas[aColumn].Container;
-  Result := lContainer.AssignAligned(aRow - lContainer.AdditionalElementCount, lMemoryIndex, aSource, aOnlySK);
-  if Assigned(Result) then
-    lContainer.MoveElementTo(Result, lMemoryIndex);
+  Result := wbConflictAssignAligned(lContainer, aRow - lContainer.AdditionalElementCount, lMemoryIndex, aSource, aOnlySK);
+end;
+
+function TwbConflictTreeNode.AddTarget(aColumn: Integer; out aRow: Integer): TwbConflictTreeNode;
+begin
+  aRow := -1;
+  Result := Self;
+  while Assigned(Result) do begin
+    if Assigned(Result.tnDatas[aColumn].Element) then
+      Exit;
+    aRow := Result.tnIndex;
+    Result := Result.tnParent;
+  end;
+  aRow := -1;
 end;
 
 constructor TwbConflictTree.CreateForMainRecord(aView: TwbConflictView; const aMainRecord: IwbMainRecord; const aFiles: TwbFiles;
@@ -1699,6 +1724,10 @@ begin
     lCount := (lMaster.Def as IwbRecordDef).MemberCount + lMaster.AdditionalElementCount;
   Setup(aView, wbConflictNodeDatasForMainRecord(aMainRecord, aFiles, aView), False,
     lMaster.IsInjected and not ((lMaster.Signature = 'GMST') or (lMaster.Signature = 'DFOB')), lCount, aOnMessage);
+  if not Assigned(lMaster.Def) then begin
+    ctUndefinedChain := True;
+    ctFiles := aFiles;
+  end;
 end;
 
 constructor TwbConflictTree.CreateForRecords(aView: TwbConflictView; const aRecords: TDynMainRecords;
@@ -1714,6 +1743,7 @@ begin
   for var i := Low(aRecords) to High(aRecords) do begin
     lDatas[i].Element := aRecords[i];
     lDatas[i].Container := aRecords[i] as IwbContainerElementRef;
+    lDatas[i].Container.ElementCount;
   end;
   lCount := 0;
   if Assigned(aRecords[0].Def) then
@@ -1758,11 +1788,50 @@ begin
   Setup(aView, wbConflictNodeDatasForContainer(aContainer, aFiles), False, False, ContainerRootCount(aContainer), aOnMessage);
 end;
 
+procedure TwbConflictTree.SettleDenseIDs(aView: TwbConflictView; const aRootDatas: TwbDynConflictNodeDatas);
+var
+  lMasters : TDynMainRecords;
+  lRecords : TDynMainRecords;
+  lCount   : Integer;
+  lRecord  : IwbMainRecord;
+
+  procedure AddChain(const aRecord: IwbMainRecord);
+  begin
+    var lMaster := aRecord.MasterOrSelf;
+    for var lKnown in lMasters do
+      if lKnown.Equals(lMaster) then
+        Exit;
+    lMasters := lMasters + [lMaster];
+    if lCount + 1 + lMaster.OverrideCount > Length(lRecords) then
+      SetLength(lRecords, 2 * (lCount + 1 + lMaster.OverrideCount));
+    lRecords[lCount] := lMaster;
+    Inc(lCount);
+    for var i := 0 to Pred(lMaster.OverrideCount) do begin
+      lRecords[lCount] := lMaster.Overrides[i];
+      Inc(lCount);
+    end;
+  end;
+
+begin
+  lCount := 0;
+  for var i := Low(aRootDatas) to High(aRootDatas) do
+    if Supports(aRootDatas[i].Element, IwbMainRecord, lRecord) and (lRecord.ContextObj = aView.Context) then
+      AddChain(lRecord);
+  SetLength(lRecords, lCount);
+  for lRecord in lRecords do
+    if lRecord.DenseIDIn(aView.Context) = 0 then begin
+      aView.Context.AllocateDenseIDs(lRecords);
+      Exit;
+    end;
+end;
+
 procedure TwbConflictTree.Setup(aView: TwbConflictView; const aRootDatas: TwbDynConflictNodeDatas; aSiblingCompare, aInjected: Boolean;
   aRootCount: Integer; const aOnMessage: TwbConflictMessageProc);
 var
   lRecord : IwbMainRecord;
 begin
+  if aView.Context.LoaderDone then
+    SettleDenseIDs(aView, aRootDatas);
   ctView := aView;
   ctContextRef := aView.cvContextRef;
   aView.cvTrees.Add(Self);
@@ -1819,7 +1888,10 @@ begin
   if not Assigned(ctView) then
     raise Exception.Create('The conflict view of this conflict tree has been freed');
   ctHideNoConflict := aHideNoConflict;
-  ResolveNode(ctRoot);
+  if ctUndefinedChain then
+    ResolveUndefinedChain
+  else
+    ResolveNode(ctRoot);
   for var i := Low(ctRoot.tnDatas) to High(ctRoot.tnDatas) do
     with ctRoot.tnDatas[i] do begin
       if Assigned(Element) then
@@ -1827,6 +1899,25 @@ begin
       if Assigned(Container) then
         ContainerGen := Container.ElementGeneration;
     end;
+end;
+
+procedure TwbConflictTree.ResolveUndefinedChain;
+var
+  lRecord       : IwbMainRecord;
+  lConflictAll  : TConflictAll;
+  lConflictThis : TConflictThis;
+  lChainAll     : TConflictAll;
+begin
+  lChainAll := caUnknown;
+  for var i := Low(ctRoot.tnDatas) to High(ctRoot.tnDatas) do
+    if Supports(ctRoot.tnDatas[i].Element, IwbMainRecord, lRecord) then begin
+      wbConflictLevelForMainRecord(lRecord, ctFiles, ctView, ctOnMessage, lConflictAll, lConflictThis);
+      ctRoot.tnDatas[i].ConflictThis := lConflictThis;
+      if lConflictAll > lChainAll then
+        lChainAll := lConflictAll;
+    end;
+  for var i := Low(ctRoot.tnDatas) to High(ctRoot.tnDatas) do
+    ctRoot.tnDatas[i].ConflictAll := lChainAll;
 end;
 
 procedure TwbConflictTree.ResolveNode(aNode: TwbConflictTreeNode);
