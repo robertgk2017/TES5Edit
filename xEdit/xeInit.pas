@@ -124,6 +124,17 @@ var
   xeTestFilterByValue      : string;
   xeTestFilterRemove       : string;
   xeTestFilterImages       : Integer;
+  xeTestPump               : string;
+  xeTestPumpFile           : string;
+  xeTestPumpAction         : string;
+  xeTestPumpClient         : string;
+  xeTestPumpAnswer         : string;
+  xeTestPumpGenerator      : Boolean;
+  xeTestPumpDirect         : Boolean;
+  xeTestPumpModal          : Boolean;
+  xeTestPumpDuringLoad     : string;
+  xeTestPumpHotkey         : string;
+  xeTestPumpSearch         : string;
   xeTestSaveContexts       : Boolean;
   xeTestSaveContextsFile   : string;
   xeTestSaveContextsSave   : string;
@@ -933,6 +944,41 @@ begin
 
     if FindCmdLineSwitch('autoexit') then
       xeAutoExit := True;
+  end;
+
+  if wbFindCmdLineParam('testpump', xeTestPump) then begin
+    wbFindCmdLineParam('testpumpfile', xeTestPumpFile);
+    wbFindCmdLineParam('testpumpaction', xeTestPumpAction);
+    wbFindCmdLineParam('testpumpclient', xeTestPumpClient);
+    wbFindCmdLineParam('testpumpanswer', xeTestPumpAnswer);
+    xeTestPumpGenerator := FindCmdLineSwitch('testpumpgenerator');
+    xeTestPumpDirect := FindCmdLineSwitch('testpumpdirect');
+    xeTestPumpModal := FindCmdLineSwitch('testpumpmodal');
+    wbFindCmdLineParam('testpumpduringload', xeTestPumpDuringLoad);
+    wbFindCmdLineParam('testpumphotkey', xeTestPumpHotkey);
+    wbFindCmdLineParam('testpumpsearch', xeTestPumpSearch);
+    if (xeTestPumpFile = '') or
+       not ((xeTestPumpAnswer = '') or SameText(xeTestPumpAnswer, 'yes') or SameText(xeTestPumpAnswer, 'no')) or
+       not (SameText(xeTestPump, 'close') or SameText(xeTestPump, 'ctrlo') or SameText(xeTestPump, 'xback') or
+            SameText(xeTestPump, 'pendingset') or SameText(xeTestPump, 'tab') or SameText(xeTestPump, 'cancelctrlo') or
+            SameText(xeTestPump, 'cancelshortcut') or SameText(xeTestPump, 'endsession') or
+            SameText(xeTestPump, 'browse') or SameText(xeTestPump, 'hotkey') or SameText(xeTestPump, 'edidsearch')) or
+       not ((xeTestPumpClient = '') or SameText(xeTestPumpClient, 'enabled') or SameText(xeTestPumpClient, 'disabled')) or
+       not ((xeTestPumpDuringLoad = '') or SameText(xeTestPumpDuringLoad, 'any') or SameText(xeTestPumpDuringLoad, 'refs')) or
+       ((xeTestPumpDuringLoad <> '') and (SameText(xeTestPump, 'xback') or SameText(xeTestPump, 'pendingset'))) or
+       (SameText(xeTestPump, 'browse') and (xeTestPumpDuringLoad = '')) or
+       (SameText(xeTestPump, 'hotkey') <> (xeTestPumpHotkey <> '')) or
+       (SameText(xeTestPump, 'edidsearch') <> (xeTestPumpSearch <> '')) then begin
+      ShowMessage('testpump requires -testpump:<close|ctrlo|xback|pendingset|tab|cancelctrlo|cancelshortcut|endsession|browse|hotkey|edidsearch> ' +
+        '-testpumpfile:<filename> [-testpumpaction:<text in the current action or caption>] [-testpumpclient:<enabled|disabled>] ' +
+        '[-testpumpanswer:<yes|no>] [-testpumpgenerator] [-testpumpdirect] [-testpumpmodal] [-testpumpduringload:<any|refs>] ' +
+        '[-testpumphotkey:<script file>] [-testpumpsearch:<EditorID>]; browse only with -testpumpduringload, hotkey only with ' +
+        '-testpumphotkey, edidsearch only with -testpumpsearch, ' +
+        'xback and pendingset not with -testpumpduringload');
+      Exit(False);
+    end;
+    if xeToolMode = tmLODgen then
+      xeAutoLoad := True;
   end;
 
   if xeToolMode = tmEdit then begin

@@ -89,6 +89,7 @@ type
     OrgConflictThis : TConflictThis;
     ElementGen      : Integer;
     ContainerGen    : Integer;
+    ViewEpoch       : Cardinal;
     MissingElements : TDynElements;
     Flags           : TNavNodeFlags;
   end;
@@ -859,6 +860,26 @@ type
     TestFilterAnswer         : TTimer;
     TestFilterAnswered       : string;
 
+    CloseDeferred            : Boolean;
+    CloseByUser              : Boolean;
+    LongActionDepth          : Integer;
+    CancelableLongActionDepth : Integer;
+    ResetActiveTreeDeferred  : Boolean;
+    PluggyChangeDeferred     : Boolean;
+
+    TestPumpTimer            : TTimer;
+    TestPumpDelivered        : Boolean;
+    TestPumpEnded            : Boolean;
+    TestPumpEndTick          : UInt64;
+    TestPumpLastDialog       : HWND;
+    TestPumpSeen             : string;
+    TestPumpCtrlDown         : Boolean;
+    TestPumpModalBase        : TCustomForm;
+    TestPumpFocus            : HWND;
+    TestPumpShortCut         : TAction;
+    TestPumpBrowseNode       : PVirtualNode;
+    TestPumpBrowseCount      : Integer;
+
     TestViewModalAnswer      : TTimer;
     TestViewModalFactory     : TFunc<TwbConflictTree>;
     TestViewModalSeen        : string;
@@ -868,6 +889,14 @@ type
 
     procedure TestFilterAnswerTimer(Sender: TObject);
     procedure TestViewModalAnswerTimer(Sender: TObject);
+
+    procedure TestPumpStart;
+    procedure TestPumpBrowseStep;
+    function TestPumpInside: Boolean;
+    procedure TestPumpNote(const aText: string);
+    procedure TestPumpSetCtrl(aDown: Boolean);
+    procedure TestPumpTimerTimer(Sender: TObject);
+    procedure TestPumpShortCutExecute(Sender: TObject);
 
     procedure TestMergeRunTimer(Sender: TObject);
     procedure TestMergeAnswerTimer(Sender: TObject);
@@ -961,6 +990,7 @@ type
     procedure InvalidateElementsTreeView(aNodes: TNodeArray); overload;
     procedure InvalidateElementsTreeView; overload;
     procedure ResetAllConflict;
+    procedure ResetConflictOfAllFiles;
     procedure ResetActiveTree;
     procedure ExpandView;
     function CollectViewContainers: TwbContainerElementRefs;
@@ -1021,7 +1051,7 @@ type
     function LOOTDirtyInfo(const aInfo: TLOOTPluginInfo; aFileChanged: Boolean): string;
     function BOSSDirtyInfo(const aInfo: TLOOTPluginInfo): string;
 
-    procedure PerformLongAction(const aDesc, aProgress: string; const aAction: TProc);
+    procedure PerformLongAction(const aDesc, aProgress: string; const aAction: TProc; aCancelable: Boolean = False);
     procedure PerformActionOnSelectedFiles(const aDesc: string; const aAction: TProc<IwbFile>);
 
     procedure LoadModGroupsSelection(const aModGroups: TwbModGroupPtrs);
@@ -1030,6 +1060,8 @@ type
     function FindColors(const s: string; out aColors: TArray<TColor>): Boolean;
     procedure WndProc(var Message: TMessage); override;
   private
+    procedure WMClose(var Message: TWMClose); message WM_CLOSE;
+    procedure WMQueryEndSession(var Message: TWMQueryEndSession); message WM_QUERYENDSESSION;
     procedure WMUser(var Message: TMessage); message WM_USER;
     procedure WMUser1(var Message: TMessage); message WM_USER + 1;
     procedure WMUserLoaderDone(var Message: TMessage); message WM_USER + 2;
@@ -1228,6 +1260,9 @@ type
 
     procedure UpdateActions; override;
 
+    function InNestedLoop: Boolean;
+    function IsInputForNestedPump(const aMsg: TMsg): Boolean;
+
     procedure ApplicationMessage(var Msg: TMsg; var Handled: Boolean);
     procedure vstCreateEditor(const aElement: IwbElement; out EditLink: IVTEditLink);
 
@@ -1239,6 +1274,8 @@ type
     ConflictView: TwbConflictView;
     procedure AfterConstruction; override;
     destructor Destroy; override;
+    function CloseQuery: Boolean; override;
+    function IsShortCut(var Message: TWMKey): Boolean; override;
 
     procedure PostResetActiveTree;
     procedure CheckViewForChange;
@@ -1526,6 +1563,7 @@ end;
 threadvar
   LastUpdate               : UInt64;
   ProcessMessagesLockCount : Integer;
+  NestedPumpDepth          : Integer;
 
 function LockProcessMessages: Integer;
 begin
@@ -1543,9 +1581,11 @@ procedure DoProcessMessages;
 begin
   if ProcessMessagesLockCount < 1 then begin
     LockProcessMessages;
+    Inc(NestedPumpDepth);
     try
       Application.ProcessMessages;
     finally
+      Dec(NestedPumpDepth);
       UnLockProcessMessages;
     end;
   end;
@@ -2389,8 +2429,87 @@ begin
   end;
 end;
 
+function TfrmMain.InNestedLoop: Boolean;
+begin
+  Result := (NestedPumpDepth > 0) or (HandleAllocated and not IsWindowEnabled(Handle));
+end;
+
+function TfrmMain.IsInputForNestedPump(const aMsg: TMsg): Boolean;
+begin
+  Result := False;
+  if NestedPumpDepth < 1 then
+    Exit;
+  case aMsg.message of
+    WM_KEYDOWN:
+      if (aMsg.wParam = VK_TAB) and not pnlClient.Enabled and (GetKeyState(VK_CONTROL) >= 0) then
+        Exit;
+    WM_CHAR, WM_DEADCHAR, WM_SYSCHAR, WM_SYSDEADCHAR:
+      ;
+    WM_SYSKEYDOWN:
+      if aMsg.wParam = VK_F4 then
+        Exit;
+    WM_MOUSEFIRST..WM_MOUSELAST:
+      if (aMsg.message = WM_LBUTTONUP) or (aMsg.message = WM_MBUTTONUP) then
+        Exit;
+  else
+    Exit;
+  end;
+  if (aMsg.hwnd <> Handle) and not IsChild(Handle, aMsg.hwnd) then
+    Exit;
+  if pnlCancel.HandleAllocated and ((aMsg.hwnd = pnlCancel.Handle) or IsChild(pnlCancel.Handle, aMsg.hwnd)) then
+    Exit;
+  Result := True;
+end;
+
+function TfrmMain.CloseQuery: Boolean;
+begin
+  if not InNestedLoop then
+    Exit(inherited CloseQuery);
+  Result := False;
+  if CloseDeferred then
+    Exit;
+  if CloseByUser and (LongActionDepth > 0) and (CancelableLongActionDepth = LongActionDepth) then begin
+    if MessageDlg('Cancel the current operation and close?', mtConfirmation, mbYesNo, 0, mbNo) <> mrYes then
+      Exit;
+    wbForceTerminate := True;
+    PostAddMessage('[' + wbFormatElapsedTime(Now - wbStartTime) + '] Close requested: canceling the current operation.');
+  end else
+    PostAddMessage('[' + wbFormatElapsedTime(Now - wbStartTime) + '] Close requested: waiting for the current operation to end.');
+  CloseDeferred := True;
+end;
+
+procedure TfrmMain.WMClose(var Message: TWMClose);
+begin
+  CloseByUser := True;
+  try
+    inherited;
+  finally
+    CloseByUser := False;
+  end;
+end;
+
+procedure TfrmMain.WMQueryEndSession(var Message: TWMQueryEndSession);
+begin
+  if (NestedPumpDepth > 0) or (LongActionDepth > 0) or not pnlClient.Enabled then begin
+    Message.Result := 0;
+    PostAddMessage('[' + wbFormatElapsedTime(Now - wbStartTime) + '] Windows session end refused: an operation is running.');
+  end else
+    Message.Result := LRESULT(inherited CloseQuery);
+end;
+
+function TfrmMain.IsShortCut(var Message: TWMKey): Boolean;
+begin
+  if NestedPumpDepth > 0 then
+    Exit(False);
+  Result := inherited IsShortCut(Message);
+end;
+
 procedure TfrmMain.ApplicationMessage(var Msg: TMsg; var Handled: Boolean);
 begin
+  if IsInputForNestedPump(Msg) then begin
+    Handled := True;
+    Exit;
+  end;
   if Msg.message = 524 {WM_XBUTTONUP} then
     {$IFDEF WIN32}
     case LongRec(Msg.wParam).Hi of
@@ -3285,7 +3404,7 @@ begin
         end;
       end;
     end;
-  end);
+  end, True);
 end;
 
 procedure TfrmMain.mniNavCleaningObsoleteClick(Sender: TObject);
@@ -4995,7 +5114,7 @@ begin
     end;
 
     wbPatron := Settings.ReadBool('Options', 'Patron', wbPatron);
-    if (not wbPatron or not xeAutoLoad) and not (xeTestConflicts or xeTestNavCopy or xeTestViewText or xeTestViewTree or xeTestOptions or xeTestCopyIntoGap or xeTestDropMaster or xeTestDeltaPatch or xeTestMerge or xeTestHide or xeTestFilter or xeTestSaveContexts) then
+    if (not wbPatron or not xeAutoLoad) and not (xeTestConflicts or xeTestNavCopy or xeTestViewText or xeTestViewTree or xeTestOptions or xeTestCopyIntoGap or xeTestDropMaster or xeTestDeltaPatch or xeTestMerge or xeTestHide or xeTestFilter or xeTestSaveContexts or (xeTestPumpDuringLoad <> '')) then
       ShowDeveloperMessage;
   end;
 
@@ -5248,6 +5367,8 @@ begin
       wbNoGitHubCheck := Settings.ReadBool('Options', 'NoGitHubCheck', wbNoGitHubCheck);
       wbNoNexusModsCheck := Settings.ReadBool('Options', 'NoNexusModsCheck', wbNoNexusModsCheck);
 
+      if (xeTestPump <> '') and (xeTestPumpDuringLoad <> '') then
+        TestPumpStart;
       TLoaderThread.Create(sl);
     finally
       FreeAndNil(sl);
@@ -6053,6 +6174,13 @@ var
   i: Integer;
 
 begin
+  if xeTestPump <> '' then begin
+    var lShown := '';
+    if Assigned(ActiveRecord) then
+      lShown := ', the View tab shows ' + ActiveRecord.Name;
+    TestPumpNote('FormClose entered: inside ' + IfThen(xeTestPumpModal, 'a modal loop ', 'a nested pump ') + BoolToStr(TestPumpInside, True) +
+      ', client panel enabled ' + BoolToStr(pnlClient.Enabled, True) + ', action "' + wbCurrentAction + '"' + lShown);
+  end;
   Action := caFree;
   if LoaderStarted and not xeContext.LoaderDone then begin
     wbForceTerminate := True;
@@ -6370,6 +6498,8 @@ var
   r                           : TRect;
   i                           : Integer;
 begin
+  if NestedPumpDepth > 0 then
+    Exit;
   if xeContext.LoaderDone then begin
     if (Key = Ord('S')) and (Shift = [ssCtrl]) then begin
       jbhSave.CancelHint;
@@ -7869,6 +7999,11 @@ begin
     Exit;
   end;
 
+  if not xeContext.LoaderDone then begin
+    PostAddMessage('Script cannot be applied while the background loader is running');
+    Exit;
+  end;
+
   if Trim(aScript) = '' then
     Exit;
 
@@ -9108,7 +9243,7 @@ begin
       _File.BuildReachable;
     end;
     ReachableBuild := True;
-  end);
+  end, True);
 end;
 
 procedure TfrmMain.mniNavBuildRefClick(Sender: TObject);
@@ -9151,7 +9286,7 @@ begin
         DoProcessMessages;
         _File.BuildRef;
       end;
-    end);
+    end, True);
 
   finally
     Free;
@@ -13599,7 +13734,7 @@ begin
         finally
           vstNav.EndUpdate;
         end;
-      end);
+      end, True);
     end;
   finally
     Signatures.Free;
@@ -13870,8 +14005,10 @@ var
   ca: TConflictAll;
   PatronSet: Boolean;
   lConflictSettings: string;
+  lActorTemplateHide: Boolean;
 begin
   lConflictSettings := ConflictSettings;
+  lActorTemplateHide := wbActorTemplateHide;
   with TfrmOptions.Create(Self) do try
     pnlFontRecords.Font := vstNav.Font;
     pnlFontMessages.Font := mmoMessages.Font;
@@ -13981,8 +14118,11 @@ begin
     xeContext.Settings.ConvertIntFormID := cbConvertIntFormID.Checked;
     xeContext.GameDefObj.DefineOptions.Collapse := CollapseOptions;
     wbCollapseBenignArray := cbCollapseBenignArray.Checked;
-    if ConflictSettings <> lConflictSettings then
+    if ConflictSettings <> lConflictSettings then begin
       ResetAllConflict;
+      if wbActorTemplateHide <> lActorTemplateHide then
+        ResetConflictOfAllFiles;
+    end;
     vstNav.Invalidate;
     if (wbShrinkButtons <> cbShrinkButtons.Checked) then
       if cbShrinkButtons.Checked then ShrinkButtons else ExpandButtons;
@@ -14200,7 +14340,7 @@ begin
   end;
 end;
 
-procedure TfrmMain.PerformLongAction(const aDesc, aProgress: string; const aAction: TProc);
+procedure TfrmMain.PerformLongAction(const aDesc, aProgress: string; const aAction: TProc; aCancelable: Boolean);
 var
   HadTick      : Boolean;
   HadLastMsg   : Boolean;
@@ -14230,6 +14370,9 @@ begin
   PrevProgress := wbCurrentProgress;
   pnlClient.Enabled := False;
   UpdatePnlCancelVisible;
+  Inc(LongActionDepth);
+  if aCancelable then
+    Inc(CancelableLongActionDepth);
   try
     pgMain.ActivePage := tbsMessages;
     if aDesc <> '' then
@@ -14264,6 +14407,9 @@ begin
       wbProgress(s);
     end;
   finally
+    if aCancelable then
+      Dec(CancelableLongActionDepth);
+    Dec(LongActionDepth);
     pnlClient.Enabled := WasEnabled;
     UpdatePnlCancelVisible;
     wbCurrentAction := PrevAction;
@@ -15272,12 +15418,17 @@ begin
 end;
 
 procedure TfrmMain.ResetAllConflict;
+begin
+  xeContext.ConflictRulesChanged;
+  vstNav.Invalidate;
+end;
+
+procedure TfrmMain.ResetConflictOfAllFiles;
 var
   i     : Integer;
   _File : IwbFile;
 begin
   wbStartTime := Now;
-  ConflictView.RulesChanged;
 
   pnlClient.Enabled := False;
   UpdatePnlCancelVisible;
@@ -16834,12 +16985,16 @@ end;
 
 procedure TfrmMain.tmrUpdateColumnWidthsTimer(Sender: TObject);
 begin
+  if InNestedLoop then
+    Exit;
   tmrUpdateColumnWidths.Enabled := False;
   UpdateColumnWidths;
 end;
 
 procedure TfrmMain.tmrViewFilterApplyTimer(Sender: TObject);
 begin
+  if InNestedLoop then
+    Exit;
   tmrViewFilterApply.Enabled := False;
   with vstView do begin
     BeginUpdate;
@@ -17061,7 +17216,7 @@ begin
     }
   end;
 
-  if not Enabled then
+  if InNestedLoop then
     Exit;
 
   if not pnlClient.Enabled then
@@ -17223,7 +17378,7 @@ begin
   end;
 
   if (xeToolMode in [tmOnamUpdate, tmMasterUpdate, tmMasterRestore, tmESMify, tmESPify, tmSortAndCleanMasters, tmCheckForITM,
-        tmCheckForDR, tmCheckForErrors]) and xeContext.LoaderDone and not xeMasterUpdateDone then begin
+        tmCheckForDR, tmCheckForErrors]) and xeContext.LoaderDone and not xeMasterUpdateDone and not InNestedLoop then begin
     xeMasterUpdateDone := True;
     ChangesMade := False;
     if xeContext.LoaderError then begin
@@ -17328,6 +17483,8 @@ end;
 
 procedure TfrmMain.tmrPendingSetActiveTimer(Sender: TObject);
 begin
+  if InNestedLoop then
+    Exit;
   tmrPendingSetActive.Enabled := False;
   if Assigned(PendingContainer) then
     DoSetActiveContainer(PendingContainer)
@@ -17337,6 +17494,8 @@ end;
 
 procedure TfrmMain.tmrReferencedByFilterApplyTimer(Sender: TObject);
 begin
+  if InNestedLoop then
+    Exit;
   tmrReferencedByFilterApply.Enabled := false;
   ApplyReferencedByFilter;
 end;
@@ -18802,13 +18961,15 @@ begin
       (NodeData.Element.ElementType = etMainRecord) then begin
       MainRecord := NodeData.Element as IwbMainRecord;
 
-      if (NodeData.ConflictAll = caUnknown) or (MainRecord.ElementGeneration <> NodeData.ElementGen) then begin
+      if (NodeData.ConflictAll = caUnknown) or (MainRecord.ElementGeneration <> NodeData.ElementGen) or
+        (NodeData.ViewEpoch <> ConflictView.Epoch) then begin
         ConflictLevelForMainRecord(MainRecord, NodeData.ConflictAll, NodeData.ConflictThis);
         with NodeData^ do begin
           OrgConflictAll  := ConflictAll;
           OrgConflictThis := ConflictThis;
         end;
         NodeData.ElementGen := MainRecord.ElementGeneration;
+        NodeData.ViewEpoch := ConflictView.Epoch;
         if MainRecord.IsInjected then
           Include(NodeData.Flags, nnfInjected)
         else
@@ -19748,13 +19909,15 @@ begin
       MainRecord := NodeData.Element as IwbMainRecord;
 
       if xeContext.LoaderDone then
-        if (NodeData.ConflictThis = ctUnknown) or (MainRecord.ElementGeneration <> NodeData.ElementGen) then begin
+        if (NodeData.ConflictThis = ctUnknown) or (MainRecord.ElementGeneration <> NodeData.ElementGen) or
+          (NodeData.ViewEpoch <> ConflictView.Epoch) then begin
           ConflictLevelForMainRecord(MainRecord, NodeData.ConflictAll, NodeData.ConflictThis);
           with NodeData^ do begin
             OrgConflictAll  := ConflictAll;
             OrgConflictThis := ConflictThis;
           end;
           NodeData.ElementGen := MainRecord.ElementGeneration;
+          NodeData.ViewEpoch := ConflictView.Epoch;
           if MainRecord.IsInjected then
             Include(NodeData.Flags, nnfInjected)
           else
@@ -22231,6 +22394,7 @@ var
   lNavRecords      : TDynMainRecords;
   lNavVerdicts     : TArray<string>;
   lNavGens         : TArray<Integer>;
+  lNavEpoch        : Cardinal;
 
   function NavVerdict(const aRecord: IwbMainRecord): string;
   var
@@ -22265,6 +22429,7 @@ var
       Inc(lCount);
     end;
     SetLength(lNavRecords, lCount);
+    lNavEpoch := ConflictView.Epoch;
   end;
 
   procedure NavAfter(const aArm: string);
@@ -22273,6 +22438,7 @@ var
     var lStale := 0;
     var lExamples := 0;
     var lCachedStale := 0;
+    var lEpochKept := ConflictView.Epoch = lNavEpoch;
     for var i := Low(lNavRecords) to High(lNavRecords) do begin
       var lGenKept := lNavRecords[i].ElementGeneration = lNavGens[i];
       var lCached := NavVerdict(lNavRecords[i]);
@@ -22285,16 +22451,16 @@ var
       end;
       if lFresh <> lNavVerdicts[i] then begin
         Inc(lMoved);
-        if lGenKept then
+        if lGenKept and lEpochKept then
           Inc(lStale);
         if lExamples < 5 then begin
           Inc(lExamples);
-          lLines.Add(Format('# nav %s'#9'example'#9'%s'#9'before %s'#9'after %s'#9'generation %s', [aArm, lNavRecords[i].Name,
-            lNavVerdicts[i], lFresh, IfThen(lGenKept, 'kept', 'moved')]));
+          lLines.Add(Format('# nav %s'#9'example'#9'%s'#9'before %s'#9'after %s'#9'generation %s'#9'epoch %s', [aArm,
+            lNavRecords[i].Name, lNavVerdicts[i], lFresh, IfThen(lGenKept, 'kept', 'moved'), IfThen(lEpochKept, 'kept', 'moved')]));
         end;
       end;
     end;
-    lLines.Add(Format('# nav %s'#9'file %s'#9'records %d'#9'moved %d'#9'moved with generation kept %d',
+    lLines.Add(Format('# nav %s'#9'file %s'#9'records %d'#9'moved %d'#9'moved with generation and epoch kept %d',
       [aArm, xeTestOptionsNav, Length(lNavRecords), lMoved, lStale]));
     lLines.Add(Format('# nav %s'#9'cached verdict differs from fresh %d', [aArm, lCachedStale]));
     lNavRecords := nil;
@@ -23901,6 +24067,311 @@ begin
   lForm.ModalResult := mrOk;
 end;
 
+function TfrmMain.TestPumpInside: Boolean;
+begin
+  if xeTestPumpDuringLoad <> '' then
+    Result := LoaderStarted and not xeContext.LoaderDone and
+      (SameText(xeTestPumpDuringLoad, 'any') or xeContext.BuildingRefsParallel)
+  else if xeTestPumpGenerator then
+    Result := GeneratorStarted and not GeneratorDone
+  else if xeTestPumpModal then
+    Result := (ProcessMessagesLockCount < 1) and HandleAllocated and not IsWindowEnabled(Handle)
+  else
+    Result := ProcessMessagesLockCount > 0;
+end;
+
+procedure TfrmMain.TestPumpShortCutExecute(Sender: TObject);
+begin
+  TestPumpNote('the shortcut action ran ' + IfThen(TestPumpInside, 'inside the nested loop', 'outside any nested loop'));
+end;
+
+procedure TfrmMain.TestPumpNote(const aText: string);
+begin
+  TFile.AppendAllText(xeTestPumpFile, aText + sLineBreak);
+end;
+
+procedure TfrmMain.TestPumpSetCtrl(aDown: Boolean);
+var
+  lState: TKeyboardState;
+begin
+  GetKeyboardState(lState);
+  if aDown then
+    lState[VK_CONTROL] := lState[VK_CONTROL] or $80
+  else
+    lState[VK_CONTROL] := lState[VK_CONTROL] and not $80;
+  SetKeyboardState(lState);
+  TestPumpCtrlDown := aDown;
+end;
+
+procedure TfrmMain.TestPumpStart;
+begin
+  System.SysUtils.DeleteFile(xeTestPumpFile);
+  TestPumpNote('# xEdit pump probe: arrival "' + xeTestPump + '"');
+  if SameText(xeTestPump, 'xback') then begin
+    if not Assigned(BackHistory) then
+      BackHistory := TInterfaceList.Create;
+    BackHistory.Add(TMainRecordPosHistoryEntry.Create(Files[High(Files)].Header));
+    TestPumpNote('back history: ' + Files[High(Files)].Header.Name);
+  end;
+  if SameText(xeTestPump, 'cancelshortcut') then begin
+    TestPumpShortCut := TAction.Create(Self);
+    TestPumpShortCut.ActionList := ActionList1;
+    TestPumpShortCut.ShortCut := ShortCut(VK_F12, [ssCtrl]);
+    TestPumpShortCut.OnExecute := TestPumpShortCutExecute;
+  end;
+  TestPumpDelivered := False;
+  TestPumpEnded := False;
+  TestPumpBrowseNode := nil;
+  TestPumpBrowseCount := 0;
+  TestPumpSeen := '';
+  TestPumpModalBase := nil;
+  TestPumpFocus := 0;
+  TestPumpTimer := TTimer.Create(Self);
+  TestPumpTimer.Interval := 1;
+  TestPumpTimer.OnTimer := TestPumpTimerTimer;
+end;
+
+procedure TfrmMain.TestPumpBrowseStep;
+begin
+  var lNode := TestPumpBrowseNode;
+  if Assigned(lNode) then
+    lNode := vstNav.GetNext(lNode)
+  else
+    lNode := vstNav.GetFirst;
+  while Assigned(lNode) do begin
+    var lData := PNavNodeData(vstNav.GetNodeData(lNode));
+    if Assigned(lData) and Supports(lData.Element, IwbMainRecord) then
+      Break;
+    lNode := vstNav.GetNext(lNode);
+  end;
+  TestPumpBrowseNode := lNode;
+  if not Assigned(lNode) then
+    Exit;
+  vstNav.ClearSelection;
+  vstNav.FocusedNode := lNode;
+  vstNav.Selected[lNode] := True;
+  Inc(TestPumpBrowseCount);
+end;
+
+procedure TfrmMain.TestPumpTimerTimer(Sender: TObject);
+var
+  lFocus : HWND;
+  lCtrl  : TWinControl;
+  lWhere : string;
+begin
+  if not TestPumpDelivered then begin
+    if not TestPumpInside then
+      Exit;
+    if xeTestPumpDirect and (ProcessMessagesLockCount > 0) then
+      Exit;
+    if SameText(xeTestPumpClient, 'enabled') and not pnlClient.Enabled then
+      Exit;
+    if SameText(xeTestPumpClient, 'disabled') and pnlClient.Enabled then
+      Exit;
+    if (xeTestPumpAction <> '') and not ContainsText(wbCurrentAction + '|' + Caption, xeTestPumpAction) then
+      Exit;
+    TestPumpDelivered := True;
+    if xeTestPumpModal then begin
+      for var i := 0 to Pred(Screen.CustomFormCount) do
+        if (Screen.CustomForms[i] <> Self) and Screen.CustomForms[i].Visible and (fsModal in Screen.CustomForms[i].FormState) then
+          TestPumpModalBase := Screen.CustomForms[i];
+      var lBase: HWND := 0;
+      repeat
+        lBase := FindWindowEx(0, lBase, '#32770', nil);
+        if (lBase <> 0) and IsWindowVisible(lBase) and (GetWindowThreadProcessId(lBase, nil) = MainThreadID) then
+          TestPumpLastDialog := lBase;
+      until lBase = 0;
+    end;
+    if Assigned(ActiveRecord) then
+      TestPumpSeen := ActiveRecord.Name
+    else
+      TestPumpSeen := '-';
+    if SameText(xeTestPump, 'cancelctrlo') or SameText(xeTestPump, 'cancelshortcut') then
+      if btnCancel.CanFocus then
+        btnCancel.SetFocus;
+    lFocus := GetFocus;
+    TestPumpFocus := lFocus;
+    lCtrl := FindControl(lFocus);
+    if Assigned(lCtrl) then
+      lWhere := lCtrl.Name + ' (' + lCtrl.ClassName + ', enabled ' + BoolToStr(IsWindowEnabled(lFocus), True) + ')'
+    else
+      lWhere := '$' + IntToHex(lFocus, 8);
+    var lModalName: string := '-';
+    if Assigned(TestPumpModalBase) then
+      lModalName := TestPumpModalBase.ClassName;
+    var lDelivery := 'inside a nested pump';
+    if xeTestPumpDuringLoad <> '' then
+      lDelivery := 'while the loader runs'
+    else if xeTestPumpModal then
+      lDelivery := 'inside a modal loop outside any pump';
+    TestPumpNote('delivered ' + xeTestPump + ' ' + lDelivery +
+      ' during: "' + wbCurrentAction + '", caption "' + Caption +
+      '"; client panel enabled ' + BoolToStr(pnlClient.Enabled, True) + '; pump depth ' + IntToStr(NestedPumpDepth) +
+      ', lock count ' + IntToStr(ProcessMessagesLockCount) + ', form enabled ' + BoolToStr(Enabled, True) +
+      ', window enabled ' + BoolToStr(IsWindowEnabled(Handle), True) + ', modal ' + lModalName + '; focus ' + lWhere +
+      '; the View tab shows ' + TestPumpSeen +
+      IfThen(xeTestPumpDuringLoad <> '', '; loader done ' + BoolToStr(xeContext.LoaderDone, True) + ', building references ' +
+        BoolToStr(xeContext.BuildingRefsParallel, True) + ', files in the nav tree ' + IntToStr(Length(Files)), ''));
+    if SameText(xeTestPump, 'tab') then begin
+      if lFocus = 0 then
+        lFocus := Handle;
+      PostMessage(lFocus, WM_KEYDOWN, VK_TAB, 0);
+      PostMessage(lFocus, WM_KEYUP, VK_TAB, LPARAM($C0000000));
+    end else if SameText(xeTestPump, 'cancelctrlo') or SameText(xeTestPump, 'cancelshortcut') then begin
+      if lFocus = 0 then
+        lFocus := Handle;
+      TestPumpSetCtrl(True);
+      if SameText(xeTestPump, 'cancelctrlo') then begin
+        PostMessage(lFocus, WM_KEYDOWN, Ord('O'), 0);
+        PostMessage(lFocus, WM_KEYUP, Ord('O'), LPARAM($C0000000));
+      end else begin
+        PostMessage(lFocus, WM_KEYDOWN, VK_F12, 0);
+        PostMessage(lFocus, WM_KEYUP, VK_F12, LPARAM($C0000000));
+      end;
+    end else if SameText(xeTestPump, 'endsession') then
+      TestPumpNote('WM_QUERYENDSESSION answered ' + IntToStr(SendMessage(Handle, WM_QUERYENDSESSION, 0, 0)) +
+        '; close deferred ' + BoolToStr(CloseDeferred, True))
+    else if SameText(xeTestPump, 'hotkey') then begin
+      if not Assigned(ScriptHotkeys) then
+        ScriptHotkeys := TStringList.Create;
+      ScriptHotkeys.AddObject(xeTestPumpHotkey, TObject(ShortCut(VK_F12, [ssCtrl])));
+      TestPumpShortCut := TAction.Create(Self);
+      TestPumpShortCut.ActionList := ActionList1;
+      TestPumpShortCut.ShortCut := ShortCut(VK_F12, [ssCtrl]);
+      TestPumpShortCut.Tag := ScriptHotkeys.Count;
+      TestPumpShortCut.OnExecute := acScriptExecute;
+      if lFocus = 0 then
+        lFocus := Handle;
+      TestPumpSetCtrl(True);
+      PostMessage(lFocus, WM_KEYDOWN, VK_F12, 0);
+      PostMessage(lFocus, WM_KEYUP, VK_F12, LPARAM($C0000000));
+    end else if SameText(xeTestPump, 'edidsearch') then begin
+      edEditorIDSearch.Text := xeTestPumpSearch;
+      PostMessage(edEditorIDSearch.Handle, WM_KEYDOWN, VK_RETURN, 0);
+      PostMessage(edEditorIDSearch.Handle, WM_KEYUP, VK_RETURN, LPARAM($C0000000));
+    end else if SameText(xeTestPump, 'close') then
+      PostMessage(Handle, WM_CLOSE, 0, 0)
+    else if SameText(xeTestPump, 'ctrlo') then begin
+      if lFocus = 0 then
+        lFocus := Handle;
+      TestPumpSetCtrl(True);
+      PostMessage(lFocus, WM_KEYDOWN, Ord('O'), 0);
+      PostMessage(lFocus, WM_KEYUP, Ord('O'), LPARAM($C0000000));
+    end else if SameText(xeTestPump, 'xback') then
+      PostMessage(Handle, WM_XBUTTONUP, MakeWParam(0, 1), 0)
+    else if SameText(xeTestPump, 'pendingset') then begin
+      PendingContainer := nil;
+      PendingMainRecords := [Files[High(Files)].Header];
+      tmrPendingSetActive.Enabled := False;
+      tmrPendingSetActive.Enabled := True;
+    end;
+    Exit;
+  end;
+
+  if TestPumpEnded and (GetTickCount64 > TestPumpEndTick) then begin
+    TestPumpTimer.Enabled := False;
+    TestPumpNote('observation ended');
+    if xeTestPumpDuringLoad <> '' then
+      tmrShutdown.Enabled := True;
+    Exit;
+  end;
+
+  if xeTestPumpDuringLoad <> '' then
+    lWhere := IfThen(TestPumpInside, 'while the loader runs', 'after the loader')
+  else if xeTestPumpModal then
+    lWhere := IfThen(TestPumpInside, 'inside the modal loop', 'outside any modal loop')
+  else
+    lWhere := IfThen(TestPumpInside, 'inside the nested pump', 'outside any nested pump');
+
+  if TestPumpFocus <> GetFocus then begin
+    TestPumpFocus := GetFocus;
+    lCtrl := FindControl(TestPumpFocus);
+    if Assigned(lCtrl) then
+      TestPumpNote('focus now ' + lCtrl.Name + ' (' + lCtrl.ClassName + ') ' + lWhere)
+    else
+      TestPumpNote('focus now $' + IntToHex(TestPumpFocus, 8) + ' ' + lWhere);
+  end;
+
+  if TestPumpInside then
+  for var i := 0 to Pred(Screen.CustomFormCount) do
+    if (Screen.CustomForms[i] <> Self) and (Screen.CustomForms[i] <> TestPumpModalBase) and Screen.CustomForms[i].Visible and
+       (fsModal in Screen.CustomForms[i].FormState) and (Screen.CustomForms[i].ModalResult = mrNone) then begin
+      if SameText(xeTestPumpAnswer, 'yes') then
+        Screen.CustomForms[i].ModalResult := mrYes
+      else if SameText(xeTestPumpAnswer, 'no') then
+        Screen.CustomForms[i].ModalResult := mrNo
+      else
+        Screen.CustomForms[i].ModalResult := mrCancel;
+      TestPumpNote('a dialog opened ' + lWhere + ': ' + Screen.CustomForms[i].ClassName + ' "' + Screen.CustomForms[i].Caption +
+        '", answered ' + IfThen(xeTestPumpAnswer = '', 'cancel', xeTestPumpAnswer));
+      if TestPumpCtrlDown then
+        TestPumpSetCtrl(False);
+      Break;
+    end;
+
+  var lWnd: HWND := 0;
+  if TestPumpInside then
+  repeat
+    lWnd := FindWindowEx(0, lWnd, '#32770', nil);
+    if (lWnd <> 0) and IsWindowVisible(lWnd) and IsWindowEnabled(lWnd) and
+       (GetWindowThreadProcessId(lWnd, nil) = MainThreadID) then begin
+      if lWnd <> TestPumpLastDialog then begin
+        TestPumpLastDialog := lWnd;
+        var lCaption: array[0..255] of Char;
+        GetWindowText(lWnd, lCaption, Length(lCaption));
+        var lText := '';
+        var lChild: HWND := 0;
+        repeat
+          lChild := FindWindowEx(lWnd, lChild, nil, nil);
+          if lChild <> 0 then begin
+            var lPart: array[0..1023] of Char;
+            if GetWindowText(lChild, lPart, Length(lPart)) > 0 then
+              lText := lText + ' [' + string(lPart) + ']';
+          end;
+        until lChild = 0;
+        TestPumpNote('a task dialog opened ' + lWhere + ': "' + string(lCaption) + '"' + lText + ', answered ' +
+          IfThen(SameText(xeTestPumpAnswer, 'yes'), 'yes', 'no'));
+        if SameText(xeTestPumpAnswer, 'yes') then
+          SendMessage(lWnd, WM_USER + 102, IDYES, 0)
+        else
+          SendMessage(lWnd, WM_USER + 102, IDNO, 0);
+      end;
+      Break;
+    end;
+  until lWnd = 0;
+
+  var lBrowsing := SameText(xeTestPump, 'browse') and TestPumpInside;
+  if lBrowsing then
+    TestPumpBrowseStep;
+
+  var lShown: string := '-';
+  if Assigned(ActiveRecord) then
+    lShown := ActiveRecord.Name;
+  if not lBrowsing and (lShown <> TestPumpSeen) then begin
+    TestPumpSeen := lShown;
+    var lInFile := '';
+    if Assigned(ActiveRecord) then
+      lInFile := ' (in a file ' + BoolToStr(Assigned(ActiveRecord._File), True) + ')';
+    TestPumpNote('the View tab shows ' + TestPumpSeen + lInFile + ' ' + lWhere +
+      IfThen(TestPumpInside, ', during "' + wbCurrentAction + '"', ''));
+  end;
+
+  if not TestPumpInside and not TestPumpEnded then begin
+    TestPumpEnded := True;
+    TestPumpEndTick := GetTickCount64 + 2000;
+    if TestPumpCtrlDown then
+      TestPumpSetCtrl(False);
+    if xeTestPumpDuringLoad <> '' then
+      TestPumpNote('the loader phase has ended (loader done ' + BoolToStr(xeContext.LoaderDone, True) + '); records browsed ' +
+        IntToStr(TestPumpBrowseCount) + '; the View tab shows ' + lShown +
+        '; close deferred ' + BoolToStr(CloseDeferred, True) + '; observing for 2 s')
+    else if xeTestPumpModal then
+      TestPumpNote('the modal loop has ended; close deferred ' + BoolToStr(CloseDeferred, True) + '; observing for 2 s')
+    else
+      TestPumpNote('back in the outermost message loop; close deferred ' + BoolToStr(CloseDeferred, True) + '; observing for 2 s');
+  end;
+end;
+
 procedure TfrmMain.WMUserLoaderDone(var Message: TMessage);
 
   procedure SetupTreeView(aTreeView: TVirtualEditTree);
@@ -23958,6 +24429,8 @@ begin
         end;
 
         if (xeToolMode in [tmLODgen, tmScript]) then begin
+          if (xeTestPump <> '') and (xeTestPumpDuringLoad = '') then
+            TestPumpStart;
           if not wbForceTerminate then
             tmrGenerator.Enabled := True;
           Exit;
@@ -24035,6 +24508,9 @@ begin
         ConflictView.ModGroupsEnabled := ModGroupsExist;
         mniModGroupsEnabled.Checked := ConflictView.ModGroupsEnabled;
         mniModGroupsDisabled.Checked := not ConflictView.ModGroupsEnabled;
+
+        if (xeTestPump <> '') and (xeTestPumpDuringLoad = '') then
+          TestPumpStart;
 
         if xeQuickShowConflicts then
           mniNavFilterConflicts.Click;
@@ -24282,6 +24758,10 @@ end;
 
 procedure TfrmMain.WMUser3(var Message: TMessage);
 begin
+  if InNestedLoop then begin
+    ResetActiveTreeDeferred := True;
+    Exit;
+  end;
   if tmrPendingSetActive.Enabled then
     tmrPendingSetActiveTimer(tmrPendingSetActive)
   else
@@ -24291,11 +24771,17 @@ end;
 
 procedure TfrmMain.WMUser4(var Message: TMessage);
 begin
+  if InNestedLoop then begin
+    PluggyChangeDeferred := True;
+    Exit;
+  end;
   UpdateActiveFromPluggyLink;
 end;
 
 procedure TfrmMain.WMUser5(var Message: TMessage);
 begin
+  if InNestedLoop then
+    Exit;
   if DelayedExpandView then begin
     DelayedExpandView := False;
     ExpandView;
@@ -24311,6 +24797,21 @@ procedure TfrmMain.UpdateActions;
 var
   HintMode: TVTHintMode;
 begin
+  if not InNestedLoop then begin
+    if CloseDeferred then begin
+      CloseDeferred := False;
+      Close;
+      Exit;
+    end;
+    if ResetActiveTreeDeferred then begin
+      ResetActiveTreeDeferred := False;
+      PostMessage(Handle, WM_USER + 3, 0, 0);
+    end;
+    if PluggyChangeDeferred then begin
+      PluggyChangeDeferred := False;
+      PostMessage(Handle, WM_USER + 4, 0, 0);
+    end;
+  end;
   if DelayedExpandView then begin
     DelayedExpandView := False;
     ExpandView;
@@ -25482,6 +25983,7 @@ end;
 initialization
   wbLockProcessMessages := LockProcessMessages;
   wbUnLockProcessMessages := UnLockProcessMessages;
+  wbProcessMessages := DoProcessMessages;
 
   {$IFDEF USE_PARALLEL_BUILD_REFS}
   _LoaderProgressLock.Initialize;

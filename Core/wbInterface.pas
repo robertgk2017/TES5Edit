@@ -1,5 +1,4 @@
-
-{******************************************************************************
+﻿{******************************************************************************
 
   This Source Code Form is subject to the terms of the Mozilla Public License,
   v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain
@@ -4112,6 +4111,7 @@ type
     gcFaceGenCache         : TwbFaceGenCache;
     gcGlobalGeneration     : Integer;
     gcStampCounter         : Cardinal;
+    gcConflictRulesGeneration : Cardinal;
     gcIdentities           : array[Byte] of TDictionary<string, Cardinal>;
     gcNextIDs              : array[Byte] of Cardinal;
     gcSaveContexts         : TArray<TwbSaveContext>;
@@ -4144,6 +4144,7 @@ type
     function AllocateMediumSlot: Integer;
     procedure ForceClosed;
     procedure IncGlobalGeneration;
+    procedure ConflictRulesChanged;
     function NextStamp: Cardinal;
     procedure AllocateDenseIDs(const aRecords: TDynMainRecords); virtual; abstract;
     function BeginInternalEdit(aForce: Boolean = False): Boolean;
@@ -4166,6 +4167,8 @@ type
       read gcGlobalGeneration;
     property StampCounter: Cardinal
       read gcStampCounter;
+    property ConflictRulesGeneration: Cardinal
+      read gcConflictRulesGeneration;
 
     function RecordByLoadOrderFormID(const aFormID: TwbFormID; const aSeenFromFile: IwbFile): IwbMainRecord;
     function GameMasterRecordByFormID(const aFormID: TwbFormID): IwbMainRecord;
@@ -5636,6 +5639,7 @@ function DummyIntegerFunction: Integer;
 var
   wbLockProcessMessages: TIntegerFunction = DummyIntegerFunction;
   wbUnLockProcessMessages: TIntegerFunction = DummyIntegerFunction;
+  wbProcessMessages: TProcedure = nil;
 
 function Lighter(Color: TColor; Amount: Double = 0.5): TColor;
 function Darker(Color: TColor; Amount: Double = 0.5): TColor;
@@ -7351,6 +7355,11 @@ end;
 procedure TwbGameContext.IncGlobalGeneration;
 begin
   Inc(gcGlobalGeneration);
+end;
+
+procedure TwbGameContext.ConflictRulesChanged;
+begin
+  Inc(gcConflictRulesGeneration);
 end;
 
 function TwbGameContext.NextStamp: Cardinal;
