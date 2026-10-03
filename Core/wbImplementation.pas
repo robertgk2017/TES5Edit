@@ -594,6 +594,7 @@ type
     function ResetLeafFirst: Boolean; override;
     function ResetChildrenLeafFirst: Boolean; virtual;
     procedure DoInit(aNeedSorted: Boolean); virtual;
+    procedure DoAfterInit; virtual;
     procedure DoPendingFill; virtual;
 
     function HasErrors: Boolean; override;
@@ -1206,7 +1207,7 @@ type
 
   TwbMainRecordState = (
     mrsBuildingRef,
-    mrsReferencedByUnsorted,
+    mrsBuildRefPending,
     mrsIsInjected,
     mrsIsInjectedChecked,
     mrsReferencesInjected,
@@ -1274,6 +1275,7 @@ type
     mrTmpRefFormIDs     : TwbFormIDDictionary;
 
     mreGeneration       : Integer;
+    mrReferencedByUnsorted : Boolean;
     mrePrev             : Pointer;
     mreNext             : Pointer;
 
@@ -1324,6 +1326,7 @@ type
     procedure SetParentModified; override;
     procedure SetModified(aValue: Boolean); override;
     procedure DoPendingFill; override;
+    procedure DoAfterInit; override;
 
     function DoBuildRef(aRemove: Boolean): Boolean;
     function RecordHeaderStructDef: IwbStructDef;
@@ -2091,6 +2094,7 @@ type
     arcSortInvalid : Boolean;
     arcNameGen     : Integer;
     arcContextObj  : TwbGameContext;
+    arcPendingFor  : Pointer;
   protected
     constructor Create(const aOwner     : IwbContainer;
                        const aContainer : IwbContainer;
@@ -2099,6 +2103,8 @@ type
 
     function GameDefObj: TwbGameDef; override;
     function ContextObj: TwbGameContext; override;
+    function GetFile: IwbFile; override;
+    function GetContainingMainRecord: IwbMainRecord; override;
 
     procedure DoProcess(const aContainer : IwbContainer;
                               aPos       : Integer);
@@ -2146,6 +2152,7 @@ type
   protected {private}
     srcDef        : IwbRecordDef;
     srcContextObj : TwbGameContext;
+    srcPendingFor : Pointer;
   protected
     constructor Create(const aOwner     : IwbContainer;
                        const aContainer : IwbContainer;
@@ -2154,6 +2161,8 @@ type
 
     function GameDefObj: TwbGameDef; override;
     function ContextObj: TwbGameContext; override;
+    function GetFile: IwbFile; override;
+    function GetContainingMainRecord: IwbMainRecord; override;
 
     procedure TryAssignMembers(const aSource: IwbElement); override;
 
@@ -2902,7 +2911,7 @@ begin
               try
                 FileStream := TBufferedFileStream.Create(lTempFileName, fmCreate);
                 try
-                  TwbCompression.Compress(ctLZ4F, MemoryStream, FileStream);
+                  TwbCompression.Compress(ctLZ4F, MemoryStream, FileStream, False, 6);
                 finally
                   FileStream.Free;
                 end;
@@ -7406,6 +7415,10 @@ begin
   inherited;
 end;
 
+procedure TwbContainer.DoAfterInit;
+begin
+end;
+
 procedure TwbContainer.DoInit(aNeedSorted: Boolean);
 var
   i        : Integer;
@@ -7448,6 +7461,7 @@ begin
     wbUnLockProcessMessages;
     Exclude(cntStates, csInitializing);
   end;
+  DoAfterInit;
 end;
 
 procedure TwbContainer.DoReset(aForce: Boolean);
@@ -9492,7 +9506,7 @@ begin
         SetLength(mrReferencedBy, mrReferencedBySize);
     end;
     mrReferencedBy[i] := aMainRecord;
-    Include(mrStates, mrsReferencedByUnsorted);
+    mrReferencedByUnsorted := True;
 {$IFDEF USE_PARALLEL_BUILD_REFS}
   finally
     if ContextObj.BuildingRefsParallel then
@@ -9757,6 +9771,12 @@ begin
   if (csRefsBuild in cntStates) and (cntRefsBuildAt >= eGeneration) then
     Exit;
 
+  if [csRefsBuild, csInitializing] * cntStates = [csRefsBuild, csInitializing] then begin
+    if not (mrsBuildingRef in mrStates) then
+      Include(mrStates, mrsBuildRefPending);
+    Exit;
+  end;
+
   if wbSpeedOverMemory then
     DoBuildRef(False)
   else begin
@@ -9770,6 +9790,31 @@ begin
 
   if wbHasProgressCallback then
     wbProgressCallback;
+end;
+
+procedure TwbMainRecord.DoAfterInit;
+var
+  KAR: IwbKeepAliveRoot;
+begin
+  if not (mrsBuildRefPending in mrStates) then
+    Exit;
+  Exclude(mrStates, mrsBuildRefPending);
+  if [mrsBuildingRef, mrsNoUpdateRefs] * mrStates <> [] then
+    Exit;
+  if (csRefsBuild in cntStates) and (cntRefsBuildAt >= eGeneration) then
+    Exit;
+  wbLockProcessMessages;
+  try
+    if not wbSpeedOverMemory then
+      KAR := wbCreateKeepAliveRoot;
+    try
+      DoBuildRef(False);
+    finally
+      KAR := nil;
+    end;
+  finally
+    wbUnLockProcessMessages;
+  end;
 end;
 
 procedure TwbMainRecord.DoAfterSet(const aOldValue, aNewValue: Variant);
@@ -11262,11 +11307,13 @@ begin
       if not ((mrsQuickInitDone in mrStates) or (csInitOnce in cntStates)) then begin
         Assert(not (csInit in cntStates));
         Include(mrStates, mrsQuickInit);
+        Include(cntStates, csInitializing);
         Include(cntStates, csInit);
         try
           try
             Init;
           finally
+            Exclude(cntStates, csInitializing);
             DoReset(True);
           end;
         finally
@@ -11745,11 +11792,13 @@ begin
         Exit;
       end;
       Include(mrStates, mrsQuickInit);
+      Include(cntStates, csInitializing);
       Include(cntStates, csInit);
       try
         try
           Init;
         finally
+          Exclude(cntStates, csInitializing);
           DoReset(True);
         end;
       finally
@@ -11853,16 +11902,18 @@ begin
 
   if not ((mrsQuickInitDone in mrStates) or (csInitOnce in cntStates)) then
     if GetCanHaveFullName then begin
-      Include(mrStates, mrsQuickInit);
       if csInit in cntStates then begin
         Result := '<FullName not yet available: init still running>';
         Exit;
       end;
+      Include(mrStates, mrsQuickInit);
+      Include(cntStates, csInitializing);
       Include(cntStates, csInit);
       try
         try
           Init;
         finally
+          Exclude(cntStates, csInitializing);
           DoReset(True);
         end;
       finally
@@ -12000,11 +12051,13 @@ begin
       if csInit in cntStates then
         Exit(False);
       Include(mrStates, mrsQuickInit);
+      Include(cntStates, csInitializing);
       Include(cntStates, csInit);
       try
         try
           Init;
         finally
+          Exclude(cntStates, csInitializing);
           DoReset(True);
         end;
       finally
@@ -12718,7 +12771,7 @@ begin
     _ResizeLock.Enter;
   try
 {$ENDIF}
-  if mrsReferencedByUnsorted in mrStates then
+  if mrReferencedByUnsorted then
     SortReferencedBy;
   if (aIndex < 0) or (aIndex >= Length(mrReferencedBy)) then
     Result := nil
@@ -14564,7 +14617,7 @@ begin
     _ResizeLock.Enter;
   try
 {$ENDIF}
-  if mrsReferencedByUnsorted in mrStates then
+  if mrReferencedByUnsorted then
     SortReferencedBy;
 
   if FindReferencedBy(aMainRecord, i) then begin
@@ -15297,7 +15350,7 @@ begin
     _ResizeLock.Enter;
   try
 {$ENDIF}
-  Exclude(mrStates, mrsReferencedByUnsorted);
+  mrReferencedByUnsorted := False;
   if mrReferencedByCount > 1  then
     wbMergeSortPtr(@mrReferencedBy[0], mrReferencedByCount, CompareReferencedBy);
 {$IFDEF USE_PARALLEL_BUILD_REFS}
@@ -21881,8 +21934,10 @@ var
   i        : Integer;
 begin
   arcDef := aDef;
-  if not Assigned(aOwner) and Assigned(aContainer) then
+  if not Assigned(aOwner) and Assigned(aContainer) then begin
     arcContextObj := aContainer.ContextObj;
+    arcPendingFor := Pointer(aContainer);
+  end;
   eContainer := Pointer(aOwner);
   try
     if aPos <> Low(Integer) then begin
@@ -21906,6 +21961,7 @@ begin
   inherited Create(aOwner);
 
   arcDef.AfterLoad(Self);
+  arcPendingFor := nil;
 
   if aPos = Low(Integer) then begin
     SetModified(True);
@@ -21926,6 +21982,22 @@ begin
   Result := arcContextObj;
   if not Assigned(Result) then
     Result := inherited ContextObj;
+end;
+
+function TwbSubRecordArray.GetFile: IwbFile;
+begin
+  if Assigned(arcPendingFor) then
+    Result := IwbContainer(arcPendingFor)._File
+  else
+    Result := inherited GetFile;
+end;
+
+function TwbSubRecordArray.GetContainingMainRecord: IwbMainRecord;
+begin
+  if Assigned(arcPendingFor) then
+    Result := IwbContainer(arcPendingFor).ContainingMainRecord
+  else
+    Result := inherited GetContainingMainRecord;
 end;
 
 procedure TwbSubRecordArray.DoAfterSet(const aOldValue, aNewValue: Variant);
@@ -22542,8 +22614,10 @@ var
   FoundMembers  : IwbElements;
 begin
   srcDef := aDef as IwbRecordDef;
-  if not Assigned(aOwner) and Assigned(aContainer) then
+  if not Assigned(aOwner) and Assigned(aContainer) then begin
     srcContextObj := aContainer.ContextObj;
+    srcPendingFor := Pointer(aContainer);
+  end;
   LastDef := nil;
   LastElement := nil;
 
@@ -22650,6 +22724,7 @@ begin
     FoundMembers := nil;
 
     srcDef.AfterLoad(Self);
+    srcPendingFor := nil;
 
     if aPos = Low(Integer) then begin
       SetModified(True);
@@ -22674,6 +22749,22 @@ begin
   Result := srcContextObj;
   if not Assigned(Result) then
     Result := inherited ContextObj;
+end;
+
+function TwbSubRecordStruct.GetFile: IwbFile;
+begin
+  if Assigned(srcPendingFor) then
+    Result := IwbContainer(srcPendingFor)._File
+  else
+    Result := inherited GetFile;
+end;
+
+function TwbSubRecordStruct.GetContainingMainRecord: IwbMainRecord;
+begin
+  if Assigned(srcPendingFor) then
+    Result := IwbContainer(srcPendingFor).ContainingMainRecord
+  else
+    Result := inherited GetContainingMainRecord;
 end;
 {
 function TwbSubRecordStruct.GetAssignTemplates(aIndex: Integer): TwbTemplateElements;
