@@ -3635,7 +3635,7 @@ type
     gdHardcodedRangeAdmitted   : Boolean;
     gdHardcodedRangeMinVersion : Double;
     gdLightFlag                : Cardinal;
-    gdLightFlags               : Cardinal;
+    gdUpdateFlag               : Cardinal;
     gdEslExtensionSupported    : Boolean;
 
     function GetKnownSubRecordSignature(aKind: TwbKnownSubRecord): TwbSignature;
@@ -3839,8 +3839,8 @@ type
       read gdHardcodedRangeMinVersion;
     property LightFlag: Cardinal
       read gdLightFlag;
-    property LightFlags: Cardinal
-      read gdLightFlags;
+    property UpdateFlag: Cardinal
+      read gdUpdateFlag;
     property EslExtensionSupported: Boolean
       read gdEslExtensionSupported;
     function NewLightFileExtension: string;
@@ -6349,7 +6349,7 @@ begin
   gdHEDRVersion := 1.0;
   gdHEDRNextObjectID := $800;
   gdLightFlag := $00000200;
-  gdLightFlags := $00000200;
+  gdUpdateFlag := $00100000;
   gdCellSizeFactor := 4096.0;
   gdHeaderSignature := 'TES4';
   gdIgnoreRecords := TStringList.Create;
@@ -18776,7 +18776,7 @@ var
   ExceptionMask : TArithmeticExceptionMask;
 begin
   Len := NativeUInt(aEndPtr) - NativeUInt(aBasePtr);
-  if Len < GetDefaultSize(aBasePtr, aEndPtr, aElement) then
+  if Len < Cardinal(GetDefaultSize(aBasePtr, aEndPtr, aElement)) then
     Exit(NaN)
   else begin
     ClearExceptions(False);
@@ -18975,7 +18975,7 @@ var
 begin
   Result := '';
   Len := NativeUInt(aEndPtr) - NativeUInt(aBasePtr);
-  var lDefaultSize := GetDefaultSize(aBasePtr, aEndPtr, aElement);
+  var lDefaultSize := Cardinal(GetDefaultSize(aBasePtr, aEndPtr, aElement));
   if Len < lDefaultSize then begin
     if aIncludeWarnings then
       if wbCheckExpectedBytes then
@@ -20437,7 +20437,7 @@ begin
       '0'..'9', 'a'..'f', 'A'..'F': begin
         if i = Length(aValue) then
           raise Exception.Create('Unexpected end of value. Single digit in hexadecimal pair');
-        if aValue[Succ(i)] in ['0'..'9', 'a'..'f', 'A'..'F'] then begin
+        if CharInSet(aValue[Succ(i)], ['0'..'9', 'a'..'f', 'A'..'F']) then begin
           Bytes[j] := StrToInt('$'+Copy(aValue,i, 2));
           Inc(j);
           Inc(i, 2);
@@ -22866,17 +22866,13 @@ end;
 function TwbMainRecordStructFlags.IsLight(aGameDef: TwbGameDef): Boolean;
 begin
   Result := (gcLightPlugins in aGameDef.Capabilities) and
-    ((_Flags and aGameDef.LightFlags) <> 0);
+    ((_Flags and aGameDef.LightFlag) <> 0);
 end;
 
 function TwbMainRecordStructFlags.IsUpdate(aGameDef: TwbGameDef): Boolean;
 begin
-  Result :=
-        (gcUpdatePlugins in aGameDef.Capabilities)
-    and (
-             (aGameDef.IsStarfield and ((_Flags and $00000200) <> 0))
-          or ((not aGameDef.IsStarfield) and ((_Flags and $00100000) <> 0))
-        );
+  Result := (gcUpdatePlugins in aGameDef.Capabilities) and
+    ((_Flags and aGameDef.UpdateFlag) <> 0);
 end;
 
 function TwbMainRecordStructFlags.IsESM: Boolean;
@@ -22953,24 +22949,18 @@ begin
       SetMedium(aGameDef, False);
       SetUpdate(aGameDef, False);
     end else
-      _Flags := _Flags and not aGameDef.LightFlags;
+      _Flags := _Flags and not aGameDef.LightFlag;
 end;
 
 procedure TwbMainRecordStructFlags.SetUpdate(aGameDef: TwbGameDef; aValue: Boolean);
 begin
   if gcUpdatePlugins in aGameDef.Capabilities then
     if aValue then begin
-      if aGameDef.IsStarfield then
-        _Flags := _Flags or $00000200
-      else
-        _Flags := _Flags or $00100000;
+      _Flags := _Flags or aGameDef.UpdateFlag;
       SetLight(aGameDef, False);
       SetMedium(aGameDef, False);
     end else
-      if aGameDef.IsStarfield then
-        _Flags := _Flags and not $00000200
-      else
-        _Flags := _Flags and not $00100000;
+      _Flags := _Flags and not aGameDef.UpdateFlag;
 end;
 
 procedure TwbMainRecordStructFlags.SetESM(aValue: Boolean);
@@ -23041,7 +23031,7 @@ function TwbLenStringDef.Check(aBasePtr, aEndPtr: Pointer; const aElement: IwbEl
     Result := '';
 
     Len := NativeUInt(aEndPtr) - NativeUInt(aBasePtr);
-    if Len < GetPrefixOffset then begin
+    if Len < Cardinal(GetPrefixOffset) then begin
       if wbCheckExpectedBytes then
         Result := Format('Expected at least %d bytes of data, found %d', [Abs(Prefix) , Len]);
       Exit;
@@ -23094,8 +23084,8 @@ begin
     SetLength(b, Succ(Length(b))); //new byte automatically 0
 
   Len := Length(b);
-  NewSize := Len + GetPrefixOffset;
-  aElement.RequestStorageChange(aBasePtr, aEndPtr, NewSize + Ord(ndTerminator));
+  NewSize := Len + Cardinal(GetPrefixOffset);
+  aElement.RequestStorageChange(aBasePtr, aEndPtr, NewSize + Cardinal(Ord(ndTerminator)));
   SetPrefixValue(aBasePtr, aEndPtr, aElement, Len);
   p := PByte(aBasePtr) + GetPrefixOffset;
   if Len > 0 then
@@ -23249,7 +23239,7 @@ var
   i    : Integer;
 begin
   Len := NativeUInt(aEndPtr) - NativeUInt(aBasePtr);
-  if Len<GetPrefixOffset+Ord(ndTerminator) then
+  if Len < Cardinal(GetPrefixOffset + Ord(ndTerminator)) then
     Exit;
 
   Size := GetPrefixValue(aBasePtr, aEndPtr, aElement);
@@ -23619,7 +23609,7 @@ begin
 
     IsAlpha := True;
     for i := 1 to 4 do
-      if not(Value[i] in ['a'..'z', 'A'..'Z', '0'..'9', '_']) then begin
+      if not CharInSet(Value[i], ['a'..'z', 'A'..'Z', '0'..'9', '_']) then begin
         IsAlpha := False;
         break;
       end;
@@ -23711,22 +23701,22 @@ begin
     { yes, it's a dynamic code }
 
     if aNewCount.Total > aOldCount.Total then
-      if (MgefCode^ and $000000FF) >= aOldCount.Total then begin
+      if (MgefCode^ and $000000FF) >= Cardinal(aOldCount.Total) then begin
         MgefCode^ := (MgefCode^ and $FFFFFF00) or Cardinal(aNewCount.Total);
         Result := True;
         Exit;
       end;
 
     for i := Low(aOld) to High(aOld) do
-      if (MgefCode^ and $000000FF) = aOld[i].FullSlot then begin
+      if (MgefCode^ and $000000FF) = Cardinal(aOld[i].FullSlot) then begin
         { yes, it refers to this file }
-        MgefCode^ := (MgefCode^ and $FFFFFF00) or aNew[i].FullSlot;
+        MgefCode^ := (MgefCode^ and $FFFFFF00) or Cardinal(aNew[i].FullSlot);
         Result := True;
         Exit;
       end;
 
     if aNewCount.Total < aOldCount.Total then
-      if (MgefCode^ and $000000FF) >= aOldCount.Total then begin
+      if (MgefCode^ and $000000FF) >= Cardinal(aOldCount.Total) then begin
         MgefCode^ := (MgefCode^ and $FFFFFF00) or Cardinal(aNewCount.Total);
         Result := True;
         Exit;
@@ -23807,7 +23797,7 @@ begin
             FileID := MgefCode and $000000FF;
 
             if aTransformType <> ttCheck then begin
-              if FileID >= _File.MasterCount[aElement.MastersUpdated] then
+              if FileID >= Cardinal(_File.MasterCount[aElement.MastersUpdated]) then
                 Result := _File.FileName
               else
                 Result := _File.Masters[FileID, aElement.MastersUpdated].FileName;
@@ -25365,7 +25355,7 @@ begin
         if Length(sl) >= 3 then begin
           t := sl[2];
           i := 1;
-          while (i <= Length(t)) and (t[i] in ['0'..'9']) do
+          while (i <= Length(t)) and CharInSet(t[i], ['0'..'9']) do
             Inc(i);
           if i <= Length(t) then begin
             Build := Copy(t, i, High(Integer));
@@ -25399,8 +25389,8 @@ begin
     (Cardinal(VersionString.Major   and $000000FF) shl 24) or
     (Cardinal(VersionString.Minor   and $000000FF) shl 16) or
     (Cardinal(VersionString.Release and $000000FF) shl  8);
-  if (Length(Build) = 1) and (Build[1] in ['a'..'z']) then
-    Result := Result + Succ(Ord(Build[1]) -  Ord('a'));
+  if (Length(Build) = 1) and CharInSet(Build[1], ['a'..'z']) then
+    Result := Result + Cardinal(Succ(Ord(Build[1]) - Ord('a')));
 end;
 
 function TwbVersion.ToString: string;
