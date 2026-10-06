@@ -134,7 +134,7 @@ type
     function wbGenericModel(aRequired: Boolean = False; aDontShow: TwbDontShowCallback = nil): IwbRecordMemberDef;
     procedure ReferenceRecord(const aSignature: TwbSignature; const aName: string);
 
-    procedure Define; override;
+    procedure Define; override; final;
   end;
 
 implementation

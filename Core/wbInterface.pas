@@ -171,6 +171,9 @@ var
 
 
 
+  wbCallbackScopeEnter               : function(out aMark: Int64): Boolean;
+  wbCallbackScopeLeave               : procedure(aMark: Int64);
+
   wbCacheRecordsThreshold            : Integer    = 500;
   wbCacheTimeThreshold               : TDateTime  = 2 * 1/24/60/60; //2 seconds
 
@@ -2041,6 +2044,13 @@ type
       read GetContains;
   end;
 
+  TwbUndeleteOutcome = (
+    uoNotCandidate,
+    uoSkipNavMesh,
+    uoSkipOther,
+    uoUndelete
+  );
+
   IwbMainRecordDef = interface;
   IwbMainRecord = interface(IwbRecord)
     ['{F06FD5E2-621D-4422-BA00-CB3CA72B3691}']
@@ -2131,6 +2141,9 @@ type
     procedure DeleteInto(const aFile: IwbFile);
 
     procedure MakePartialForm;
+
+    function UndeleteDecision: TwbUndeleteOutcome;
+    procedure UndeleteAndDisable;
 
     function MasterRecordsFromMasterFilesAndSelf: TDynMainRecords;
 
@@ -3726,7 +3739,7 @@ type
     constructor Create; overload;
     constructor Create(aGameMode: TwbGameMode); overload;
     constructor Create(aGameMode: TwbGameMode; const aInputs: TwbGameDefInputs); overload;
-    destructor Destroy; override;
+    destructor Destroy; override; final;
 
     procedure EnsureDefined;
     property DefinedOptions: TwbGameDefineOptions
@@ -4069,7 +4082,7 @@ type
     class function InvalidModule: PwbModuleInfo; static;
   public
     constructor Create(aContext: TwbGameContext);
-    destructor Destroy; override;
+    destructor Destroy; override; final;
 
     procedure LoadModules; virtual; abstract;
     function ModuleByName(const aName: string): PwbModuleInfo;
@@ -4254,7 +4267,7 @@ type
   public
     constructor Create(const aGameContext: IwbGameContext);
     destructor Destroy; override;
-    procedure BeforeDestruction; override;
+    procedure BeforeDestruction; override; final;
 
     function LoadSave(const aFileName: string; aLoadOrder: Integer; aStates: TwbFileStates = []; const aCompareToFile: IwbFile = nil): IwbFile; virtual; abstract;
 
@@ -4316,7 +4329,7 @@ type
     property NextID: Cardinal read fNextID;
     constructor Create(aContext: TwbGameContext; const aFileName: string); overload;
     constructor Create(aContext: TwbGameContext; const aFileName: string; const aData: TBytes); overload;
-    destructor Destroy; override;
+    destructor Destroy; override; final;
     function Count: Integer;
     function IndexToID(Index: Integer): Cardinal;
     function IDExists(ID: Cardinal): Boolean;
@@ -4341,7 +4354,7 @@ type
     property StringsPath: string read GetStringsPath;
     property ReuseDup: Boolean read fReuseDup write fReuseDup;
     constructor Create(aContext: TwbGameContext);
-    destructor Destroy; override;
+    destructor Destroy; override; final;
     procedure Clear;
     function Count: Integer;
     function LocalizedValueDecider(aElement: IwbElement): TwbLStringType;
@@ -4364,7 +4377,7 @@ type
     function GetCount: Integer;
   public
     constructor Create;
-    destructor Destroy; override;
+    destructor Destroy; override; final;
     procedure Hide(const aElement: IwbElement);
     procedure Show(const aElement: IwbElement);
     function Contains(const aElement: IwbElement): Boolean;
@@ -5588,7 +5601,7 @@ type
 
   TwbFastStringListCS = class(TwbFastStringList)
   public
-    procedure AfterConstruction; override;
+    procedure AfterConstruction; override; final;
   end;
 
   TwbFastStringListIC = class(TwbFastStringList)
@@ -7851,7 +7864,7 @@ type
     function Assign(const aTarget: IwbElement; aIndex: Integer; const aSource: IwbElement; aOnlySK: Boolean): IwbElement; virtual;
     function GetAssignTemplates(const aContainer: IwbContainerElementRef; aIndex: Integer): TwbDefs; virtual;
     function GetDefID: NativeUInt;
-    function Equals(const aDef: IwbDef): Boolean; reintroduce; virtual;
+    function Equals(const aDef: IwbDef): Boolean; reintroduce;
     function GetConflictPriority(const aElement: IwbElement): TwbConflictPriority; virtual;
     function GetConflictPriorityCanChange: Boolean; virtual;
     function GetRequired: Boolean;
@@ -7876,9 +7889,9 @@ type
     function IncludeFlagNoClone(aFlag: TwbDefFlag; aOnlyWhenTrue : Boolean = True): IwbDef{Self};
 
     {--- IwbDefInternal ---}
-    function SetParent(const aParent: TwbDef; aForceDuplicate: Boolean): IwbDef; virtual;
-    procedure ParentSet; virtual;
-    procedure InitFromParent(aParent: TwbDef); virtual;
+    function SetParent(const aParent: TwbDef; aForceDuplicate: Boolean): IwbDef;
+    procedure ParentSet;
+    procedure InitFromParent(aParent: TwbDef);
     procedure InitFromParentBeforeChildren; virtual;
     procedure InitFromParentDoChildren; virtual;
     procedure InitFromParentAfterChildren; virtual;
@@ -7942,9 +7955,9 @@ type
     procedure SetTreeBranch(aValue: Boolean);   // Make the element included in a "leaf" visible in the tree navigator;
 
     procedure ToString(var Result : string; const aElement: IwbElement; aType: TwbCallbackType); reintroduce; virtual;
-    function GetSummaryLinksTo(const aElement: IwbElement): IwbElement; virtual;
+    function GetSummaryLinksTo(const aElement: IwbElement): IwbElement;
 
-    function IsRemovable(const aElement: IwbElement): Boolean; virtual;
+    function IsRemovable(const aElement: IwbElement): Boolean;
 
     function SetSummaryName(const aName: string): IwbNamedDef;
   end;
@@ -7952,7 +7965,7 @@ type
   TwbBaseSignatureDef = class(TwbNamedDef, IwbSignatureDef)
   protected
     {---IwbNamedDef---}
-    function GetFullName: string; override;
+    function GetFullName: string; override; final;
 
     {---IwbSignatureDef---}
     function GetDefaultSignature: TwbSignature; virtual;
@@ -7982,10 +7995,10 @@ type
                        aName       : string); reintroduce; overload;
 
     {---IwbSignatureDef---}
-    function GetDefaultSignature: TwbSignature; override;
+    function GetDefaultSignature: TwbSignature; override; final;
 
-    function GetSignature(const aIndex: Integer): TwbSignature; override;
-    function GetSignatureCount: Integer; override;
+    function GetSignature(const aIndex: Integer): TwbSignature; override; final;
+    function GetSignatureCount: Integer; override; final;
   end;
 
   TwbRecordDefFlag = (
@@ -8026,9 +8039,9 @@ type
 
     procedure recBuildReferences;
   protected
-    function defGameDefObj: TwbGameDef; override;
+    function defGameDefObj: TwbGameDef; override; final;
 
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aGameDef         : TwbGameDef;
                        aPriority        : TwbConflictPriority;
                        aRequired        : Boolean;
@@ -8039,23 +8052,23 @@ type
                  const aMembers         : array of IwbRecordMemberDef;
                        aIsReference     : Boolean);
 
-    procedure AfterClone(const aSource: TwbDef); override;
-    destructor Destroy; override;
+    procedure AfterClone(const aSource: TwbDef); override; final;
+    destructor Destroy; override; final;
 
     {---IwbDef---}
-    function GetDefType: TwbDefType; override;
-    function GetDefTypeName: string; override;
-    function GetChildPos(const aChild: IwbDef): Integer; override;
-    procedure Report(const aParents: TwbDefPath); override;
+    function GetDefType: TwbDefType; override; final;
+    function GetDefTypeName: string; override; final;
+    function GetChildPos(const aChild: IwbDef): Integer; override; final;
+    procedure Report(const aParents: TwbDefPath); override; final;
 
     {---IwbDefInternal---}
-    procedure InitFromParentDoChildren; override;
+    procedure InitFromParentDoChildren; override; final;
 
     {---IwbRecordDef---}
     function ContainsMemberFor(const aContainer     : IwbContainerElementRef;
                                const aSignature     : TwbSignature;
                                const aDataContainer : IwbDataContainer)
-                                                    : Boolean; virtual;
+                                                    : Boolean;
     function GetMemberFor(const aContainer     : IwbContainerElementRef;
                           const aSignature     : TwbSignature;
                           const aDataContainer : IwbDataContainer)
@@ -8075,10 +8088,10 @@ type
 
     function GetMember(aIndex: Integer): IwbRecordMemberDef;
     function GetMemberCount: Integer;
-    function GetSkipSignature(const aSignature: TwbSignature): Boolean; virtual;
+    function GetSkipSignature(const aSignature: TwbSignature): Boolean;
     function GetRecordHeaderStruct: IwbStructDef;
 
-    procedure AfterLoad(const aElement: IwbElement); override;
+    procedure AfterLoad(const aElement: IwbElement); override; final;
 
     {--- IwbMainRecordDef ---}
     function GetIsReference: Boolean;
@@ -8144,7 +8157,7 @@ type
 
     srHasUnusedData: Boolean;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aPriority  : TwbConflictPriority;
                        aRequired  : Boolean;
                  const aSignature : TwbSignature;
@@ -8157,23 +8170,23 @@ type
                  const aName       : string;
                  const aValue      : IwbValueDef); overload;
 
-    procedure AfterClone(const aSource: TwbDef); override;
+    procedure AfterClone(const aSource: TwbDef); override; final;
 
     {---IInterface---}
-    function QueryInterface(const IID: TGUID; out Obj): HResult; override; stdcall;
+    function QueryInterface(const IID: TGUID; out Obj): HResult; override; stdcall; final;
 
     {---IwbDef---}
-    function GetDefType: TwbDefType; override;
-    function GetDefTypeName: string; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
-    function GetAssignTemplates(const aContainer: IwbContainerElementRef; aIndex: Integer): TwbDefs; override;
-    procedure Report(const aParents: TwbDefPath); override;
+    function GetDefType: TwbDefType; override; final;
+    function GetDefTypeName: string; override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
+    function GetAssignTemplates(const aContainer: IwbContainerElementRef; aIndex: Integer): TwbDefs; override; final;
+    procedure Report(const aParents: TwbDefPath); override; final;
 
     {---IwbDefInternal---}
-    procedure InitFromParentDoChildren; override;
+    procedure InitFromParentDoChildren; override; final;
 
     {---IwbRecordMemberDef---}
-    function ToSummary(aDepth: Integer; const aElement: IwbElement; var aLinksTo: IwbElement): string; virtual;
+    function ToSummary(aDepth: Integer; const aElement: IwbElement; var aLinksTo: IwbElement): string;
 
     function IncludeFlag(aFlag: TwbDefFlag; aOnlyWhenTrue : Boolean = True): IwbRecordMemberDef{Self};
     function SetSummaryName(const aName: string): IwbRecordMemberDef{Self};
@@ -8193,7 +8206,7 @@ type
     function CanHandle(const aContainer     : IwbContainerElementRef;
                        const aSignature     : TwbSignature;
                        const aDataContainer : IwbDataContainer)
-                                            : Boolean; override;
+                                            : Boolean; override; final;
 
     function IncludeFlagOnValue(aFlag: TwbDefFlag; aOnlyWhenTrue : Boolean = True): IwbSubRecordDef{Self};
 
@@ -8272,7 +8285,7 @@ type
     sraDefaultEditValues : TwbStringArray;
     sraCountPaths        : TArray<string>;
   public
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aPriority  : TwbConflictPriority;
                        aRequired: Boolean;
                  const aName      : string;
@@ -8280,34 +8293,34 @@ type
                        aCount     : Integer;
                        aSorted    : Boolean); reintroduce;
 
-    procedure AfterClone(const aSource: TwbDef); override;
+    procedure AfterClone(const aSource: TwbDef); override; final;
 
     {---IwbDef---}
-    function GetDefType: TwbDefType; override;
-    function GetDefTypeName: string; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
-    function GetAssignTemplates(const aContainer: IwbContainerElementRef; aIndex: Integer): TwbDefs; override;
-    procedure Report(const aParents: TwbDefPath); override;
+    function GetDefType: TwbDefType; override; final;
+    function GetDefTypeName: string; override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
+    function GetAssignTemplates(const aContainer: IwbContainerElementRef; aIndex: Integer): TwbDefs; override; final;
+    procedure Report(const aParents: TwbDefPath); override; final;
 
     {---IwbDefInternal---}
-    procedure InitFromParentDoChildren; override;
+    procedure InitFromParentDoChildren; override; final;
 
     {---IwbNamedDef---}
-    procedure AfterLoad(const aElement: IwbElement); override;
+    procedure AfterLoad(const aElement: IwbElement); override; final;
 
     {---IwbSignatureDef---}
-    function GetDefaultSignature: TwbSignature; override;
+    function GetDefaultSignature: TwbSignature; override; final;
 
-    function GetSignature(const aIndex: Integer): TwbSignature; override;
-    function GetSignatureCount: Integer; override;
+    function GetSignature(const aIndex: Integer): TwbSignature; override; final;
+    function GetSignatureCount: Integer; override; final;
 
     function CanHandle(const aContainer     : IwbContainerElementRef;
                        const aSignature     : TwbSignature;
                        const aDataContainer : IwbDataContainer)
-                                            : Boolean; override;
+                                            : Boolean; override; final;
 
     {---IwbRecordMemberDef---}
-    function ToSummaryInternal(aDepth: Integer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override;
+    function ToSummaryInternal(aDepth: Integer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override; final;
 
     {---IwbSubRecordArrayDef---}
     function GetElement: IwbRecordMemberDef;
@@ -8342,40 +8355,40 @@ type
                  const aMembers        : array of IwbRecordMemberDef;
                  const aSkipSigs       : TwbSignatures); reintroduce;
 
-    procedure AfterClone(const aSource: TwbDef); override;
-    destructor Destroy; override;
+    procedure AfterClone(const aSource: TwbDef); override; final;
+    destructor Destroy; override; final;
 
     {---IwbDef---}
-    function GetDefType: TwbDefType; override;
-    function GetDefTypeName: string; override;
-    function GetChildPos(const aChild: IwbDef): Integer; override;
+    function GetDefType: TwbDefType; override; final;
+    function GetDefTypeName: string; override; final;
+    function GetChildPos(const aChild: IwbDef): Integer; override; final;
 
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
-    function GetAssignTemplates(const aContainer: IwbContainerElementRef; aIndex: Integer): TwbDefs; override;
-    procedure Report(const aParents: TwbDefPath); override;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
+    function GetAssignTemplates(const aContainer: IwbContainerElementRef; aIndex: Integer): TwbDefs; override; final;
+    procedure Report(const aParents: TwbDefPath); override; final;
 
     {---IwbDefInternal---}
-    procedure InitFromParentDoChildren; override;
+    procedure InitFromParentDoChildren; override; final;
 
     {---IwbNamedDef---}
-    procedure AfterLoad(const aElement: IwbElement); override;
+    procedure AfterLoad(const aElement: IwbElement); override; final;
 
     {---IwbSignatureDef---}
-    function GetDefaultSignature: TwbSignature; override;
+    function GetDefaultSignature: TwbSignature; override; final;
 
-    function GetSignature(const aIndex: Integer): TwbSignature; override;
-    function GetSignatureCount: Integer; override;
+    function GetSignature(const aIndex: Integer): TwbSignature; override; final;
+    function GetSignatureCount: Integer; override; final;
 
     function CanHandle(const aContainer     : IwbContainerElementRef;
                        const aSignature     : TwbSignature;
                        const aDataContainer : IwbDataContainer)
-                                            : Boolean; override;
+                                            : Boolean; override; final;
 
     {---IwbRecordDef---}
     function ContainsMemberFor(const aContainer     : IwbContainerElementRef;
                                const aSignature     : TwbSignature;
                                const aDataContainer : IwbDataContainer)
-                                                    : Boolean; virtual;
+                                                    : Boolean;
     function GetMemberFor(const aContainer     : IwbContainerElementRef;
                           const aSignature     : TwbSignature;
                           const aDataContainer : IwbDataContainer)
@@ -8395,7 +8408,7 @@ type
 
     function GetMember(aIndex: Integer): IwbRecordMemberDef;
     function GetMemberCount: Integer;
-    function GetSkipSignature(const aSignature: TwbSignature): Boolean; virtual;
+    function GetSkipSignature(const aSignature: TwbSignature): Boolean;
     function GetRecordHeaderStruct: IwbStructDef;
 
     {---IwbRecordMemberDef---}
@@ -8417,43 +8430,43 @@ type
     sruSkipSignatures    : TStringList;
     sruDecider           : TwbRUnionDecider;
   public
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aPriority : TwbConflictPriority;
                        aRequired : Boolean;
                  const aName     : string;
                  const aMembers  : array of IwbRecordMemberDef;
                  const aSkipSigs : TwbSignatures;
                  const aDecider  : TwbRUnionDecider); reintroduce;
-    destructor Destroy; override;
+    destructor Destroy; override; final;
 
     {---IwbDef---}
-    function GetDefType: TwbDefType; override;
-    function GetDefTypeName: string; override;
-    function GetChildPos(const aChild: IwbDef): Integer; override;
+    function GetDefType: TwbDefType; override; final;
+    function GetDefTypeName: string; override; final;
+    function GetChildPos(const aChild: IwbDef): Integer; override; final;
 
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
-    function GetAssignTemplates(const aContainer: IwbContainerElementRef; aIndex: Integer): TwbDefs; override;
-    procedure Report(const aParents: TwbDefPath); override;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
+    function GetAssignTemplates(const aContainer: IwbContainerElementRef; aIndex: Integer): TwbDefs; override; final;
+    procedure Report(const aParents: TwbDefPath); override; final;
 
     {---IwbDefInternal---}
-    procedure InitFromParentDoChildren; override;
+    procedure InitFromParentDoChildren; override; final;
 
     {---IwbSignatureDef---}
-    function GetDefaultSignature: TwbSignature; override;
+    function GetDefaultSignature: TwbSignature; override; final;
 
-    function GetSignature(const aIndex: Integer): TwbSignature; override;
-    function GetSignatureCount: Integer; override;
+    function GetSignature(const aIndex: Integer): TwbSignature; override; final;
+    function GetSignatureCount: Integer; override; final;
 
     function CanHandle(const aContainer     : IwbContainerElementRef;
                        const aSignature     : TwbSignature;
                        const aDataContainer : IwbDataContainer)
-                                            : Boolean; override;
+                                            : Boolean; override; final;
 
     {---IwbRecordDef---}
     function ContainsMemberFor(const aContainer     : IwbContainerElementRef;
                                const aSignature     : TwbSignature;
                                const aDataContainer : IwbDataContainer)
-                                                    : Boolean; virtual;
+                                                    : Boolean;
     function GetMemberFor(const aContainer     : IwbContainerElementRef;
                           const aSignature     : TwbSignature;
                           const aDataContainer : IwbDataContainer)
@@ -8474,7 +8487,7 @@ type
 
     function GetMember(aIndex: Integer): IwbRecordMemberDef;
     function GetMemberCount: Integer;
-    function GetSkipSignature(const aSignature: TwbSignature): Boolean; virtual;
+    function GetSkipSignature(const aSignature: TwbSignature): Boolean;
     function GetRecordHeaderStruct: IwbStructDef;
 
     {---IwbSubRecordUnionDef---}
@@ -8488,7 +8501,7 @@ type
     srsExSortKey  : array of Integer;
     srsMemberInSK : array of Boolean;
   public
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aPriority       : TwbConflictPriority;
                        aRequired       : Boolean;
                  const aName           : string;
@@ -8503,7 +8516,7 @@ type
     function IsInSK(aIndex: Integer): Boolean;
 
     {---IwbRecordMemberDef---}
-    function ToSummaryInternal(aDepth: Integer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override;
+    function ToSummaryInternal(aDepth: Integer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override; final;
   end;
 
   TwbValueDefState = (
@@ -8554,12 +8567,12 @@ type
     function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; virtual;
     function GetElementMap: TDynCardinalArray; virtual;
 
-    function SetDefaultEditValue(const aValue: string): IwbValueDef; virtual;
+    function SetDefaultEditValue(const aValue: string): IwbValueDef;
     function SetDefaultNativeValue(const aValue: Variant): IwbValueDef; virtual;
-    function SetLinksToCallback(const aCallback: TwbLinksToCallback): IwbValueDef; virtual;
-    function SetSummaryLinksToCallback(const aCallback: TwbLinksToCallback): IwbValueDef; virtual;
-    function SetToStr(const aToStr : TwbToStrCallback): IwbValueDef; virtual;
-    function SetIsRemovable(const aCallback: TwbIsRemovableCallback): IwbValueDef; virtual;
+    function SetLinksToCallback(const aCallback: TwbLinksToCallback): IwbValueDef;
+    function SetSummaryLinksToCallback(const aCallback: TwbLinksToCallback): IwbValueDef;
+    function SetToStr(const aToStr : TwbToStrCallback): IwbValueDef;
+    function SetIsRemovable(const aCallback: TwbIsRemovableCallback): IwbValueDef;
     function SetStaticEditInfo(aEditInfo: PwbStringArray): IwbValueDef{Self};
 
     function SetSetToDefault(const aCallback: TwbSetToDefaultCallback): IwbValueDef{Self};
@@ -8575,26 +8588,26 @@ type
   TwbGuidDef = class(TwbValueDef, IwbGuidDef)
   protected
     {---IwbDef---}
-    function GetDefType: TwbDefType; override;
-    function GetDefTypeName: string; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
+    function GetDefType: TwbDefType; override; final;
+    function GetDefTypeName: string; override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
 
-    function ToStringInternal(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; virtual;
-    procedure FromStringInternal(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); virtual;
+    function ToStringInternal(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string;
+    procedure FromStringInternal(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string);
     {---IwbValueDef---}
-    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    function ToSummary(aDepth: Integer; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override;
-    function Check(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function ToEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    procedure FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); override;
-    function ToNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Variant; override;
-    procedure FromNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: Variant); override;
-    function GetIsEditable(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
-    function GetEditType(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbEditType; override;
-    function GetEditInfo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbStringArray; override;
-    function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
+    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    function ToSummary(aDepth: Integer; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override; final;
+    function Check(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function ToEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    procedure FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); override; final;
+    function ToNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Variant; override; final;
+    procedure FromNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: Variant); override; final;
+    function GetIsEditable(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override; final;
+    function GetEditType(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbEditType; override; final;
+    function GetEditInfo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbStringArray; override; final;
+    function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override; final;
   end;
 
   TwbWwiseGuidDef = class(TwbGuidDef, IwbWwiseGuidDef)
@@ -8602,7 +8615,7 @@ type
     wgdParentNodePath: string;
     wgdType: TwbWwiseNodeType;
 
-    procedure AfterClone(const aSource: TwbDef); override;
+    procedure AfterClone(const aSource: TwbDef); override; final;
 
     {---IwbWwiseGuidDef---}
     function GetParentNodePath: string;
@@ -8619,27 +8632,27 @@ type
     function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
 
     {---IwbDefInternal---}
-    procedure InitFromParentBeforeChildren; override;
-    procedure InitFromParentAfterChildren; override;
+    procedure InitFromParentBeforeChildren; override; final;
+    procedure InitFromParentAfterChildren; override; final;
     procedure InitFromResolvedDef;
 
     {---IwbValueDef---}
-    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    function ToSummary(aDepth: Integer; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override;
-    function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override;
-    function Check(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function GetLinksTo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): IwbElement; override;
-    procedure SetLinksTo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: IwbElement); override;
-    procedure BuildRef(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement); override;
-    function ToEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    procedure FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); override;
-    function ToNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Variant; override;
-    procedure FromNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: Variant); override;
-    function GetIsEditable(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
-    function GetEditType(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbEditType; override;
-    function GetEditInfo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbStringArray; override;
-    function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
+    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    function ToSummary(aDepth: Integer; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override; final;
+    function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override; final;
+    function Check(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function GetLinksTo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): IwbElement; override; final;
+    procedure SetLinksTo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: IwbElement); override; final;
+    procedure BuildRef(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement); override; final;
+    function ToEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    procedure FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); override; final;
+    function ToNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Variant; override; final;
+    procedure FromNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: Variant); override; final;
+    function GetIsEditable(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override; final;
+    function GetEditType(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbEditType; override; final;
+    function GetEditInfo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbStringArray; override; final;
+    function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override; final;
     function GetIsVariableSizeInternal: Boolean; override;
     function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
 
@@ -8654,14 +8667,14 @@ type
     rdLevelsUp: Integer;
     rdCached: IwbValueDef;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aPriority : TwbConflictPriority;
                        aRequired : Boolean;
                  const aName     : string;
                        aLevelsUp : Integer); reintroduce;
 
     {---IwbResolvableDef---}
-    function ResolveDef(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): IwbValueDef; override;
+    function ResolveDef(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): IwbValueDef; override; final;
   end;
 
   TwbUnionDef = class(TwbResolvableDef, IwbUnionDef)
@@ -8670,7 +8683,7 @@ type
     udMembers: array of IwbValueDef;
     udMemberTypes: TwbDefTypes;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aPriority : TwbConflictPriority;
                        aRequired : Boolean;
                  const aName     : string;
@@ -8678,24 +8691,24 @@ type
                  const aMembers  : array of IwbValueDef); reintroduce;
 
     {---IwbDef---}
-    function GetDefType: TwbDefType; override;
-    function GetDefTypeName: string; override;
-    function GetChildPos(const aChild: IwbDef): Integer; override;
+    function GetDefType: TwbDefType; override; final;
+    function GetDefTypeName: string; override; final;
+    function GetChildPos(const aChild: IwbDef): Integer; override; final;
 
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
-    procedure Report(const aParents: TwbDefPath); override;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
+    procedure Report(const aParents: TwbDefPath); override; final;
 
     {---IwbDefInternal---}
-    procedure InitFromParentDoChildren; override;
+    procedure InitFromParentDoChildren; override; final;
 
     {---IwbValueDef---}
-    function GetIsVariableSizeInternal: Boolean; override;
-    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
+    function GetIsVariableSizeInternal: Boolean; override; final;
+    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
 
     {---IwbResolvableDef---}
-    function NeedsElementToResolve: Boolean; override;
-    function ResolveDef(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): IwbValueDef; override;
-    function ResolveDefAndElement(aBasePtr: Pointer; aEndPtr: Pointer; var aElement: IwbElement): IwbValueDef; override;
+    function NeedsElementToResolve: Boolean; override; final;
+    function ResolveDef(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): IwbValueDef; override; final;
+    function ResolveDefAndElement(aBasePtr: Pointer; aEndPtr: Pointer; var aElement: IwbElement): IwbValueDef; override; final;
 
     {---IwbUnionDef---}
     function GetMember(aIndex: Integer): IwbValueDef;
@@ -8722,14 +8735,14 @@ type
     procedure AfterClone(const aSource: TwbDef); override;
 
     {---IwbDef---}
-    procedure Report(const aParents: TwbDefPath); override;
+    procedure Report(const aParents: TwbDefPath); override; final;
 
     {---IwbDefInternal---}
-    procedure InitFromParentDoChildren; override;
+    procedure InitFromParentDoChildren; override; final;
 
     {---IwbValueDef---}
-    function GetEditType(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbEditType; override;
-    function GetEditInfo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbStringArray; override;
+    function GetEditType(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbEditType; override; final;
+    function GetEditInfo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbStringArray; override; final;
 
     {---IwbBaseStringDef---}
     function OverrideEncoding(aEncoding: TEncoding): IwbBaseStringDef;
@@ -8746,14 +8759,14 @@ type
     sdSize     : Integer;
     sdForward  : Boolean;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aPriority   : TwbConflictPriority;
                        aRequired   : Boolean;
                  const aName       : string;
                        aSize       : Integer;
                        aTerminator : Boolean;
                        aForward    : Boolean = False); virtual;
-    procedure AfterClone(const aSource: TwbDef); override;
+    procedure AfterClone(const aSource: TwbDef); override; final;
 
     function ToStringNative(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aTransformType: TwbStringTransformType): string; virtual;
     function ToStringTransform(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aTransformType: TwbStringTransformType): string;
@@ -8766,24 +8779,24 @@ type
     {---IwbDef---}
     function GetDefType: TwbDefType; override;
     function GetDefTypeName: string; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
 
     {---IwbValueDef---}
-    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    function ToSummary(aDepth: Integer; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override;
+    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    function ToSummary(aDepth: Integer; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override; final;
     function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override;
-    function Check(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
+    function Check(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
     function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
     function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function GetIsVariableSizeInternal: Boolean; override;
-    function ToEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    procedure FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); override;
-    function ToNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Variant; override;
-    procedure FromNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: Variant); override;
-    function GetIsEditable(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
+    function GetIsVariableSizeInternal: Boolean; override; final;
+    function ToEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    procedure FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); override; final;
+    function ToNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Variant; override; final;
+    procedure FromNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: Variant); override; final;
+    function GetIsEditable(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override; final;
     function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
 
-    procedure PrepareSave(const aDataContainer : IwbDataContainer); override;
+    procedure PrepareSave(const aDataContainer : IwbDataContainer); override; final;
 
     {---IwbStringDef---}
     function GetStringSize: Integer;
@@ -8792,34 +8805,34 @@ type
 
   TwbStringScriptDef = class(TwbStringDef)
   protected
-    function TransformString(const s: string; aTransformType: TwbStringTransformType; const aElement: IwbElement): string; override;
+    function TransformString(const s: string; aTransformType: TwbStringTransformType; const aElement: IwbElement): string; override; final;
   end;
 
   TwbStringLCDef = class(TwbStringDef)
   protected
-    function TransformString(const s: string; aTransformType: TwbStringTransformType; const aElement: IwbElement): string; override;
+    function TransformString(const s: string; aTransformType: TwbStringTransformType; const aElement: IwbElement): string; override; final;
   end;
 
   TwbStringKCDef = class(TwbStringDef)  // Keep Case
   protected
-    function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override;
+    function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override; final;
   end;
 
   TwbStringMgefCodeDef = class(TwbStringDef)
   protected
-    function ToStringNative(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aTransformType: TwbStringTransformType): string; override;
-    procedure FromStringNative(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string; aTransformType: TwbStringTransformType); override;
+    function ToStringNative(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aTransformType: TwbStringTransformType): string; override; final;
+    procedure FromStringNative(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string; aTransformType: TwbStringTransformType); override; final;
 
     {---IwbValueDef---}
-    function GetLinksTo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): IwbElement; override;
-    procedure SetLinksTo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: IwbElement); override;
-    procedure BuildRef(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement); override;
+    function GetLinksTo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): IwbElement; override; final;
+    procedure SetLinksTo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: IwbElement); override; final;
+    procedure BuildRef(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement); override; final;
 
-    function MastersUpdated(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override;
-    procedure FindUsedMasters(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aMasters: PwbUsedMasters); override;
-    function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
+    function MastersUpdated(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override; final;
+    procedure FindUsedMasters(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aMasters: PwbUsedMasters); override; final;
+    function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override; final;
   public
-    procedure AfterConstruction; override;
+    procedure AfterConstruction; override; final;
   end;
 
   TwbLStringDef = class(TwbStringDef)
@@ -8829,24 +8842,24 @@ type
                  const aName       : string;
                        aSize       : Integer;
                        aTerminator : Boolean;
-                       aForward    : Boolean = False); override;
-    function GetDefType: TwbDefType; override;
-    function GetDefTypeName: string; override;
-    function ToStringNative(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aTransformType: TwbStringTransformType): string; override;
-    procedure FromStringNative(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string; aTransformType: TwbStringTransformType); override;
-    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
+                       aForward    : Boolean = False); override; final;
+    function GetDefType: TwbDefType; override; final;
+    function GetDefTypeName: string; override; final;
+    function ToStringNative(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aTransformType: TwbStringTransformType): string; override; final;
+    procedure FromStringNative(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string; aTransformType: TwbStringTransformType); override; final;
+    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
   end;
 
   TwbLStringKCDef = class(TwbLStringDef)
   protected
-    function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override;
+    function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override; final;
   end;
 
   TwbLenStringDef = class(TwbBaseStringDef, IwbLenStringDef)
   protected
     Prefix: Integer;
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aPriority   : TwbConflictPriority;
                        aRequired   : Boolean;
                  const aName       : string;
@@ -8854,26 +8867,26 @@ type
                        aTerminator : Boolean);
 
     {---IwbDef---}
-    function GetDefType: TwbDefType; override;
-    function GetDefTypeName: string; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
+    function GetDefType: TwbDefType; override; final;
+    function GetDefTypeName: string; override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
 
     {---TwbLenStringDef---}
-    function ToStringInternal(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; virtual;
+    function ToStringInternal(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string;
     function SetFormater(const aFormater: IwbStringDefFormater): IwbLenStringDef;
 
     {---IwbValueDef---}
-    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    function Check(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function GetIsVariableSizeInternal: Boolean; override;
-    function ToEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    procedure FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); override;
-    function ToNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Variant; override;
-    procedure FromNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: Variant); override;
-    function GetIsEditable(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
-    function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
+    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    function Check(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function GetIsVariableSizeInternal: Boolean; override; final;
+    function ToEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    procedure FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); override; final;
+    function ToNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Variant; override; final;
+    procedure FromNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: Variant); override; final;
+    function GetIsEditable(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override; final;
+    function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override; final;
 
     function GetPrefixLen: Integer;
     function GetPrefixOffset: Integer;
@@ -8917,62 +8930,62 @@ type
 
     badCountCallback        : TwbCountCallBack;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aPriority      : TwbConflictPriority;
                        aRequired      : Boolean;
                  const aName          : string;
                        aSize          : Int64;
                        aCountCallback : TwbCountCallback;
                        aTerminator    : Boolean); reintroduce;
-    procedure AfterClone(const aSource: TwbDef); override;
+    procedure AfterClone(const aSource: TwbDef); override; final;
 
     function ToStringInternal(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string;
 
     {---IwbDef---}
-    function GetDefType: TwbDefType; override;
-    function GetDefTypeName: string; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
+    function GetDefType: TwbDefType; override; final;
+    function GetDefTypeName: string; override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
 
-    procedure Report(const aParents: TwbDefPath); override;
+    procedure Report(const aParents: TwbDefPath); override; final;
 
     {---IwbValueDef---}
-    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override;
-    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function GetIsVariableSizeInternal: Boolean; override;
-    function ToEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    procedure FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); override;
-    function ToNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Variant; override;
-    procedure FromNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: Variant); override;
-    function GetIsEditable(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
-    function GetEditType(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbEditType; override;
-    function GetEditInfo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbStringArray; override;
-    function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
+    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override; final;
+    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function GetIsVariableSizeInternal: Boolean; override; final;
+    function ToEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    procedure FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); override; final;
+    function ToNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Variant; override; final;
+    procedure FromNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: Variant); override; final;
+    function GetIsEditable(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override; final;
+    function GetEditType(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbEditType; override; final;
+    function GetEditInfo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbStringArray; override; final;
+    function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override; final;
   end;
 
   TwbEmptyDef = class(TwbValueDef, IwbEmptyDef)
   protected {private}
     edSorted: Boolean;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aPriority  : TwbConflictPriority;
                        aRequired  : Boolean;
                  const aName      : string;
                        aSorted    : Boolean); reintroduce;
 
     {---IwbDef---}
-    function GetDefType: TwbDefType; override;
-    function GetDefTypeName: string; override;
+    function GetDefType: TwbDefType; override; final;
+    function GetDefTypeName: string; override; final;
 
     {---IwbValueDef---}
-    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override;
-    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function GetCanBeZeroSize: Boolean; override;
-    procedure FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); override;
-    function GetIsEditable(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
+    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override; final;
+    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function GetCanBeZeroSize: Boolean; override; final;
+    procedure FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); override; final;
+    function GetIsEditable(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override; final;
 
     {--- IwbEmptyDef ---}
     function GetSorted: Boolean;
@@ -8985,7 +8998,7 @@ type
     inDefault         : Int64;
     inOverlayCallback : TwbIntOverlayCallback;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aPriority   : TwbConflictPriority;
                        aRequired   : Boolean;
                  const aName       : string;
@@ -8993,47 +9006,47 @@ type
                  const aFormater   : IwbIntegerDefFormater;
                        aTerminator : Boolean); reintroduce;
 
-    procedure AfterClone(const aSource: TwbDef); override;
+    procedure AfterClone(const aSource: TwbDef); override; final;
 
     {---IwbDef---}
-    function GetDefType: TwbDefType; override;
-    function GetDefTypeName: string; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
-    function Assign(const aTarget: IwbElement; aIndex: Integer; const aSource: IwbElement; aOnlySK: Boolean): IwbElement; override;
-    procedure Report(const aParents: TwbDefPath); override;
-    function GetNoReach: Boolean; override;
-    function IncludeFlag(aFlag: TwbDefFlag; aOnlyWhenTrue : Boolean = True): IwbValueDef{Self}; override;
+    function GetDefType: TwbDefType; override; final;
+    function GetDefTypeName: string; override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
+    function Assign(const aTarget: IwbElement; aIndex: Integer; const aSource: IwbElement; aOnlySK: Boolean): IwbElement; override; final;
+    procedure Report(const aParents: TwbDefPath); override; final;
+    function GetNoReach: Boolean; override; final;
+    function IncludeFlag(aFlag: TwbDefFlag; aOnlyWhenTrue : Boolean = True): IwbValueDef{Self}; override; final;
 
-    function GetConflictPriority(const aElement: IwbElement): TwbConflictPriority; override;
-    function GetConflictPriorityCanChange: Boolean; override;
+    function GetConflictPriority(const aElement: IwbElement): TwbConflictPriority; override; final;
+    function GetConflictPriorityCanChange: Boolean; override; final;
 
     {---IwbDefInternal---}
-    procedure InitFromParentDoChildren; override;
+    procedure InitFromParentDoChildren; override; final;
 
     {---IwbValueDef---}
-    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    function ToSummary(aDepth: Integer; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override;
-    function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override;
-    function Check(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function GetLinksTo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): IwbElement; override;
-    procedure SetLinksTo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: IwbElement); override;
-    procedure BuildRef(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement); override;
-    function ToEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    procedure FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); override;
-    function ToNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Variant; override;
-    procedure FromNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: Variant); override;
-    function GetIsEditable(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
-    function GetEditType(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbEditType; override;
-    function GetEditInfo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbStringArray; override;
-    function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
+    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    function ToSummary(aDepth: Integer; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override; final;
+    function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override; final;
+    function Check(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function GetLinksTo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): IwbElement; override; final;
+    procedure SetLinksTo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: IwbElement); override; final;
+    procedure BuildRef(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement); override; final;
+    function ToEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    procedure FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); override; final;
+    function ToNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Variant; override; final;
+    procedure FromNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: Variant); override; final;
+    function GetIsEditable(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override; final;
+    function GetEditType(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbEditType; override; final;
+    function GetEditInfo(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): TwbStringArray; override; final;
+    function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override; final;
 
-    function SetDefaultNativeValue(const aValue: Variant): IwbValueDef; override;
+    function SetDefaultNativeValue(const aValue: Variant): IwbValueDef; override; final;
 
-    function MastersUpdated(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override;
-    procedure FindUsedMasters(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aMasters: PwbUsedMasters); override;
-    function CompareExchangeFormID(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override;
+    function MastersUpdated(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override; final;
+    procedure FindUsedMasters(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aMasters: PwbUsedMasters); override; final;
+    function CompareExchangeFormID(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override; final;
 
     {---IwbIntegerDef---}
     function ToInt(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Int64;
@@ -9060,30 +9073,30 @@ type
     fdNormalizer : TwbFloatNormalizer;
     fdKind       : TwbFloatKind;
   protected
-    constructor Clone(const aSource: TwbDef); override;
-    procedure AfterClone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
+    procedure AfterClone(const aSource: TwbDef); override; final;
 
     {---IwbDef---}
-    function GetDefType: TwbDefType; override;
-    function GetDefTypeName: string; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
+    function GetDefType: TwbDefType; override; final;
+    function GetDefTypeName: string; override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
 
     {---IwbValueDef---}
     function ToStringInternal(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aIncludeWarnings: Boolean): string;
-    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    function ToSummary(aDepth: Integer; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override;
-    function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override;
-    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function ToEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    procedure FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); override;
-    function ToNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Variant; override;
-    procedure FromNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: Variant); override;
-    function GetIsEditable(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
-    function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override;
-    function Assign(const aTarget: IwbElement; aIndex: Integer; const aSource: IwbElement; aOnlySK: Boolean): IwbElement; override;
+    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    function ToSummary(aDepth: Integer; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override; final;
+    function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override; final;
+    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function ToEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    procedure FromEditValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: string); override; final;
+    function ToNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Variant; override; final;
+    procedure FromNativeValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; const aValue: Variant); override; final;
+    function GetIsEditable(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override; final;
+    function SetToDefault(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Boolean; override; final;
+    function Assign(const aTarget: IwbElement; aIndex: Integer; const aSource: IwbElement; aOnlySK: Boolean): IwbElement; override; final;
 
-    function SetDefaultNativeValue(const aValue: Variant): IwbValueDef; override;
+    function SetDefaultNativeValue(const aValue: Variant): IwbValueDef; override; final;
 
     function ToValue(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Extended;
     procedure FromValue(aValue: Extended; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement);
@@ -9121,7 +9134,7 @@ type
     arSummaryPassthroughMaxLength : Integer;
     arSummaryPassthroughMaxDepth  : Integer;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
 
     constructor Create(aPriority   : TwbConflictPriority;
                        aRequired   : Boolean;
@@ -9145,24 +9158,24 @@ type
                        aTerminator    : Boolean;
                        aTerminated    : Boolean); reintroduce; overload;
 
-    procedure AfterClone(const aSource: TwbDef); override;
+    procedure AfterClone(const aSource: TwbDef); override; final;
 
     {---IwbDef---}
-    function GetDefType: TwbDefType; override;
-    function GetDefTypeName: string; override;
-    procedure Report(const aParents: TwbDefPath); override;
+    function GetDefType: TwbDefType; override; final;
+    function GetDefTypeName: string; override; final;
+    procedure Report(const aParents: TwbDefPath); override; final;
 
     {---IwbDefInternal---}
-    procedure InitFromParentDoChildren; override;
+    procedure InitFromParentDoChildren; override; final;
 
     {---IwbValueDef---}
-    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    function ToSummary(aDepth: Integer; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override;
-    function GetIsVariableSizeInternal: Boolean; override;
-    function GetCanBeZeroSize: Boolean; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
+    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    function ToSummary(aDepth: Integer; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override; final;
+    function GetIsVariableSizeInternal: Boolean; override; final;
+    function GetCanBeZeroSize: Boolean; override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
 
     {---IwbArrayDef---}
     function GetElement: IwbValueDef;
@@ -9221,27 +9234,27 @@ type
                  const aExSortKey  : array of Integer;
                  const aElementMap : TDynCardinalArray); reintroduce;
 
-    procedure AfterClone(const aSource: TwbDef); override;
+    procedure AfterClone(const aSource: TwbDef); override; final;
 
     {---IwbDef---}
     function GetDefType: TwbDefType; override;
     function GetDefTypeName: string; override;
-    function GetChildPos(const aChild: IwbDef): Integer; override;
+    function GetChildPos(const aChild: IwbDef): Integer; override; final;
 
-    procedure Report(const aParents: TwbDefPath); override;
+    procedure Report(const aParents: TwbDefPath); override; final;
 
     {---IwbDefInternal---}
-    procedure InitFromParentDoChildren; override;
+    procedure InitFromParentDoChildren; override; final;
 
     {---IwbValueDef---}
-    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    function ToSummary(aDepth: Integer; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override;
-    function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override;
-    function GetIsVariableSizeInternal: Boolean; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
-    function GetElementMap: TDynCardinalArray; override;
+    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    function ToSummary(aDepth: Integer; aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; var aLinksTo: IwbElement): string; override; final;
+    function ToSortKey(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement; aExtended: Boolean): string; override; final;
+    function GetIsVariableSizeInternal: Boolean; override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
+    function GetElementMap: TDynCardinalArray; override; final;
 
     {---IwbStructDef---}
     function GetMemberCount: Integer;
@@ -9265,7 +9278,7 @@ type
     scGetChapterTypeName : TwbGetChapterTypeNameCallback;
     scGetChapterName     : TwbGetChapterNameCallback;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aPriority            : TwbConflictPriority;
                        aRequired            : Boolean;
                  const aName                : string;
@@ -9277,13 +9290,13 @@ type
                        aGetChapterTypeName  : TwbGetChapterTypeNameCallback;
                        aGetChapterName      : TwbGetChapterNameCallback);
 
-    function GetDefType: TwbDefType; override;
-    function GetDefTypeName: string; override;
+    function GetDefType: TwbDefType; override; final;
+    function GetDefTypeName: string; override; final;
   public
-    function GetSizing(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement;var CompressedSize: Integer): Cardinal; virtual;
-    function GetChapterType(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer; virtual;
-    function GetChapterTypeName(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): string; virtual;
-    function GetChapterName(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): string; virtual;
+    function GetSizing(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement;var CompressedSize: Integer): Cardinal;
+    function GetChapterType(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): Integer;
+    function GetChapterTypeName(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): string;
+    function GetChapterName(aBasePtr: Pointer; aEndPtr: Pointer; const aElement: IwbElement): string;
   end;
 
   TwbStructZDef = class(TwbStructCDef, IwbStructZDef)
@@ -9330,39 +9343,39 @@ type
     idfuDecider: TwbIntegerDefFormaterUnionDecider;
     idfuMembers: array of IwbIntegerDefFormater;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aDecider  : TwbIntegerDefFormaterUnionDecider;
                  const aMembers  : array of IwbIntegerDefFormater);
 
     {---IwbDef---}
-    function GetDefType: TwbDefType; override;
-    procedure Report(const aParents: TwbDefPath); override;
-    function GetNoReach: Boolean; override;
+    function GetDefType: TwbDefType; override; final;
+    procedure Report(const aParents: TwbDefPath); override; final;
+    function GetNoReach: Boolean; override; final;
 
     {---IwbDefInternal---}
-    procedure InitFromParentDoChildren; override;
+    procedure InitFromParentDoChildren; override; final;
 
     {---IwbIntegerDefFormater---}
-    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override;
-    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override;
-    function Check(aInt: Int64; const aElement: IwbElement): string; override;
-    procedure BuildRef(aInt: Int64; const aElement: IwbElement); override;
+    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override; final;
+    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function Check(aInt: Int64; const aElement: IwbElement): string; override; final;
+    procedure BuildRef(aInt: Int64; const aElement: IwbElement); override; final;
 
-    function GetEditType(const aElement: IwbElement): TwbEditType; override;
-    function GetEditInfo(const aElement: IwbElement): TwbStringArray; override;
+    function GetEditType(const aElement: IwbElement): TwbEditType; override; final;
+    function GetEditInfo(const aElement: IwbElement): TwbStringArray; override; final;
 
-    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override;
-    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override;
-    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override;
-    function GetLinksTo(aInt: Int64; const aElement: IwbElement): IwbElement; override;
-    function FromLinksTo(const aValue, aElement: IwbElement): Int64; override;
+    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override; final;
+    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override; final;
+    function GetLinksTo(aInt: Int64; const aElement: IwbElement): IwbElement; override; final;
+    function FromLinksTo(const aValue, aElement: IwbElement): Int64; override; final;
 
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
-    function Assign(const aTarget: IwbElement; aIndex: Integer; const aSource: IwbElement; aOnlySK: Boolean): IwbElement; override;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
+    function Assign(const aTarget: IwbElement; aIndex: Integer; const aSource: IwbElement; aOnlySK: Boolean): IwbElement; override; final;
 
-    function MastersUpdated(aInt: Int64; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts; const aElement: IwbElement): Int64; override;
-    procedure FindUsedMasters(aInt: Int64; aMasters: PwbUsedMasters; const aElement: IwbElement); override;
-    function CompareExchangeFormID(var aInt: Int64; aOldFormID: TwbFormID; aNewFormID: TwbFormID; const aElement: IwbElement): Boolean; override;
+    function MastersUpdated(aInt: Int64; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts; const aElement: IwbElement): Int64; override; final;
+    procedure FindUsedMasters(aInt: Int64; aMasters: PwbUsedMasters; const aElement: IwbElement); override; final;
+    function CompareExchangeFormID(var aInt: Int64; aOldFormID: TwbFormID; aNewFormID: TwbFormID; const aElement: IwbElement): Boolean; override; final;
 
     {---IwbIntegerDefFormaterUnion---}
     function Decide(const aElement: IwbElement): IwbIntegerDefFormater;
@@ -9376,8 +9389,8 @@ type
 
   TwbDumpIntegerDefFormater = class(TwbIntegerDefFormater, IwbDumpIntegerDefFormater)
   protected
-    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override;
-    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override;
+    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override; final;
+    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override; final;
   end;
 
   TwbFormIDDefFormater = class(TwbIntegerDefFormater, IwbFormID)
@@ -9407,27 +9420,27 @@ type
     {---IwbIntegerDefFormater---}
     function Check(aInt: Int64; const aElement: IwbElement): string; override;
     function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override;
-    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override;
+    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override; final;
     procedure BuildRef(aInt: Int64; const aElement: IwbElement); override;
 
-    function GetEditType(const aElement: IwbElement): TwbEditType; override;
+    function GetEditType(const aElement: IwbElement): TwbEditType; override; final;
     function GetEditInfo(const aElement: IwbElement): TwbStringArray; override;
 
-    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override;
+    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override; final;
     function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override;
-    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override;
-    function GetLinksTo(aInt: Int64; const aElement: IwbElement): IwbElement; override;
-    function FromLinksTo(const aValue, aElement: IwbElement): Int64; override;
+    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override; final;
+    function GetLinksTo(aInt: Int64; const aElement: IwbElement): IwbElement; override; final;
+    function FromLinksTo(const aValue, aElement: IwbElement): Int64; override; final;
 
     function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
-    function Assign(const aTarget: IwbElement; aIndex: Integer; const aSource: IwbElement; aOnlySK: Boolean): IwbElement; override;
+    function Assign(const aTarget: IwbElement; aIndex: Integer; const aSource: IwbElement; aOnlySK: Boolean): IwbElement; override; final;
 
-    function MastersUpdated(aInt: Int64; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts; const aElement: IwbElement): Int64; override;
-    procedure FindUsedMasters(aInt: Int64; aMasters: PwbUsedMasters; const aElement: IwbElement); override;
-    function CompareExchangeFormID(var aInt: Int64; aOldFormID: TwbFormID; aNewFormID: TwbFormID; const aElement: IwbElement): Boolean; override;
+    function MastersUpdated(aInt: Int64; const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts; const aElement: IwbElement): Int64; override; final;
+    procedure FindUsedMasters(aInt: Int64; aMasters: PwbUsedMasters; const aElement: IwbElement); override; final;
+    function CompareExchangeFormID(var aInt: Int64; aOldFormID: TwbFormID; aNewFormID: TwbFormID; const aElement: IwbElement): Boolean; override; final;
 
     {---IwbFormID---}
-    function GetMainRecord(aInt: Int64; const aElement: IwbElement): IwbMainRecord; virtual;
+    function GetMainRecord(aInt: Int64; const aElement: IwbElement): IwbMainRecord;
   public
     procedure AfterConstruction; override;
   end;
@@ -9435,15 +9448,15 @@ type
   TwbRefID = class(TwbFormIDDefFormater, IwbRefID)
   protected
     {---IwbIntegerDefFormater---}
-    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override;
-    procedure BuildRef(aInt: Int64; const aElement: IwbElement); override;
+    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override; final;
+    procedure BuildRef(aInt: Int64; const aElement: IwbElement); override; final;
   public
-    procedure AfterConstruction; override;
+    procedure AfterConstruction; override; final;
   end;
 
   TwbLoadOrderFormID = class(TwbFormIDDefFormater)
   public
-    procedure AfterConstruction; override;
+    procedure AfterConstruction; override; final;
   end;
 
   TwbFormIDChecked = class(TwbFormIDDefFormater, IwbFormIDChecked)
@@ -9457,30 +9470,30 @@ type
     fidcFilterCallback   : TwbFormIDFilterCallback;
     fidcActiveElement    : IwbElement;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(const aValidRefs     : TwbSignatures;
                        const aValidFlstRefs : TwbSignatures;
                              aPersistent    : Boolean;
                              aNoReach       : Boolean = False);
-    destructor Destroy; override;
+    destructor Destroy; override; final;
 
-    function IsValid(const aSignature: TwbSignature): Boolean; override;
-    function IsValidFlst(const aSignature: TwbSignature): Boolean; override;
-    function CheckFlst(const aMainRecord: IwbMainRecord): Boolean; override;
-    function IsValidMainRecord(const aMainRecord: IwbMainRecord): Boolean; override;
+    function IsValid(const aSignature: TwbSignature): Boolean; override; final;
+    function IsValidFlst(const aSignature: TwbSignature): Boolean; override; final;
+    function CheckFlst(const aMainRecord: IwbMainRecord): Boolean; override; final;
+    function IsValidMainRecord(const aMainRecord: IwbMainRecord): Boolean; override; final;
 
-    function GetExactIdentString: string; override;
-    function GetExactIdent: Integer; override;
+    function GetExactIdentString: string; override; final;
+    function GetExactIdent: Integer; override; final;
 
     {---IwbDef---}
-    procedure Report(const aParents: TwbDefPath); override;
-    function GetNoReach: Boolean; override;
+    procedure Report(const aParents: TwbDefPath); override; final;
+    function GetNoReach: Boolean; override; final;
 
     {---IwbIntegerDefFormater---}
-    function Check(aInt: Int64; const aElement: IwbElement): string; override;
-    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
-    function GetEditInfo(const aElement: IwbElement): TwbStringArray; override;
+    function Check(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
+    function GetEditInfo(const aElement: IwbElement): TwbStringArray; override; final;
 
     {---IwbFormIDChecked---}
     function GetSignature(aIndex: Integer): TwbSignature;
@@ -9492,35 +9505,35 @@ type
 
   TwbChar4 = class(TwbIntegerDefFormater, IwbChar4)
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
 
     {---IwbIntegerDefFormater---}
-    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override;
-    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override;
-    procedure BuildRef(aInt: Int64; const aElement: IwbElement); override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
-    function GetLinksTo(aInt: Int64; const aElement: IwbElement): IwbElement; override;
-    function FromLinksTo(const aValue, aElement: IwbElement): Int64; override;
+    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override; final;
+    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override; final;
+    procedure BuildRef(aInt: Int64; const aElement: IwbElement); override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
+    function GetLinksTo(aInt: Int64; const aElement: IwbElement): IwbElement; override; final;
+    function FromLinksTo(const aValue, aElement: IwbElement): Int64; override; final;
 
-    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override;
-    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override;
-    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override;
+    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override; final;
+    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override; final;
   public
-    procedure AfterConstruction; override;
+    procedure AfterConstruction; override; final;
   end;
 
   TwbStr4 = class(TwbIntegerDefFormater, IwbStr4)
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
 
     {---IwbIntegerDefFormater---}
-    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override;
-    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
+    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override; final;
+    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
 
-    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override;
-    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override;
-    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override;
+    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override; final;
+    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override; final;
   end;
 
   TwbFlagsDef = class(TwbIntegerDefFormater, IwbFlagsDef)
@@ -9544,42 +9557,42 @@ type
     UnknownFlags       : array[0..63] of Integer;
     HasUnknownFlags    : Boolean;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aHasSummary      : Boolean;
                  const aBaseFlagsDef    : IwbFlagsDef;
                  const aNames           : array of string;
                        aUnknownIsUnused : Boolean;
                        aIgnoreMask      : Int64);
-    procedure AfterClone(const aSource: TwbDef); override;
+    procedure AfterClone(const aSource: TwbDef); override; final;
 
     {---IwbDef---}
-    procedure Report(const aParents: TwbDefPath); override;
-    function GetChildPos(const aChild: IwbDef): Integer; override;
+    procedure Report(const aParents: TwbDefPath); override; final;
+    function GetChildPos(const aChild: IwbDef): Integer; override; final;
 
-    function GetConflictPriority(const aElement: IwbElement): TwbConflictPriority; override;
-    function GetConflictPriorityCanChange: Boolean; override;
+    function GetConflictPriority(const aElement: IwbElement): TwbConflictPriority; override; final;
+    function GetConflictPriorityCanChange: Boolean; override; final;
 
-    function GetDefTypeName: string; override;
+    function GetDefTypeName: string; override; final;
 
     {---IwbDefInternal---}
-    procedure InitFromParentDoChildren; override;
+    procedure InitFromParentDoChildren; override; final;
 
     {---IwbIntegerDefFormater---}
-    function Check(aInt: Int64; const aElement: IwbElement): string; override;
-    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override;
-    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
-    function Assign(const aTarget: IwbElement; aIndex: Integer; const aSource: IwbElement; aOnlySK: Boolean): IwbElement; override;
-    function GetAssignTemplates(const aContainer: IwbContainerElementRef; aIndex: Integer): TwbDefs; override;
+    function Check(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override; final;
+    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
+    function Assign(const aTarget: IwbElement; aIndex: Integer; const aSource: IwbElement; aOnlySK: Boolean): IwbElement; override; final;
+    function GetAssignTemplates(const aContainer: IwbContainerElementRef; aIndex: Integer): TwbDefs; override; final;
 
-    function GetEditType(const aElement: IwbElement): TwbEditType; override;
-    function GetEditInfo(const aElement: IwbElement): TwbStringArray; override;
+    function GetEditType(const aElement: IwbElement): TwbEditType; override; final;
+    function GetEditInfo(const aElement: IwbElement): TwbStringArray; override; final;
 
-    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override;
-    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override;
-    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override;
+    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override; final;
+    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override; final;
 
-    function GetRequiresKey: Boolean; override;
+    function GetRequiresKey: Boolean; override; final;
 
     {---IwbFlagsDef---}
     function GetBaseFlagsDef: IwbFlagsDef;
@@ -9602,7 +9615,7 @@ type
   private
     fdFlagIndex : Integer;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aPriority   : TwbConflictPriority;
                        aRequired   : Boolean;
                  const aName       : string;
@@ -9610,18 +9623,18 @@ type
                        aFlagIndex  : Integer); reintroduce;
 
     {---IwbDef---}
-    function GetDefType: TwbDefType; override;
-    function GetDefTypeName: string; override;
-    function GetHasDontShow: Boolean; override;
-    function GetDontShow(const aElement: IwbElement): Boolean; override;
-    function GetConflictPriority(const aElement: IwbElement): TwbConflictPriority; override;
-    function GetConflictPriorityCanChange: Boolean; override;
-    function GetCanBeZeroSize: Boolean; override;
+    function GetDefType: TwbDefType; override; final;
+    function GetDefTypeName: string; override; final;
+    function GetHasDontShow: Boolean; override; final;
+    function GetDontShow(const aElement: IwbElement): Boolean; override; final;
+    function GetConflictPriority(const aElement: IwbElement): TwbConflictPriority; override; final;
+    function GetConflictPriorityCanChange: Boolean; override; final;
+    function GetCanBeZeroSize: Boolean; override; final;
 
     {---IwbValueDef---}
-    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override;
-    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
-    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override;
+    function ToString(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): string; override; final;
+    function GetSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
+    function GetDefaultSize(aBasePtr, aEndPtr: Pointer; const aElement: IwbElement): Integer; override; final;
 
     {---IwbFlagDef---}
     function GetFlagsDef: IwbFlagsDef;
@@ -9648,30 +9661,30 @@ type
 
     UnknownEnums: TStringList;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aHasSummary  : Boolean;
                  const aNames       : array of string;
                  const aSparseNames : array of const);
-    destructor Destroy; override;
+    destructor Destroy; override; final;
 
     function FindSparseName(aSearchIndex: Int64; var Index: Integer): Boolean;
 
     {---IwbDef---}
-    procedure Report(const aParents: TwbDefPath); override;
-    function GetDefTypeName: string; override;
+    procedure Report(const aParents: TwbDefPath); override; final;
+    function GetDefTypeName: string; override; final;
 
     {---IwbIntegerDefFormater---}
-    function Check(aInt: Int64; const aElement: IwbElement): string; overload; override;
+    function Check(aInt: Int64; const aElement: IwbElement): string; overload; override; final;
     function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; overload; override;
     function ToSortKey(aInt: Int64; const aElement: IwbElement): string; overload; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
 
-    function GetEditType(const aElement: IwbElement): TwbEditType; override;
-    function GetEditInfo(const aElement: IwbElement): TwbStringArray; override;
+    function GetEditType(const aElement: IwbElement): TwbEditType; override; final;
+    function GetEditInfo(const aElement: IwbElement): TwbStringArray; override; final;
 
-    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; overload; override;
-    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; overload; override;
-    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override;
+    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; overload; override; final;
+    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; overload; override; final;
+    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override; final;
 
     {---IwbStringDefFormater---}
     function Check(const aString: string; const aElement: IwbElement): string; reintroduce; overload;
@@ -9692,15 +9705,15 @@ type
   TwbKey2Data6EnumDef = class(TwbEnumDef, IwbKey2Data6EnumDef)
   protected
     {---IwbIntegerDefFormater---}
-    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override;
-    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override;
+    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override; final;
+    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override; final;
   end;
 
   TwbData6Key2EnumDef = class(TwbEnumDef, IwbData6Key2EnumDef)
   protected
     {---IwbIntegerDefFormater---}
-    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override;
-    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override;
+    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override; final;
+    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override; final;
   end;
 
   TwbDivDef = class(TwbIntegerDefFormater)
@@ -9708,17 +9721,17 @@ type
     ddValue: Integer;
     ddPrecision: Integer;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aValue: Integer; aPrecision: Integer);
 
     {---IwbIntegerDefFormater---}
-    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override;
-    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
+    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override; final;
+    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
 
-    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override;
-    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override;
-    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override;
+    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override; final;
+    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override; final;
   end;
 
   TwbDivFDef = class(TwbIntegerDefFormater)
@@ -9726,34 +9739,34 @@ type
     ddValue: Extended;
     ddPrecision: Integer;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aValue: Extended; aPrecision: Integer);
 
     {---IwbIntegerDefFormater---}
-    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override;
-    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
+    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override; final;
+    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
 
-    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override;
-    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override;
-    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override;
+    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override; final;
+    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override; final;
   end;
 
   TwbMulDef = class(TwbIntegerDefFormater)
   private
     mdValue: Integer;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(aValue: Integer);
 
     {---IwbIntegerDefFormater---}
-    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override;
-    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
+    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override; final;
+    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
 
-    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override;
-    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override;
-    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override;
+    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override; final;
+    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override; final;
   end;
 
   TwbCallbackDef = class(TwbIntegerDefFormater, IwbCallbackDef)
@@ -9761,22 +9774,22 @@ type
     cdToStr: TwbIntToStrCallback;
     cdToInt: TwbStrToIntCallback;
   protected
-    constructor Clone(const aSource: TwbDef); override;
+    constructor Clone(const aSource: TwbDef); override; final;
     constructor Create(const aToStr : TwbIntToStrCallback;
                        const aToInt : TwbStrToIntCallback);
 
     {---IwbIntegerDefFormater---}
-    function Check(aInt: Int64; const aElement: IwbElement): string; override;
-    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override;
-    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override;
-    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override;
+    function Check(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function ToString(aInt: Int64; const aElement: IwbElement; aForSummary: Boolean): string; override; final;
+    function ToSortKey(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function CanAssign(const aElement: IwbElement; aIndex: Integer; const aDef: IwbDef): Boolean; override; final;
 
-    function GetEditType(const aElement: IwbElement): TwbEditType; override;
-    function GetEditInfo(const aElement: IwbElement): TwbStringArray; override;
+    function GetEditType(const aElement: IwbElement): TwbEditType; override; final;
+    function GetEditInfo(const aElement: IwbElement): TwbStringArray; override; final;
 
-    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override;
-    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override;
-    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override;
+    function ToEditValue(aInt: Int64; const aElement: IwbElement): string; override; final;
+    function FromEditValue(const aValue: string; const aElement: IwbElement): Int64; override; final;
+    function GetIsEditable(aInt: Int64; const aElement: IwbElement): Boolean; override; final;
 
     {---IwbCallbackDef---}
     function GetCallback: TwbIntToStrCallback;
@@ -11990,10 +12003,17 @@ begin
 end;
 
 procedure TwbNamedDef.AfterLoad(const aElement: IwbElement);
+var
+  lMark: Int64;
 begin
   Used(nil, '');
   if Assigned(ndAfterLoad) then
-    ndAfterLoad(aElement);
+    if Assigned(wbCallbackScopeEnter) and wbCallbackScopeEnter(lMark) then try
+      ndAfterLoad(aElement);
+    finally
+      wbCallbackScopeLeave(lMark);
+    end else
+      ndAfterLoad(aElement);
 end;
 
 
@@ -18580,7 +18600,7 @@ begin
     end;
   end else if SameText(lValueString, 'Min') then begin
     case fdKind of
-      fkHalf  : PHalfFloat(aBasePtr)^ := HalfMinValue;
+      fkHalf  : PHalfFloat(aBasePtr)^ := HalfLowestValue;
       fkSingle: PCardinal(aBasePtr)^ := $FF7FFFFF;
       fkDouble: PInt64(aBasePtr)^ := -$10000000000001 // $FFEFFFFFFFFFFFFF
     end;
@@ -18621,7 +18641,7 @@ begin
       fsInf: case fdKind of
         fkHalf  : PHalfFloat(aBasePtr)^ := HalfPosInf;
         fkSingle: PSingle(aBasePtr)^ := Single.PositiveInfinity;
-        fkDouble: PDouble(aBasePtr)^ := DoubleNaN.PositiveInfinity;
+        fkDouble: PDouble(aBasePtr)^ := Double.PositiveInfinity;
       end;
       fsNInf: case fdKind of
         fkHalf  : PHalfFloat(aBasePtr)^ := HalfNegInf;
@@ -18637,11 +18657,11 @@ begin
       repeat
         case fdKind of
           fkHalf  : begin
-            if (SingleSameValue(aValue, HalfMaxValue) or (aValue > HalfMaxValue)) then begin
+            if (SingleSameValue(aValue, HalfToFloat(HalfMaxValue)) or (aValue > HalfToFloat(HalfMaxValue))) then begin
               PHalfFloat(aBasePtr)^ := HalfMaxValue;
               Break;
-            end else if (SingleSameValue(aValue, HalfMinValue) or (aValue < HalfMinValue)) then begin
-              PHalfFloat(aBasePtr)^ := HalfMinValue;
+            end else if (SingleSameValue(aValue, HalfToFloat(HalfLowestValue)) or (aValue < HalfToFloat(HalfLowestValue))) then begin
+              PHalfFloat(aBasePtr)^ := HalfLowestValue;
               Break;
             end;
           end;
@@ -18787,9 +18807,9 @@ begin
         case fdKind of
           fkHalf: begin
             if PHalfFloat(aBasePtr)^ = HalfMaxValue then
-              Exit(HalfMaxValue)
-            else if PHalfFloat(aBasePtr)^ = HalfMinValue then
-              Exit(HalfMinValue)
+              Exit(HalfToFloat(HalfMaxValue))
+            else if PHalfFloat(aBasePtr)^ = HalfLowestValue then
+              Exit(HalfToFloat(HalfLowestValue))
             else begin
               Value := HalfToFloat(PHalfFloat(aBasePtr)^);
             end;
@@ -18808,8 +18828,8 @@ begin
           {fkDouble:} begin
             if PInt64(aBasePtr)^ = $7FEFFFFFFFFFFFFF then
               Exit(maxDouble)
-            else if PInt64(aBasePtr)^ = $FFEFFFFFFFFFFFFF then
-              Exit(maxDouble)
+            else if PInt64(aBasePtr)^ = -$10000000000001 then
+              Exit(-maxDouble)
             else
               Value := PDouble(aBasePtr)^;
           end;
@@ -18894,8 +18914,8 @@ begin
   Value := ToValue(aBasePtr, aEndPtr, aElement);
   if IsNaN(Value) then
     VarClear(Result)
-  else if Value = HalfMaxValue then
-    Result := HalfMaxValue
+  else if Value = HalfToFloat(HalfMaxValue) then
+    Result := HalfToFloat(HalfMaxValue)
   else if Value = maxDouble then
     Result := maxDouble
   else if Value = maxSingle then
@@ -18920,21 +18940,21 @@ begin
     fsNInf:
       Result := StringOfChar('-', 40);
   else
-    if ((fdKind = fkHalf) and (lValue = HalfMaxValue)) or
+    if ((fdKind = fkHalf) and (lValue = HalfToFloat(HalfMaxValue))) or
        ((fdKind = fkSingle) and (lValue = maxSingle)) or
-       ((fdKind = fkHalf) and (lValue = maxDouble))
+       ((fdKind = fkDouble) and (lValue = maxDouble))
     then
       Result := '+' + StringOfChar('9', 39)
-    else if ((fdKind = fkHalf) and (lValue = HalfMinValue)) or
+    else if ((fdKind = fkHalf) and (lValue = HalfToFloat(HalfLowestValue))) or
             ((fdKind = fkSingle) and (lValue = -maxSingle)) or
-            ((fdKind = fkHalf) and (lValue = -maxDouble))
+            ((fdKind = fkDouble) and (lValue = -maxDouble))
     then
       Result := '-' + StringOfChar('9', 39);
 
     if Result = '' then begin
       var lEpsilon := Extended.Epsilon;
       case fdKind of
-        fkHalf:   lEpsilon := HalfEpsilon;
+        fkHalf:   lEpsilon := HalfToFloat(HalfEpsilon);
         fkSingle: lEpsilon := Single.Epsilon;
         fkDouble: lEpsilon := Double.Epsilon;
       end;
@@ -18989,19 +19009,19 @@ begin
     else if Value.IsNegativeInfinity then
       Result := '-Inf'
     else if
-      ((fdKind = fkHalf) and (Value = HalfMaxValue))
+      ((fdKind = fkHalf) and (Value = HalfToFloat(HalfMaxValue)))
       or
       ((fdKind = fkSingle) and (Value = maxSingle))
       or
-      ((fdKind = fkHalf) and (Value = maxDouble))
+      ((fdKind = fkDouble) and (Value = maxDouble))
     then
       Result := 'Default' // 'Max' ??
     else if
-      ((fdKind = fkHalf) and (Value = HalfMinValue))
+      ((fdKind = fkHalf) and (Value = HalfToFloat(HalfLowestValue)))
       or
       ((fdKind = fkSingle) and (Value = -maxSingle))
       or
-      ((fdKind = fkHalf) and (Value = -maxDouble))
+      ((fdKind = fkDouble) and (Value = -maxDouble))
     then
       Result := 'Min'
     else

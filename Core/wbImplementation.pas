@@ -44,25 +44,25 @@ type
     function TakeDenseID(aRecord: Pointer): Cardinal;
     procedure ReturnDenseID(aID: Cardinal);
   public
-    destructor Destroy; override;
-    procedure AllocateDenseIDs(const aRecords: TDynMainRecords); override;
-    procedure DetachFilesFromModules; override;
-    function LoadFile(const aFileName: string; aLoadOrder: Integer = -1; const aCompareTo: string = ''; aStates: TwbFileStates = []; const aData: TBytes = nil): IwbFile; override;
-    function NewFile(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean): IwbFile; overload; override;
+    destructor Destroy; override; final;
+    procedure AllocateDenseIDs(const aRecords: TDynMainRecords); override; final;
+    procedure DetachFilesFromModules; override; final;
+    function LoadFile(const aFileName: string; aLoadOrder: Integer = -1; const aCompareTo: string = ''; aStates: TwbFileStates = []; const aData: TBytes = nil): IwbFile; override; final;
+    function NewFile(const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean): IwbFile; overload; override; final;
     function NewFile(const aFileName: string; aLoadOrder: Integer; aTemplate: PwbModuleInfo): IwbFile; overload;
-    function MastersForFile(const aFileName: string; aMasters: TStrings; aIsESM: PBoolean = nil; aIsLight: PBoolean = nil; aIsLocalized: PBoolean = nil; aIsUpdate: PBoolean = nil; aIsMedium: PBoolean = nil; aIsBluePrint: PBoolean = nil): Boolean; overload; override;
-    function MastersForFile(const aFileName: string; out aMasters: TDynStrings; aIsESM: PBoolean = nil; aIsLight: PBoolean = nil; aIsLocalized: PBoolean = nil; aIsUpdate: PBoolean = nil; aIsMedium: PBoolean = nil; aIsBluePrint: PBoolean = nil): Boolean; overload; override;
-    procedure ForceClosedFiles; override;
-    function FindBSAs(const IniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; overload; override;
-    function FindBSAs(const IniName, CustomIniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; overload; override;
-    function HasBSAs(ModName: string; const DataPath: String; Exact, modini: Boolean; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; override;
-    procedure ApplyGameIniLanguage; override;
+    function MastersForFile(const aFileName: string; aMasters: TStrings; aIsESM: PBoolean = nil; aIsLight: PBoolean = nil; aIsLocalized: PBoolean = nil; aIsUpdate: PBoolean = nil; aIsMedium: PBoolean = nil; aIsBluePrint: PBoolean = nil): Boolean; overload; override; final;
+    function MastersForFile(const aFileName: string; out aMasters: TDynStrings; aIsESM: PBoolean = nil; aIsLight: PBoolean = nil; aIsLocalized: PBoolean = nil; aIsUpdate: PBoolean = nil; aIsMedium: PBoolean = nil; aIsBluePrint: PBoolean = nil): Boolean; overload; override; final;
+    procedure ForceClosedFiles; override; final;
+    function FindBSAs(const IniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; overload; override; final;
+    function FindBSAs(const IniName, CustomIniName, DataPath: String; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; overload; override; final;
+    function HasBSAs(ModName: string; const DataPath: String; Exact, modini: Boolean; var bsaNames: TStringList; var bsaMissing: TStringList): Integer; override; final;
+    procedure ApplyGameIniLanguage; override; final;
   end;
 
   TwbLoadingSaveContext = class(TwbSaveContext)
   public
-    destructor Destroy; override;
-    function LoadSave(const aFileName: string; aLoadOrder: Integer; aStates: TwbFileStates = []; const aCompareToFile: IwbFile = nil): IwbFile; override;
+    destructor Destroy; override; final;
+    function LoadSave(const aFileName: string; aLoadOrder: Integer; aStates: TwbFileStates = []; const aCompareToFile: IwbFile = nil): IwbFile; override; final;
   end;
 
 function StartsWith(const s, t: string): Boolean;
@@ -79,6 +79,15 @@ function wbEndKeepAlive: Integer;
 
 
 function wbMultipleElements(const aElements: IwbElements): IwbMultipleElements;
+
+var
+  wbParallelRefBuilds: Integer;
+
+procedure wbRefPhaseBegin(const aFiles: TwbFiles; out aPins: TArray<IInterface>);
+procedure wbRefPhaseEnd(var aPins: TArray<IInterface>);
+function wbOperationScopeEnter(const aCarried: IwbElement; out aMark: Int64): Boolean;
+procedure wbOperationScopeLeave(aMark: Int64);
+function wbOperationScopeDepth: Integer;
 
 implementation
 
@@ -124,7 +133,7 @@ type
     procedure Teardown;
 
     constructor Create;
-    destructor Destroy; override;
+    destructor Destroy; override; final;
 
     {---IwbKeepAliveRoot---}
     procedure Done;
@@ -331,8 +340,8 @@ type
     function LinksToParent: Boolean; virtual;
     procedure SetMemoryOrder(aIndex: Integer);
     function GetMemoryOrder: Integer;
-    procedure SetNameSuffix(const aSuffix: string); virtual;
-    function GetNameSuffix: string; virtual;
+    procedure SetNameSuffix(const aSuffix: string);
+    function GetNameSuffix: string;
     procedure TryAssignMembers(const aSource: IwbElement); virtual;
     procedure FlagAsOptionalAndMissing;
 
@@ -356,7 +365,8 @@ type
     function GetValue: string; virtual;
     function GetSummary: string; virtual;
     function GetCheck: string; virtual;
-    function GetSortKey(aExtended: Boolean): string; virtual;
+    function GetSortKey(aExtended: Boolean): string;
+    function GetSortKeyCached(aExtended: Boolean): string; virtual;
     function GetDisplaySortKey(aExtended: Boolean): string;
     function GetSortKeyInternal(aExtended: Boolean): string; virtual;
     function GetRawDataAsString: string; virtual;
@@ -366,9 +376,9 @@ type
     function GetDisplayName(aUseSuffix: Boolean): string; virtual;
     function GetShortName: string; virtual;
     function GetPath: string; virtual;
-    function GetIndexedPath(aIndexFromFile: Boolean = True): string; virtual;
-    function GetFullPath: string; virtual;
-    function GetPathName: string; virtual;
+    function GetIndexedPath(aIndexFromFile: Boolean = True): string;
+    function GetFullPath: string;
+    function GetPathName: string;
     function GetSkipped: Boolean; virtual;
     procedure SetSkipped(aValue: Boolean); virtual;
     function GetDef: IwbNamedDef; virtual;
@@ -382,6 +392,7 @@ type
     function GetContainingSubRecord: IwbSubRecord; virtual;
     function GetFile: IwbFile; virtual;
     function GameDefObj: TwbGameDef; virtual;
+    function RefMainObj: TObject; virtual;
     function ContextObj: TwbGameContext; virtual;
     function SaveContextObj: TwbSaveContext; virtual;
     function GetGameDefObj: TwbGameDef;
@@ -401,7 +412,7 @@ type
     procedure SetNativeValue(const aValue: Variant); virtual;
     procedure RequestStorageChange(var aBasePtr, aEndPtr: Pointer; aNewSize: Cardinal); virtual;
     function GetConflictPriority: TwbConflictPriority; virtual;
-    function GetConflictPriorityCanChange: Boolean; virtual;
+    function GetConflictPriorityCanChange: Boolean;
     function GetCollapsed: TwbTriBool; virtual;
     function GetModified: Boolean;
     function GetElementGeneration: Integer;
@@ -413,7 +424,7 @@ type
     function GetIsReachable: Boolean; virtual;
     procedure SetModified(aValue: Boolean); virtual;
     procedure SetParentModified; virtual;
-    procedure SetInternalModified(aValue: Boolean); virtual;
+    procedure SetInternalModified(aValue: Boolean);
     function GetDataSize: Integer; virtual;
     procedure SetDataSize(aSize: Integer); virtual;
     procedure MergeStorage(var aBasePtr: Pointer; aEndPtr: Pointer);
@@ -442,7 +453,7 @@ type
 
     function CanAssign(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean;
     function CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean; virtual;
-    function GetAssignTemplates(aIndex: Integer): TwbTemplateElements; virtual;
+    function GetAssignTemplates(aIndex: Integer): TwbTemplateElements;
     function Assign(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement;
     function AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; virtual;
 
@@ -450,8 +461,10 @@ type
     procedure WriteToStreamInternal(aStream: TStream; aResetModified: TwbResetModified); virtual;
     procedure ResetModified(aResetModified: TwbResetModified); virtual;
     function GetLinksTo: IwbElement;
+    function GetLinksToCached: IwbElement;
     function InternalGetLinksTo: IwbElement; virtual;
-    function GetSummaryLinksTo: IwbElement; virtual;
+    function GetSummaryLinksTo: IwbElement;
+    function GetSummaryLinksToCached: IwbElement;
     procedure SetLinksTo(const aElement: IwbElement); virtual;
     function GetNoReach: Boolean;
 
@@ -507,10 +520,10 @@ type
     teDef: IwbNamedDef;
   protected
     {---TwbElement---}
-    function GetName: string; override;
-    function GetDef: IwbNamedDef; override;
-    function GetValueDef: IwbValueDef; override;
-    function GetElementType: TwbElementType; override;
+    function GetName: string; override; final;
+    function GetDef: IwbNamedDef; override; final;
+    function GetValueDef: IwbValueDef; override; final;
+    function GetElementType: TwbElementType; override; final;
   public
     constructor Create(aDef: IwbNamedDef);
   end;
@@ -534,6 +547,7 @@ type
     function GameDefObj: TwbGameDef;
     function ContextObj: TwbGameContext;
     function SaveContextObj: TwbSaveContext;
+    function RefMainObj: TObject;
     function ReleaseElements: TDynElementInternals;
     procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer);
     procedure CreatedEmpty;
@@ -561,11 +575,12 @@ type
     cntRefsBuildAt   : Integer;
     cntCollapesGen   : Integer;
 
-    function _AddRef: Integer; override; stdcall;
-    function _Release: Integer; override; stdcall;
+    function _AddRef: Integer; override; stdcall; final;
+    function _Release: Integer; override; stdcall; final;
+    function RefReleaseTouched: Integer;
 
-    function ContainsReflection: Boolean; override;
-    function ContainsUnmappedFormID: Boolean; override;
+    function ContainsReflection: Boolean; override; final;
+    function ContainsUnmappedFormID: Boolean; override; final;
 
     {---IwbContainerElementRef---}
     function ElementAddRef: Integer; stdcall;
@@ -578,7 +593,7 @@ type
     procedure FindUsedMasters(aMasters: PwbUsedMasters); override;
 
     procedure ResetMemoryOrder(aFrom: Integer = 0; aTo: Integer = High(Integer)); virtual;
-    procedure SortBySortOrder; virtual;
+    procedure SortBySortOrder;
     procedure SetIsSortedBySortOrder(aForce: Boolean);
     procedure MoveElementTo(const aElement: IwbElement; aIndex: Integer);
     procedure CreatedEmpty;
@@ -590,19 +605,19 @@ type
     procedure ResetConflict; override;
     procedure ResetReachable; override;
 
-    procedure DoReset(aForce: Boolean); override;
+    procedure DoReset(aForce: Boolean); override; final;
     function ResetLeafFirst: Boolean; override;
-    function ResetChildrenLeafFirst: Boolean; virtual;
+    function ResetChildrenLeafFirst: Boolean;
     procedure DoInit(aNeedSorted: Boolean); virtual;
     procedure DoAfterInit; virtual;
     procedure DoPendingFill; virtual;
 
-    function HasErrors: Boolean; override;
+    function HasErrors: Boolean; override; final;
     function ContentIsAllZero: Boolean; override;
 
     function GetSortKeyInternal(aExtended: Boolean): string; override;
     function GetDataSize: Integer; override;
-    function GetDataSizeFromElements: Integer; virtual;
+    function GetDataSizeFromElements: Integer;
     procedure MergeStorageInternal(var aBasePtr: Pointer; aEndPtr: Pointer); override;
     procedure InformStorage(var aBasePtr: Pointer; aEndPtr: Pointer); override;
     function UpdateMemoryOrder(out aMemoryOrderElements: TArray<Pointer>): Boolean;
@@ -616,10 +631,10 @@ type
     function AssignAligned(aIndex, aMemoryIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; virtual;
 
     procedure SetToDefaultInternal; override;
-    procedure SetToDefaultIfAsCreatedEmpty; override;
+    procedure SetToDefaultIfAsCreatedEmpty; override; final;
 
     procedure WriteToStreamInternal(aStream: TStream; aResetModified: TwbResetModified); override;
-    procedure ResetModified(aResetModified: TwbResetModified); override;
+    procedure ResetModified(aResetModified: TwbResetModified); override; final;
 
     function GetElement(aIndex: Integer): IwbElement;
     function GetAnyElement: IwbElement;
@@ -632,8 +647,10 @@ type
     function GetAdditionalElementCount: Integer; virtual;
     procedure ReverseElements;
     function GetContainerStates: TwbContainerStates;
-    function GetCollapsed: TwbTriBool; override;
+    function GetCollapsed: TwbTriBool; override; final;
+    function GetCollapsedCached: TwbTriBool;
     procedure SetCollapsed(const aValue: TwbTriBool);
+    procedure SetCollapsedInner(const aValue: TwbTriBool);
     function GetElementByPath(const aPath: string): IwbElement;
     function GetElementValue(const aName: string): string;
     function GetElementSummary(const aName: string): string;
@@ -671,11 +688,11 @@ type
     function IsElementRemovable(const aElement: IwbElement): Boolean; virtual;
     function IsElementEditable(const aElement: IwbElement): Boolean; virtual;
 
-    function IndexOf(const aElement: IwbElement): Integer; virtual;
+    function IndexOf(const aElement: IwbElement): Integer;
 
     function ReleaseElements: TDynElementInternals;
     procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer); virtual;
-    procedure NotifyChanged(aContainer: Pointer); override;
+    procedure NotifyChanged(aContainer: Pointer); override; final;
     procedure NotifyChangedInternal(aContainer: Pointer); override;
 
     function CompareExchangeFormID(aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override;
@@ -700,12 +717,12 @@ type
     function FindBySortOrder(const aSortOrder: Integer; out aIndex: Integer): Boolean;
 
     procedure AfterConstruction; override;
-    procedure BeforeDestruction; override;
+    procedure BeforeDestruction; override; final;
     class function NewInstance: TObject; override;
     destructor Destroy; override;
-    procedure FreeInstance; override;
+    procedure FreeInstance; override; final;
 
-    procedure ResetTags; override;
+    procedure ResetTags; override; final;
   end;
 
   IwbFileInternal = interface(IwbFile)
@@ -795,51 +812,52 @@ type
 
     flAllowHardcodedRangeUse : Boolean;
     flHardcodedGeneration    : Integer;
+    flHardcodedPins          : Integer;
 
-    procedure flOpenFile; virtual;
-    procedure flCloseFile; virtual;
+    procedure flOpenFile;
+    procedure flCloseFile;
     procedure flProgress(const aStatus: string);
 
     function flSetContainsFixedFormID(const aFormID: TwbFormID): Boolean;
     function flComplexFileFileID: Boolean; inline;
 
-    function Reached: Boolean; override;
+    function Reached: Boolean; override; final;
 
-    function GetElementType: TwbElementType; override;
-    function GetFile: IwbFile; override;
-    function GameDefObj: TwbGameDef; override;
-    function ContextObj: TwbGameContext; override;
-    function SaveContextObj: TwbSaveContext; override;
+    function GetElementType: TwbElementType; override; final;
+    function GetFile: IwbFile; override; final;
+    function GameDefObj: TwbGameDef; override; final;
+    function ContextObj: TwbGameContext; override; final;
+    function SaveContextObj: TwbSaveContext; override; final;
     procedure SetSaveContextObj(aSaveContext: TwbSaveContext);
     procedure DetachModule;
     function GetSaveTables: IwbSaveTables;
     procedure SetSaveTables(const aValue: IwbSaveTables);
-    function GetReferenceFile: IwbFile; override;
-    function GetName: string; override;
-    function GetBaseName: string; override;
-    procedure PrepareSave; override;
-    procedure SetModified(aValue: Boolean); override;
-    procedure SetParentModified; override;
+    function GetReferenceFile: IwbFile; override; final;
+    function GetName: string; override; final;
+    function GetBaseName: string; override; final;
+    procedure PrepareSave; override; final;
+    procedure SetModified(aValue: Boolean); override; final;
+    procedure SetParentModified; override; final;
 
-    procedure BuildRef; override;
+    procedure BuildRef; override; final;
     function BuildOrLoadRef(aOnlyLoad: Boolean): TwbBuildOrLoadRefResult;
 
     function FindFormID(aFormID: TwbFormID; var Index: Integer; aNewMasters: Boolean): Boolean;
     function FindInjectedID(const aFormID: TwbFormID; var Index: Integer): Boolean;
     function GetMasterRecordByFormID(aFormID: TwbFormID; aAllowInjected, aNewMasters: Boolean): IwbMainRecord;
 
-    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override;
+    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override; final;
 
     function GetAddList: TDynStrings; override;
     function Add(const aName: string; aSilent: Boolean): IwbElement; override;
 
-    function IsElementRemovable(const aElement: IwbElement): Boolean; override;
-    function IsElementEditable(const aElement: IwbElement): Boolean; override;
-    function GetIsEditable: Boolean; override;
-    function GetIsRemovable: Boolean; override;
+    function IsElementRemovable(const aElement: IwbElement): Boolean; override; final;
+    function IsElementEditable(const aElement: IwbElement): Boolean; override; final;
+    function GetIsEditable: Boolean; override; final;
+    function GetIsRemovable: Boolean; override; final;
 
-    procedure WriteToStream(aStream: TStream; aResetModified: TwbResetModified); override;
-    procedure WriteToStreamInternal(aStream: TStream; aResetModified: TwbResetModified); override;
+    procedure WriteToStream(aStream: TStream; aResetModified: TwbResetModified); override; final;
+    procedure WriteToStreamInternal(aStream: TStream; aResetModified: TwbResetModified); override; final;
 
     function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override;
 
@@ -847,8 +865,8 @@ type
 
     function GetHighestGenerationSelfAndMasters: Integer;
 
-    function GetRecordBySignature(const aSignature: TwbSignature): IwbRecord; override;
-    function GetElementBySignature(const aSignature: TwbSignature): IwbElement; override;
+    function GetRecordBySignature(const aSignature: TwbSignature): IwbRecord; override; final;
+    function GetElementBySignature(const aSignature: TwbSignature): IwbElement; override; final;
 
     procedure flAddKeysToIndices(const aMainRecord: IwbMainRecord; const aKeys: TwbDefinedKeys);
     procedure flRemoveKeysFromIndices(const aMainRecord: IwbMainRecord; const aKeys: TwbDefinedKeys);
@@ -956,6 +974,9 @@ type
     function GetVersion: Double;
 
     function GetAllowHardcodedRangeUse: Boolean;
+    function GetAllowHardcodedRangeUseByGeneration: Boolean;
+    procedure RefPinHardcoded;
+    procedure RefUnpinHardcoded;
 
     function HasBlueprintMaster: Boolean;
     function HasONAM: Boolean;
@@ -999,8 +1020,8 @@ type
     constructor CreateNew(const aContext: TwbGameContext; const aFileName: string; aLoadOrder: Integer; aIsLight, aIsMedium: Boolean); overload;
     constructor CreateNew(const aContext: TwbGameContext; const aFileName: string; aLoadOrder: Integer; aTemplate: PwbModuleInfo); overload;
   public
-    class function NewInstance: TObject; override;
-    destructor Destroy; override;
+    class function NewInstance: TObject; override; final;
+    destructor Destroy; override; final;
   end;
 
   TwbFileSource = class(TwbFile)
@@ -1008,12 +1029,12 @@ type
     function flSaveDef: TwbSaveDef;
     function SelectTemporaryCopy(const aFileName, aCompareFile: string): string;
   protected
-    procedure Scan; override;
-    function GetAddList: TDynStrings; override;
-    function Add(const aName: string; aSilent: Boolean): IwbElement; override;
-    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override;
+    procedure Scan; override; final;
+    function GetAddList: TDynStrings; override; final;
+    function Add(const aName: string; aSilent: Boolean): IwbElement; override; final;
+    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override; final;
     constructor CreateNew(const aContext: TwbGameContext; const aFileName: string; aLoadOrder: Integer);
-    procedure GetMasters(aMasters: TStrings); override;
+    procedure GetMasters(aMasters: TStrings); override; final;
     procedure GetPluginNames(const aHeader: IwbFileHeader; aNames, aLightNames: TStrings);
   public
     constructor CreateSave(const aSaveContext: TwbSaveContext; const aFileName: string; aLoadOrder: Integer; const aCompareToFile: IwbFile; aStates: TwbFileStates);
@@ -1053,13 +1074,13 @@ type
 
     function GetResolvedValueDef: IwbValueDef; override;
 
-    function ContentIsAllZero: Boolean; override;
+    function ContentIsAllZero: Boolean; override; final;
 
-    procedure InvalidateStorage; override;
+    procedure InvalidateStorage; override; final;
     procedure SetContainer(const aContainer: IwbContainer); override;
 
     procedure SetModified(aValue: Boolean); override;
-    procedure RequestStorageChange(var aBasePtr, aEndPtr: Pointer; aNewSize: Cardinal); override;
+    procedure RequestStorageChange(var aBasePtr, aEndPtr: Pointer; aNewSize: Cardinal); override; final;
 
     procedure WriteToStreamInternal(aStream: TStream; aResetModified: TwbResetModified); override;
     procedure MergeStorageInternal(var aBasePtr: Pointer; aEndPtr: Pointer); override;
@@ -1068,13 +1089,13 @@ type
     procedure SetToDefaultInternal; override;
     function IsFlags: Boolean; virtual;
 
-    function GetEditType: TwbEditType; override;
-    function GetEditInfo: TArray<string>; override;
+    function GetEditType: TwbEditType; override; final;
+    function GetEditInfo: TArray<string>; override; final;
 
-    function GetConflictPriority: TwbConflictPriority; override;
+    function GetConflictPriority: TwbConflictPriority; override; final;
 
     {---IwbElement---}
-    function GetRawDataAsString: string; override;
+    function GetRawDataAsString: string; override; final;
 
     {---IwbContainerElementRef---}
     procedure PrepareSave; override;
@@ -1083,7 +1104,7 @@ type
     function GetDataBasePtr: Pointer;
     function GetDataEndPtr: Pointer;
     function GetDataSize: Integer; override;
-    procedure SetDataSize(aSize: Integer); override;
+    procedure SetDataSize(aSize: Integer); override; final;
     function GetDontCompare: Boolean;
     function GetDontSave: Boolean;
     function IsValidOffset(aBasePtr, aEndPtr: Pointer; anOffset: Integer): Boolean;
@@ -1117,8 +1138,8 @@ type
                                                     : IwbRecord;
 
     function GetName: string; override;
-    function GetSkipped: Boolean; override;
-    procedure SetSkipped(aValue: Boolean); override;
+    function GetSkipped: Boolean; override; final;
+    procedure SetSkipped(aValue: Boolean); override; final;
   end;
 
   PwbMainRecordStruct = ^TwbMainRecordStruct;
@@ -1276,6 +1297,7 @@ type
 
     mreGeneration       : Integer;
     mrReferencedByUnsorted : Boolean;
+    mrRefOwner          : Word;
     mrePrev             : Pointer;
     mreNext             : Pointer;
 
@@ -1293,98 +1315,99 @@ type
 
     procedure mrInvalidateNameCache;
 
-    procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer); override;
-    function RemoveElement(aPos: Integer; aMarkModified: Boolean = False): IwbElement; overload; override;
-    function ResolveElementName(aName: string; out aRemainingName: string; aCanCreate: Boolean = False): IwbElement; override;
+    procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer); override; final;
+    function RemoveElement(aPos: Integer; aMarkModified: Boolean = False): IwbElement; overload; override; final;
+    function ResolveElementName(aName: string; out aRemainingName: string; aCanCreate: Boolean = False): IwbElement; override; final;
 
-    function GetIsInjected: Boolean; override;
-    function GetReferencesInjected: Boolean; override;
-    function GetInjectionSourceFiles: TwbFiles; override;
-    function RemoveInjected(aCanRemove: Boolean): Boolean; override;
-    function GetIsNotReachable: Boolean; override;
-    function GetIsReachable: Boolean; override;
-    function GetCountedRecordCount: Cardinal; override;
-    procedure InitDataPtr; override;
+    function GetIsInjected: Boolean; override; final;
+    function GetReferencesInjected: Boolean; override; final;
+    function GetInjectionSourceFiles: TwbFiles; override; final;
+    function RemoveInjected(aCanRemove: Boolean): Boolean; override; final;
+    function GetIsNotReachable: Boolean; override; final;
+    function GetIsReachable: Boolean; override; final;
+    function GetCountedRecordCount: Cardinal; override; final;
+    procedure InitDataPtr; override; final;
     procedure DecompressIfNeeded;
-    procedure ScanData; override;
-    procedure WriteToStreamInternal(aStream: TStream; aResetModified: TwbResetModified); override;
-    procedure MergeStorageInternal(var aBasePtr: Pointer; aEndPtr: Pointer); override;
-    procedure InformStorage(var aBasePtr: Pointer; aEndPtr: Pointer); override;
-    function CanContainFormIDs: Boolean; override;
-    function CompareExchangeFormID(aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override;
-    function CanElementReset: Boolean; override;
-    procedure Remove; override;
-    procedure PrepareSave; override;
-    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override;
-    procedure FindUsedMasters(aMasters: PwbUsedMasters); override;
-    function GetReferenceFile: IwbFile; override;
-    procedure ReportRequiredMasters(aMasters: TwbFilesSet; aAsNew: Boolean; Recursive: Boolean = True; Initial: Boolean = false); override;
-    function LinksToParent: Boolean; override;
-    function Reached: Boolean; override;
-    function GetContainingMainRecord: IwbMainRecord; override;
-    procedure DoAfterSet(const aOldValue, aNewValue: Variant); override;
-    procedure SetParentModified; override;
-    procedure SetModified(aValue: Boolean); override;
-    procedure DoPendingFill; override;
-    procedure DoAfterInit; override;
+    procedure ScanData; override; final;
+    procedure WriteToStreamInternal(aStream: TStream; aResetModified: TwbResetModified); override; final;
+    procedure MergeStorageInternal(var aBasePtr: Pointer; aEndPtr: Pointer); override; final;
+    procedure InformStorage(var aBasePtr: Pointer; aEndPtr: Pointer); override; final;
+    function CanContainFormIDs: Boolean; override; final;
+    function CompareExchangeFormID(aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override; final;
+    function CanElementReset: Boolean; override; final;
+    procedure Remove; override; final;
+    procedure PrepareSave; override; final;
+    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override; final;
+    procedure FindUsedMasters(aMasters: PwbUsedMasters); override; final;
+    function GetReferenceFile: IwbFile; override; final;
+    procedure ReportRequiredMasters(aMasters: TwbFilesSet; aAsNew: Boolean; Recursive: Boolean = True; Initial: Boolean = false); override; final;
+    function LinksToParent: Boolean; override; final;
+    function Reached: Boolean; override; final;
+    function GetContainingMainRecord: IwbMainRecord; override; final;
+    procedure DoAfterSet(const aOldValue, aNewValue: Variant); override; final;
+    procedure SetParentModified; override; final;
+    procedure SetModified(aValue: Boolean); override; final;
+    procedure DoPendingFill; override; final;
+    procedure DoAfterInit; override; final;
 
     function DoBuildRef(aRemove: Boolean): Boolean;
     function RecordHeaderStructDef: IwbStructDef;
     function NeedsOrderFill: Boolean;
     procedure FillOrderBySort;
-    procedure BuildRef; override;
-    procedure AddReferencedFromID(const aFormID: TwbFormID); override;
-    procedure ResetConflict; override;
-    procedure ResetReachable; override;
+    procedure BuildRef; override; final;
+    procedure AddReferencedFromID(const aFormID: TwbFormID); override; final;
+    procedure ResetConflict; override; final;
+    procedure ResetReachable; override; final;
 
-    procedure NotifyChangedInternal(aContainer: Pointer); override;
+    procedure NotifyChangedInternal(aContainer: Pointer); override; final;
 
-    procedure Init; override;
-    procedure Reset; override;
+    procedure Init; override; final;
+    procedure Reset; override; final;
 
-    function GetPath: string; override;
-    function GetValue: string; override;
-    function GetSummary: string; override;
-    function GetSortKeyInternal(aExtended: Boolean): string; override;
-    function GetSortPriority: Integer; override;
-    function GetAdditionalElementCount: Integer; override;
-    function GetIsEditable: Boolean; override;
-    function GetEditValue: string; override;
-    procedure SetEditValue(const aValue: string); override;
-    function GetNativeValue: Variant; override;
-    procedure SetNativeValue(const aValue: Variant); override;
-    function IsElementRemovable(const aElement: IwbElement): Boolean; override;
-    procedure SetContainer(const aContainer: IwbContainer); override;
+    function GetPath: string; override; final;
+    function GetValue: string; override; final;
+    function GetSummary: string; override; final;
+    function GetSortKeyInternal(aExtended: Boolean): string; override; final;
+    function GetSortPriority: Integer; override; final;
+    function GetAdditionalElementCount: Integer; override; final;
+    function GetIsEditable: Boolean; override; final;
+    function GetEditValue: string; override; final;
+    procedure SetEditValue(const aValue: string); override; final;
+    function GetNativeValue: Variant; override; final;
+    procedure SetNativeValue(const aValue: Variant); override; final;
+    function IsElementRemovable(const aElement: IwbElement): Boolean; override; final;
+    procedure SetContainer(const aContainer: IwbContainer); override; final;
 
     function FindReferencedBy(const aMainRecord: IwbMainRecord; var Index: Integer): Boolean;
 
-    function CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean; override;
-    function AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override;
-    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override;
+    function CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean; override; final;
+    function AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override; final;
+    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override; final;
 
     procedure CollapseStorage(aKAR: PwbKeepAliveRoot; aForce: Boolean);
 
-    function GetAddList: TDynStrings; override;
-    function Add(const aName: string; aSilent: Boolean): IwbElement; override;
+    function GetAddList: TDynStrings; override; final;
+    function Add(const aName: string; aSilent: Boolean): IwbElement; override; final;
 
     function CheckChildOfCell: Boolean;
     procedure UpdateCellChildGroup;
     procedure UpdateInteriorCellGroup;
 
-    procedure MarkModifiedRecursive(const aElementTypes: TwbElementTypes); override;
+    procedure MarkModifiedRecursive(const aElementTypes: TwbElementTypes); override; final;
 
-    procedure UpdateStorageFromElements; override;
+    procedure UpdateStorageFromElements; override; final;
 
     procedure PrepareOffsetData;
 
     function BuildIndexKeys(out aKeys: TwbIndexKeys): Boolean;
 
     {---IwbMainRecord---}
-    function GetDef: IwbNamedDef; override;
+    function GetDef: IwbNamedDef; override; final;
     function GetMainRecordDef: IwbMainRecordDef;
-    function GetElementType: TwbElementType; override;
-    function GameDefObj: TwbGameDef; override;
-    function ContextObj: TwbGameContext; override;
+    function GetElementType: TwbElementType; override; final;
+    function GameDefObj: TwbGameDef; override; final;
+    function RefMainObj: TObject; override; final;
+    function ContextObj: TwbGameContext; override; final;
     function GetFormID: TwbFormID; inline;
     function GetFixedFormID: TwbFormID; inline;
     function DoGetFixedFormID: TwbFormID;
@@ -1411,7 +1434,7 @@ type
     function GetReference(aIndex: Integer): IwbMainRecord;
     function GetReferencesCount: Integer;
     function GetExternalReferencesCount: Integer;
-    function GetCheck: string; override;
+    function GetCheck: string; override; final;
     function GetIsWinningOverride: Boolean;
     function GetWinningOverride: IwbMainRecord;
     function GetHighestOverrideOrSelf(aMaxLoadOrder: Integer): IwbMainRecord;
@@ -1489,6 +1512,9 @@ type
 
     procedure MakePartialForm;
 
+    function UndeleteDecision: TwbUndeleteOutcome;
+    procedure UndeleteAndDisable;
+
     function MasterRecordsFromMasterFilesAndSelf: TDynMainRecords;
 
     function ActivateIndexKeys: TwbDefinedKeys;
@@ -1535,16 +1561,16 @@ type
     constructor Create(const aContainer      : IwbContainer;
                          var aBasePtr        : Pointer;
                          var aEndPtr         : Pointer;
-                       const aPrevMainRecord : IwbMainRecord); override;
+                       const aPrevMainRecord : IwbMainRecord); override; final;
     constructor Create(const aContainer : IwbContainer;
                        const aSignature : TwbSignature;
                        const aFormID    : TwbFormID); overload;
-    destructor Destroy; override;
+    destructor Destroy; override; final;
 
-    function GetName: string; override;
-    function GetShortNameInternal(aForName: Boolean): string; virtual;
-    function GetShortName: string; override;
-    function GetDisplayName(aUseSuffix: Boolean): string; override;
+    function GetName: string; override; final;
+    function GetShortNameInternal(aForName: Boolean): string;
+    function GetShortName: string; override; final;
+    function GetDisplayName(aUseSuffix: Boolean): string; override; final;
   end;
 
   PwbSubRecordHeaderStruct = ^TwbSubRecordHeaderStruct;
@@ -1592,90 +1618,90 @@ type
   protected
     constructor Create(const aContainer : IwbContainer;
                        const aSubRecordDef: IwbSubRecordDef); overload;
-    destructor Destroy; override;
+    destructor Destroy; override; final;
 
     procedure SetDef(const aDef: IwbSubRecordDef);
     function srStruct: PwbSubRecordHeaderStruct; inline;
 
-    procedure InitDataPtr; override;
-    procedure ScanData; override;
+    procedure InitDataPtr; override; final;
+    procedure ScanData; override; final;
 
-    procedure DoInit(aNeedSorted: Boolean); override;
-    procedure Init; override;
-    procedure Reset; override;
+    procedure DoInit(aNeedSorted: Boolean); override; final;
+    procedure Init; override; final;
+    procedure Reset; override; final;
 
-    function GetDataPrefixSize: Integer; override;
+    function GetDataPrefixSize: Integer; override; final;
     procedure CheckCount;
 
-    function GetName: string; override;
-    function GetDisplayName(aUseSuffix: Boolean): string; override;
+    function GetName: string; override; final;
+    function GetDisplayName(aUseSuffix: Boolean): string; override; final;
 
-    function GetDisplaySignature: string; override;
+    function GetDisplaySignature: string; override; final;
 
-    procedure ResetMemoryOrder(aFrom: Integer = 0; aTo: Integer = High(Integer)); override;
+    procedure ResetMemoryOrder(aFrom: Integer = 0; aTo: Integer = High(Integer)); override; final;
 
-    function IsFlags: Boolean; override;
+    function IsFlags: Boolean; override; final;
 
-    procedure BeforeActualRemove; override;
-    procedure DoAfterSet(const aOldValue, aNewValue: Variant); override;
+    procedure BeforeActualRemove; override; final;
+    procedure DoAfterSet(const aOldValue, aNewValue: Variant); override; final;
     procedure UpdateCountViaPath;
 
-    function GetValue: string; override;
-    function GetSummary: string; override;
-    function GetCheck: string; override;
-    function GetSortKeyInternal(aExtended: Boolean): string; override;
-    function GetIsEditable: Boolean; override;
-    function GetValueDef: IwbValueDef; override;
-    function GetEditValue: string; override;
-    procedure SetEditValue(const aValue: string); override;
-    function GetNativeValue: Variant; override;
-    procedure SetNativeValue(const aValue: Variant); override;
-    procedure BuildRef; override;
-    function CompareExchangeFormID(aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override;
-    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override;
-    procedure FindUsedMasters(aMasters: PwbUsedMasters); override;
-    procedure MergeStorageInternal(var aBasePtr: Pointer; aEndPtr: Pointer); override;
-    procedure InformStorage(var aBasePtr: Pointer; aEndPtr: Pointer); override;
-    function IsElementRemovable(const aElement: IwbElement): Boolean; override;
-    procedure SetModified(aValue: Boolean); override;
-    function CanContainFormIDs: Boolean; override;
-    function CanElementReset: Boolean; override;
-    function InternalGetLinksTo: IwbElement; override;
-    procedure SetLinksTo(const aValue: IwbElement); override;
-    procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer); override;
-    procedure PrepareSave; override;
-    function RemoveInjected(aCanRemove: Boolean): Boolean; override;
-    function ResetLeafFirst: Boolean; override;
-    function Add(const aName: string; aSilent: Boolean): IwbElement; override;
+    function GetValue: string; override; final;
+    function GetSummary: string; override; final;
+    function GetCheck: string; override; final;
+    function GetSortKeyInternal(aExtended: Boolean): string; override; final;
+    function GetIsEditable: Boolean; override; final;
+    function GetValueDef: IwbValueDef; override; final;
+    function GetEditValue: string; override; final;
+    procedure SetEditValue(const aValue: string); override; final;
+    function GetNativeValue: Variant; override; final;
+    procedure SetNativeValue(const aValue: Variant); override; final;
+    procedure BuildRef; override; final;
+    function CompareExchangeFormID(aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override; final;
+    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override; final;
+    procedure FindUsedMasters(aMasters: PwbUsedMasters); override; final;
+    procedure MergeStorageInternal(var aBasePtr: Pointer; aEndPtr: Pointer); override; final;
+    procedure InformStorage(var aBasePtr: Pointer; aEndPtr: Pointer); override; final;
+    function IsElementRemovable(const aElement: IwbElement): Boolean; override; final;
+    procedure SetModified(aValue: Boolean); override; final;
+    function CanContainFormIDs: Boolean; override; final;
+    function CanElementReset: Boolean; override; final;
+    function InternalGetLinksTo: IwbElement; override; final;
+    procedure SetLinksTo(const aValue: IwbElement); override; final;
+    procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer); override; final;
+    procedure PrepareSave; override; final;
+    function RemoveInjected(aCanRemove: Boolean): Boolean; override; final;
+    function ResetLeafFirst: Boolean; override; final;
+    function Add(const aName: string; aSilent: Boolean): IwbElement; override; final;
 
-    procedure SetToDefaultInternal; override;
+    procedure SetToDefaultInternal; override; final;
 
-    procedure WriteToStreamInternal(aStream: TStream; aResetModified: TwbResetModified); override;
+    procedure WriteToStreamInternal(aStream: TStream; aResetModified: TwbResetModified); override; final;
 
-    function CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean; override;
-    function AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override;
-    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override;
-    function GetIsInSK(aIndex: Integer): Boolean; override;
-    function CanAssignAligned(aIndex: Integer; aCheckDontShow: Boolean): Boolean; override;
-    function AssignAligned(aIndex, aMemoryIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override;
-    function DoCheckSizeAfterWrite: Boolean; override;
+    function CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean; override; final;
+    function AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override; final;
+    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override; final;
+    function GetIsInSK(aIndex: Integer): Boolean; override; final;
+    function CanAssignAligned(aIndex: Integer; aCheckDontShow: Boolean): Boolean; override; final;
+    function AssignAligned(aIndex, aMemoryIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override; final;
+    function DoCheckSizeAfterWrite: Boolean; override; final;
 
-    function GetDef: IwbNamedDef; override;
-    function GetElementType: TwbElementType; override;
+    function GetDef: IwbNamedDef; override; final;
+    function GetElementType: TwbElementType; override; final;
 
-    function GetDataSize: Integer; override;
+    function GetDataSize: Integer; override; final;
 
-    function CanMoveElement: Boolean; override;
+    function CanMoveElement: Boolean; override; final;
 
     procedure CheckTerminator;
 
-    procedure NotifyChangedInternal(aContainer: Pointer); override;
+    procedure NotifyChangedInternal(aContainer: Pointer); override; final;
 
-    function MergeMultiple(const aElement: IwbElement): Boolean; override;
+    function MergeMultiple(const aElement: IwbElement): Boolean; override; final;
 
     {--- IwbSubRecord ---}
     function GetSubRecordHeaderSize: Integer;
-    function GetContainingSubRecord: IwbSubRecord; Override;
+    function GetContainingSubRecord: IwbSubRecord; Override; final;
 
     {--- IwbSortableContainer ---}
     function GetSorted: Boolean;
@@ -1688,47 +1714,47 @@ type
 
     constructor CreateDetached(aContextObj: TwbGameContext; var aBasePtr, aEndPtr: Pointer);
 
-    function GameDefObj: TwbGameDef; override;
-    function ContextObj: TwbGameContext; override;
+    function GameDefObj: TwbGameDef; override; final;
+    function ContextObj: TwbGameContext; override; final;
   end;
 
   TwbValueBase = class(TwbDataContainer, IwbValueBase)
   protected
     vbValueDef   : IwbValueDef;
   protected
-    procedure InitDataPtr; override;
+    procedure InitDataPtr; override; final;
 
-    function GetDef: IwbNamedDef; override;
-    function GetValueDef: IwbValueDef; override;
+    function GetDef: IwbNamedDef; override; final;
+    function GetValueDef: IwbValueDef; override; final;
 
-    function GetName: string; override;
-    function GetBaseName: string; override;
-    function GetDisplayName(aUseSuffix: Boolean): string; override;
+    function GetName: string; override; final;
+    function GetBaseName: string; override; final;
+    function GetDisplayName(aUseSuffix: Boolean): string; override; final;
 
-    function GetCheck: string; override;
+    function GetCheck: string; override; final;
     function GetValue: string; override;
-    function GetSummary: string; override;
-    function GetSortKeyInternal(aExtended: Boolean): string; override;
+    function GetSummary: string; override; final;
+    function GetSortKeyInternal(aExtended: Boolean): string; override; final;
 
     function GetIsEditable: Boolean; override;
-    function CanElementReset: Boolean; override;
+    function CanElementReset: Boolean; override; final;
 
-    function GetEditValue: string; override;
+    function GetEditValue: string; override; final;
     procedure SetEditValue(const aValue: string); override;
 
-    function GetNativeValue: Variant; override;
+    function GetNativeValue: Variant; override; final;
     procedure SetNativeValue(const aValue: Variant); override;
 
     procedure BuildRef; override;
     function CanContainFormIDs: Boolean; override;
-    function InternalGetLinksTo: IwbElement; override;
-    procedure SetLinksTo(const aValue: IwbElement); override;
-    function GetDataSize: Integer; override;
-    function DoCheckSizeAfterWrite: Boolean; override;
+    function InternalGetLinksTo: IwbElement; override; final;
+    procedure SetLinksTo(const aValue: IwbElement); override; final;
+    function GetDataSize: Integer; override; final;
+    function DoCheckSizeAfterWrite: Boolean; override; final;
 
     procedure SetToDefaultInternal; override;
 
-    function GetIsInSK(aIndex: Integer): Boolean; override;
+    function GetIsInSK(aIndex: Integer): Boolean; override; final;
   public
     constructor Create(const aContainer  : IwbContainer;
                          var aBasePtr    : Pointer;
@@ -1755,40 +1781,40 @@ type
     arrSizePrefix    : Integer;
     procedure UpdateSortedAfterCopy;
   protected
-    procedure DoInit(aNeedSorted: Boolean); override;
-    procedure Init; override;
-    procedure Reset; override;
+    procedure DoInit(aNeedSorted: Boolean); override; final;
+    procedure Init; override; final;
+    procedure Reset; override; final;
 
-    procedure SetToDefaultInternal; override;
+    procedure SetToDefaultInternal; override; final;
 
-    procedure ResetMemoryOrder(aFrom: Integer = 0; aTo: Integer = High(Integer)); override;
+    procedure ResetMemoryOrder(aFrom: Integer = 0; aTo: Integer = High(Integer)); override; final;
 
-    procedure BeforeActualRemove; override;
-    procedure DoAfterSet(const aOldValue, aNewValue: Variant); override;
+    procedure BeforeActualRemove; override; final;
+    procedure DoAfterSet(const aOldValue, aNewValue: Variant); override; final;
     procedure UpdateCountViaPath;
 
-    function GetElementType: TwbElementType; override;
-    function IsElementRemovable(const aElement: IwbElement): Boolean; override;
-    procedure SetModified(aValue: Boolean); override;
-    procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer); override;
+    function GetElementType: TwbElementType; override; final;
+    function IsElementRemovable(const aElement: IwbElement): Boolean; override; final;
+    procedure SetModified(aValue: Boolean); override; final;
+    procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer); override; final;
 
-    function CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean; override;
-    function AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override;
-    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override;
+    function CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean; override; final;
+    function AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override; final;
+    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override; final;
 
-    procedure PrepareSave; override;
+    procedure PrepareSave; override; final;
     procedure CheckTerminator;
 
-    function GetDataPrefixSize: Integer; override;
+    function GetDataPrefixSize: Integer; override; final;
     procedure CheckCount;
-    procedure NotifyChangedInternal(aContainer: Pointer); override;
+    procedure NotifyChangedInternal(aContainer: Pointer); override; final;
 
-    function CanMoveElement: Boolean; override;
+    function CanMoveElement: Boolean; override; final;
 
-    function Add(const aName: string; aSilent: Boolean): IwbElement; override;
+    function Add(const aName: string; aSilent: Boolean): IwbElement; override; final;
 
-    function GetIsClearable: Boolean; override;
-    procedure Clear; override;
+    function GetIsClearable: Boolean; override; final;
+    procedure Clear; override; final;
 
     {--- IwbSortableContainer ---}
     function GetSorted: Boolean;
@@ -1801,8 +1827,8 @@ type
     szUncompressedSize : Cardinal;
     szCompressedType   : TwbStructCompression;
   protected
-    procedure Init; override;
-    procedure Reset; override;
+    procedure Init; override; final;
+    procedure Reset; override; final;
 
     function GetElementType: TwbElementType; override;
     procedure DecompressIfNeeded;
@@ -1819,8 +1845,8 @@ type
   protected
     cChapterSkipped : Boolean;
   protected
-    function GetSkipped: Boolean; override;
-    function GetElementType: TwbElementType; override;
+    function GetSkipped: Boolean; override; final;
+    function GetElementType: TwbElementType; override; final;
     function GetChapterType: Integer;
     function GetChapterTypeName: String;
     function GetChapterName: String;
@@ -1836,14 +1862,14 @@ type
   protected
     unResolvedDef: IwbValueDef;
   protected
-    function CompareExchangeFormID(aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override;
-    procedure Init; override;
-    procedure Reset; override;
-    function GetResolvedValueDef: IwbValueDef; override;
+    function CompareExchangeFormID(aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override; final;
+    procedure Init; override; final;
+    procedure Reset; override; final;
+    function GetResolvedValueDef: IwbValueDef; override; final;
 
-    function GetElementType: TwbElementType; override;
-    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override;
-    procedure FindUsedMasters(aMasters: PwbUsedMasters); override;
+    function GetElementType: TwbElementType; override; final;
+    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override; final;
+    procedure FindUsedMasters(aMasters: PwbUsedMasters); override; final;
 
     {---IwbUnion---}
     procedure RecheckDecider;
@@ -1851,14 +1877,14 @@ type
 
   TwbRecordHeaderStruct = class(TwbStruct, IwbRecordHeaderStruct)
   protected
-    function CanContainFormIDs: Boolean; override;
-    procedure BuildRef; override;
-    function CompareExchangeFormID(aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override;
-    function IsElementEditable(const aElement: IwbElement): Boolean; override;
-    function GetIsEditable: Boolean; override;
-    function GetIsRemovable: Boolean; override;
-    procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer); override;
-    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override;
+    function CanContainFormIDs: Boolean; override; final;
+    procedure BuildRef; override; final;
+    function CompareExchangeFormID(aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override; final;
+    function IsElementEditable(const aElement: IwbElement): Boolean; override; final;
+    function GetIsEditable: Boolean; override; final;
+    function GetIsRemovable: Boolean; override; final;
+    procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer); override; final;
+    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override; final;
   end;
 
   TwbValue = class(TwbValueBase, IwbSortableContainer)
@@ -1866,21 +1892,21 @@ type
     vIsFlags     : Boolean;
     vResolvedDef : IwbValueDef;
   protected
-    function GetValue: string; override;
+    function GetValue: string; override; final;
     function CompareExchangeFormID(aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override;
-    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override;
-    procedure FindUsedMasters(aMasters: PwbUsedMasters); override;
-    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override;
+    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override; final;
+    procedure FindUsedMasters(aMasters: PwbUsedMasters); override; final;
+    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override; final;
 
-    function IsFlags: Boolean; override;
+    function IsFlags: Boolean; override; final;
 
-    procedure Init; override;
-    procedure Reset; override;
-    function GetResolvedValueDef: IwbValueDef; override;
+    procedure Init; override; final;
+    procedure Reset; override; final;
+    function GetResolvedValueDef: IwbValueDef; override; final;
 
-    function GetElementType: TwbElementType; override;
-    procedure SetEditValue(const aValue: string); override;
-    procedure SetNativeValue(const aValue: Variant); override;
+    function GetElementType: TwbElementType; override; final;
+    procedure SetEditValue(const aValue: string); override; final;
+    procedure SetNativeValue(const aValue: Variant); override; final;
 
     {--- IwbSortableContainer ---}
     function GetSorted: Boolean;
@@ -1891,14 +1917,14 @@ type
   protected {private}
     cieLockCount: Integer;
   protected
-    procedure InvalidateParentStorage; override;
-    function CanContainFormIDs: Boolean; override;
-    procedure BuildRef; override;
-    function CompareExchangeFormID(aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override;
-    function IsElementEditable(const aElement: IwbElement): Boolean; override;
-    procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer); override;
-    procedure SetModified(aValue: Boolean); override;
-    procedure DoAfterSet(const aOldValue, aNewValue: Variant); override;
+    procedure InvalidateParentStorage; override; final;
+    function CanContainFormIDs: Boolean; override; final;
+    procedure BuildRef; override; final;
+    function CompareExchangeFormID(aOldFormID: TwbFormID; aNewFormID: TwbFormID): Boolean; override; final;
+    function IsElementEditable(const aElement: IwbElement): Boolean; override; final;
+    procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer); override; final;
+    procedure SetModified(aValue: Boolean); override; final;
+    procedure DoAfterSet(const aOldValue, aNewValue: Variant); override; final;
 
     {--- IwbContainedIn ---}
     procedure ContainerChanged;
@@ -1907,19 +1933,19 @@ type
   end;
 
   TwbStringListTerminator = class(TwbElement, IwbStringListTerminator)
-    function GetName: string; override;
-    function GetElementType: TwbElementType; override;
-    function GetConflictPriority: TwbConflictPriority; override;
-    function GetSortKeyInternal(aExtended: Boolean): string; override;
-    procedure SetEditValue(const aValue: string); override;
-    procedure SetNativeValue(const aValue: Variant); override;
-    function GetDataSize: Integer; override;
-    procedure WriteToStreamInternal(aStream: TStream; aResetModified: TwbResetModified); override;
-    procedure MergeStorageInternal(var aBasePtr: Pointer; aEndPtr: Pointer); override;
-    procedure InformStorage(var aBasePtr: Pointer; aEndPtr: Pointer); override;
-    function CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean; override;
-    function AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override;
-    function GetDontShow: Boolean; override;
+    function GetName: string; override; final;
+    function GetElementType: TwbElementType; override; final;
+    function GetConflictPriority: TwbConflictPriority; override; final;
+    function GetSortKeyInternal(aExtended: Boolean): string; override; final;
+    procedure SetEditValue(const aValue: string); override; final;
+    procedure SetNativeValue(const aValue: Variant); override; final;
+    function GetDataSize: Integer; override; final;
+    procedure WriteToStreamInternal(aStream: TStream; aResetModified: TwbResetModified); override; final;
+    procedure MergeStorageInternal(var aBasePtr: Pointer; aEndPtr: Pointer); override; final;
+    procedure InformStorage(var aBasePtr: Pointer; aEndPtr: Pointer); override; final;
+    function CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean; override; final;
+    function AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override; final;
+    function GetDontShow: Boolean; override; final;
   end;
 
   IwbFlag = interface(IwbElement)
@@ -1949,32 +1975,32 @@ type
                        const aFlagsDef   : IwbFlagsDef;
                              aIndex      : Integer);
 
-    function GetName: string; override;
-    function GetDef: IwbNamedDef; override;
-    function GetValueDef: IwbValueDef; override;
+    function GetName: string; override; final;
+    function GetDef: IwbNamedDef; override; final;
+    function GetValueDef: IwbValueDef; override; final;
 
-    function GetValue: string; override;
-    function GetSummary: string; override;
-    function GetSortKey(aExtended: Boolean): string; override;
-    function GetSortKeyInternal(aExtended: Boolean): string; override;
-    function GetConflictPriority: TwbConflictPriority; override;
-    function GetDontShow: Boolean; override;
-    procedure InformStorage(var aBasePtr: Pointer; aEndPtr: Pointer); override;
-    function GetDataSize: Integer; override;
-    procedure InvalidateParentStorage; override;
+    function GetValue: string; override; final;
+    function GetSummary: string; override; final;
+    function GetSortKeyCached(aExtended: Boolean): string; override; final;
+    function GetSortKeyInternal(aExtended: Boolean): string; override; final;
+    function GetConflictPriority: TwbConflictPriority; override; final;
+    function GetDontShow: Boolean; override; final;
+    procedure InformStorage(var aBasePtr: Pointer; aEndPtr: Pointer); override; final;
+    function GetDataSize: Integer; override; final;
+    procedure InvalidateParentStorage; override; final;
 
-    function GetIsEditable: Boolean; override;
-    function GetIsRemovable: Boolean; override;
+    function GetIsEditable: Boolean; override; final;
+    function GetIsRemovable: Boolean; override; final;
 
-    procedure Remove; override;
+    procedure Remove; override; final;
 
-    function GetEditValue: string; override;
-    procedure SetEditValue(const aValue: string); override;
+    function GetEditValue: string; override; final;
+    procedure SetEditValue(const aValue: string); override; final;
 
-    function GetNativeValue: Variant; override;
-    procedure SetNativeValue(const aValue: Variant); override;
+    function GetNativeValue: Variant; override; final;
+    procedure SetNativeValue(const aValue: Variant); override; final;
 
-    function GetElementType: TwbElementType; override;
+    function GetElementType: TwbElementType; override; final;
 
     {--- IwbFlag ---}
     function GetFlagsDef: IwbFlagsDef;
@@ -2020,46 +2046,46 @@ type
     constructor Create(const aContainer  : IwbContainer;
                              aType       : Integer;
                              aLabel      : Cardinal); overload;
-    destructor Destroy; override;
-    procedure AfterConstruction; override;
+    destructor Destroy; override; final;
+    procedure AfterConstruction; override; final;
 
     function grStruct: PwbGroupRecordStruct; inline;
 
-    function GetCountedRecordCount: Cardinal; override;
-    procedure InitDataPtr; override;
-    procedure ScanData; override;
-    procedure InformPrevMainRecord(const aPrevMainRecord : IwbMainRecord); override;
+    function GetCountedRecordCount: Cardinal; override; final;
+    procedure InitDataPtr; override; final;
+    procedure ScanData; override; final;
+    procedure InformPrevMainRecord(const aPrevMainRecord : IwbMainRecord); override; final;
 
-    function GetName: string; override;
-    function GetShortName: string; override;
-    function GetElementType: TwbElementType; override;
-    function GetSortKeyInternal(aExtended: Boolean): string; override;
-    function IsElementRemovable(const aElement: IwbElement): Boolean; override;
-    procedure Remove; override;
-    procedure NotifyChangedInternal(aContainer: Pointer); override;
+    function GetName: string; override; final;
+    function GetShortName: string; override; final;
+    function GetElementType: TwbElementType; override; final;
+    function GetSortKeyInternal(aExtended: Boolean): string; override; final;
+    function IsElementRemovable(const aElement: IwbElement): Boolean; override; final;
+    procedure Remove; override; final;
+    procedure NotifyChangedInternal(aContainer: Pointer); override; final;
 
-    function CanCopy: Boolean; override;
+    function CanCopy: Boolean; override; final;
 
-    function GetAddList: TDynStrings; override;
-    function Add(const aName: string; aSilent: Boolean): IwbElement; override;
+    function GetAddList: TDynStrings; override; final;
+    function Add(const aName: string; aSilent: Boolean): IwbElement; override; final;
     procedure Sort(aForce: Boolean = False);
 
-    procedure UpdateEnded; override;
+    procedure UpdateEnded; override; final;
 
-    procedure SetModified(aValue: Boolean); override;
+    procedure SetModified(aValue: Boolean); override; final;
 
-    procedure PrepareSave; override;
-    procedure WriteToStreamInternal(aStream: TStream; aResetModified: TwbResetModified); override;
-    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override;
-    procedure FindUsedMasters(aMasters: PwbUsedMasters); override;
+    procedure PrepareSave; override; final;
+    procedure WriteToStreamInternal(aStream: TStream; aResetModified: TwbResetModified); override; final;
+    function MastersUpdated(const aOld, aNew: TwbFileIDs; aOldCount, aNewCount: TwbSlotCounts): Boolean; override; final;
+    procedure FindUsedMasters(aMasters: PwbUsedMasters); override; final;
 
-    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override;
+    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override; final;
 
     procedure MakeHeaderWriteable;
 
-    procedure BuildRef; override;
-    function LinksToParent: Boolean; override;
-    function Reached: Boolean; override;
+    procedure BuildRef; override; final;
+    function LinksToParent: Boolean; override; final;
+    function Reached: Boolean; override; final;
 
     function FindChildGroup(aType: Integer; const aMainRecord: IwbMainRecord): IwbGroupRecord; overload;
     function FindChildGroup(aType: Integer; const aLabel: Cardinal): IwbGroupRecord; overload;
@@ -2073,7 +2099,7 @@ type
     procedure SetGroupLabel(aLabel: Cardinal);
     function GetChildrenOf: IwbMainRecord;
 
-    procedure AddElement(const aElement: IwbElement); override;
+    procedure AddElement(const aElement: IwbElement); override; final;
 
     procedure ContainerChanged;
 
@@ -2101,44 +2127,45 @@ type
                              aPos       : Integer;
                        const aDef       : IwbSubRecordArrayDef);
 
-    function GameDefObj: TwbGameDef; override;
-    function ContextObj: TwbGameContext; override;
-    function GetFile: IwbFile; override;
-    function GetContainingMainRecord: IwbMainRecord; override;
+    function GameDefObj: TwbGameDef; override; final;
+    function ContextObj: TwbGameContext; override; final;
+    function GetFile: IwbFile; override; final;
+    function GetContainingMainRecord: IwbMainRecord; override; final;
+    function RefMainObj: TObject; override; final;
 
     procedure DoProcess(const aContainer : IwbContainer;
                               aPos       : Integer);
 
-    procedure DoInit(aNeedSorted: Boolean); override;
+    procedure DoInit(aNeedSorted: Boolean); override; final;
 
-    function Add(const aName: string; aSilent: Boolean): IwbElement; override;
+    function Add(const aName: string; aSilent: Boolean): IwbElement; override; final;
 
-    procedure BeforeActualRemove; override;
-    procedure DoAfterSet(const aOldValue, aNewValue: Variant); override;
+    procedure BeforeActualRemove; override; final;
+    procedure DoAfterSet(const aOldValue, aNewValue: Variant); override; final;
     procedure UpdateCountViaPath;
 
-    function GetValue: string; override;
-    function GetCheck: string; override;
-    function GetSummary: string; override;
-    function GetName: string; override;
-    function GetDef: IwbNamedDef; override;
-    function GetElementType: TwbElementType; override;
-    function IsElementRemovable(const aElement: IwbElement): Boolean; override;
-    procedure SetModified(aValue: Boolean); override;
-    function CanContainFormIDs: Boolean; override;
-    function CanElementReset: Boolean; override;
-    procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer); override;
+    function GetValue: string; override; final;
+    function GetCheck: string; override; final;
+    function GetSummary: string; override; final;
+    function GetName: string; override; final;
+    function GetDef: IwbNamedDef; override; final;
+    function GetElementType: TwbElementType; override; final;
+    function IsElementRemovable(const aElement: IwbElement): Boolean; override; final;
+    procedure SetModified(aValue: Boolean); override; final;
+    function CanContainFormIDs: Boolean; override; final;
+    function CanElementReset: Boolean; override; final;
+    procedure ElementChanged(const aElement: IwbElement; aContainer: Pointer); override; final;
 
-    procedure SetToDefaultInternal; override;
+    procedure SetToDefaultInternal; override; final;
 
-    function CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean; override;
+    function CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean; override; final;
 //    function GetAssignTemplates(aIndex: Integer): TwbTemplateElements; override;
-    function AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override;
-    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override;
+    function AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override; final;
+    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override; final;
 
-    function CanMoveElement: Boolean; override;
+    function CanMoveElement: Boolean; override; final;
 
-    procedure UpdateNameSuffixes; override;
+    procedure UpdateNameSuffixes; override; final;
 
     {---IwbSortableContainer---}
     function GetSorted: Boolean;
@@ -2159,33 +2186,34 @@ type
                              aPos       : Integer;
                        const aDef       : IwbSubRecordStructDef);
 
-    function GameDefObj: TwbGameDef; override;
-    function ContextObj: TwbGameContext; override;
-    function GetFile: IwbFile; override;
-    function GetContainingMainRecord: IwbMainRecord; override;
+    function GameDefObj: TwbGameDef; override; final;
+    function ContextObj: TwbGameContext; override; final;
+    function GetFile: IwbFile; override; final;
+    function GetContainingMainRecord: IwbMainRecord; override; final;
+    function RefMainObj: TObject; override; final;
 
-    procedure TryAssignMembers(const aSource: IwbElement); override;
+    procedure TryAssignMembers(const aSource: IwbElement); override; final;
 
     procedure AddRequiredElements;
-    function Add(const aName: string; aSilent: Boolean): IwbElement; override;
+    function Add(const aName: string; aSilent: Boolean): IwbElement; override; final;
 
-    function GetValue: string; override;
-    function GetSummary: string; override;
-    function GetSortKeyInternal(aExtended: Boolean): string; override;
-    function GetCheck: string; override;
-    function GetName: string; override;
-    function GetDef: IwbNamedDef; override;
-    function GetElementType: TwbElementType; override;
-    function IsElementRemovable(const aElement: IwbElement): Boolean; override;
-    function CanContainFormIDs: Boolean; override;
-    function CanElementReset: Boolean; override;
-    function RemoveInjected(aCanRemove: Boolean): Boolean; override;
+    function GetValue: string; override; final;
+    function GetSummary: string; override; final;
+    function GetSortKeyInternal(aExtended: Boolean): string; override; final;
+    function GetCheck: string; override; final;
+    function GetName: string; override; final;
+    function GetDef: IwbNamedDef; override; final;
+    function GetElementType: TwbElementType; override; final;
+    function IsElementRemovable(const aElement: IwbElement): Boolean; override; final;
+    function CanContainFormIDs: Boolean; override; final;
+    function CanElementReset: Boolean; override; final;
+    function RemoveInjected(aCanRemove: Boolean): Boolean; override; final;
 
-    function CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean; override;
+    function CanAssignInternal(aIndex: Integer; const aElement: IwbElement; aCheckDontShow: Boolean): Boolean; override; final;
 //    function GetAssignTemplates(aIndex: Integer): TwbTemplateElements; override;
-    function AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override;
-    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override;
-    function GetIsInSK(aIndex: Integer): Boolean; override;
+    function AssignInternal(aIndex: Integer; const aElement: IwbElement; aOnlySK: Boolean): IwbElement; override; final;
+    function AddIfMissingInternal(const aElement: IwbElement; aAsNew, aDeepCopy : Boolean; const aPrefixRemove, aSuffixRemove, aPrefix, aSuffix: string; aAllowOverwrite: Boolean): IwbElement; override; final;
+    function GetIsInSK(aIndex: Integer): Boolean; override; final;
 
     {--- IwbHasSignature ---}
     function GetSignature: TwbSignature;
@@ -2825,6 +2853,837 @@ end;
 
 threadvar
   _FileRefsBuilding: Boolean;
+  _FileRefsOwning: Boolean;
+  _FilePrefill: Integer;
+  _RefBuilder: Boolean;
+  _RefThreadNo: Word;
+  _RefDeferred: TObject;
+  _RefDraining: Boolean;
+  _RefScopeDepth: Integer;
+  _RefWaiting: Boolean;
+  _RefBuildRec: TwbMainRecord;
+  _RefScopeInner: Integer;
+  _RefScopedCount: Integer;
+  _RefScoped: array[0..255] of TwbMainRecord;
+  _RefScopedLocked: array[0..255] of Boolean;
+  _RefScopedMore: Pointer;
+  _RefScopedMoreCap: Integer;
+
+const
+  roDone = $FFFF;
+  roClaimBit = $8000;
+
+var
+  _RefThreadCounter: Integer;
+  _RefWaitingFor: array[0..$7FFF] of TwbMainRecord;
+  _RefWaitEpoch: array[0..$7FFF] of Integer;
+
+function LockedCmpXchg16(var Target: Word; NewValue, Comparand: Word): Word;
+asm
+{$IFDEF CPUX64}
+        mov     ax, r8w
+   lock cmpxchg word ptr [rcx], dx
+{$ELSE}
+        xchg    eax, ecx
+   lock cmpxchg word ptr [ecx], dx
+{$ENDIF}
+end;
+
+function RefThreadNo: Word;
+var
+  lNo : Integer;
+begin
+  Result := _RefThreadNo;
+  if Result = 0 then begin
+    lNo := AtomicIncrement(_RefThreadCounter);
+    if lNo >= $7FFF then
+      raise Exception.Create('The parallel reference build has handed out every thread number');
+    Result := Word(lNo);
+    _RefThreadNo := Result;
+  end;
+end;
+
+procedure RefPublishWait(aMe: Word; aRec: TwbMainRecord);
+begin
+  if not _RefWaiting then begin
+    _RefWaitingFor[aMe] := aRec;
+    AtomicIncrement(_RefWaitEpoch[aMe]);
+    _RefWaiting := True;
+  end;
+end;
+
+procedure RefClearWait;
+begin
+  if _RefWaiting then begin
+    _RefWaiting := False;
+    AtomicIncrement(_RefWaitEpoch[_RefThreadNo]);
+    _RefWaitingFor[_RefThreadNo] := nil;
+  end;
+end;
+
+function RefCycle(aRec: TwbMainRecord; aOld, aMe: Word): Boolean; forward;
+
+type
+  TRefTakeResult = (rtTaken, rtNone, rtCycle);
+
+function RefTakeInner(aRec: TwbMainRecord; aMayBreak: Boolean): TRefTakeResult;
+var
+  lMe, lOld : Word;
+begin
+  lMe := RefThreadNo;
+  while True do begin
+    lOld := aRec.mrRefOwner;
+    if ((lOld and roClaimBit) <> 0) or (lOld = lMe) then
+      Exit(rtNone);
+    if lOld = 0 then begin
+      if LockedCmpXchg16(aRec.mrRefOwner, lMe, 0) = 0 then
+        Exit(rtTaken);
+    end else begin
+      RefPublishWait(lMe, aRec);
+      if aMayBreak and RefCycle(aRec, lOld, lMe) then
+        Exit(rtCycle);
+      TThread.Yield;
+    end;
+  end;
+end;
+
+function RefTake(aRec: TwbMainRecord; aMayBreak: Boolean): TRefTakeResult;
+begin
+  try
+    Result := RefTakeInner(aRec, aMayBreak);
+  finally
+    RefClearWait;
+  end;
+end;
+
+function RefTryTake(aRec: TwbMainRecord): Integer;
+var
+  lMe, lOld : Word;
+begin
+  lMe := RefThreadNo;
+  while True do begin
+    lOld := aRec.mrRefOwner;
+    if ((lOld and roClaimBit) <> 0) or (lOld = lMe) then
+      Exit(1);
+    if lOld <> 0 then
+      Exit(2);
+    if LockedCmpXchg16(aRec.mrRefOwner, lMe, 0) = 0 then
+      Exit(0);
+  end;
+end;
+
+type
+  TRefGuard = record
+    rgRec: TwbMainRecord;
+    rgClaim: Boolean;
+    rgLocked: Boolean;
+    class operator Initialize(out aDest: TRefGuard);
+    class operator Finalize(var aDest: TRefGuard);
+  end;
+
+class operator TRefGuard.Initialize(out aDest: TRefGuard);
+begin
+  aDest.rgRec := nil;
+  aDest.rgClaim := False;
+  aDest.rgLocked := False;
+end;
+
+class operator TRefGuard.Finalize(var aDest: TRefGuard);
+begin
+  if Assigned(aDest.rgRec) then begin
+    var lOwnerNow := aDest.rgRec.mrRefOwner;
+    if lOwnerNow = (roClaimBit or RefThreadNo) then
+      aDest.rgRec.mrRefOwner := roDone
+    else if (lOwnerNow = RefThreadNo) and not aDest.rgClaim then
+      aDest.rgRec.mrRefOwner := 0;
+  end;
+  if aDest.rgLocked then
+    wbUnLockProcessMessages;
+end;
+
+type
+  TRefCycleLink = record
+    clOwner : Word;
+    clWord  : Word;
+    clEpoch : Integer;
+    clRec   : TwbMainRecord;
+  end;
+  PRefCycleLinks = ^TRefCycleLinks;
+  TRefCycleLinks = array[0..$7FFE] of TRefCycleLink;
+
+function RefCycleWalk(aRec: TwbMainRecord; aOld, aMe: Word; aLinks: PRefCycleLinks; aLimit: Integer; out aFull: Boolean): Boolean;
+var
+  lCount  : Integer;
+  lEpoch  : Integer;
+  lOwner  : Word;
+  lW      : Word;
+  lMax    : Word;
+  lRec    : TwbMainRecord;
+  lFound  : Boolean;
+begin
+  Result := False;
+  aFull := False;
+  lOwner := aOld and $7FFF;
+  lCount := 0;
+  lFound := False;
+  while lCount < aLimit do begin
+    if (lOwner = 0) or (lOwner >= $7FFF) or (lOwner = aMe) then
+      Exit;
+    for var k := 0 to Pred(lCount) do
+      if aLinks[k].clOwner = lOwner then
+        Exit;
+    lEpoch := _RefWaitEpoch[lOwner];
+    if not Odd(lEpoch) then
+      Exit;
+    lRec := _RefWaitingFor[lOwner];
+    if not Assigned(lRec) then
+      Exit;
+    lW := lRec.mrRefOwner;
+    aLinks[lCount].clOwner := lOwner;
+    aLinks[lCount].clEpoch := lEpoch;
+    aLinks[lCount].clRec := lRec;
+    aLinks[lCount].clWord := lW;
+    Inc(lCount);
+    if (lW = aMe) or (lW = (roClaimBit or aMe)) then begin
+      lFound := True;
+      Break;
+    end;
+    lOwner := lW and $7FFF;
+  end;
+  if not lFound then begin
+    if (lOwner <> 0) and (lOwner < $7FFF) and (lOwner <> aMe) and Odd(_RefWaitEpoch[lOwner]) and
+       Assigned(_RefWaitingFor[lOwner]) then begin
+      aFull := True;
+      for var k := 0 to Pred(lCount) do
+        if aLinks[k].clOwner = lOwner then
+          aFull := False;
+    end;
+    Exit;
+  end;
+  if aRec.mrRefOwner <> aOld then
+    Exit;
+  lMax := aMe;
+  for var k := 0 to Pred(lCount) do begin
+    if (_RefWaitEpoch[aLinks[k].clOwner] <> aLinks[k].clEpoch) or (_RefWaitingFor[aLinks[k].clOwner] <> aLinks[k].clRec) or
+       (aLinks[k].clRec.mrRefOwner <> aLinks[k].clWord) then
+      Exit;
+    if aLinks[k].clOwner > lMax then
+      lMax := aLinks[k].clOwner;
+  end;
+  Result := lMax = aMe;
+end;
+
+function RefCycleLong(aRec: TwbMainRecord; aOld, aMe: Word; aLimit: Integer): Boolean;
+var
+  lLinks : PRefCycleLinks;
+  lFull  : Boolean;
+begin
+  GetMem(lLinks, aLimit * SizeOf(TRefCycleLink));
+  try
+    Result := RefCycleWalk(aRec, aOld, aMe, lLinks, aLimit, lFull);
+  finally
+    FreeMem(lLinks);
+  end;
+end;
+
+function RefCycle(aRec: TwbMainRecord; aOld, aMe: Word): Boolean;
+const
+  cInline = 128;
+var
+  lLinks : array[0..cInline - 1] of TRefCycleLink;
+  lLimit : Integer;
+  lFull  : Boolean;
+begin
+  lLimit := _RefThreadCounter;
+  if lLimit > $7FFE then
+    lLimit := $7FFE;
+  if lLimit <= cInline then
+    Exit(RefCycleWalk(aRec, aOld, aMe, @lLinks, lLimit, lFull));
+  Result := RefCycleWalk(aRec, aOld, aMe, @lLinks, cInline, lFull);
+  if lFull then
+    Result := RefCycleLong(aRec, aOld, aMe, lLimit);
+end;
+
+procedure RefAcquireInner(var aGuard: TRefGuard; aRec: TwbMainRecord);
+var
+  lMe, lClaim, lOld : Word;
+  lLocked           : Boolean;
+begin
+  lMe := RefThreadNo;
+  lClaim := roClaimBit or lMe;
+  lOld := aRec.mrRefOwner;
+  if (lOld = lMe) or (lOld = lClaim) then
+    Exit;
+  lLocked := not _RefBuilder;
+  if lLocked then
+    wbLockProcessMessages;
+  try
+    while True do begin
+      lOld := aRec.mrRefOwner;
+      if lOld = roDone then begin
+        if LockedCmpXchg16(aRec.mrRefOwner, lClaim, roDone) = roDone then begin
+          aGuard.rgRec := aRec;
+          aGuard.rgClaim := True;
+          aGuard.rgLocked := lLocked;
+          lLocked := False;
+          Exit;
+        end;
+      end else if lOld = 0 then begin
+        if LockedCmpXchg16(aRec.mrRefOwner, lMe, 0) = 0 then begin
+          aGuard.rgRec := aRec;
+          aGuard.rgLocked := lLocked;
+          lLocked := False;
+          Exit;
+        end;
+      end else begin
+        RefPublishWait(lMe, aRec);
+        if RefCycle(aRec, lOld, lMe) then
+          Exit;
+        TThread.Yield;
+      end;
+    end;
+  finally
+    if lLocked then
+      wbUnLockProcessMessages;
+  end;
+end;
+
+procedure RefAcquire(var aGuard: TRefGuard; aRec: TwbMainRecord);
+begin
+  try
+    RefAcquireInner(aGuard, aRec);
+  finally
+    RefClearWait;
+  end;
+end;
+
+type
+  TRefScopedEntry = record
+    seRec: TwbMainRecord;
+    seLocked: Boolean;
+  end;
+  PRefScopedEntries = ^TRefScopedEntries;
+  TRefScopedEntries = array[0..MaxInt div SizeOf(TRefScopedEntry) - 1] of TRefScopedEntry;
+
+function RefScopedRec(aIndex: Integer): TwbMainRecord;
+begin
+  if aIndex < Length(_RefScoped) then
+    Result := _RefScoped[aIndex]
+  else
+    Result := PRefScopedEntries(_RefScopedMore)[aIndex - Length(_RefScoped)].seRec;
+end;
+
+function RefScopedLocked(aIndex: Integer): Boolean;
+begin
+  if aIndex < Length(_RefScoped) then
+    Result := _RefScopedLocked[aIndex]
+  else
+    Result := PRefScopedEntries(_RefScopedMore)[aIndex - Length(_RefScoped)].seLocked;
+end;
+
+procedure RefScopedPut(aRec: TwbMainRecord; aLocked: Boolean);
+var
+  lIndex : Integer;
+  lCap   : Integer;
+  lMore  : Pointer;
+begin
+  if _RefScopedCount < Length(_RefScoped) then begin
+    _RefScoped[_RefScopedCount] := aRec;
+    _RefScopedLocked[_RefScopedCount] := aLocked;
+  end else begin
+    lIndex := _RefScopedCount - Length(_RefScoped);
+    if lIndex >= _RefScopedMoreCap then begin
+      if _RefScopedMoreCap = 0 then
+        lCap := Length(_RefScoped)
+      else begin
+        if _RefScopedMoreCap > (MaxInt div SizeOf(TRefScopedEntry)) div 2 then
+          OutOfMemoryError;
+        lCap := _RefScopedMoreCap * 2;
+      end;
+      lMore := _RefScopedMore;
+      ReallocMem(lMore, lCap * SizeOf(TRefScopedEntry));
+      _RefScopedMore := lMore;
+      _RefScopedMoreCap := lCap;
+    end;
+    PRefScopedEntries(_RefScopedMore)[lIndex].seRec := aRec;
+    PRefScopedEntries(_RefScopedMore)[lIndex].seLocked := aLocked;
+  end;
+  Inc(_RefScopedCount);
+end;
+
+function RefScopeEnter(out aMark: Int64): Boolean;
+begin
+  Result := wbParallelRefBuilds <> 0;
+  if Result then begin
+    aMark := (Int64(_RefScopeInner) shl 32) or Int64(Cardinal(_RefScopedCount));
+    _RefScopeInner := _RefScopedCount;
+    Inc(_RefScopeDepth);
+  end;
+end;
+
+procedure RefScopeLeave(aMark: Int64);
+var
+  lRec  : TwbMainRecord;
+  lMe   : Word;
+  lNow  : Word;
+begin
+  lMe := _RefThreadNo;
+  while _RefScopedCount > Integer(aMark and $FFFFFFFF) do begin
+    Dec(_RefScopedCount);
+    lRec := RefScopedRec(_RefScopedCount);
+    lNow := lRec.mrRefOwner;
+    if lNow = (roClaimBit or lMe) then
+      lRec.mrRefOwner := roDone
+    else if lNow = lMe then
+      lRec.mrRefOwner := 0;
+    if RefScopedLocked(_RefScopedCount) then
+      wbUnLockProcessMessages;
+  end;
+  _RefScopeInner := Integer(aMark shr 32);
+  Dec(_RefScopeDepth);
+  if (_RefScopeDepth = 0) and (_RefScopedCount <= Length(_RefScoped)) and Assigned(_RefScopedMore) then begin
+    FreeMem(_RefScopedMore);
+    _RefScopedMore := nil;
+    _RefScopedMoreCap := 0;
+  end;
+end;
+
+function RefNoKeepAlive(aContainer: TwbContainer): Boolean;
+var
+  lMain : TObject;
+begin
+  Result := False;
+  if wbParallelRefBuilds = 0 then
+    Exit;
+  lMain := aContainer.RefMainObj;
+  if not Assigned(lMain) then
+    Exit;
+  Result := lMain <> TObject(_RefBuildRec);
+end;
+
+function RefScopedAcquire(aRec: TwbMainRecord): Boolean;
+var
+  lGuard : TRefGuard;
+begin
+  Result := True;
+  RefAcquire(lGuard, aRec);
+  if not Assigned(lGuard.rgRec) then
+    Exit;
+  RefScopedPut(aRec, lGuard.rgLocked);
+  lGuard.rgRec := nil;
+  lGuard.rgLocked := False;
+end;
+
+function RefInitClaimed(aContainer: TwbContainer; aNeedSorted: Boolean): Boolean;
+var
+  lRec   : TwbMainRecord;
+  lGuard : TRefGuard;
+  lMe    : Word;
+  lOwner : Word;
+begin
+  Result := False;
+  if aContainer.GetElementType = etMainRecord then
+    lRec := TwbMainRecord(aContainer)
+  else begin
+    if _RefBuilder then
+      Exit;
+    if aContainer.GetElementType in [etFile, etGroupRecord] then
+      Exit;
+    lRec := TwbMainRecord(aContainer.RefMainObj);
+    if not Assigned(lRec) then
+      Exit;
+  end;
+  lMe := RefThreadNo;
+  lOwner := lRec.mrRefOwner;
+  if (lOwner = lMe) or (lOwner = (roClaimBit or lMe)) then
+    Exit;
+  if _RefScopeDepth > 0 then
+    if RefScopedAcquire(lRec) then
+      Exit;
+  RefAcquire(lGuard, lRec);
+  if not Assigned(lGuard.rgRec) then
+    Exit;
+  aContainer.DoInit(aNeedSorted);
+  Result := True;
+end;
+
+function RefResetClaimed(aRec: TwbMainRecord): Boolean;
+var
+  lClaim  : Word;
+  lLocked : Boolean;
+begin
+  Result := True;
+  lClaim := roClaimBit or RefThreadNo;
+  lLocked := not _RefBuilder;
+  if lLocked then
+    wbLockProcessMessages;
+  try
+    if LockedCmpXchg16(aRec.mrRefOwner, lClaim, roDone) <> roDone then
+      Exit;
+    try
+      aRec.DoReset(False);
+    finally
+      if aRec.mrRefOwner = lClaim then
+        aRec.mrRefOwner := roDone;
+    end;
+  finally
+    if lLocked then
+      wbUnLockProcessMessages;
+  end;
+end;
+
+procedure RefSaveEntry(aRec: TwbMainRecord; aStream: TStream; aSaveNames: Boolean);
+var
+  lGuard : TRefGuard;
+begin
+  if wbParallelRefBuilds <> 0 then
+    RefAcquire(lGuard, aRec);
+  aRec.SaveRefsToStream(aStream, aSaveNames);
+end;
+
+procedure RefShortHold(var aGuard: TRefGuard; aRec: TwbMainRecord);
+var
+  lMe    : Word;
+  lOwner : Word;
+begin
+  if wbParallelRefBuilds = 0 then
+    Exit;
+  lMe := RefThreadNo;
+  lOwner := aRec.mrRefOwner;
+  if (lOwner = lMe) or (lOwner = (roClaimBit or lMe)) then
+    Exit;
+  RefAcquire(aGuard, aRec);
+end;
+
+function RefHoldsMain(aElement: TwbElement): Boolean;
+var
+  lRec   : TwbMainRecord;
+  lMe    : Word;
+  lOwner : Word;
+begin
+  lRec := TwbMainRecord(aElement.RefMainObj);
+  if not Assigned(lRec) then
+    Exit(True);
+  lMe := RefThreadNo;
+  lOwner := lRec.mrRefOwner;
+  Result := (lOwner = lMe) or (lOwner = (roClaimBit or lMe));
+end;
+
+procedure RefTouch(var aGuard: TRefGuard; aElement: TwbElement);
+var
+  lRec   : TwbMainRecord;
+  lMe    : Word;
+  lOwner : Word;
+begin
+  lRec := TwbMainRecord(aElement.RefMainObj);
+  if not Assigned(lRec) then
+    Exit;
+  lMe := RefThreadNo;
+  lOwner := lRec.mrRefOwner;
+  if (lOwner = lMe) or (lOwner = (roClaimBit or lMe)) then
+    Exit;
+  if _RefScopeDepth > 0 then
+    if RefScopedAcquire(lRec) then
+      Exit;
+  RefAcquire(aGuard, lRec);
+end;
+
+function RefTouchedSortKey(aElement: TwbElement; aExtended: Boolean): string;
+var
+  lGuard : TRefGuard;
+begin
+  RefTouch(lGuard, aElement);
+  Result := aElement.GetSortKeyCached(aExtended);
+end;
+
+procedure RefTouchTarget(const aElement: IwbElement);
+var
+  lGuard : TRefGuard;
+  lObj   : TwbElement;
+begin
+  if (wbParallelRefBuilds = 0) or not Assigned(aElement) then
+    Exit;
+  lObj := TwbElement(aElement as TObject);
+  if lObj.GetElementType = etMainRecord then
+    Exit;
+  RefTouch(lGuard, lObj);
+end;
+
+function RefTouchedLinksTo(aElement: TwbElement): IwbElement;
+var
+  lGuard : TRefGuard;
+begin
+  RefTouch(lGuard, aElement);
+  Result := aElement.GetLinksToCached;
+  RefTouchTarget(Result);
+end;
+
+function RefTouchedSummaryLinksTo(aElement: TwbElement): IwbElement;
+var
+  lGuard : TRefGuard;
+begin
+  RefTouch(lGuard, aElement);
+  Result := aElement.GetSummaryLinksToCached;
+  RefTouchTarget(Result);
+end;
+
+function RefTouchedCollapsed(aContainer: TwbContainer): TwbTriBool;
+var
+  lGuard : TRefGuard;
+begin
+  RefTouch(lGuard, aContainer);
+  Result := aContainer.GetCollapsedCached;
+end;
+
+procedure RefTouchedSetCollapsed(aContainer: TwbContainer; const aValue: TwbTriBool);
+var
+  lGuard : TRefGuard;
+begin
+  RefTouch(lGuard, aContainer);
+  aContainer.SetCollapsedInner(aValue);
+end;
+
+function RefResetTouched(aContainer: TwbContainer; aForce: Boolean): Boolean;
+var
+  lRec   : TwbMainRecord;
+  lMe    : Word;
+  lOwner : Word;
+  lGuard : TRefGuard;
+begin
+  Result := False;
+  lRec := TwbMainRecord(aContainer.RefMainObj);
+  if not Assigned(lRec) or (TObject(lRec) = TObject(aContainer)) then
+    Exit;
+  lMe := RefThreadNo;
+  lOwner := lRec.mrRefOwner;
+  if (lOwner = lMe) or (lOwner = (roClaimBit or lMe)) then
+    Exit;
+  if _RefScopeDepth > 0 then
+    if RefScopedAcquire(lRec) then begin
+      if not RefHoldsMain(aContainer) then
+        Result := True;
+      Exit;
+    end;
+  RefAcquire(lGuard, lRec);
+  if not Assigned(lGuard.rgRec) then
+    Exit(True);
+  aContainer.DoReset(aForce);
+  Result := True;
+end;
+
+procedure RefEntrance(aContainer: TwbContainer);
+var
+  lRec    : TwbMainRecord;
+  lBuilt  : Boolean;
+  lTaken  : Boolean;
+  lKAR    : IwbKeepAliveRoot;
+  lOwner  : Word;
+  lMe     : Word;
+  lNested : Boolean;
+begin
+  if aContainer.GetElementType = etMainRecord then
+    lRec := TwbMainRecord(aContainer)
+  else begin
+    if aContainer.GetElementType in [etFile, etGroupRecord] then
+      Exit;
+    lRec := TwbMainRecord(aContainer.RefMainObj);
+    if not Assigned(lRec) then
+      Exit;
+  end;
+  lMe := RefThreadNo;
+  lOwner := lRec.mrRefOwner;
+  if lOwner = roDone then
+    Exit;
+  if lOwner = (roClaimBit or lMe) then
+    Exit;
+  lNested := lOwner = lMe;
+  if lNested then
+    if (mrsQuickInit in lRec.mrStates) or (mrsBuildingRef in lRec.mrStates) then
+      Exit;
+  lBuilt := False;
+  lTaken := False;
+  wbLockProcessMessages;
+  try
+    if not lNested then
+      if RefTake(lRec, True) <> rtTaken then
+        Exit;
+    lTaken := True;
+    if Assigned(lRec.mrDef) and not (mrsNoUpdateRefs in lRec.mrStates) and
+       not ((csRefsBuild in lRec.cntStates) and (lRec.cntRefsBuildAt >= lRec.eGeneration)) then begin
+      lKAR := wbCreateKeepAliveRoot;
+      var lBuildMark: Int64;
+      var lBuildScoped := RefScopeEnter(lBuildMark);
+      var lPrevBuild := _RefBuildRec;
+      _RefBuildRec := lRec;
+      try
+        lRec.DoBuildRef(False);
+      finally
+        _RefBuildRec := lPrevBuild;
+        if lBuildScoped then
+          RefScopeLeave(lBuildMark);
+      end;
+      lKAR := nil;
+    end;
+    lBuilt := True;
+  finally
+    lKAR := nil;
+    if lTaken and (lRec.mrRefOwner = lMe) then begin
+      if lBuilt then begin
+        if lNested then
+          lRec.mrRefOwner := roClaimBit or lMe
+        else
+          lRec.mrRefOwner := roDone;
+      end else if not lNested then
+        lRec.mrRefOwner := 0;
+    end;
+    wbUnLockProcessMessages;
+  end;
+end;
+
+procedure wbRefPhaseBegin(const aFiles: TwbFiles; out aPins: TArray<IInterface>);
+var
+  lHeader : IwbMainRecord;
+  lPin    : IwbContainerElementRef;
+begin
+  AtomicIncrement(wbParallelRefBuilds);
+  SetLength(aPins, 2 * Length(aFiles));
+  for var i := Low(aFiles) to High(aFiles) do begin
+    var lMark: Int64;
+    var lScoped := RefScopeEnter(lMark);
+    try
+      lHeader := aFiles[i].Header;
+      if Assigned(lHeader) and Supports(lHeader, IwbContainerElementRef, lPin) then begin
+        lPin.ElementCount;
+        aPins[i] := lPin;
+      end;
+      TwbFile(aFiles[i] as TObject).RefPinHardcoded;
+      aPins[Length(aFiles) + i] := aFiles[i];
+    finally
+      lHeader := nil;
+      lPin := nil;
+      if lScoped then
+        RefScopeLeave(lMark);
+    end;
+  end;
+end;
+
+procedure wbRefPhaseEnd(var aPins: TArray<IInterface>);
+var
+  lFile : IwbFile;
+begin
+  AtomicDecrement(wbParallelRefBuilds);
+  for var i := Length(aPins) div 2 to High(aPins) do
+    if Supports(aPins[i], IwbFile, lFile) then
+      TwbFile(lFile as TObject).RefUnpinHardcoded;
+  lFile := nil;
+  aPins := nil;
+end;
+
+function wbOperationScopeEnter(const aCarried: IwbElement; out aMark: Int64): Boolean;
+var
+  lRec   : TwbMainRecord;
+  lMe    : Word;
+  lOwner : Word;
+  lGuard : TRefGuard;
+begin
+  Result := RefScopeEnter(aMark);
+  if not Result then
+    Exit;
+  if not Assigned(aCarried) then
+    Exit;
+  try
+    lRec := TwbMainRecord(TwbElement(aCarried as TObject).RefMainObj);
+    if not Assigned(lRec) then
+      Exit;
+    lMe := RefThreadNo;
+    lOwner := lRec.mrRefOwner;
+    if (lOwner = lMe) or (lOwner = (roClaimBit or lMe)) then
+      Exit;
+    if RefScopedAcquire(lRec) then
+      Exit;
+    RefAcquire(lGuard, lRec);
+  except
+    RefScopeLeave(aMark);
+    raise;
+  end;
+end;
+
+procedure wbOperationScopeLeave(aMark: Int64);
+begin
+  RefScopeLeave(aMark);
+end;
+
+function wbOperationScopeDepth: Integer;
+begin
+  Result := _RefScopeDepth;
+end;
+
+procedure RefSkipEntry(aRec: TwbMainRecord; aStream: TStream; aLoadNames: Boolean);
+var
+  lFormID : TwbFormID;
+  i       : Integer;
+  b       : Boolean;
+begin
+  aStream.Read(lFormID, SizeOf(TwbFormID));
+  Assert(lFormID = aRec.mrStruct.mrsFormID(True)^);
+  aStream.Read(i, SizeOf(i));
+  aStream.Seek(Int64(i) * SizeOf(TwbFormID), soCurrent);
+  aStream.Read(i, SizeOf(i));
+  aStream.Seek(Int64(i) * SizeOf(Char), soCurrent);
+  aStream.Read(i, SizeOf(i));
+  aStream.Seek(Int64(i) * SizeOf(Char), soCurrent);
+  aStream.Seek(Int64(SizeOf(aRec.mrBaseRecordID)), soCurrent);
+  aStream.ReadData(b);
+  if b then begin
+    aStream.ReadData(b);
+    if b then
+      aStream.Seek(Int64(SizeOf(TwbGridCell)), soCurrent);
+  end;
+  if aLoadNames then begin
+    aStream.Read(i, SizeOf(i));
+    aStream.Seek(Int64(i) * SizeOf(Char), soCurrent);
+    aStream.Read(i, SizeOf(i));
+    aStream.Seek(Int64(i) * SizeOf(Char), soCurrent);
+  end;
+end;
+
+function RefLoadEntry(aRec: TwbMainRecord; aStream: TStream; aLoadNames, aWait: Boolean): Boolean;
+var
+  lLoaded: Boolean;
+begin
+  Result := True;
+  if not aWait then
+    case RefTryTake(aRec) of
+      1: begin
+        RefSkipEntry(aRec, aStream, aLoadNames);
+        Exit;
+      end;
+      2: begin
+        RefSkipEntry(aRec, aStream, aLoadNames);
+        Exit(False);
+      end;
+    end
+  else if RefTake(aRec, False) <> rtTaken then begin
+    RefSkipEntry(aRec, aStream, aLoadNames);
+    Exit;
+  end;
+  lLoaded := False;
+  var lLoadMark: Int64;
+  var lLoadScoped := RefScopeEnter(lLoadMark);
+  try
+    aRec.LoadRefsFromStream(aStream, aLoadNames);
+    lLoaded := True;
+  finally
+    if lLoadScoped then
+      RefScopeLeave(lLoadMark);
+    if aRec.mrRefOwner = RefThreadNo then
+      if lLoaded then
+        aRec.mrRefOwner := roDone
+      else
+        aRec.mrRefOwner := 0;
+  end;
+end;
+
 
 function TwbFile.BuildOrLoadRef(aOnlyLoad: Boolean): TwbBuildOrLoadRefResult;
 var
@@ -2873,14 +3732,42 @@ begin
         MemoryStream.Position := 0;
         MemoryStream.Read(flRecordsCount, SizeOf(flRecordsCount));
         Assert(flRecordsCount = Length(flRecords), '[TwbFile.BuildOrLoadRef] flRecordsCount <> Length(flRecords)');
-        for i := 0 to Pred(flRecordsCount) do begin
-          (flRecords[i] as IwbMainRecordInternal).LoadRefsFromStream(MemoryStream, fsIsGameMaster in flStates);
-          wbTick;
+        _RefBuilder := True;
+        try
+          var lLaterIdx := TList<Integer>.Create;
+          var lLaterPos := TList<Int64>.Create;
+          try
+          for i := 0 to Pred(flRecordsCount) do begin
+            if wbParallelRefBuilds <> 0 then begin
+              var lPos := MemoryStream.Position;
+              if not RefLoadEntry(TwbMainRecord(flRecords[i] as TObject), MemoryStream, fsIsGameMaster in flStates, False) then begin
+                lLaterIdx.Add(i);
+                lLaterPos.Add(lPos);
+              end;
+            end else
+              (flRecords[i] as IwbMainRecordInternal).LoadRefsFromStream(MemoryStream, fsIsGameMaster in flStates);
+            wbTick;
+          end;
+          for var k := 0 to Pred(lLaterIdx.Count) do begin
+            MemoryStream.Position := lLaterPos[k];
+            RefLoadEntry(TwbMainRecord(flRecords[lLaterIdx[k]] as TObject), MemoryStream, fsIsGameMaster in flStates, True);
+          end;
+          finally
+            lLaterIdx.Free;
+            lLaterPos.Free;
+          end;
+        finally
+          _RefBuilder := False;
         end;
       finally
         MemoryStream.Free;
       end;
-      inherited BuildRef;
+      _RefBuilder := True;
+      try
+        inherited BuildRef;
+      finally
+        _RefBuilder := False;
+      end;
       Result := blrLoaded;
     end else begin
       if not aOnlyLoad then begin
@@ -2889,8 +3776,30 @@ begin
         try
           Include(flStates, fsRefsBuilding);
           _FileRefsBuilding := True;
-          inherited BuildRef;
+          _RefBuilder := True;
+          if flContextObj.Settings.DontCacheSave then
+            _FilePrefill := 0
+          else if fsIsGameMaster in flStates then
+            _FilePrefill := 2
+          else
+            _FilePrefill := 1;
+          var lDeferred := TList<TwbMainRecord>.Create;
+          try
+            if wbParallelRefBuilds <> 0 then
+              _RefDeferred := lDeferred;
+            inherited BuildRef;
+            _RefDeferred := nil;
+            _RefDraining := True;
+            for var lLater in lDeferred do
+              lLater.BuildRef;
+          finally
+            _RefDraining := False;
+            _RefDeferred := nil;
+            lDeferred.Free;
+          end;
         finally
+          _FilePrefill := 0;
+          _RefBuilder := False;
           _FileRefsBuilding := False;
           Exclude(flStates, fsRefsBuilding);
         end;
@@ -2902,9 +3811,14 @@ begin
             MemoryStream := TMemoryStream.Create;
             try
               MemoryStream.Write(flRecordsCount, SizeOf(flRecordsCount));
-              for i := 0 to Pred(flRecordsCount) do begin
-                (flRecords[i] as IwbMainRecordInternal).SaveRefsToStream(MemoryStream, fsIsGameMaster in flStates);
-                wbTick;
+              _RefBuilder := True;
+              try
+                for i := 0 to Pred(flRecordsCount) do begin
+                  RefSaveEntry(TwbMainRecord(flRecords[i] as TObject), MemoryStream, fsIsGameMaster in flStates);
+                  wbTick;
+                end;
+              finally
+                _RefBuilder := False;
               end;
               MemoryStream.Position := 0;
               var lTempFileName := CacheFileName + '.' + IntToStr(GetCurrentProcessId) + '.' + IntToStr(GetCurrentThreadId) + '.tmp';
@@ -2934,7 +3848,24 @@ begin
   end else begin
     if not aOnlyLoad then begin
       Include(flStates, fsRefsBuild);
-      inherited BuildRef;
+      _RefBuilder := True;
+      _FileRefsOwning := True;
+      var lDeferred := TList<TwbMainRecord>.Create;
+      try
+        if wbParallelRefBuilds <> 0 then
+          _RefDeferred := lDeferred;
+        inherited BuildRef;
+        _RefDeferred := nil;
+        _RefDraining := True;
+        for var lLater in lDeferred do
+          lLater.BuildRef;
+      finally
+        _RefDraining := False;
+        _RefDeferred := nil;
+        lDeferred.Free;
+        _FileRefsOwning := False;
+        _RefBuilder := False;
+      end;
       Result := blrBuilt;
     end;
   end;
@@ -4200,14 +5131,41 @@ end;
 
 function TwbFile.GetAllowHardcodedRangeUse: Boolean;
 begin
+  if (wbParallelRefBuilds <> 0) and (flHardcodedPins > 0) then
+    Exit(flAllowHardcodedRangeUse);
+  Result := GetAllowHardcodedRangeUseByGeneration;
+end;
+
+procedure TwbFile.RefPinHardcoded;
+begin
+  if flHardcodedPins = 0 then
+    GetAllowHardcodedRangeUseByGeneration;
+  AtomicIncrement(flHardcodedPins);
+end;
+
+procedure TwbFile.RefUnpinHardcoded;
+begin
+  if AtomicDecrement(flHardcodedPins) = 0 then
+    flHardcodedGeneration := not _FileGeneration;
+end;
+
+function TwbFile.GetAllowHardcodedRangeUseByGeneration: Boolean;
+begin
   if flHardcodedGeneration = _FileGeneration then
     Exit(flAllowHardcodedRangeUse);
 
-  var lGameDef := flContextObj.GameDefObj;
-  Result := lGameDef.HardcodedRangeAdmitted;
-  if Result and (lGameDef.HardcodedRangeMinVersion > 0) then
-    Result := GetVersion >= lGameDef.HardcodedRangeMinVersion;
-  Result := Result and (GetMasterCount(True) > 0);
+  var lMark: Int64;
+  var lScoped := RefScopeEnter(lMark);
+  try
+    var lGameDef := flContextObj.GameDefObj;
+    Result := lGameDef.HardcodedRangeAdmitted;
+    if Result and (lGameDef.HardcodedRangeMinVersion > 0) then
+      Result := GetVersion >= lGameDef.HardcodedRangeMinVersion;
+    Result := Result and (GetMasterCount(True) > 0);
+  finally
+    if lScoped then
+      RefScopeLeave(lMark);
+  end;
 
   flAllowHardcodedRangeUse := Result;
   flHardcodedGeneration := _FileGeneration;
@@ -7427,6 +8385,14 @@ var
 begin
   if esDestroying in eStates then
     Exit;
+  if wbParallelRefBuilds <> 0 then begin
+    var lRefBuilder := _RefBuilder;
+    if not lRefBuilder then
+      RefEntrance(Self);
+    if not lRefBuilder or (GetElementType = etMainRecord) then
+      if RefInitClaimed(Self, aNeedSorted) then
+        Exit;
+  end;
   if csInit in cntStates then begin
     if csFillPending in cntStates then
       DoPendingFill;
@@ -7450,7 +8416,7 @@ begin
       cntElementsMap := ValueDef.GetElementMap;
     if not wbSpeedOverMemory then
       if not (GetElementType in [etMainRecord, etGroupRecord]) then
-        if not Assigned(cntKeepAliveNext) and (Length(cntElements) > 0) then begin
+        if not Assigned(cntKeepAliveNext) and (Length(cntElements) > 0) and not RefNoKeepAlive(Self) then begin
           KAC := wbKeepAliveContext;
           if Assigned(KAC) then begin
             cntKeepAliveNext := KAC.kacHead;
@@ -7481,6 +8447,22 @@ begin
   if not aForce then begin
     if not (csInit in cntStates) then
       Exit;
+    if (wbParallelRefBuilds <> 0) and (GetElementType <> etMainRecord) then
+      if _RefBuilder then begin
+        if (esModified in eStates) or (cntElementRefs > 0) then
+          Exit;
+        if not RefHoldsMain(Self) then
+          Exit;
+      end else if RefResetTouched(Self, aForce) then
+        Exit;
+    if (wbParallelRefBuilds <> 0) and (GetElementType = etMainRecord) then begin
+      var lResetOwner := TwbMainRecord(Self).mrRefOwner;
+      if (lResetOwner <> RefThreadNo) and (lResetOwner <> (roClaimBit or RefThreadNo)) then
+        if _RefBuilder or (lResetOwner <> roDone) then
+          Exit
+        else if RefResetClaimed(TwbMainRecord(Self)) then
+          Exit;
+    end;
     if esModified in eStates then
       Exit;
     if cntElementRefs > 0 then
@@ -7670,6 +8652,13 @@ begin
 end;
 
 function TwbContainer.GetCollapsed: TwbTriBool;
+begin
+  if (wbParallelRefBuilds <> 0) and not _RefBuilder then
+    Exit(RefTouchedCollapsed(Self));
+  Result := GetCollapsedCached;
+end;
+
+function TwbContainer.GetCollapsedCached: TwbTriBool;
 var
   Def: IwbDef;
 begin
@@ -8864,6 +9853,14 @@ begin
 end;
 
 procedure TwbContainer.SetCollapsed(const aValue: TwbTriBool);
+begin
+  if (wbParallelRefBuilds <> 0) and not _RefBuilder then
+    RefTouchedSetCollapsed(Self, aValue)
+  else
+    SetCollapsedInner(aValue);
+end;
+
+procedure TwbContainer.SetCollapsedInner(const aValue: TwbTriBool);
 var
   Def: IwbDef;
 begin
@@ -9151,11 +10148,25 @@ function TwbContainer._Release: Integer;
 begin
   if wbSpeedOverMemory then
     Result := ElementRelease
+  else if (wbParallelRefBuilds <> 0) and (csInit in cntStates) and (GetElementType <> etMainRecord) and not _RefBuilder then
+    Result := RefReleaseTouched
   else begin
     Result := inherited _Release;
     if (Result > 0) and (cntElementRefs = 0) and (csInit in cntStates) then
       DoReset(False);
   end;
+end;
+
+function TwbContainer.RefReleaseTouched: Integer;
+var
+  lGuard : TRefGuard;
+  lHolds : Boolean;
+begin
+  RefTouch(lGuard, Self);
+  lHolds := RefHoldsMain(Self);
+  Result := inherited _Release;
+  if lHolds and (Result > 0) and (cntElementRefs = 0) and (csInit in cntStates) then
+    DoReset(False);
 end;
 {$D+}
 
@@ -9754,7 +10765,32 @@ procedure TwbMainRecord.BuildRef;
     KAR: IwbKeepAliveRoot;
   begin
     KAR := wbCreateKeepAliveRoot;
-    DoBuildRef(False);
+    var lPrevBuild := _RefBuildRec;
+    _RefBuildRec := Self;
+    try
+      DoBuildRef(False);
+      if _FilePrefill <> 0 then begin
+        var lNameMark: Int64;
+        var lNameScoped := RefScopeEnter(lNameMark);
+        try
+          try
+            GetEditorID;
+            GetFullName;
+            GetBaseRecord;
+            if (_FilePrefill = 2) and (mrEditorID <> '') then begin
+              GetName;
+              GetShortName;
+            end;
+          except
+          end;
+        finally
+          if lNameScoped then
+            RefScopeLeave(lNameMark);
+        end;
+      end;
+    finally
+      _RefBuildRec := lPrevBuild;
+    end;
     KAR := nil;
   end;
 
@@ -9765,30 +10801,58 @@ begin
   if dfExcludeFromBuildRef in mrDef.DefFlags then
     Exit;
 
-  if mrsNoUpdateRefs in mrStates then
-    Exit;
-
-  if (csRefsBuild in cntStates) and (cntRefsBuildAt >= eGeneration) then
-    Exit;
-
-  if [csRefsBuild, csInitializing] * cntStates = [csRefsBuild, csInitializing] then begin
-    if not (mrsBuildingRef in mrStates) then
-      Include(mrStates, mrsBuildRefPending);
-    Exit;
-  end;
-
-  if wbSpeedOverMemory then
-    DoBuildRef(False)
-  else begin
-    UseKAC;
-    if _FileRefsBuilding and not (esModified in eStates) then
-      if ResetChildrenLeafFirst then begin
-        Exclude(cntStates, csFillPending);
-        Reset;
+  var lTook := False;
+  if _RefBuilder and (wbParallelRefBuilds <> 0) and (mrRefOwner <> RefThreadNo) then begin
+    if not (_FileRefsBuilding or _FileRefsOwning) then
+      Exit;
+    if _RefDraining or not Assigned(_RefDeferred) then
+      lTook := RefTake(Self, _RefScopeDepth > 0) = rtTaken
+    else case RefTryTake(Self) of
+      0: lTook := True;
+      2: begin
+        TList<TwbMainRecord>(_RefDeferred).Add(Self);
+        Exit;
       end;
+    end;
+    if not lTook then
+      Exit;
   end;
 
-  if wbHasProgressCallback then
+  var lFinished := False;
+  var lTick := False;
+  var lBuildMark: Int64;
+  var lBuildScoped := RefScopeEnter(lBuildMark);
+  try
+    if not (mrsNoUpdateRefs in mrStates) then
+      if not ((csRefsBuild in cntStates) and (cntRefsBuildAt >= eGeneration)) then
+        if [csRefsBuild, csInitializing] * cntStates = [csRefsBuild, csInitializing] then begin
+          if not (mrsBuildingRef in mrStates) then
+            Include(mrStates, mrsBuildRefPending);
+        end else begin
+          if wbSpeedOverMemory then
+            DoBuildRef(False)
+          else begin
+            UseKAC;
+            if _FileRefsBuilding and not (esModified in eStates) then
+              if ResetChildrenLeafFirst then begin
+                Exclude(cntStates, csFillPending);
+                Reset;
+              end;
+          end;
+          lTick := True;
+        end;
+    lFinished := True;
+  finally
+    if lBuildScoped then
+      RefScopeLeave(lBuildMark);
+    if lTook and (mrRefOwner = RefThreadNo) then
+      if lFinished then
+        mrRefOwner := roDone
+      else
+        mrRefOwner := 0;
+  end;
+
+  if lTick and wbHasProgressCallback then
     wbProgressCallback;
 end;
 
@@ -10291,6 +11355,8 @@ begin
   mrReferencedBySize := 0;
   mrGroup := nil;
   ReleaseElements;
+  cntElementsMap := nil;
+  cntStates := cntStates - [csInit, csInitDone, csFillPending];
 end;
 
 procedure TwbMainRecord.CollapseStorage(aKAR: PwbKeepAliveRoot; aForce: Boolean);
@@ -11294,6 +12360,8 @@ var
   SelfRef: IwbContainerElementRef;
   NameRec: IwbContainerElementRef;
 begin
+  var lRefHold: TRefGuard;
+  RefShortHold(lRefHold, Self);
   Result := nil;
 
   _File := GetFile;
@@ -11305,13 +12373,19 @@ begin
     if Assigned(mrDef) and mrDef.ContainsKnownSubRecord[ksrBaseRecord] then begin
       SelfRef := Self as IwbContainerElementRef;
       if not ((mrsQuickInitDone in mrStates) or (csInitOnce in cntStates)) then begin
-        Assert(not (csInit in cntStates));
+        if csInit in cntStates then
+          Exit;
         Include(mrStates, mrsQuickInit);
         Include(cntStates, csInitializing);
         Include(cntStates, csInit);
         try
           try
-            Init;
+            wbLockProcessMessages;
+            try
+              Init;
+            finally
+              wbUnLockProcessMessages;
+            end;
           finally
             Exclude(cntStates, csInitializing);
             DoReset(True);
@@ -11346,6 +12420,8 @@ var
   _File      : IwbFile;
   BaseRecord : IwbMainRecord;
 begin
+  var lRefHold: TRefGuard;
+  RefShortHold(lRefHold, Self);
   _File := GetFile;
   if (mrsBaseRecordChecked in mrStates) and Assigned(_File) then
     if fsMastersUpdating in _File.FileStates then
@@ -11592,6 +12668,8 @@ var
   SearchForGroup: Integer;
   ContainingGroup: IwbGroupRecord;
 begin
+  var lRefHold: TRefGuard;
+  RefShortHold(lRefHold, Self);
   Result := mrGroup;
   if not Assigned(Result) and not (mrsSearchingChildGroup in mrStates) then begin
     if Supports(GetContainer, IwbGroupRecord, ContainingGroup) then try
@@ -11682,6 +12760,8 @@ var
   _File       : IwbFile;
   GridCell    : TwbGridCell;
 begin
+  var lRefHold: TRefGuard;
+  RefShortHold(lRefHold, Self);
   if mrLGeneration <> ContextObj.LocalizationHandler.Generation then
     mrInvalidateNameCache;
 
@@ -11780,6 +12860,8 @@ function TwbMainRecord.GetEditorID: string;
 var
   SelfRef: IwbContainerElementRef;
 begin
+  var lRefHold: TRefGuard;
+  RefShortHold(lRefHold, Self);
   if mrsEditorIDFromCache in mrStates then
     Exit(mrEditorID);
 
@@ -11796,7 +12878,12 @@ begin
       Include(cntStates, csInit);
       try
         try
-          Init;
+          wbLockProcessMessages;
+          try
+            Init;
+          finally
+            wbUnLockProcessMessages;
+          end;
         finally
           Exclude(cntStates, csInitializing);
           DoReset(True);
@@ -11824,7 +12911,10 @@ begin
 end;
 
 function TwbMainRecord.GetExternalReferencesCount: Integer;
+var
+  lRefHold : TRefGuard;
 begin
+  RefShortHold(lRefHold, Self);
   Result := 0;
   var _File := GetFile;
   if not Assigned(_File) then
@@ -11844,6 +12934,11 @@ begin
     end;
     Inc(Result);
   end;
+end;
+
+function TwbMainRecord.RefMainObj: TObject;
+begin
+  Result := Self;
 end;
 
 function TwbMainRecord.GameDefObj: TwbGameDef;
@@ -11892,6 +12987,8 @@ function TwbMainRecord.GetFullName: string;
 var
   SelfRef: IwbContainerElementRef;
 begin
+  var lRefHold: TRefGuard;
+  RefShortHold(lRefHold, Self);
   if mrLGeneration <> ContextObj.LocalizationHandler.Generation then
     mrInvalidateNameCache;
 
@@ -11911,7 +13008,12 @@ begin
       Include(cntStates, csInit);
       try
         try
-          Init;
+          wbLockProcessMessages;
+          try
+            Init;
+          finally
+            wbUnLockProcessMessages;
+          end;
         finally
           Exclude(cntStates, csInitializing);
           DoReset(True);
@@ -12039,6 +13141,8 @@ function TwbMainRecord.GetGridCell(out aGridCell: TwbGridCell): Boolean;
 var
   SelfRef   : IwbContainerElementRef;
 begin
+  var lRefHold: TRefGuard;
+  RefShortHold(lRefHold, Self);
   Result := False;
 
   if not Assigned(mrDef) or not mrDef.ContainsKnownSubRecord[ksrGridCell] then
@@ -12055,7 +13159,12 @@ begin
       Include(cntStates, csInit);
       try
         try
-          Init;
+          wbLockProcessMessages;
+          try
+            Init;
+          finally
+            wbUnLockProcessMessages;
+          end;
         finally
           Exclude(cntStates, csInitializing);
           DoReset(True);
@@ -12078,6 +13187,8 @@ var
   MODL     : IwbContainerElementRef;
   s        : String;
 begin
+  var lRefHold: TRefGuard;
+  RefShortHold(lRefHold, Self);
   if not (mrsHasMeshChecked in mrStates) and (ContextObj.ContainerHandler <> nil) then begin
     Include(mrStates, mrsHasMeshChecked);
     if GetSignature = 'TREE' then begin
@@ -12099,7 +13210,10 @@ begin
 end;
 
 function TwbMainRecord.GetHasPrecombinedMesh: Boolean;
+var
+  lRefHold : TRefGuard;
 begin
+  RefShortHold(lRefHold, Self);
   if not (mrsHasPrecombinedMeshChecked in mrStates) then
     Self.GetPrecombinedMesh;
 
@@ -12127,6 +13241,8 @@ var
   CellFormID  : TwbFormID;
   MasterFolder: string;
 begin
+  var lRefHold: TRefGuard;
+  RefShortHold(lRefHold, Self);
   Result := '';
 
   var lGameDef := GameDefObj;
@@ -12237,6 +13353,8 @@ var
   MODL     : IwbContainerElementRef;
   s        : String;
 begin
+  var lRefHold: TRefGuard;
+  RefShortHold(lRefHold, Self);
   var lContext := ContextObj;
   if not (mrsHasVWDMeshChecked in mrStates) and (lContext.ContainerHandler <> nil) then begin
     Include(mrStates, mrsHasVWDMeshChecked);
@@ -12312,7 +13430,9 @@ var
   Rec     : IwbMainRecord;
   _File : IwbFile;
   LastID  : Pointer;
+  lRefHold : TRefGuard;
 begin
+  RefShortHold(lRefHold, Self);
   SetLength(Result, Length(mrReferences));
   if Length(Result) > 0 then begin
     _File := GetFile;
@@ -12405,6 +13525,8 @@ end;
 
 function TwbMainRecord.GetIsInjected: Boolean;
 begin
+  var lRefHold: TRefGuard;
+  RefShortHold(lRefHold, Self);
   if not (mrsIsInjectedChecked in mrStates) then begin
     var _File := GetFile;
     var FormID := GetFixedFormID;
@@ -12440,6 +13562,8 @@ begin
   if Assigned(mrMaster) then
     Result := IwbMainRecord(mrMaster).IsNotReachable
   else begin
+    var lRefHold: TRefGuard;
+    RefShortHold(lRefHold, Self);
     Result := inherited GetIsNotReachable;
     if Result then
       for i := Low(mrOverrides) to High(mrOverrides) do
@@ -12465,6 +13589,8 @@ begin
   if Assigned(mrMaster) then
     Result := IwbMainRecord(mrMaster).IsReachable
   else begin
+    var lRefHold: TRefGuard;
+    RefShortHold(lRefHold, Self);
     Result := inherited GetIsReachable;
     if not Result then
       for i := Low(mrOverrides) to High(mrOverrides) do
@@ -12488,6 +13614,8 @@ begin
     Master := IwbMainRecord(mrMaster);
     Result := Equals(Master.WinningOverride);
   end else begin
+    var lRefHold: TRefGuard;
+    RefShortHold(lRefHold, Self);
     for var lIndex := High(mrOverrides) downto Low(mrOverrides) do
       if not mrOverrides[lIndex].IsPartialForm then
         Exit(False);
@@ -12517,9 +13645,12 @@ var
   lMasters : TStringList;
   i, j, k : Integer;
   _File   : IwbFile;
+  lGuard  : TRefGuard;
 begin
   if Assigned(mrMaster) then
     Exit(IwbMainRecord(mrMaster).GetMasterAndLeafs);
+  if wbParallelRefBuilds <> 0 then
+    RefShortHold(lGuard, Self);
   if Length(mrMasterAndLeafs) < 1 then begin
     k := Succ(Length(mrOverrides));
     SetLength(mrMasterAndLeafs, k);
@@ -12575,6 +13706,8 @@ var
   s        : string;
   CanCache : Boolean;
 begin
+  var lRefHold: TRefGuard;
+  RefShortHold(lRefHold, Self);
   CanCache := (not aForName) or not wbNoFullInShortName;
 
   if mrLGeneration <> ContextObj.LocalizationHandler.Generation then
@@ -12638,6 +13771,8 @@ function TwbMainRecord.GetName: string;
 var
   s : string;
 begin
+  var lRefHold: TRefGuard;
+  RefShortHold(lRefHold, Self);
   if mrLGeneration <> ContextObj.LocalizationHandler.Generation then
     mrInvalidateNameCache;
 
@@ -12674,6 +13809,8 @@ end;
 
 function TwbMainRecord.GetOverride(aIndex: Integer): IwbMainRecord;
 begin
+  var lRefHold: TRefGuard;
+  RefShortHold(lRefHold, Self);
   if (aIndex < 0) or (aIndex >= Length(mrOverrides)) then
     Exit(nil);
 
@@ -12813,7 +13950,10 @@ begin
 end;
 
 function TwbMainRecord.GetReference(aIndex: Integer): IwbMainRecord;
+var
+  lRefHold : TRefGuard;
 begin
+  RefShortHold(lRefHold, Self);
   Result := nil;
   if (aIndex < 0) or (aIndex >= Length(mrReferences)) then
     Exit;
@@ -12823,7 +13963,10 @@ begin
 end;
 
 function TwbMainRecord.GetReferencesCount: Integer;
+var
+  lRefHold : TRefGuard;
 begin
+  RefShortHold(lRefHold, Self);
   Result := Length(mrReferences);
 end;
 
@@ -12835,6 +13978,8 @@ var
   Rec     : IwbMainRecord;
   Found   : Boolean;
 begin
+  var lRefHold: TRefGuard;
+  RefShortHold(lRefHold, Self);
   if not (mrsReferencesInjectedChecked in mrStates) and (csRefsBuild in cntStates) then try
     if cntRefsBuildAt < eGeneration then
       BuildRef;
@@ -12968,7 +14113,8 @@ end;
 
 function TwbMainRecord.GetSummary: string;
 var
-  Def: IwbDef;
+  Def    : IwbDef;
+  lGuard : TRefGuard;
 begin
   if wbReportMode then begin
     Def := GetValueDef;
@@ -12980,6 +14126,8 @@ begin
   end;
   Result := '';
   if Assigned(mrDef) then begin
+    if wbParallelRefBuilds <> 0 then
+      RefTouch(lGuard, Self);
     eSummaryLinksTo := nil;
     Result := mrDef.ToSummary(0, Self, eSummaryLinksTo);
   end;
@@ -13005,6 +14153,8 @@ begin
   if Assigned(mrMaster) then
     Exit(IwbMainRecord(mrMaster).WinningOverride);
 
+  var lRefHold: TRefGuard;
+  RefShortHold(lRefHold, Self);
   for var lIndex := High(mrOverrides) downto Low(mrOverrides) do begin
     var lOverride := mrOverrides[lIndex];
     if not lOverride.IsPartialForm then
@@ -13509,6 +14659,98 @@ begin
     CollapseStorage(nil, True);
   finally
     EndUpdate;
+  end;
+end;
+
+function TwbMainRecord.UndeleteDecision: TwbUndeleteOutcome;
+begin
+  Result := uoNotCandidate;
+
+  if not (GetIsEditable and GetIsDeleted) then
+    Exit;
+
+  var lSignature := GetSignature;
+  if not (
+    (lSignature = 'REFR') or
+    (lSignature = 'PGRE') or
+    (lSignature = 'PMIS') or
+    (lSignature = 'ACHR') or
+    (lSignature = 'ACRE') or
+    (lSignature = 'NAVM') or
+    (lSignature = 'PARW') or {>>> Skyrim <<<}
+    (lSignature = 'PBAR') or {>>> Skyrim <<<}
+    (lSignature = 'PBEA') or {>>> Skyrim <<<}
+    (lSignature = 'PCON') or {>>> Skyrim <<<}
+    (lSignature = 'PFLA') or {>>> Skyrim <<<}
+    (lSignature = 'PHZD')    {>>> Skyrim <<<}
+  ) then
+    Exit;
+
+  var lBaseRecord := GetMasterOrSelf.BaseRecord;
+  // skip navmeshes
+  if lSignature = 'NAVM' then
+    Result := uoSkipNavMesh
+  // skip injected or bad refs (crashes after cleaning TES4 Battlehorn DLC)
+  else if GetIsInjected or (not Assigned(lBaseRecord)) then
+    Result := uoSkipOther
+  // skip refs of TREEs with LOD in FNV
+  else if GameDefObj.IsFalloutNV and (lBaseRecord.Signature = 'TREE') and lBaseRecord.Flags.HasLODtree then
+    Result := uoSkipOther
+  else
+    Result := uoUndelete;
+end;
+
+procedure TwbMainRecord.UndeleteAndDisable;
+var
+  SelfRef       : IwbContainerElementRef;
+  Position      : TwbVector;
+  Cntr          : IwbContainerElementRef;
+  Element       : IwbElement;
+  LinksToRecord : IwbMainRecord;
+begin
+  SelfRef := Self;
+  var lContext := ContextObj;
+
+  SetIsDeleted(True);
+  SetIsDeleted(False);
+
+
+  //This was reported as a bug and appears to be undesired.
+  //Was added 10+ years ago, but nobody can remember why.
+  //If looking at this please ask Robert what's going on here.
+  {if (wbIsSkyrim or wbIsFallout3 or wbIsFallout4 or wbIsFallout76 or wbIsStarfield) and ((Signature = 'ACHR') or (Signature = 'ACRE')) then
+    IsPersistent := True
+  else if wbIsOblivion then
+    IsPersistent := False;}
+
+
+  if not GetIsPersistent then
+    if lContext.Settings.UDRSetZ and GetPosition(Position) then begin
+      Position.z := lContext.Settings.UDRSetZValue;
+      SetPosition(Position);
+    end;
+  RemoveElement('Enable Parent');
+  RemoveElement('XTEL');
+  SetIsInitiallyDisabled(True);
+  if lContext.Settings.UDRSetXESP and Supports(Add('XESP', True), IwbContainerElementRef, Cntr) then begin
+    Cntr.ElementNativeValues['Reference'] := $14;
+    Cntr.Elements[1].NativeValue := 1;
+  end;
+
+  if lContext.Settings.UDRSetScale then begin
+    Element := GetElementBySignature('XSCL');
+    if not Assigned(Element) then
+      Element := Add('XSCL', True);
+    if Assigned(Element) then
+      Element.NativeValue := lContext.Settings.UDRSetScaleValue;
+  end;
+
+  if lContext.Settings.UDRSetMSTT and GameDefObj.IsFallout3 then begin
+    Element := GetElementBySignature('NAME');
+    if Assigned(Element) then
+      if Supports(Element.LinksTo, IwbMainRecord, LinksToRecord) then
+        if LinksToRecord.Signature = 'MSTT' then
+          Element.NativeValue := lContext.Settings.UDRSetMSTTValue;
   end;
 end;
 
@@ -14672,7 +15914,11 @@ begin
 end;
 
 procedure TwbMainRecord.ResetConflict;
+var
+  lGuard : TRefGuard;
 begin
+  if wbParallelRefBuilds <> 0 then
+    RefTouch(lGuard, Self);
   if mrsResettingConflict in mrStates then
     Exit;
   Include(mrStates, mrsResettingConflict);
@@ -14688,7 +15934,11 @@ begin
 end;
 
 procedure TwbMainRecord.ResetChain;
+var
+  lGuard : TRefGuard;
 begin
+  if wbParallelRefBuilds <> 0 then
+    RefTouch(lGuard, Self);
   var lContext := ContextObj;
   if Assigned(lContext) then
     mrChainStamp := lContext.NextStamp;
@@ -14698,7 +15948,11 @@ begin
 end;
 
 procedure TwbMainRecord.ResetConflictMember;
+var
+  lGuard : TRefGuard;
 begin
+  if wbParallelRefBuilds <> 0 then
+    RefTouch(lGuard, Self);
   inherited ResetConflict;
   if mrsConflictStored in mrStates then begin
     Exclude(mrStates, mrsConflictStored);
@@ -14799,25 +16053,37 @@ begin
 end;
 
 procedure TwbMainRecord.SetChildGroup(const aGroup: IwbGroupRecord);
+var
+  lGuard  : TRefGuard;
+  lMark   : Int64;
+  lScoped : Boolean;
 begin
   if Pointer(mrGroup) = Pointer(aGroup) then
     Exit;
+  lScoped := RefScopeEnter(lMark);
+  try
+    if lScoped then
+      RefTouch(lGuard, Self);
 
-  if Assigned(aGroup) then begin
-    if not (not Assigned(mrGroup) or (mrGroup.Equals(aGroup))) then begin
-      (aGroup as IwbGroupRecordInternal).IsDuplicateOf(mrGroup);
-      wbProgress('<Error: Found additional ' + mrGroup.Name + ' for ' + Self.GetName + '>');
-      Exit;
-    end;
-    if Assigned(eContainer) then
-      if not IwbContainer(eContainer).Equals(aGroup.Container) then begin
-        wbProgress('<Error: Group "' + aGroup.Name + '" has not the same container as record "' + Self.GetName + '">');
+    if Assigned(aGroup) then begin
+      if not (not Assigned(mrGroup) or (mrGroup.Equals(aGroup))) then begin
+        (aGroup as IwbGroupRecordInternal).IsDuplicateOf(mrGroup);
+        wbProgress('<Error: Found additional ' + mrGroup.Name + ' for ' + Self.GetName + '>');
         Exit;
       end;
-  end else
-    Assert(Assigned(mrGroup));
+      if Assigned(eContainer) then
+        if not IwbContainer(eContainer).Equals(aGroup.Container) then begin
+          wbProgress('<Error: Group "' + aGroup.Name + '" has not the same container as record "' + Self.GetName + '">');
+          Exit;
+        end;
+    end else
+      Assert(Assigned(mrGroup));
 
-  mrGroup := aGroup;
+    mrGroup := aGroup;
+  finally
+    if lScoped then
+      RefScopeLeave(lMark);
+  end;
 end;
 
 procedure TwbMainRecord.SetContainer(const aContainer: IwbContainer);
@@ -20654,6 +21920,14 @@ begin
     Result := nil;
 end;
 
+function TwbElement.RefMainObj: TObject;
+begin
+  if Assigned(eContainer) then
+    Result := IwbContainerInternal(eContainer).RefMainObj
+  else
+    Result := nil;
+end;
+
 function TwbElement.GameDefObj: TwbGameDef;
 begin
   if Assigned(eContainer) then
@@ -20812,6 +22086,15 @@ end;
 
 function TwbElement.GetLinksTo: IwbElement;
 begin
+  if (wbParallelRefBuilds <> 0) and not _RefBuilder then
+    Exit(RefTouchedLinksTo(Self));
+  Result := GetLinksToCached;
+  if wbParallelRefBuilds <> 0 then
+    RefTouchTarget(Result);
+end;
+
+function TwbElement.GetLinksToCached: IwbElement;
+begin
   var lGeneration := ContextObj.GlobalGeneration;
   if eLinksToGeneration = lGeneration then
     Result := eCachedLinksTo
@@ -20968,6 +22251,13 @@ end;
 
 function TwbElement.GetSortKey(aExtended: Boolean): string;
 begin
+  if (wbParallelRefBuilds <> 0) and not _RefBuilder then
+    Exit(RefTouchedSortKey(Self, aExtended));
+  Result := GetSortKeyCached(aExtended);
+end;
+
+function TwbElement.GetSortKeyCached(aExtended: Boolean): string;
+begin
   if aExtended then begin
     if not (esExtendedSortKeyValid in eStates) then begin
       if not (esSorting in eStates) then begin
@@ -21015,6 +22305,15 @@ begin
 end;
 
 function TwbElement.GetSummaryLinksTo: IwbElement;
+begin
+  if (wbParallelRefBuilds <> 0) and not _RefBuilder then
+    Exit(RefTouchedSummaryLinksTo(Self));
+  Result := GetSummaryLinksToCached;
+  if wbParallelRefBuilds <> 0 then
+    RefTouchTarget(Result);
+end;
+
+function TwbElement.GetSummaryLinksToCached: IwbElement;
 begin
   Result := eSummaryLinksTo;
   if Assigned(Result) then
@@ -21970,6 +23269,14 @@ begin
   end;
 end;
 
+function TwbSubRecordArray.RefMainObj: TObject;
+begin
+  if Assigned(arcPendingFor) then
+    Result := TwbElement(IwbContainer(arcPendingFor) as TObject).RefMainObj
+  else
+    Result := inherited RefMainObj;
+end;
+
 function TwbSubRecordArray.GameDefObj: TwbGameDef;
 begin
   if Assigned(arcContextObj) then
@@ -22735,6 +24042,14 @@ begin
     Remove;
     raise;
   end;
+end;
+
+function TwbSubRecordStruct.RefMainObj: TObject;
+begin
+  if Assigned(srcPendingFor) then
+    Result := TwbElement(IwbContainer(srcPendingFor) as TObject).RefMainObj
+  else
+    Result := inherited RefMainObj;
 end;
 
 function TwbSubRecordStruct.GameDefObj: TwbGameDef;
@@ -25126,7 +26441,7 @@ begin
     Result := False;
 end;
 
-function TwbFlag.GetSortKey(aExtended: Boolean): string;
+function TwbFlag.GetSortKeyCached(aExtended: Boolean): string;
 
   procedure CheckFlagsChanged;
   var
@@ -25142,7 +26457,7 @@ function TwbFlag.GetSortKey(aExtended: Boolean): string;
 begin
   if not Assigned(fFlagsDef) then
     CheckFlagsChanged;
-  Result := inherited GetSortKey(aExtended);
+  Result := inherited GetSortKeyCached(aExtended);
 end;
 
 function TwbFlag.GetSortKeyInternal(aExtended: Boolean): string;
@@ -27274,6 +28589,8 @@ begin
 end;
 
 initialization
+  wbCallbackScopeEnter := RefScopeEnter;
+  wbCallbackScopeLeave := RefScopeLeave;
   wbGameContextClass := TwbLoadingGameContext;
   wbSaveContextClass := TwbLoadingSaveContext;
   _MastersGeneration := 1;
