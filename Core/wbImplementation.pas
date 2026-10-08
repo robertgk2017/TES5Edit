@@ -999,6 +999,14 @@ type
     function GetCompareToFile: IwbFile;
     procedure RemoveIdenticalDeltaFast;
 
+    procedure AddCopies(const aElements: TDynElements; var aResult: TDynElements; var aOptions: TwbCopyOptions);
+
+    function GetObjectIDFloor: Cardinal;
+    function GetTakesLightObjectIDs: Boolean;
+    procedure PlanFormIDChange(var aPlan: TwbFormIDChangePlan);
+    function ApplyFormIDChange(const aPlan: TwbFormIDChangePlan): Boolean;
+    procedure FinishFormIDChange(const aPlan: TwbFormIDChangePlan);
+
     function IsNewRecord(const aFileID: TwbFileID; aNew: Boolean): Boolean; overload;
     function IsNewRecord(const aFormID: TwbFormID; aNew: Boolean): Boolean; overload;
 
@@ -2711,6 +2719,411 @@ begin
       SortMasters;
   finally
     Masters.Free;
+  end;
+end;
+
+function TwbFile.GetObjectIDFloor: Cardinal;
+begin
+  if GetAllowHardcodedRangeUse then
+    Result := 1
+  else
+    Result := $800;
+end;
+
+function TwbFile.GetTakesLightObjectIDs: Boolean;
+begin
+  Result := GetIsLight or GetLoadOrderFileID.IsLightSlot;
+end;
+
+procedure TwbFile.PlanFormIDChange(var aPlan: TwbFormIDChangePlan);
+var
+  lLayout     : TwbSlotLayout;
+  lSelf       : IwbFile;
+  lTarget     : IwbFile;
+  lOwn        : TArray<IwbMainRecord>;
+  lTaken      : array of Boolean;
+  lStart      : TwbFormID;
+  lEnd        : TwbFormID;
+  lOld        : TwbFormID;
+  lNew        : TwbFormID;
+  lRecord     : IwbMainRecord;
+  lHolder     : IwbMainRecord;
+  lAnyDelayed : Boolean;
+  lSignatures : TStringList;
+  lPlanned    : TDictionary<Cardinal, Boolean>;
+  i, j, k     : Integer;
+begin
+  lLayout := flContextObj.SlotLayout;
+  lSelf := Self;
+  lTarget := aPlan.Target;
+  aPlan.Records := nil;
+  aPlan.NewFormIDs := nil;
+  aPlan.PreservedCount := 0;
+  aPlan.Signatures := '';
+  aPlan.Refusal := fcrNone;
+  aPlan.InUseFormID := TwbFormID.Null;
+  aPlan.InUseRecord := nil;
+  aPlan.InUseHolder := nil;
+
+  SetLength(lOwn, GetRecordCount);
+  j := 0;
+  for i := Pred(GetRecordCount) downto 0 do begin
+    lOwn[j] := GetRecord(i);
+    if lOwn[j].LoadOrderFormID.FileID[lLayout] = GetLoadOrderFileID then
+      Inc(j);
+  end;
+  if j < 1 then begin
+    aPlan.Refusal := fcrNoOwnRecords;
+    Exit;
+  end;
+  SetLength(lOwn, j);
+  SetLength(lTaken, j);
+
+  lStart := aPlan.Start;
+  lStart.FileID[lLayout] := lTarget.LoadOrderFileID;
+  aPlan.HighFormID := lStart;
+  if aPlan.Kind = fckCompact then
+    lEnd := TwbFormID.FromCardinal($FFF).ChangeFileID(lLayout, lTarget.LoadOrderFileID)
+  else if not lTarget.Equals(lSelf) then begin
+    if lTarget.IsLight then
+      lEnd := TwbFormID.FromCardinal($FFF).ChangeFileID(lLayout, lTarget.LoadOrderFileID)
+    else
+      lEnd := TwbFormID.FromCardinal($FFFFFF).ChangeFileID(lLayout, lTarget.LoadOrderFileID);
+  end else begin
+    lEnd := lStart.Offset(lLayout, j);
+    aPlan.HighFormID := lEnd;
+  end;
+
+  if lTarget.Equals(lSelf) then
+    for i := Low(lOwn) to High(lOwn) do begin
+      lOld := lOwn[i].LoadOrderFormID;
+      if (lOld >= lStart) and (lOld <= lEnd) then begin
+        j := lOld - lStart;
+        if j > High(lTaken) then
+          SetLength(lTaken, Succ(j));
+        lTaken[j] := True;
+      end;
+    end;
+
+  lSignatures := TStringList.Create;
+  try
+    lSignatures.Sorted := True;
+    lSignatures.Duplicates := dupIgnore;
+    lSignatures.Delimiter := ' ';
+
+    lAnyDelayed := False;
+    SetLength(aPlan.Records, Length(lOwn));
+    SetLength(aPlan.NewFormIDs, Length(lOwn));
+    j := 0;
+    i := 0;
+    for k := High(lOwn) downto Low(lOwn) do begin
+      lRecord := lOwn[k];
+      lOld := lRecord.LoadOrderFormID;
+
+      if lTarget.Equals(lSelf) then begin
+        if (lOld >= lStart) and (lOld <= lEnd) then
+          Continue;
+
+        while (j <= High(lTaken)) and lTaken[j] do
+          Inc(j);
+        lNew := lStart.Offset(lLayout, j);
+        Inc(j);
+      end else begin
+        lNew := TwbFormID.Null;
+        lHolder := nil;
+        repeat
+          if aPlan.Preserve then begin
+            if lNew.IsNull then
+              lNew := lOld.ChangeFileID(lLayout, lTarget.LoadOrderFileID)
+            else
+              if aPlan.AllOrNothing then begin
+                aPlan.Refusal := fcrInUse;
+                aPlan.InUseFormID := lNew;
+                aPlan.InUseRecord := lRecord;
+                aPlan.InUseHolder := lHolder;
+                Exit;
+              end else begin
+                lNew := TwbFormID.Null;
+                lAnyDelayed := True;
+                Break;
+              end;
+          end else begin
+            lNew := lStart.Offset(lLayout, j);
+            Inc(j);
+          end;
+          lHolder := lTarget.ContainedRecordByLoadOrderFormID[lNew, True];
+        until not Assigned(lHolder);
+        lHolder := nil;
+      end;
+
+      if lNew > lEnd then begin
+        aPlan.Refusal := fcrTooMany;
+        Exit;
+      end;
+
+      if lNew > aPlan.HighFormID then
+        aPlan.HighFormID := lNew;
+
+      if lNew = lOld then
+        Continue;
+
+      if aPlan.Preserve and not lNew.IsNull then
+        Inc(aPlan.PreservedCount);
+
+      aPlan.Records[i] := lRecord;
+      aPlan.NewFormIDs[i] := lNew;
+      if Assigned(lRecord) then
+        lSignatures.Add(lRecord.Signature);
+      Inc(i);
+    end;
+
+    SetLength(aPlan.Records, i);
+    SetLength(aPlan.NewFormIDs, i);
+
+    if lAnyDelayed then begin
+      lPlanned := TDictionary<Cardinal, Boolean>.Create(Length(aPlan.NewFormIDs));
+      try
+        for k := Low(aPlan.NewFormIDs) to High(aPlan.NewFormIDs) do
+          if not aPlan.NewFormIDs[k].IsNull then
+            lPlanned.AddOrSetValue(aPlan.NewFormIDs[k].ToCardinal, True);
+
+        for k := Low(aPlan.Records) to High(aPlan.Records) do begin
+          if not aPlan.NewFormIDs[k].IsNull then
+            Continue;
+
+          repeat
+            lNew := lStart.Offset(lLayout, j);
+            Inc(j);
+          until not lPlanned.ContainsKey(lNew.ToCardinal) and not Assigned(lTarget.ContainedRecordByLoadOrderFormID[lNew, True]);
+
+          if lNew > lEnd then begin
+            aPlan.Refusal := fcrTooMany;
+            Exit;
+          end;
+
+          if lNew > aPlan.HighFormID then
+            aPlan.HighFormID := lNew;
+          aPlan.NewFormIDs[k] := lNew;
+        end;
+      finally
+        lPlanned.Free;
+      end;
+    end;
+
+    if i > 0 then
+      aPlan.Signatures := lSignatures.DelimitedText
+    else
+      aPlan.Refusal := fcrNothingToChange;
+  finally
+    lSignatures.Free;
+  end;
+end;
+
+function TwbFile.ApplyFormIDChange(const aPlan: TwbFormIDChangePlan): Boolean;
+var
+  lLayout       : TwbSlotLayout;
+  lRecord       : IwbMainRecord;
+  lMaster       : IwbMainRecord;
+  lReferencedBy : TArray<IwbMainRecord>;
+  lOverrides    : TArray<IwbMainRecord>;
+  lOld          : TwbFormID;
+  lNew          : TwbFormID;
+  i, k, l       : Integer;
+
+  procedure ExchangeInReferencing(const aOld, aNew: TwbFormID; const aReferencedBy: TArray<IwbMainRecord>);
+  var
+    lLabels   : TArray<string>;
+    lEditable : TArray<Boolean>;
+    lAny      : Boolean;
+    lCount    : Integer;
+    m         : Integer;
+  begin
+    SetLength(lLabels, Length(aReferencedBy));
+    SetLength(lEditable, Length(aReferencedBy));
+    lAny := False;
+    for m := Low(aReferencedBy) to High(aReferencedBy) do begin
+      lLabels[m] := aReferencedBy[m].Name + ' - ' + aReferencedBy[m]._File.Name;
+      lEditable[m] := aReferencedBy[m].IsEditable;
+      if lEditable[m] then
+        lAny := True;
+    end;
+    if not lAny then
+      Exit;
+
+    lCount := 0;
+    for m := Low(aReferencedBy) to High(aReferencedBy) do
+      if lEditable[m] then try
+        if aReferencedBy[m].CompareExchangeFormID(aOld, aNew) then
+          Inc(lCount);
+        wbTick;
+      except
+        on E: Exception do
+          wbProgress('Error updating FormID for ' + lLabels[m] + ': ' + E.Message);
+      end;
+
+    wbProgress(IntToStr(lCount) + ' records out of ' + IntToStr(Length(aReferencedBy)) + ' total records which reference FormID [' +
+      aOld.ToDisplayString(lLayout) + '] have been updated to [' + aNew.ToDisplayString(lLayout) + ']');
+  end;
+
+begin
+  lLayout := flContextObj.SlotLayout;
+  Result := False;
+  for k := Low(aPlan.Records) to High(aPlan.Records) do begin
+    lRecord := aPlan.Records[k];
+    lOld := lRecord.LoadOrderFormID;
+    lNew := aPlan.NewFormIDs[k];
+
+    wbProgress('Changing FormID ['+lOld.ToDisplayString(lLayout)+'] in file "'+lRecord._File.FileName+'" to ['+lNew.ToDisplayString(lLayout)+']');
+
+    lMaster := lRecord.MasterOrSelf;
+    SetLength(lReferencedBy, lMaster.ReferencedByCount);
+    for i := 0 to Pred(lMaster.ReferencedByCount) do
+      lReferencedBy[i] := lMaster.ReferencedBy[i];
+
+    try
+      SetLength(lOverrides, lRecord.OverrideCount);
+      for l := 0 to Pred(lRecord.OverrideCount) do
+        lOverrides[l] := lRecord.Overrides[l];
+
+      lRecord.LoadOrderFormID := lNew;
+      if Length(lOverrides) > 0 then begin
+        wbProgress('Record has '+Length(lOverrides).ToString+' override(s)');
+        for l := Low(lOverrides) to High(lOverrides) do
+          lOverrides[l].LoadOrderFormID := lNew;
+      end;
+
+      lOverrides := nil;
+
+      wbTick;
+
+      if Length(lReferencedBy) > 0 then begin
+        wbProgress('Record is referenced by '+Length(lReferencedBy).ToString+' other record(s)');
+        ExchangeInReferencing(lOld, lNew, lReferencedBy);
+      end;
+    except
+      on E: Exception do begin
+        wbProgress('Error: ' + E.Message);
+        Result := True;
+      end;
+    end;
+
+    wbCurrentProgress := 'Processed Records: ' + Integer(k + 1).ToString;
+  end;
+end;
+
+procedure TwbFile.FinishFormIDChange(const aPlan: TwbFormIDChangePlan);
+begin
+  if aPlan.Target.IsEditable then
+    aPlan.Target.NextObjectID := aPlan.HighFormID.Next(flContextObj.SlotLayout).ObjectID[flContextObj.SlotLayout];
+end;
+
+procedure TwbFile.AddCopies(const aElements: TDynElements; var aResult: TDynElements; var aOptions: TwbCopyOptions);
+var
+  lFile                 : IwbFile;
+  lMultiple             : Boolean;
+  lIsOblivion           : Boolean;
+  lMainRecord           : IwbMainRecord;
+  lMainRecord2          : IwbMainRecord;
+  lLeveledListEntries   : IwbContainerElementRef;
+  lLeveledListEntry     : IwbContainerElementRef;
+  lCopiedElement        : IwbElement;
+  lPreviousCanOverwrite : TwbCanOverwriteCallback;
+  j                     : Integer;
+begin
+  lFile := Self;
+  lMultiple := TwbCopyOptions.IsMultiple(aElements);
+  lPreviousCanOverwrite := _wbCanOverwriteCallback;
+  _wbCanOverwriteCallback := aOptions.CanOverwrite;
+  try
+    if aOptions.Mode = cmWrapper then begin
+
+      lIsOblivion := flContextObj.GameDefObj.IsOblivion;
+      for j := Low(aElements) to High(aElements) do begin
+        lMainRecord := aElements[j] as IwbMainRecord;
+        wbCurrentProgress := Format('[%s] into [%s]', [lMainRecord.FullPath, lFile.FullPath]);
+        wbProgress(aOptions.Operation + ' ' + wbCurrentProgress);
+
+        lMainRecord2 := wbCopyElementToFile(lMainRecord, lFile, True, True, aOptions.PrefixRemove, aOptions.SuffixRemove, aOptions.Prefix, aOptions.Suffix, False) as IwbMainRecord;
+        wbProgress('');
+
+        Assert(Assigned(lMainRecord2));
+        if not lMultiple then
+          lMainRecord2.EditorID := aOptions.EditorID;
+
+        aOptions.EditorID := lMainRecord.EditorID;
+        lMainRecord := wbCopyElementToFile(lMainRecord, lFile, False, False, '', '', '', '', aOptions.AllowOverwrite) as IwbMainRecord;
+        wbProgress('');
+        Assert(Assigned(lMainRecord));
+        lMainRecord.Assign(Low(Integer), nil, False);
+        if not Assigned(lMainRecord.ElementByName['Leveled List Entries']) then
+          lMainRecord.Add('Leveled List Entries', True);
+        lLeveledListEntries := lMainRecord.ElementByName['Leveled List Entries'] as IwbContainerElementRef;
+        Assert(Assigned(lLeveledListEntries));
+        Assert(lLeveledListEntries.ElementCount = 1);
+        lLeveledListEntry := lLeveledListEntries.Elements[0] as IwbContainerElementRef;
+        if not lIsOblivion then
+          lLeveledListEntry := lLeveledListEntry.Elements[0] as IwbContainerElementRef;
+        Assert(Assigned(lLeveledListEntry));
+        lLeveledListEntry.Elements[2].EditValue := lMainRecord2.EditValue;
+        lLeveledListEntry.ElementByName['Count'].EditValue := '1';
+        lLeveledListEntry.ElementByName['Level'].EditValue := '1';
+        lMainRecord.EditorID := aOptions.EditorID;
+        aResult[j] := lMainRecord;
+        wbProgress('');
+      end;
+
+    end
+    else if lMultiple then begin
+      for j := Low(aElements) to High(aElements) do
+        try
+          if aOptions.DeepCopy and Supports(aElements[j], IwbMainRecord, lMainRecord) and Assigned(lMainRecord.ChildGroup) then begin
+            wbProgress(aOptions.Operation + ' ' + wbCurrentProgress);
+            aResult[j] := wbCopyElementToFile(lMainRecord.ChildGroup, lFile, aOptions.Mode = cmNew, True, aOptions.PrefixRemove, aOptions.SuffixRemove, aOptions.Prefix, aOptions.Suffix, aOptions.AllowOverwrite);
+            wbProgress('');
+          end else begin
+            wbCurrentProgress := Format('[%s] into [%s]', [aElements[j].FullPath, lFile.FullPath]);
+            wbProgress(aOptions.Operation + ' ' + wbCurrentProgress);
+            lCopiedElement := wbCopyElementToFile(aElements[j], lFile, aOptions.Mode = cmNew, True, aOptions.PrefixRemove, aOptions.SuffixRemove, aOptions.Prefix, aOptions.Suffix, aOptions.AllowOverwrite);
+            wbProgress('');
+            if Assigned(lCopiedElement) then begin
+              if Assigned(aOptions.AfterCopy) then
+                aOptions.AfterCopy(lCopiedElement);
+            end;
+            aResult[j] := lCopiedElement;
+            wbProgress('');
+          end;
+        except
+          on E: EAbort do
+            raise;
+          on E: Exception do
+            wbProgress('Error while copying [%s]: [%s] %s', [aElements[j].FullPath, E.ClassName, E.Message]);
+        end;
+    end else begin
+      lMainRecord := nil;
+      if aOptions.DeepCopy and Supports(aElements[0], IwbMainRecord, lMainRecord) and Assigned(lMainRecord.ChildGroup) then begin
+        wbCurrentProgress := Format('[%s] into [%s]', [lMainRecord.ChildGroup.FullPath, lFile.FullPath]);
+        wbProgress(aOptions.Operation + ' ' + wbCurrentProgress);
+        aResult[0] := wbCopyElementToFile(lMainRecord.ChildGroup, lFile, aOptions.Mode = cmNew, True, '', '', '', '', aOptions.AllowOverwrite);
+        wbProgress('');
+      end else begin
+        wbCurrentProgress := Format('[%s] into [%s]', [aElements[0].FullPath, lFile.FullPath]);
+        wbProgress(aOptions.Operation + ' ' + wbCurrentProgress);
+        lCopiedElement := wbCopyElementToFile(aElements[0], lFile, aOptions.Mode = cmNew, True, '', '', '', '', aOptions.AllowOverwrite);
+        wbProgress('');
+        if Assigned(lCopiedElement) then begin
+          if Assigned(aOptions.AfterCopy) then
+            aOptions.AfterCopy(lCopiedElement);
+        end;
+        wbProgress('');
+        aResult[0] := lCopiedElement;
+        if not Supports(lCopiedElement, IwbMainRecord, lMainRecord) then
+          lMainRecord := nil;
+      end;
+      if (aOptions.Mode = cmNew) and Assigned(lMainRecord) then
+        lMainRecord.EditorID := aOptions.EditorID;
+    end;
+  finally
+    _wbCanOverwriteCallback := lPreviousCanOverwrite;
   end;
 end;
 
@@ -13794,7 +14207,8 @@ begin
       Result := Result + ' (' + s + ')';
   end;
 
-  if fsIsOfficial in GetFile.FileStates then
+  var lFile := GetFile;
+  if Assigned(lFile) and (fsIsOfficial in lFile.FileStates) then
     mrName := Result;
 end;
 

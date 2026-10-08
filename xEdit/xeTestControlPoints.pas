@@ -77,6 +77,12 @@ type
     procedure TestMergeRunTimer(Sender: TObject);
     procedure TestMergeAnswerTimer(Sender: TObject);
     procedure TestMergeWrite;
+    procedure TestCopyIntoRunTimer(Sender: TObject);
+    procedure TestCopyIntoAnswerTimer(Sender: TObject);
+    procedure TestCopyIntoWrite;
+    procedure TestRenumberRunTimer(Sender: TObject);
+    procedure TestRenumberAnswerTimer(Sender: TObject);
+    procedure TestRenumberWrite;
     procedure TestDeltaPatchStates(const aWhen: string);
     procedure TestDeltaPatchWrite;
     procedure TestDeltaPatchCancelTimer(Sender: TObject);
@@ -111,10 +117,14 @@ type
     procedure DoTestDeltaPatchStart;
     procedure DoTestDeltaPatchReport;
     procedure DoTestMerge;
+    procedure DoTestCopyInto;
+    procedure DoTestRenumber;
     procedure DoTestHide;
     procedure DoTestFilter;
     procedure TestFilterImages(aLines: TStrings);
     procedure DoTestSaveContextsCompare;
+    procedure TestWriteStateManifest(const aTarget: IwbFile);
+    procedure TestWriteStateManifestEnd;
   end;
 
 procedure TestSaveContextsReport(const aStage: string);
@@ -122,6 +132,8 @@ procedure TestSaveContextsReport(const aStage: string);
 implementation
 
 uses
+  StateManifest,
+  StateManifestValues,
   System.Diagnostics,
   System.Hash,
   System.IOUtils,
@@ -3361,6 +3373,815 @@ begin
   end;
 end;
 
+var
+  _TestCopyIntoSink         : TStringList;
+  _TestCopyIntoPrevProgress : TwbProgressCallback;
+
+procedure TestCopyIntoProgress(const aStatus: string);
+begin
+  if Assigned(_TestCopyIntoSink) then
+    _TestCopyIntoSink.Add('progress' + #9 + aStatus);
+  if Assigned(_TestCopyIntoPrevProgress) then
+    _TestCopyIntoPrevProgress(aStatus);
+end;
+
+procedure TxeTestFormHelper.DoTestCopyInto;
+begin
+  xeContext.Settings.DontSave := True;
+  EditWarnOk := True;
+  CheckResult := 2;
+  TestHost.TestCopyIntoLines := TStringList.Create;
+  TestHost.TestCopyIntoLines.Add('# xEdit copy into probe');
+  TestHost.TestCopyIntoLines.Add('# ' + xeApplicationTitle);
+  TestHost.TestCopyIntoLines.Add('# mode = ' + xeTestSwitches.CopyIntoMode + ', source = ' + xeTestSwitches.CopyIntoSource +
+    ', records = ' + xeTestSwitches.CopyIntoRecords + ', targets = ' + xeTestSwitches.CopyIntoTargets +
+    ', template = ' + xeTestSwitches.CopyIntoTemplate + ', editorid = ' + xeTestSwitches.CopyIntoEditorID +
+    ', affixes = ' + xeTestSwitches.CopyIntoAffixes + ', answers = ' + xeTestSwitches.CopyIntoAnswers);
+  TestHost.TestCopyIntoLines.Add('# Columns, tab separated: what / details');
+  TestHost.TestCopyIntoTimer := TTimer.Create(Self);
+  TestHost.TestCopyIntoTimer.Interval := 500;
+  TestHost.TestCopyIntoTimer.OnTimer := TestCopyIntoRunTimer;
+  TestHost.TestCopyIntoTimer.Enabled := True;
+end;
+
+procedure TxeTestFormHelper.TestCopyIntoRunTimer(Sender: TObject);
+var
+  lLines : TStringList;
+
+  function FindFile(const aName: string): IwbFile;
+  begin
+    Result := nil;
+    for var i := Low(Files) to High(Files) do
+      if SameText(Files[i].FileName, aName) then
+        Exit(Files[i]);
+  end;
+
+  procedure AddTree(const aContainer: IwbContainer; aDepth: Integer);
+  var
+    lGroup  : IwbGroupRecord;
+    lRecord : IwbMainRecord;
+  begin
+    for var i := 0 to Pred(aContainer.ElementCount) do
+      if Supports(aContainer.Elements[i], IwbGroupRecord, lGroup) then begin
+        lLines.Add('tree' + #9 + IntToStr(aDepth) + #9 + 'GRUP' + #9 + IntToStr(lGroup.GroupType) + #9 + IntToHex(lGroup.GroupLabel, 8));
+        AddTree(lGroup, Succ(aDepth));
+      end else if Supports(aContainer.Elements[i], IwbMainRecord, lRecord) then
+        lLines.Add('tree' + #9 + IntToStr(aDepth) + #9 + string(lRecord.Signature) + #9 +
+          IntToHex(lRecord.LoadOrderFormID.ToCardinal, 8) + #9 + 'flags=' + IntToHex(lRecord.Flags._Flags, 8) + #9 + lRecord.EditorID);
+  end;
+
+var
+  lMode     : string;
+  lSource   : IwbFile;
+  lSpec     : TArray<string>;
+  lGroup    : IwbContainerElementRef;
+  lRecord   : IwbMainRecord;
+  lSkip     : Integer;
+  lCount    : Integer;
+  lSeen     : Integer;
+  lElements : TDynElements;
+  lResult   : TDynElements;
+  lBefore   : TArray<IwbFile>;
+  lWrite    : TArray<IwbFile>;
+  lStream   : TMemoryStream;
+begin
+  TestHost.TestCopyIntoTimer.Enabled := False;
+  lLines := TestHost.TestCopyIntoLines;
+  try
+    lMode := LowerCase(xeTestSwitches.CopyIntoMode);
+    lSource := FindFile(xeTestSwitches.CopyIntoSource);
+    if not Assigned(lSource) then
+      raise Exception.Create(xeTestSwitches.CopyIntoSource + ' is not loaded');
+    TestHost.TestCopyIntoTargets := nil;
+    for var lName in xeTestSwitches.CopyIntoTargets.Split([',']) do
+      if lName <> '' then begin
+        var lTarget := FindFile(lName);
+        if not Assigned(lTarget) then
+          raise Exception.Create(lName + ' is not loaded');
+        TestHost.TestCopyIntoTargets := TestHost.TestCopyIntoTargets + [lTarget];
+      end;
+
+    lSpec := xeTestSwitches.CopyIntoRecords.Split([':']);
+    if (Length(lSpec) < 1) or (Length(lSpec[0]) <> 4) then
+      raise Exception.Create('-testcopyintorecords needs a signature first: ' + xeTestSwitches.CopyIntoRecords);
+    lSkip := 0;
+    lCount := 1;
+    if Length(lSpec) > 1 then
+      lSkip := StrToInt(lSpec[1]);
+    if Length(lSpec) > 2 then
+      lCount := StrToInt(lSpec[2]);
+    if not Supports(lSource.GroupBySignature[StrToSignature(lSpec[0])], IwbContainerElementRef, lGroup) then
+      raise Exception.Create('no ' + lSpec[0] + ' group in ' + lSource.FileName);
+    lSeen := 0;
+    for var i := 0 to Pred(lGroup.ElementCount) do
+      if Supports(lGroup.Elements[i], IwbMainRecord, lRecord) then begin
+        Inc(lSeen);
+        if lSeen <= lSkip then
+          Continue;
+        if Length(lElements) >= lCount then
+          Break;
+        lElements := lElements + [lRecord as IwbElement];
+        lLines.Add('selected' + #9 + IntToStr(High(lElements)) + #9 + lRecord.Name);
+      end;
+    if Length(lElements) < lCount then
+      raise Exception.Create(Format('%s has %d %s records after skipping %d, %d asked for',
+        [lSource.FileName, Length(lElements), lSpec[0], lSkip, lCount]));
+
+    lBefore := Copy(Files);
+
+    TestHost.TestCopyIntoAnswer := TTimer.Create(Self);
+    TestHost.TestCopyIntoAnswer.Interval := 100;
+    TestHost.TestCopyIntoAnswer.OnTimer := TestCopyIntoAnswerTimer;
+    TestHost.TestCopyIntoAnswer.Enabled := True;
+
+    _TestCopyIntoSink := lLines;
+    _TestCopyIntoPrevProgress := _wbProgressCallback;
+    _wbProgressCallback := TestCopyIntoProgress;
+    try
+      try
+        lResult := CopyInto(lMode = 'new', lMode = 'wrapper', lMode = 'spawn', (lMode = 'deep') or (lMode = 'deepoverwrite'),
+          (lMode = 'overwrite') or (lMode = 'deepoverwrite'), lElements);
+        lLines.Add('returned' + #9 + IntToStr(Length(lResult)) + ' slots');
+      except
+        on E: Exception do
+          lLines.Add('raised' + #9 + E.ClassName + #9 + E.Message);
+      end;
+    finally
+      _wbProgressCallback := _TestCopyIntoPrevProgress;
+      _TestCopyIntoSink := nil;
+      _TestCopyIntoPrevProgress := nil;
+      TestHost.TestCopyIntoAnswer.Enabled := False;
+    end;
+    if TestHost.TestCopyIntoNotOffered <> '' then
+      lLines.Add('notoffered' + #9 + TestHost.TestCopyIntoNotOffered.Trim);
+    if xeTestSwitches.CopyIntoAnswers <> '' then begin
+      var lListed := xeTestSwitches.CopyIntoAnswers.Split([',']);
+      if TestHost.TestCopyIntoAnswerIndex < Length(lListed) then
+        lLines.Add('unusedanswers' + #9 + IntToStr(Length(lListed) - TestHost.TestCopyIntoAnswerIndex) + #9 +
+          string.Join(',', lListed, TestHost.TestCopyIntoAnswerIndex, Length(lListed) - TestHost.TestCopyIntoAnswerIndex));
+    end;
+    lLines.Add('after' + #9 + 'hook ' + BoolToStr(Assigned(_wbCanOverwriteCallback), True) + #9 + 'progress "' + wbCurrentProgress + '"');
+    for var i := Low(lElements) to High(lElements) do
+      if Supports(lElements[i], IwbMainRecord, lRecord) then
+        lLines.Add('sourceafter' + #9 + IntToStr(i) + #9 + 'flags=' + IntToHex(lRecord.Flags._Flags, 8) + #9 + lRecord.EditorID);
+
+    for var i := Low(lResult) to High(lResult) do
+      if Assigned(lResult[i]) then begin
+        var lSlotFile := lResult[i]._File;
+        if Assigned(lSlotFile) then
+          lLines.Add('result' + #9 + IntToStr(i) + #9 + lSlotFile.FileName + #9 + lResult[i].Name)
+        else
+          lLines.Add('result' + #9 + IntToStr(i) + #9 + '<no file>');
+      end else
+        lLines.Add('result' + #9 + IntToStr(i) + #9 + 'nil');
+
+    lWrite := TestHost.TestCopyIntoTargets;
+    for var i := Low(Files) to High(Files) do begin
+      var lNew := True;
+      for var j := Low(lBefore) to High(lBefore) do
+        if lBefore[j].Equals(Files[i]) then
+          lNew := False;
+      if lNew then
+        lWrite := lWrite + [Files[i]];
+    end;
+    ForceDirectories(xeTestSwitches.CopyIntoOut);
+    for var lFile in lWrite do begin
+      var lMasters := '';
+      for var j := 0 to Pred(lFile.MasterCount[True]) do
+        lMasters := lMasters + ' ' + lFile.Masters[j, True].FileName;
+      lLines.Add('file' + #9 + lFile.FileName + #9 + 'records ' + IntToStr(lFile.RecordCount) + #9 + 'masters' + lMasters + #9 +
+        'modified ' + BoolToStr(lFile.Modified, True));
+      AddTree(lFile, 0);
+      lStream := TMemoryStream.Create;
+      try
+        lFile.WriteToStream(lStream, rmNo);
+        lStream.SaveToFile(TPath.Combine(xeTestSwitches.CopyIntoOut, lFile.FileName));
+        lLines.Add('written' + #9 + lFile.FileName + #9 + IntToStr(lStream.Size) + #9 +
+          IntToHex(TwbHash.XXH64(lStream.Memory, lStream.Size), 16));
+      finally
+        lStream.Free;
+      end;
+    end;
+    CheckResult := 0;
+  except
+    on E: Exception do begin
+      AddMessage('[Test Copy Into] FAILED: ' + E.ClassName + ': ' + E.Message);
+      lLines.Add('# FAILED: ' + E.ClassName + ': ' + E.Message);
+    end;
+  end;
+  if Assigned(TestHost.TestCopyIntoAnswer) then
+    TestHost.TestCopyIntoAnswer.Enabled := False;
+  TestCopyIntoWrite;
+end;
+
+procedure TxeTestFormHelper.TestCopyIntoAnswerTimer(Sender: TObject);
+var
+  lForm   : TCustomForm;
+  lResult : TModalResult;
+  lText   : string;
+  lExtra  : string;
+  lEdit   : TEdit;
+
+  function HasButton(aOwner: TComponent; aResult: TModalResult): Boolean;
+  begin
+    Result := False;
+    for var i := 0 to Pred(aOwner.ComponentCount) do begin
+      if (aOwner.Components[i] is TButton) and (TButton(aOwner.Components[i]).ModalResult = aResult) then
+        Exit(True);
+      if HasButton(aOwner.Components[i], aResult) then
+        Exit(True);
+    end;
+  end;
+
+  procedure CollectText(aOwner: TComponent);
+  begin
+    for var i := 0 to Pred(aOwner.ComponentCount) do begin
+      if aOwner.Components[i] is TLabel then
+        lText := lText + ' ' + TLabel(aOwner.Components[i]).Caption;
+      CollectText(aOwner.Components[i]);
+    end;
+  end;
+
+  function FindEdit(aOwner: TComponent): TEdit;
+  begin
+    Result := nil;
+    for var i := 0 to Pred(aOwner.ComponentCount) do begin
+      if aOwner.Components[i] is TEdit then
+        Exit(TEdit(aOwner.Components[i]));
+      Result := FindEdit(aOwner.Components[i]);
+      if Assigned(Result) then
+        Exit;
+    end;
+  end;
+
+  function NextAnswer: TModalResult;
+  var
+    lAnswers : TArray<string>;
+    lToken   : string;
+  begin
+    Result := mrNone;
+    lAnswers := xeTestSwitches.CopyIntoAnswers.Split([',']);
+    if TestHost.TestCopyIntoAnswerIndex > High(lAnswers) then
+      Exit;
+    lToken := LowerCase(Trim(lAnswers[TestHost.TestCopyIntoAnswerIndex]));
+    Inc(TestHost.TestCopyIntoAnswerIndex);
+    if lToken = 'yes' then
+      Result := mrYes
+    else if lToken = 'no' then
+      Result := mrNo
+    else if lToken = 'yesall' then
+      Result := mrYesToAll
+    else if lToken = 'noall' then
+      Result := mrNoToAll
+    else if lToken = 'cancel' then
+      Result := mrCancel;
+    lExtra := 'listed answer ' + lToken;
+  end;
+
+  procedure SetEdit(const aValue: string);
+  begin
+    lEdit := FindEdit(lForm);
+    if Assigned(lEdit) then begin
+      lExtra := 'offered: ' + lEdit.Text;
+      lEdit.Text := aValue;
+      lExtra := lExtra + ' entered: ' + lEdit.Text;
+    end;
+  end;
+
+begin
+  if not Assigned(TestHost.TestCopyIntoLines) then
+    Exit;
+  lForm := nil;
+  for var i := 0 to Pred(Screen.CustomFormCount) do
+    if (Screen.CustomForms[i] <> Self) and Screen.CustomForms[i].Visible and
+       (fsModal in Screen.CustomForms[i].FormState) and (Screen.CustomForms[i].ModalResult = mrNone) then begin
+      lForm := Screen.CustomForms[i];
+      Break;
+    end;
+  if not Assigned(lForm) then
+    Exit;
+  lText := '';
+  lExtra := '';
+  CollectText(lForm);
+  lResult := mrNone;
+  if lForm is TfrmModuleSelect then begin
+    lExtra := 'offered: ' + string.Join(' | ', TfrmModuleSelect(lForm).AllModules.ToStrings(False));
+    for var lTarget in TestHost.TestCopyIntoTargets do begin
+      var lOffered := False;
+      for var lInfo in TfrmModuleSelect(lForm).AllModules do
+        if lInfo = PwbModuleInfo(lTarget.ModuleInfo) then
+          lOffered := True;
+      if lOffered then
+        Include(PwbModuleInfo(lTarget.ModuleInfo).miFlags, mfTagged)
+      else
+        TestHost.TestCopyIntoNotOffered := TestHost.TestCopyIntoNotOffered + ' ' + lTarget.FileName;
+    end;
+    if xeTestSwitches.CopyIntoTemplate <> '' then begin
+      var lFound := False;
+      for var lInfo in TfrmModuleSelect(lForm).AllModules do
+        if mfTemplate in lInfo.miFlags then begin
+          Include(lInfo.miFlags, mfTagged);
+          lFound := True;
+          Break;
+        end;
+      if not lFound then
+        TestHost.TestCopyIntoNotOffered := TestHost.TestCopyIntoNotOffered + ' <template>';
+    end;
+    if TestHost.TestCopyIntoNotOffered <> '' then
+      lResult := mrCancel
+    else
+      lResult := mrOk;
+  end else if SameText(lForm.Caption, 'New Module File') then begin
+    if TestHost.TestCopyIntoNameGiven then
+      lResult := mrCancel
+    else begin
+      SetEdit(xeTestSwitches.CopyIntoTemplate);
+      TestHost.TestCopyIntoNameGiven := True;
+      lResult := mrOk;
+    end;
+  end else if SameText(lForm.Caption, 'EditorID') then begin
+    if xeTestSwitches.CopyIntoEditorID <> '' then
+      SetEdit(xeTestSwitches.CopyIntoEditorID)
+    else begin
+      lEdit := FindEdit(lForm);
+      if Assigned(lEdit) then
+        SetEdit(lEdit.Text);
+    end;
+    lResult := mrOk;
+  end else if SameText(lForm.Caption, 'EditorID Prefix') or SameText(lForm.Caption, 'EditorID Suffix') then begin
+    var lParts := xeTestSwitches.CopyIntoAffixes.Split(['|']);
+    var lIdx := -1;
+    if lText.Contains('prefix that should be removed') then
+      lIdx := 0
+    else if lText.Contains('suffix that should be removed') then
+      lIdx := 1
+    else if lText.Contains('prefix that should be added') then
+      lIdx := 2
+    else if lText.Contains('suffix that should be added') then
+      lIdx := 3;
+    if (lIdx >= 0) and (lIdx <= High(lParts)) then
+      SetEdit(lParts[lIdx])
+    else
+      SetEdit('');
+    lResult := mrOk;
+  end else if lText.Contains('need to be added') and HasButton(lForm, mrYes) then
+    lResult := mrYes
+  else if HasButton(lForm, mrYes) or HasButton(lForm, mrNo) then begin
+    lResult := NextAnswer;
+    if (lResult <> mrNone) and not HasButton(lForm, lResult) then begin
+      lExtra := lExtra + ', no such button';
+      lResult := mrNone;
+    end;
+    if lResult = mrNone then begin
+      if HasButton(lForm, mrYesToAll) then
+        lResult := mrYesToAll
+      else if HasButton(lForm, mrYes) then
+        lResult := mrYes;
+      lExtra := (lExtra + ' fallback').Trim;
+    end;
+  end else if HasButton(lForm, mrOk) then
+    lResult := mrOk;
+  if lResult = mrNone then
+    Exit;
+  Inc(TestHost.TestCopyIntoAnswerCount);
+  if TestHost.TestCopyIntoAnswerCount > 40 then begin
+    lResult := mrCancel;
+    lExtra := (lExtra + ' too many dialogs, cancelled').Trim;
+  end;
+  lText := lText.Replace(#13, ' ').Replace(#10, ' ');
+  if Length(lText) > 300 then
+    lText := Copy(lText, 1, 300) + '...';
+  TestHost.TestCopyIntoLines.Add('answer' + #9 + lForm.Caption + #9 + IntToStr(lResult) + #9 + lText.Trim + #9 + lExtra);
+  lForm.ModalResult := lResult;
+end;
+
+procedure TxeTestFormHelper.TestCopyIntoWrite;
+var
+  lTmp : string;
+begin
+  try
+    TestHost.TestCopyIntoLines.Add('# checkResult = ' + IntToStr(CheckResult));
+    lTmp := xeTestSwitches.CopyIntoFile + '.partial';
+    TestHost.TestCopyIntoLines.SaveToFile(lTmp, TEncoding.UTF8);
+    if not MoveFileEx(PChar(lTmp), PChar(xeTestSwitches.CopyIntoFile), MOVEFILE_REPLACE_EXISTING) then
+      RaiseLastOSError;
+  finally
+    FreeAndNil(TestHost.TestCopyIntoLines);
+    if xeAutoExit then
+      tmrShutdown.Enabled := True;
+  end;
+end;
+
+var
+  _TestRenumberSink         : TStringList;
+  _TestRenumberPrevProgress : TwbProgressCallback;
+
+procedure TestRenumberProgress(const aStatus: string);
+begin
+  if Assigned(_TestRenumberSink) then
+    _TestRenumberSink.Add('progress' + #9 + aStatus);
+  if Assigned(_TestRenumberPrevProgress) then
+    _TestRenumberPrevProgress(aStatus);
+end;
+
+procedure TxeTestFormHelper.DoTestRenumber;
+begin
+  xeContext.Settings.DontSave := True;
+  EditWarnOk := True;
+  CheckResult := 2;
+  TestHost.TestRenumberLines := TStringList.Create;
+  TestHost.TestRenumberLines.Add('# xEdit renumber / inject / compact probe');
+  TestHost.TestRenumberLines.Add('# ' + xeApplicationTitle);
+  TestHost.TestRenumberLines.Add('# op = ' + xeTestSwitches.RenumberOp + ', source = ' + xeTestSwitches.RenumberSource +
+    ', target = ' + xeTestSwitches.RenumberTarget + ', starts = ' + xeTestSwitches.RenumberStarts +
+    ', answers = ' + xeTestSwitches.RenumberAnswers + ', compareto = ' + xeTestSwitches.RenumberCompareTo +
+    ', filter = ' + BoolToStr(xeTestSwitches.RenumberFilter, True));
+  TestHost.TestRenumberLines.Add('# Columns, tab separated: what / details');
+  TestHost.TestRenumberTimer := TTimer.Create(Self);
+  TestHost.TestRenumberTimer.Interval := 500;
+  TestHost.TestRenumberTimer.OnTimer := TestRenumberRunTimer;
+  TestHost.TestRenumberTimer.Enabled := True;
+end;
+
+procedure TxeTestFormHelper.TestRenumberRunTimer(Sender: TObject);
+const
+  cListLimit = 100;
+var
+  lLines  : TStringList;
+  lLayout : TwbSlotLayout;
+
+  function FindFile(const aName: string): IwbFile;
+  begin
+    Result := nil;
+    for var i := Low(Files) to High(Files) do
+      if SameText(Files[i].FileName, aName) then
+        Exit(Files[i]);
+  end;
+
+  function FormIDText(const aFormID: TwbFormID): string;
+  begin
+    Result := IntToHex(aFormID.ToCardinal, 8);
+  end;
+
+  procedure AddFields(const aPrefix, aPath: string; const aElement: IwbElement);
+  var
+    lContainer : IwbContainerElementRef;
+    lValue     : string;
+  begin
+    if Supports(aElement, IwbContainerElementRef, lContainer) and (lContainer.ElementCount > 0) then begin
+      for var i := 0 to Pred(lContainer.ElementCount) do
+        AddFields(aPrefix, aPath + '\' + IntToStr(i) + ' ' + lContainer.Elements[i].Name, lContainer.Elements[i]);
+      Exit;
+    end;
+    try
+      lValue := aElement.EditValue;
+    except
+      on E: Exception do
+        lValue := '<raised ' + E.ClassName + ': ' + E.Message + '>';
+    end;
+    lLines.Add(aPrefix + aPath + #9 + lValue);
+  end;
+
+  procedure AddFiles(const aWhen: string);
+  var
+    lFile   : IwbFile;
+    lRecord : IwbMainRecord;
+  begin
+    for var i := Low(Files) to High(Files) do begin
+      lFile := Files[i];
+      lLines.Add('file' + #9 + aWhen + #9 + lFile.FileName + #9 + 'records ' + IntToStr(lFile.RecordCount) + #9 +
+        'next ' + IntToHex(lFile.NextObjectID, 6) + #9 + 'modified ' + BoolToStr(lFile.Modified, True) + #9 +
+        'editable ' + BoolToStr(lFile.IsEditable, True) + #9 + 'compareload ' + BoolToStr(fsIsCompareLoad in lFile.FileStates, True));
+      if [fsIsGameMaster, fsIsHardcoded] * lFile.FileStates <> [] then
+        Continue;
+      if lFile.RecordCount > cListLimit then begin
+        lLines.Add('records' + #9 + aWhen + #9 + lFile.FileName + #9 + 'not listed, more than ' + IntToStr(cListLimit));
+        Continue;
+      end;
+      for var j := 0 to Pred(lFile.RecordCount) do begin
+        lRecord := lFile.Records[j];
+        lLines.Add('record' + #9 + aWhen + #9 + lFile.FileName + #9 + IntToStr(j) + #9 + FormIDText(lRecord.LoadOrderFormID) + #9 +
+          string(lRecord.Signature) + #9 + 'flags=' + IntToHex(lRecord.Flags._Flags, 8) + #9 + lRecord.EditorID);
+        AddFields('field' + #9 + aWhen + #9 + lFile.FileName + #9 + IntToStr(j) + #9, '', lRecord);
+      end;
+    end;
+  end;
+
+  procedure AddOwn(const aWhen: string; const aOwn: TDynMainRecords; const aBefore: TArray<TwbFormID>);
+  var
+    lMaster : IwbMainRecord;
+  begin
+    if Length(aOwn) > cListLimit then begin
+      lLines.Add('own' + #9 + aWhen + #9 + 'not listed, more than ' + IntToStr(cListLimit));
+      Exit;
+    end;
+    for var i := Low(aOwn) to High(aOwn) do begin
+      lMaster := aOwn[i].MasterOrSelf;
+      lLines.Add('own' + #9 + aWhen + #9 + IntToStr(i) + #9 + FormIDText(aBefore[i]) + #9 + FormIDText(aOwn[i].LoadOrderFormID) + #9 +
+        string(aOwn[i].Signature) + #9 + aOwn[i].EditorID + #9 + 'refby ' + IntToStr(lMaster.ReferencedByCount) + #9 +
+        'overrides ' + IntToStr(aOwn[i].OverrideCount));
+      for var j := 0 to Pred(lMaster.ReferencedByCount) do
+        with lMaster.ReferencedBy[j] do
+          lLines.Add('refby' + #9 + aWhen + #9 + IntToStr(i) + #9 + FormIDText(LoadOrderFormID) + #9 + string(Signature) + #9 +
+            _File.FileName + #9 + 'editable ' + BoolToStr(IsEditable, True));
+      for var j := 0 to Pred(aOwn[i].OverrideCount) do
+        with aOwn[i].Overrides[j] do
+          lLines.Add('override' + #9 + aWhen + #9 + IntToStr(i) + #9 + FormIDText(LoadOrderFormID) + #9 + _File.FileName);
+    end;
+  end;
+
+  procedure AddUnused(const aWhat, aList: string; aUsed: Integer);
+  var
+    lListed : TArray<string>;
+  begin
+    if aList = '' then
+      Exit;
+    lListed := aList.Split([',']);
+    if aUsed < Length(lListed) then
+      lLines.Add('unusedanswers' + #9 + aWhat + #9 + IntToStr(Length(lListed) - aUsed) + #9 +
+        string.Join(',', lListed, aUsed, Length(lListed) - aUsed));
+  end;
+
+var
+  lSource : IwbFile;
+  lItem   : TMenuItem;
+  lNode   : PVirtualNode;
+  lRecord : IwbMainRecord;
+  lOwn    : TDynMainRecords;
+  lBefore : TArray<TwbFormID>;
+  lStream : TMemoryStream;
+begin
+  TestHost.TestRenumberTimer.Enabled := False;
+  lLines := TestHost.TestRenumberLines;
+  try
+    lLayout := xeContext.SlotLayout;
+    lSource := FindFile(xeTestSwitches.RenumberSource);
+    if not Assigned(lSource) then
+      raise Exception.Create(xeTestSwitches.RenumberSource + ' is not loaded');
+    TestHost.TestRenumberTarget := nil;
+    if xeTestSwitches.RenumberTarget <> '' then begin
+      TestHost.TestRenumberTarget := FindFile(xeTestSwitches.RenumberTarget);
+      if not Assigned(TestHost.TestRenumberTarget) then
+        raise Exception.Create(xeTestSwitches.RenumberTarget + ' is not loaded');
+    end;
+    if SameText(xeTestSwitches.RenumberOp, 'inject') then
+      lItem := mniNavRenumberFormIDsInject
+    else if SameText(xeTestSwitches.RenumberOp, 'compact') then
+      lItem := mniNavCompactFormIDs
+    else
+      lItem := mniNavRenumberFormIDsFrom;
+
+    for var i := 0 to Pred(lSource.RecordCount) do begin
+      lRecord := lSource.Records[i];
+      if lRecord.LoadOrderFormID.FileID[lLayout] = lSource.LoadOrderFileID then begin
+        lOwn := lOwn + [lRecord];
+        lBefore := lBefore + [lRecord.LoadOrderFormID];
+      end;
+    end;
+    lLines.Add('source' + #9 + lSource.FileName + #9 + 'records ' + IntToStr(lSource.RecordCount) + #9 + 'own ' + IntToStr(Length(lOwn)));
+    AddOwn('before', lOwn, lBefore);
+    AddFiles('before');
+
+    if xeTestSwitches.RenumberFilter then begin
+      mniNavFilterForCleaningClick(nil);
+      lLines.Add('filter' + #9 + 'cleaning applied');
+    end;
+
+    lNode := FindNodeForElement(lSource);
+    if not Assigned(lNode) then
+      raise Exception.Create('no nav node for ' + lSource.FileName);
+    vstNav.ClearSelection;
+    vstNav.Selected[lNode] := True;
+    vstNav.FocusedNode := lNode;
+    vstNav.Expanded[lNode] := True;
+    pmuNavPopup(nil);
+    lLines.Add('menu' + #9 + 'renumber ' + BoolToStr(mniNavRenumberFormIDsFrom.Visible, True) + #9 +
+      'compact ' + BoolToStr(mniNavCompactFormIDs.Visible, True) + #9 + 'inject ' + BoolToStr(mniNavRenumberFormIDsInject.Visible, True));
+    lLines.Add('call' + #9 + lItem.Name + #9 + 'expanded ' + BoolToStr(vstNav.Expanded[lNode], True) + #9 +
+      'filterhint ' + BoolToStr(lblFilterHint.Visible, True));
+
+    TestHost.TestRenumberAnswer := TTimer.Create(Self);
+    TestHost.TestRenumberAnswer.Interval := 100;
+    TestHost.TestRenumberAnswer.OnTimer := TestRenumberAnswerTimer;
+    TestHost.TestRenumberAnswer.Enabled := True;
+
+    _TestRenumberSink := lLines;
+    _TestRenumberPrevProgress := _wbProgressCallback;
+    _wbProgressCallback := TestRenumberProgress;
+    try
+      try
+        mniNavRenumberFormIDsFromClick(lItem);
+        lLines.Add('returned');
+      except
+        on E: Exception do
+          lLines.Add('raised' + #9 + E.ClassName + #9 + E.Message);
+      end;
+    finally
+      _wbProgressCallback := _TestRenumberPrevProgress;
+      _TestRenumberSink := nil;
+      _TestRenumberPrevProgress := nil;
+      TestHost.TestRenumberAnswer.Enabled := False;
+    end;
+
+    if TestHost.TestRenumberNotOffered then
+      lLines.Add('notoffered' + #9 + xeTestSwitches.RenumberTarget);
+    AddUnused('starts', xeTestSwitches.RenumberStarts, TestHost.TestRenumberStartIndex);
+    AddUnused('answers', xeTestSwitches.RenumberAnswers, TestHost.TestRenumberAnswerIndex);
+    if TestHost.TestRenumberFallback then
+      lLines.Add('fallback' + #9 + 'a dialog was answered with no listed answer');
+    lLines.Add('after' + #9 + 'expanded ' + BoolToStr(vstNav.Expanded[lNode], True) + #9 +
+      'progress "' + wbCurrentProgress + '"' + #9 + 'page ' + pgMain.ActivePage.Name);
+    AddOwn('after', lOwn, lBefore);
+    AddFiles('after');
+
+    ForceDirectories(xeTestSwitches.RenumberOut);
+    for var i := Low(Files) to High(Files) do
+      if [fsIsGameMaster, fsIsHardcoded] * Files[i].FileStates = [] then begin
+        lStream := TMemoryStream.Create;
+        try
+          try
+            Files[i].WriteToStream(lStream, rmNo);
+            lStream.SaveToFile(TPath.Combine(xeTestSwitches.RenumberOut, Files[i].FileName));
+            lLines.Add('written' + #9 + Files[i].FileName + #9 + IntToStr(lStream.Size) + #9 +
+              IntToHex(TwbHash.XXH64(lStream.Memory, lStream.Size), 16));
+          except
+            on E: Exception do
+              lLines.Add('notwritten' + #9 + Files[i].FileName + #9 + E.ClassName + #9 + E.Message);
+          end;
+        finally
+          lStream.Free;
+        end;
+      end;
+    CheckResult := 0;
+  except
+    on E: Exception do begin
+      AddMessage('[Test Renumber] FAILED: ' + E.ClassName + ': ' + E.Message);
+      lLines.Add('# FAILED: ' + E.ClassName + ': ' + E.Message);
+    end;
+  end;
+  if Assigned(TestHost.TestRenumberAnswer) then
+    TestHost.TestRenumberAnswer.Enabled := False;
+  TestRenumberWrite;
+end;
+
+procedure TxeTestFormHelper.TestRenumberAnswerTimer(Sender: TObject);
+var
+  lForm   : TCustomForm;
+  lResult : TModalResult;
+  lText   : string;
+  lExtra  : string;
+  lEdit   : TEdit;
+  lToken  : string;
+
+  function HasButton(aOwner: TComponent; aResult: TModalResult): Boolean;
+  begin
+    Result := False;
+    for var i := 0 to Pred(aOwner.ComponentCount) do begin
+      if (aOwner.Components[i] is TButton) and (TButton(aOwner.Components[i]).ModalResult = aResult) then
+        Exit(True);
+      if HasButton(aOwner.Components[i], aResult) then
+        Exit(True);
+    end;
+  end;
+
+  procedure CollectText(aOwner: TComponent);
+  begin
+    for var i := 0 to Pred(aOwner.ComponentCount) do begin
+      if aOwner.Components[i] is TLabel then
+        lText := lText + ' ' + TLabel(aOwner.Components[i]).Caption;
+      CollectText(aOwner.Components[i]);
+    end;
+  end;
+
+  function FindEdit(aOwner: TComponent): TEdit;
+  begin
+    Result := nil;
+    for var i := 0 to Pred(aOwner.ComponentCount) do begin
+      if aOwner.Components[i] is TEdit then
+        Exit(TEdit(aOwner.Components[i]));
+      Result := FindEdit(aOwner.Components[i]);
+      if Assigned(Result) then
+        Exit;
+    end;
+  end;
+
+  function NextToken(const aList: string; var aIndex: Integer): string;
+  var
+    lTokens : TArray<string>;
+  begin
+    Result := '';
+    lTokens := aList.Split([',']);
+    if aIndex > High(lTokens) then
+      Exit;
+    Result := LowerCase(Trim(lTokens[aIndex]));
+    Inc(aIndex);
+  end;
+
+begin
+  if not Assigned(TestHost.TestRenumberLines) then
+    Exit;
+  lForm := nil;
+  for var i := 0 to Pred(Screen.CustomFormCount) do
+    if (Screen.CustomForms[i] <> Self) and Screen.CustomForms[i].Visible and
+       (fsModal in Screen.CustomForms[i].FormState) and (Screen.CustomForms[i].ModalResult = mrNone) then begin
+      lForm := Screen.CustomForms[i];
+      Break;
+    end;
+  if not Assigned(lForm) then
+    Exit;
+  lText := '';
+  lExtra := '';
+  CollectText(lForm);
+  lResult := mrNone;
+  if lForm is TfrmModuleSelect then begin
+    lExtra := 'offered: ' + string.Join(' | ', TfrmModuleSelect(lForm).AllModules.ToStrings(False));
+    var lOffered := False;
+    if Assigned(TestHost.TestRenumberTarget) then
+      for var lInfo in TfrmModuleSelect(lForm).AllModules do
+        if lInfo = PwbModuleInfo(TestHost.TestRenumberTarget.ModuleInfo) then
+          lOffered := True;
+    if lOffered then begin
+      Include(PwbModuleInfo(TestHost.TestRenumberTarget.ModuleInfo).miFlags, mfTagged);
+      lResult := mrOk;
+    end else begin
+      TestHost.TestRenumberNotOffered := True;
+      lResult := mrCancel;
+    end;
+  end else if string(lForm.Caption).StartsWith('Start from') then begin
+    lEdit := FindEdit(lForm);
+    if Assigned(lEdit) then
+      lExtra := 'offered: ' + lEdit.Text;
+    lToken := NextToken(xeTestSwitches.RenumberStarts, TestHost.TestRenumberStartIndex);
+    if lToken = '' then begin
+      lResult := mrCancel;
+      lExtra := (lExtra + ' fallback').Trim;
+      TestHost.TestRenumberFallback := True;
+    end else if lToken = 'cancel' then begin
+      lResult := mrCancel;
+      lExtra := (lExtra + ' listed answer cancel').Trim;
+    end else begin
+      if Assigned(lEdit) then begin
+        lEdit.Text := lToken;
+        lExtra := lExtra + ' entered: ' + lEdit.Text;
+      end;
+      lResult := mrOk;
+    end;
+  end else if HasButton(lForm, mrYes) or HasButton(lForm, mrNo) then begin
+    lToken := NextToken(xeTestSwitches.RenumberAnswers, TestHost.TestRenumberAnswerIndex);
+    if lToken = 'yes' then
+      lResult := mrYes
+    else if lToken = 'no' then
+      lResult := mrNo
+    else if lToken = 'cancel' then
+      lResult := mrCancel;
+    if lToken <> '' then
+      lExtra := 'listed answer ' + lToken;
+    if (lResult <> mrNone) and not HasButton(lForm, lResult) then begin
+      lExtra := lExtra + ', no such button';
+      lResult := mrNone;
+    end;
+    if lResult = mrNone then begin
+      if HasButton(lForm, mrCancel) then
+        lResult := mrCancel
+      else
+        lResult := mrNo;
+      lExtra := (lExtra + ' fallback').Trim;
+      TestHost.TestRenumberFallback := True;
+    end;
+  end else if HasButton(lForm, mrOk) then
+    lResult := mrOk;
+  if lResult = mrNone then
+    Exit;
+  Inc(TestHost.TestRenumberAnswerCount);
+  if TestHost.TestRenumberAnswerCount > 40 then begin
+    lResult := mrCancel;
+    lExtra := (lExtra + ' too many dialogs, cancelled').Trim;
+    TestHost.TestRenumberFallback := True;
+  end;
+  lText := lText.Replace(#13, ' ').Replace(#10, ' ');
+  if Length(lText) > 600 then
+    lText := Copy(lText, 1, 600) + '...';
+  TestHost.TestRenumberLines.Add('answer' + #9 + lForm.Caption + #9 + IntToStr(lResult) + #9 + lText.Trim + #9 + lExtra);
+  lForm.ModalResult := lResult;
+end;
+
+procedure TxeTestFormHelper.TestRenumberWrite;
+var
+  lTmp : string;
+begin
+  try
+    TestHost.TestRenumberLines.Add('# checkResult = ' + IntToStr(CheckResult));
+    lTmp := xeTestSwitches.RenumberFile + '.partial';
+    TestHost.TestRenumberLines.SaveToFile(lTmp, TEncoding.UTF8);
+    if not MoveFileEx(PChar(lTmp), PChar(xeTestSwitches.RenumberFile), MOVEFILE_REPLACE_EXISTING) then
+      RaiseLastOSError;
+  finally
+    FreeAndNil(TestHost.TestRenumberLines);
+    if xeAutoExit then
+      tmrShutdown.Enabled := True;
+  end;
+end;
+
 procedure TxeTestFormHelper.DoTestHide;
 begin
   xeContext.Settings.DontSave := True;
@@ -4290,6 +5111,42 @@ begin
       TestPumpNote('the modal loop has ended; close deferred ' + BoolToStr(CloseDeferred, True) + '; observing for 2 s')
     else
       TestPumpNote('back in the outermost message loop; close deferred ' + BoolToStr(CloseDeferred, True) + '; observing for 2 s');
+  end;
+end;
+
+procedure TxeTestFormHelper.TestWriteStateManifest(const aTarget: IwbFile);
+var
+  lLines : TStringList;
+begin
+  lLines := TStringList.Create;
+  try
+    WriteStateManifest(lLines, xeContext, ConflictView);
+    AddRuntime(lLines, xeContext);
+    lLines.Add('runtime.target=' + aTarget.FileName);
+    lLines.Add('runtime.version=' + VersionString.ToString);
+    lLines.Add('runtime.nexusurl=' + xeNexusModsUrl);
+    lLines.Add('runtime.qac.quickclean=' + BoolToStr(xeQuickClean, True));
+    lLines.Add('runtime.qac.autosave=' + BoolToStr(xeQuickCleanAutoSave, True));
+    lLines.Add('runtime.navsort.infosort=' + BoolToStr(xeContext.Settings.SortINFO and mniNavHeaderINFObyPreviousINFO.Checked, True));
+    lLines.SaveToFile(xeTestSwitches.StateManifest, TEncoding.UTF8);
+  finally
+    lLines.Free;
+  end;
+end;
+
+procedure TxeTestFormHelper.TestWriteStateManifestEnd;
+var
+  lLines : TStringList;
+begin
+  if not FileExists(xeTestSwitches.StateManifest) then
+    Exit;
+  lLines := TStringList.Create;
+  try
+    lLines.LoadFromFile(xeTestSwitches.StateManifest, TEncoding.UTF8);
+    AddRuntimeEnd(lLines, xeContext);
+    lLines.SaveToFile(xeTestSwitches.StateManifest, TEncoding.UTF8);
+  finally
+    lLines.Free;
   end;
 end;
 

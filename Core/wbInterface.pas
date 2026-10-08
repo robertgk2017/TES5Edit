@@ -1643,6 +1643,51 @@ type
 
   TwbNamedIndex = type Integer;
 
+  TDynElements = array of IwbElement;
+
+  TwbCanOverwriteAction = (coCopy, coDelete, coSkip);
+  TwbCanOverwriteCallback = reference to function(const aTarget, aSource: IwbElement) : TwbCanOverwriteAction;
+
+  TwbAfterCopyCallback = procedure(const aElement: IwbElement);
+
+  TwbCopyMode = (cmOverride, cmNew, cmWrapper);
+
+  TwbCopyOptions = record
+    Mode           : TwbCopyMode;
+    DeepCopy       : Boolean;
+    AllowOverwrite : Boolean;
+    EditorID       : string;
+    PrefixRemove   : string;
+    SuffixRemove   : string;
+    Prefix         : string;
+    Suffix         : string;
+    Operation      : string;
+    AfterCopy      : TwbAfterCopyCallback;
+    CanOverwrite   : TwbCanOverwriteCallback;
+    class function IsMultiple(const aElements: TDynElements): Boolean; static;
+  end;
+
+  TwbFormIDChangeKind = (fckRenumber, fckInject, fckCompact);
+
+  TwbFormIDChangeRefusal = (fcrNone, fcrNoOwnRecords, fcrInUse, fcrTooMany, fcrNothingToChange);
+
+  TwbFormIDChangePlan = record
+    Kind           : TwbFormIDChangeKind;
+    Target         : IwbFile;
+    Preserve       : Boolean;
+    AllOrNothing   : Boolean;
+    Start          : TwbFormID;
+    Records        : TArray<IwbMainRecord>;
+    NewFormIDs     : TArray<TwbFormID>;
+    HighFormID     : TwbFormID;
+    PreservedCount : Integer;
+    Signatures     : string;
+    Refusal        : TwbFormIDChangeRefusal;
+    InUseFormID    : TwbFormID;
+    InUseRecord    : IwbMainRecord;
+    InUseHolder    : IwbMainRecord;
+  end;
+
   IwbFile = interface(IwbContainer)
     ['{38AA15A6-F652-45C7-B875-9CB502E5DA92}']
     function GetFileName: string;
@@ -1752,6 +1797,14 @@ type
     procedure SetSaveTables(const aValue: IwbSaveTables);
 
     procedure RemoveIdenticalDeltaFast;
+
+    procedure AddCopies(const aElements: TDynElements; var aResult: TDynElements; var aOptions: TwbCopyOptions);
+
+    function GetObjectIDFloor: Cardinal;
+    function GetTakesLightObjectIDs: Boolean;
+    procedure PlanFormIDChange(var aPlan: TwbFormIDChangePlan);
+    function ApplyFormIDChange(const aPlan: TwbFormIDChangePlan): Boolean;
+    procedure FinishFormIDChange(const aPlan: TwbFormIDChangePlan);
 
     function IsNewRecord(const aFileID: TwbFileID; aNew: Boolean): Boolean; overload;
     function IsNewRecord(const aFormID: TwbFormID; aNew: Boolean): Boolean; overload;
@@ -1863,6 +1916,10 @@ type
     property NextObjectID: Cardinal
       read GetNextObjectID
       write SetNextObjectID;
+    property ObjectIDFloor: Cardinal
+      read GetObjectIDFloor;
+    property TakesLightObjectIDs: Boolean
+      read GetTakesLightObjectIDs;
 
     property IsNotPlugin: Boolean   // Save or other file to display.
       read GetIsNotPlugin;
@@ -2321,7 +2378,6 @@ type
       read GetChapterName;
   end;
 
-  TDynElements = array of IwbElement;
   {$IFDEF WIN32}
   TDynCardinalArray = array of Cardinal;
   {$ENDIF WIN32}
@@ -5680,10 +5736,6 @@ function Darker(Color: TColor; Amount: Double = 0.5): TColor;
 function wbLighter(Color: TColor; Amount: Double = 0.5): TColor;
 function wbDarker(Color: TColor; Amount: Double = 0.25): TColor;
 function wbIsDarkMode: Boolean;
-
-type
-  TwbCanOverwriteAction = (coCopy, coDelete, coSkip);
-  TwbCanOverwriteCallback = reference to function(const aTarget, aSource: IwbElement) : TwbCanOverwriteAction;
 
 threadvar
   _wbCanOverwriteCallback : TwbCanOverwriteCallback;
@@ -25156,6 +25208,13 @@ begin
   Len := Length(Self);
   SetLength(Self, Succ(Len));
   Self[Len] := aElement;
+end;
+
+{ TwbCopyOptions }
+
+class function TwbCopyOptions.IsMultiple(const aElements: TDynElements): Boolean;
+begin
+  Result := (Length(aElements) > 1) or (aElements[0].ElementType <> etMainRecord);
 end;
 
 

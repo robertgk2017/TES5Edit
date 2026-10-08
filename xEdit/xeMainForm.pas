@@ -120,8 +120,6 @@ type
 
   TDynSpreadSheetNodeDatas = array of TSpreadSheetNodeData;
 
-  TAfterCopyCallback = procedure(const aElement: IwbElement);
-
   TwbPluggyLinkState = (
     plsNone,
     plsReference,
@@ -142,13 +140,6 @@ type
   TwbCheckNexusModsReleaseThread = class(TwbThread)
     procedure Execute; override; final;
   end;
-
-  TLOOTPluginInfo = record
-    Plugin: string;
-    CRC32: TwbCRC32;
-    ITM, UDR, NAV: integer;
-  end;
-  PLOOTPluginInfo = ^TLOOTPluginInfo;
 
   TwbSaveResult = (srAllDone, srNothingToDo, srAbort, srError);
 
@@ -777,9 +768,10 @@ type
     RebuildingViewTree: Boolean;
     GeneratorStarted: Boolean;
     GeneratorDone: Boolean;
+    QuickCleanSaveFailed: Boolean;
     ScriptHotkeys: TStringList;
     CheckResult : Byte;
-    LOOTPluginInfos: array of TLOOTPluginInfo;
+    LOOTPluginInfos: TwbDirtyInfos;
     PendingContainer: IwbDataContainer;
     PendingMainRecords: TDynMainRecords;
   protected
@@ -862,7 +854,7 @@ type
     procedure DoGenerateLOD;
     procedure DoRunScript;
 
-    function CopyInto(AsNew, AsWrapper, AsSpawnRate, DeepCopy, AllowOverwrite: Boolean; const aElements: TDynElements; aAfterCopyCallback: TAfterCopyCallback = nil): TDynElements;
+    function CopyInto(AsNew, AsWrapper, AsSpawnRate, DeepCopy, AllowOverwrite: Boolean; const aElements: TDynElements; aAfterCopyCallback: TwbAfterCopyCallback = nil): TDynElements;
     procedure AddNewFileWithDialog;
 
     procedure BuildAllRef;
@@ -903,6 +895,7 @@ type
     procedure InvalidateElementsTreeView(aNodes: TNodeArray); overload;
     procedure InvalidateElementsTreeView; overload;
     procedure ResetAllConflict;
+    procedure DisableConflictViewModes;
     procedure ResetConflictOfAllFiles;
     procedure ResetActiveTree;
     procedure ExpandView;
@@ -928,6 +921,7 @@ type
     function AddNewFile(out aFile: IwbFile; aTemplate: PwbModuleInfo): Boolean; overload;
 
     function SaveChanged(aSilent: Boolean = False; aShowMessageIfNothing: Boolean = False): TwbSaveResult;
+    procedure EndQuickCleanAfterFailedSave;
     procedure JumpTo(aInterface: IInterface; aBackward: Boolean);
     function FindNodeForElement(const aElement: IwbElement): PVirtualNode;
     function FindNodeOrAncestorForElement(const aElement: IwbElement): PVirtualNode;
@@ -961,8 +955,6 @@ type
     procedure ApplyScriptToSelection(const aSelection: TDynElements; aCount: Cardinal; const abShowMessages: boolean); overload;
     procedure ApplyScript(const aScriptFile: string; const aScript: string; aRefByMode: Boolean = False);
     procedure CreateActionsForScripts;
-    function LOOTDirtyInfo(const aInfo: TLOOTPluginInfo; aFileChanged: Boolean): string;
-    function BOSSDirtyInfo(const aInfo: TLOOTPluginInfo): string;
 
     procedure PerformLongAction(const aDesc, aProgress: string; const aAction: TProc; aCancelable: Boolean = False);
     procedure PerformActionOnSelectedFiles(const aDesc: string; const aAction: TProc<IwbFile>);
@@ -1115,8 +1107,6 @@ type
 
     CheckedCount: Cardinal;
     ErrorsCount : Cardinal;
-    ITMcount    : Cardinal;
-    DRcount     : Cardinal;
     AutoDone    : Boolean;
     ColumnWidth : Integer;
     RowHeight   : Integer;
@@ -1449,16 +1439,6 @@ type
   public
     constructor Create(aControl: TControl);
   end;
-
-function wbFormatElapsedTime(aElapsed: double): string;
-var
-  Hours: Integer;
-begin
-  Result := FormatDateTime('nn:ss', aElapsed);
-  Hours := Trunc(aElapsed / (1/24));
-  if Hours > 0 then
-    Result := IntToStr(Hours) + ':' + Result;
-end;
 
 function GetUrlContent(const Url: string): UTF8String;
 var
@@ -2467,11 +2447,10 @@ begin
   end;
 end;
 
-function TfrmMain.CopyInto(AsNew, AsWrapper, AsSpawnRate, DeepCopy, AllowOverwrite: Boolean; const aElements: TDynElements; aAfterCopyCallback: TAfterCopyCallback): TDynElements;
+function TfrmMain.CopyInto(AsNew, AsWrapper, AsSpawnRate, DeepCopy, AllowOverwrite: Boolean; const aElements: TDynElements; aAfterCopyCallback: TwbAfterCopyCallback): TDynElements;
 var
   Elements             : TDynElements;
   MainRecord           : IwbMainRecord;
-  MainRecord2          : IwbMainRecord;
   Master               : IwbMainRecord;
   GroupRecord          : IwbGroupRecord;
   TargetFile           : IwbFile;
@@ -2483,14 +2462,12 @@ var
   EditorIDPrefix       : string;
   EditorIDSuffix       : string;
   Multiple             : Boolean;
-  LeveledListEntries   : IwbContainerElementRef;
-  LeveledListEntry     : IwbContainerElementRef;
-  CopiedElement        : IwbElement;
   Container            : IwbContainer;
   PrevOverwriteResult  : TModalResult;
   PrevDeleteResult     : TModalResult;
   lResult              : TDynElements;
   Operation            : string;
+  lOptions             : TwbCopyOptions;
 begin
   Result := nil;
   lResult := nil;
@@ -2572,8 +2549,9 @@ begin
     PrevOverwriteResult := mrNone;
     PrevDeleteResult := mrNone;
 
+    lOptions := Default(TwbCopyOptions);
     if AllowOverwrite then
-      _wbCanOverwriteCallback := function (const aTarget, aSource: IwbElement): TwbCanOverwriteAction
+      lOptions.CanOverwrite := function (const aTarget, aSource: IwbElement): TwbCanOverwriteAction
       var
         MainRecord: IwbMainRecord;
         s: string;
@@ -2664,7 +2642,7 @@ begin
             end;
           end);
 
-        Multiple := (Length(Elements) > 1) or (Elements[0].ElementType <> etMainRecord);
+        Multiple := TwbCopyOptions.IsMultiple(Elements);
         EditorID := '';
         EditorIDPrefixRemove := '';
         EditorIDSuffixRemove := '';
@@ -2795,6 +2773,20 @@ begin
 
         SetLength(lResult, Length(Elements));
 
+        if AsWrapper then
+          lOptions.Mode := cmWrapper
+        else if AsNew then
+          lOptions.Mode := cmNew;
+        lOptions.DeepCopy := DeepCopy;
+        lOptions.AllowOverwrite := AllowOverwrite;
+        lOptions.EditorID := EditorID;
+        lOptions.PrefixRemove := EditorIDPrefixRemove;
+        lOptions.SuffixRemove := EditorIDSuffixRemove;
+        lOptions.Prefix := EditorIDPrefix;
+        lOptions.Suffix := EditorIDSuffix;
+        lOptions.Operation := Operation;
+        lOptions.AfterCopy := aAfterCopyCallback;
+
         PerformLongAction(Operation, '', procedure
         var
           i, j: Integer;
@@ -2843,95 +2835,8 @@ begin
               end;
 
               if Assigned(TargetFile) and AddRequiredMasters(sl, TargetFile,
-                mfTemplate in SelectedModules[i].miFlags) then begin
-
-                if AsWrapper then begin
-
-                  for j := Low(Elements) to High(Elements) do begin
-                    MainRecord := Elements[j] as IwbMainRecord;
-                    wbCurrentProgress := Format('[%s] into [%s]', [MainRecord.FullPath, TargetFile.FullPath]);
-                    wbProgress(Operation + ' ' + wbCurrentProgress);
-
-                    MainRecord2 := wbCopyElementToFile(MainRecord, TargetFile, True, True, EditorIDPrefixRemove, EditorIDSuffixRemove, EditorIDPrefix, EditorIDSuffix, False) as IwbMainRecord;
-                    wbProgress('');
-
-                    Assert(Assigned(MainRecord2));
-                    if not Multiple then
-                      MainRecord2.EditorID := EditorID;
-
-                    EditorID := MainRecord.EditorID;
-                    MainRecord := wbCopyElementToFile(MainRecord, TargetFile, False, False, '', '', '', '', AllowOverwrite) as IwbMainRecord;
-                    wbProgress('');
-                    Assert(Assigned(MainRecord));
-                    MainRecord.Assign(Low(Integer), nil, False);
-                    if not Assigned(MainRecord.ElementByName['Leveled List Entries']) then
-                      MainRecord.Add('Leveled List Entries', True);
-                    LeveledListEntries := MainRecord.ElementByName['Leveled List Entries'] as IwbContainerElementRef;
-                    Assert(Assigned(LeveledListEntries));
-                    Assert(LeveledListEntries.ElementCount = 1);
-                    LeveledListEntry := LeveledListEntries.Elements[0] as IwbContainerElementRef;
-                    if not xeContext.GameDefObj.IsOblivion then
-                      LeveledListEntry := LeveledListEntry.Elements[0] as IwbContainerElementRef;
-                    Assert(Assigned(LeveledListEntry));
-                    LeveledListEntry.Elements[2].EditValue := MainRecord2.EditValue;
-                    LeveledListEntry.ElementByName['Count'].EditValue := '1';
-                    LeveledListEntry.ElementByName['Level'].EditValue := '1';
-                    MainRecord.EditorID := EditorID;
-                    lResult[j] := MainRecord;
-                    wbProgress('');
-                  end;
-
-                end
-                else if Multiple then begin
-                  for j := Low(Elements) to High(Elements) do
-                    try
-                      if DeepCopy and Supports(Elements[j], IwbMainRecord, MainRecord) and Assigned(MainRecord.ChildGroup) then begin
-                        wbProgress(Operation + ' ' + wbCurrentProgress);
-                        lResult[j] := wbCopyElementToFile(MainRecord.ChildGroup, TargetFile, AsNew, True, EditorIDPrefixRemove, EditorIDSuffixRemove, EditorIDPrefix, EditorIDSuffix, AllowOverwrite);
-                        wbProgress('');
-                      end else begin
-                        wbCurrentProgress := Format('[%s] into [%s]', [Elements[j].FullPath, TargetFile.FullPath]);
-                        wbProgress(Operation + ' ' + wbCurrentProgress);
-                        CopiedElement := wbCopyElementToFile(Elements[j], TargetFile, AsNew, True, EditorIDPrefixRemove, EditorIDSuffixRemove, EditorIDPrefix, EditorIDSuffix, AllowOverwrite);
-                        wbProgress('');
-                        if Assigned(CopiedElement) then begin
-                          if Assigned(aAfterCopyCallback) then
-                            aAfterCopyCallback(CopiedElement);
-                        end;
-                        lResult[j] := CopiedElement;
-                        wbProgress('');
-                      end;
-                    except
-                      on E: EAbort do
-                        raise;
-                      on E: Exception do
-                        wbProgress('Error while copying [%s]: [%s] %s', [Elements[j].FullPath, E.ClassName, E.Message]);
-                    end;
-                end else begin
-                  MainRecord := nil;
-                  if DeepCopy and Supports(Elements[0], IwbMainRecord, MainRecord) and Assigned(MainRecord.ChildGroup) then begin
-                    wbCurrentProgress := Format('[%s] into [%s]', [MainRecord.ChildGroup.FullPath, TargetFile.FullPath]);
-                    wbProgress(Operation + ' ' + wbCurrentProgress);
-                    lResult[0] := wbCopyElementToFile(MainRecord.ChildGroup, TargetFile, AsNew, True, '', '', '', '', AllowOverwrite);
-                    wbProgress('');
-                  end else begin
-                    wbCurrentProgress := Format('[%s] into [%s]', [Elements[0].FullPath, TargetFile.FullPath]);
-                    wbProgress(Operation + ' ' + wbCurrentProgress);
-                    CopiedElement := wbCopyElementToFile(Elements[0], TargetFile, AsNew, True, '', '', '', '', AllowOverwrite);
-                    wbProgress('');
-                    if Assigned(CopiedElement) then begin
-                      if Assigned(aAfterCopyCallback) then
-                        aAfterCopyCallback(CopiedElement);
-                    end;
-                    wbProgress('');
-                    lResult[0] := CopiedElement;
-                    if not Supports(CopiedElement, IwbMainRecord, MainRecord) then
-                      MainRecord := nil;
-                  end;
-                  if AsNew and Assigned(MainRecord) then
-                    MainRecord.EditorID := EditorID;
-                end;
-              end;
+                mfTemplate in SelectedModules[i].miFlags) then
+                TargetFile.AddCopies(Elements, lResult, lOptions);
             end;
           wbCurrentProgress := '';
         end);
@@ -2940,7 +2845,7 @@ begin
         Free;
       end;
     finally
-      _wbCanOverwriteCallback := nil;
+      lOptions.CanOverwrite := nil;
     end;
   finally
     sl.Free;
@@ -4683,8 +4588,6 @@ begin
 
   AutoDone := False;
   ErrorsCount := 0;
-  ITMcount := 0;
-  DRcount := 0;
 
   SetDoubleBuffered(Self);
   SaveInterval := DefaultInterval;
@@ -4889,7 +4792,7 @@ begin
     wbPatron := Settings.ReadBool('Options', 'Patron', wbPatron);
     if (not wbPatron or not xeAutoLoad)
 {$IFDEF XE_TEST_CONTROL_POINTS}
-      and not (xeTestSwitches.Conflicts or xeTestSwitches.NavCopy or xeTestSwitches.ViewText or xeTestSwitches.ViewTree or xeTestSwitches.Options or xeTestSwitches.CopyIntoGap or xeTestSwitches.DropMaster or xeTestSwitches.DeltaPatch or xeTestSwitches.Merge or xeTestSwitches.Hide or xeTestSwitches.Filter or xeTestSwitches.SaveContexts or (xeTestSwitches.PumpDuringLoad <> ''))
+      and not (xeTestSwitches.Conflicts or xeTestSwitches.NavCopy or xeTestSwitches.ViewText or xeTestSwitches.ViewTree or xeTestSwitches.Options or xeTestSwitches.CopyIntoGap or xeTestSwitches.DropMaster or xeTestSwitches.DeltaPatch or xeTestSwitches.Merge or xeTestSwitches.CopyInto or xeTestSwitches.Renumber or xeTestSwitches.Hide or xeTestSwitches.Filter or xeTestSwitches.SaveContexts or (xeTestSwitches.PumpDuringLoad <> ''))
 {$ENDIF}
     then
       ShowDeveloperMessage;
@@ -6000,7 +5903,7 @@ begin
       TerminateThread(CheckNexusModsReleaseThread.Handle, 0);
   end;
 
-  if SaveChanged >= srAbort then begin
+  if not QuickCleanSaveFailed and (SaveChanged >= srAbort) then begin
     Action := caNone;
     Exit;
   end;
@@ -6246,7 +6149,7 @@ begin
     TestHost.TestNavCopyAnswer.OnTimer := TestNavCopyAnswerTimer;
     TestHost.TestNavCopyAnswer.Enabled := True;
   end;
-  if xeTestSwitches.Merge or (xeTestSwitches.FilterRemove <> '') then
+  if xeTestSwitches.Merge or xeTestSwitches.CopyInto or xeTestSwitches.Renumber or (xeTestSwitches.FilterRemove <> '') then
     UseLatestCommonDialogs := False;
 {$ENDIF}
 
@@ -10817,71 +10720,6 @@ begin
   Inc(LockOutPinnedCount);
 end;
 
-function TfrmMain.LOOTDirtyInfo(const aInfo: TLOOTPluginInfo; aFileChanged: Boolean): string;
-// LOOT dirty entry example
-{
-  - name: 'DLCRobot.esm'
-    dirty:
-      - <<: *dirtyPlugin
-        crc: 0xD69027EA
-        util: 'FO4Edit v3.2.1'
-        itm: 45
-        udr: 38
-        nav: 1
-}
-// LOOT clean entry example
-{
-  - name: 'BetterSettlers.esp'
-    clean:
-      - crc: 0x6A5FC68B
-        util: 'FO4Edit v3.2'
-}
-begin
-  Result := '';
-  if (aInfo.ITM <> 0) or (aInfo.UDR <> 0) or (aInfo.NAV <> 0) then begin
-    if aFileChanged then begin
-      Result := CRLF + Format(StringOfChar(' ', 2) + '- name: ''%s''', [aInfo.Plugin.Replace('''', '''''', [rfReplaceAll])]) + CRLF;
-      Result := Result + StringOfChar(' ', 4) + 'dirty:' + CRLF;
-    end;
-    if aInfo.NAV <> 0 then
-      Result := Result + StringOfChar(' ', 6) + '- <<: *reqManualFix'
-    else
-      Result := Result + StringOfChar(' ', 6) + '- <<: *quickClean';
-    Result := Result + CRLF + Format(StringOfChar(' ', 8) + 'crc: 0x%s', [IntToHex(aInfo.CRC32, 8)]);
-    Result := Result + CRLF + Format(StringOfChar(' ', 8) + 'util: ''[%sEdit v%s](%s)''', [xeContext.GameDefObj.AppName, VersionString.ToString, xeNexusModsUrl]);
-    if aInfo.ITM <> 0 then Result := Result + CRLF + Format(StringOfChar(' ', 8) + 'itm: %d', [aInfo.ITM]);
-    if aInfo.UDR <> 0 then Result := Result + CRLF + Format(StringOfChar(' ', 8) + 'udr: %d', [aInfo.UDR]);
-    if aInfo.NAV <> 0 then Result := Result + CRLF + Format(StringOfChar(' ', 8) + 'nav: %d', [aInfo.NAV]);
-  end
-  else if (aInfo.ITM = 0) and (aInfo.UDR = 0) and (aInfo.NAV = 0) then begin
-    if aFileChanged then
-      Result := CRLF + Format(StringOfChar(' ', 2) + '- name: ''%s''', [aInfo.Plugin.Replace('''', '''''', [rfReplaceAll])]) + CRLF;
-    Result := Result + StringOfChar(' ', 4) + 'clean:';
-    Result := Result + CRLF + Format(StringOfChar(' ', 6) + '- crc: 0x%s', [IntToHex(aInfo.CRC32, 8)]);
-    Result := Result + CRLF + Format(StringOfChar(' ', 8) + 'util: ''%sEdit v%s''', [xeContext.GameDefObj.AppName, VersionString.ToString]);
-  end;
-end;
-
-function TfrmMain.BOSSDirtyInfo(const aInfo: TLOOTPluginInfo): string;
-// BOSS entry example
-{
-WAC - NoMapMarker.esp
-  IF CHECKSUM("WAC - NoMapMarker.esp", 9BD8F9C2) DIRTY: 16 ITM, 0 UDR records. Needs TES4Edit cleaning: "http://cs.elderscrolls.com/index.php?title=TES4Edit_Cleaning_Guide"
-}
-begin
-  Result := '';
-  if (aInfo.ITM <> 0) or (aInfo.UDR <> 0) then begin
-    Result := Result + CRLF + aInfo.Plugin;
-    Result := Result + CRLF + Format('  IF CHECKSUM("%s", %s) DIRTY: %d ITM, %d UDR records. Needs %sEdit cleaning: "http://cs.elderscrolls.com/index.php?title=TES4Edit_Cleaning_Guide"', [
-      aInfo.Plugin,
-      IntToHex(aInfo.CRC32, 8),
-      aInfo.ITM,
-      aInfo.UDR,
-      xeContext.GameDefObj.AppName
-    ]);
-  end;
-end;
-
 procedure TfrmMain.btnCancelClick(Sender: TObject);
 begin
   if MessageDlg('Are you sure you want to request to force cancel the current operation?' + sLineBreak + sLineBreak +
@@ -10903,15 +10741,11 @@ var
   StartTick                   : UInt64;
   i {, n}                     : Integer;
   MainRecord                  : IwbMainRecord;
-  AutoModeCheckForDR          : Boolean;
-  Operation, Plugin           : String;
+  Plugin                      : String;
   PluginCRC32                 : Cardinal;
-  DirtyInfo                   : PLOOTPluginInfo;
+  DirtyInfo                   : PwbDirtyInfo;
 begin
-  AutoModeCheckForDR := xeToolMode in [tmCheckForDR];
-  if AutoModeCheckForDR then Operation := 'Count' else Operation := 'Undelet';
-
-  if not AutoModeCheckForDR and not xeContext.Settings.EditAllowed then
+  if not xeContext.Settings.EditAllowed then
     Exit;
   if xeContext.Settings.TranslationMode then
     Exit;
@@ -10951,7 +10785,7 @@ begin
     Exit;
   end;
 
-  if not AutoModeCheckForDR and not EditWarn then
+  if not EditWarn then
     Exit;
 
   vstNav.BeginUpdate;
@@ -10994,9 +10828,8 @@ begin
               PostAddMessage('Skipping: ' + MainRecord.Name);
             end;
             uoUndelete: begin
-              PostAddMessage(Operation+'ing: ' + MainRecord.Name);
-              if not AutoModeCheckForDR then
-                MainRecord.UndeleteAndDisable;
+              PostAddMessage('Undeleting: ' + MainRecord.Name);
+              MainRecord.UndeleteAndDisable;
               Inc(UndeletedCount);
             end;
           end;
@@ -11006,7 +10839,7 @@ begin
         Inc(Count);
         if StartTick + 500 < GetTickCount64 then begin
           Caption := sJustWait + ' Processed Records: ' + IntToStr(Count) +
-            ' '+Operation+'ed Records: ' + IntToStr(UndeletedCount) +
+            ' Undeleted Records: ' + IntToStr(UndeletedCount) +
             ' Elapsed Time: ' + wbFormatElapsedTime( Now - wbStartTime);
           DoProcessMessages;
           StartTick := GetTickCount64;
@@ -11020,8 +10853,8 @@ begin
       UpdatePnlCancelVisible;
     end;
 
-    PostAddMessage('['+Operation+'ing and Disabling References done] ' + ' Processed Records: ' + IntToStr(Count) +
-      ', '+Operation+'ed Records: ' + IntToStr(UndeletedCount) +
+    PostAddMessage('[Undeleting and Disabling References done] ' + ' Processed Records: ' + IntToStr(Count) +
+      ', Undeleted Records: ' + IntToStr(UndeletedCount) +
       ', Elapsed Time: ' + wbFormatElapsedTime( Now - wbStartTime));
     if DeletedNAVM > 0 then
       PostAddMessage('<Warning: Plugin contains ' + IntToStr(DeletedNAVM) + ' deleted NavMeshes which can not be undeleted>');
@@ -11030,23 +10863,10 @@ begin
 
     // store dirty information
     if Plugin <> '' then begin
-      DirtyInfo := nil;
-      for i := Low(LOOTPluginInfos) to High(LOOTPluginInfos) do
-        if (LOOTPluginInfos[i].Plugin = Plugin) and (LOOTPluginInfos[i].CRC32 = PluginCRC32) then begin
-          DirtyInfo := @LOOTPluginInfos[i];
-          Break;
-        end;
-      if not Assigned(DirtyInfo) then begin
-        SetLength(LOOTPluginInfos, Succ(Length(LOOTPluginInfos)));
-        DirtyInfo := @LOOTPluginInfos[Pred(Length(LOOTPluginInfos))];
-      end;
-      DirtyInfo.Plugin := Plugin;
-      DirtyInfo.CRC32 := PluginCRC32;
+      DirtyInfo := wbDirtyInfoFor(LOOTPluginInfos, Plugin, PluginCRC32);
       DirtyInfo.UDR := UndeletedCount;
       DirtyInfo.NAV := DeletedNAVM;
     end;
-
-    if AutomodeCheckForDR then DRcount := UndeletedCount;
   finally
     vstNav.EndUpdate;
     Caption := Application.Title;
@@ -11157,18 +10977,14 @@ var
   StartTick                   : UInt64;
   i                           : Integer;
   IsRecord                    : Boolean;
-  AutoModeCheckForITM         : Boolean;
-  Operation, Plugin           : String;
+  Plugin                      : String;
   PluginCRC32                 : Cardinal;
-  DirtyInfo                   : PLOOTPluginInfo;
+  DirtyInfo                   : PwbDirtyInfo;
 
 begin
   PluginCRC32 := 0;
 
-  AutoModeCheckForITM := xeToolMode in [tmCheckForITM];
-  if AutoModeCheckForITM then Operation := 'Count' else Operation := 'Remov';
-
-  if not xeContext.Settings.EditAllowed and not AutoModeCheckForITM then
+  if not xeContext.Settings.EditAllowed then
     Exit;
   if xeContext.Settings.TranslationMode then
     Exit;
@@ -11208,7 +11024,7 @@ begin
     Exit;
   end;
 
-  if not AutoModeCheckForITM and not EditWarn then
+  if not EditWarn then
     Exit;
 
   vstNav.BeginUpdate;
@@ -11246,13 +11062,11 @@ begin
             if lAction = qcCantRemove then
               PostAddMessage('Can''t remove: ' + NodeData.Element.Name)
             else begin
-              if AutoModeCheckForITM then
-                PostAddMessage(Operation+'ing: ' + NodeData.Element.Name)
-              else if lAction = qcMakePartial then begin
+              if lAction = qcMakePartial then begin
                 PostAddMessage('Making Partial Form: ' + NodeData.Element.Name);
                 wbCleanApply(lAction, NodeData.Element, NodeData.Container);
               end else begin
-                PostAddMessage(Operation+'ing: ' + NodeData.Element.Name);
+                PostAddMessage('Removing: ' + NodeData.Element.Name);
                 wbCleanApply(lAction, NodeData.Element, NodeData.Container);
                 NodeData.Container := nil;
                 NodeData.Element := nil;
@@ -11268,7 +11082,7 @@ begin
         Inc(Count);
         if StartTick + 500 < GetTickCount64 then begin
           Caption := sJustWait + ' Processed Records: ' + IntToStr(Count) +
-            ' '+Operation+'ed Records: ' + IntToStr(RemovedCount) +
+            ' Removed Records: ' + IntToStr(RemovedCount) +
             ' Elapsed Time: ' + wbFormatElapsedTime( Now - wbStartTime);
           DoProcessMessages;
           StartTick := GetTickCount64;
@@ -11282,28 +11096,15 @@ begin
       UpdatePnlCancelVisible;
     end;
 
-    PostAddMessage('['+Operation+'ing "Identical to Master" records done] ' + ' Processed Records: ' + IntToStr(Count) +
-      ', '+Operation+'ed Records: ' + IntToStr(RemovedCount) +
+    PostAddMessage('[Removing "Identical to Master" records done] ' + ' Processed Records: ' + IntToStr(Count) +
+      ', Removed Records: ' + IntToStr(RemovedCount) +
       ', Elapsed Time: ' + wbFormatElapsedTime( Now - wbStartTime)); // Does not show up if handling "a lot" of records !
 
     // store dirty information
     if Plugin <> '' then begin
-      DirtyInfo := nil;
-      for i := Low(LOOTPluginInfos) to High(LOOTPluginInfos) do
-        if (LOOTPluginInfos[i].Plugin = Plugin) and (LOOTPluginInfos[i].CRC32 = PluginCRC32) then begin
-          DirtyInfo := @LOOTPluginInfos[i];
-          Break;
-        end;
-      if not Assigned(DirtyInfo) then begin
-        SetLength(LOOTPluginInfos, Succ(Length(LOOTPluginInfos)));
-        DirtyInfo := @LOOTPluginInfos[Pred(Length(LOOTPluginInfos))];
-      end;
-      DirtyInfo.Plugin := Plugin;
-      DirtyInfo.CRC32 := PluginCRC32;
+      DirtyInfo := wbDirtyInfoFor(LOOTPluginInfos, Plugin, PluginCRC32);
       DirtyInfo.ITM := RemovedCount;
     end;
-
-    if AutoModeCheckForITM then ITMcount := RemovedCount;
 
   finally
     vstNav.EndUpdate;
@@ -11312,34 +11113,13 @@ begin
 end;
 
 procedure TfrmMain.mniNavLOManagersDirtyInfoClick(Sender: TObject);
-var
-  i           : Integer;
-  BOSS        : Boolean;
-  FileChanged : Boolean;
 begin
   if Length(LOOTPluginInfos) < 1 then
     Exit;
 
-  BOSS := False;
   pgMain.ActivePage := tbsMessages;
-
-  // There will always be a LOOT message,
-  // since a plugin will always either be clean or it will be dirty
-  PostAddMessage('');
-  PostAddMessage('LOOT Masterlist Entries');
-  for i := Low(LOOTPluginInfos) to High(LOOTPluginInfos) do begin
-    FileChanged := (i=0) or not SameText(LOOTPluginInfos[i].Plugin, LOOTPluginInfos[Pred(i)].Plugin);
-    PostAddMessage(LOOTDirtyInfo(LOOTPluginInfos[i], FileChanged));
-    if (LOOTPluginInfos[i].ITM <> 0) or (LOOTPluginInfos[i].UDR <> 0) then
-      BOSS := xeContext.GameDefObj.GameMode = gmTES4;
-  end;
-  PostAddMessage('');
-
-  if BOSS then begin
-    PostAddMessage('BOSS Masterlist Entries');
-    for i := Low(LOOTPluginInfos) to High(LOOTPluginInfos) do
-      PostAddMessage(BOSSDirtyInfo(LOOTPluginInfos[i]));
-  end;
+  wbReportDirtyInfos(LOOTPluginInfos, xeContext.GameDefObj, xeNexusModsUrl,
+    procedure(const aMessage: string) begin PostAddMessage(aMessage); end);
 end;
 
 procedure TfrmMain.mniSpreadsheetCompareSelectedClick(Sender: TObject);
@@ -12037,44 +11817,20 @@ end;
 procedure TfrmMain.mniNavRenumberFormIDsFromClick(Sender: TObject);
 
 var
-  SourceFile    : IwbFile;
-  TargetFile    : IwbFile;
-  MainRecords   : TDynMainRecords;
-  TargetFormIDs : TArray<TwbFormID>;
-  HighFormID    : TwbFormID;
-  lLayout       : TwbSlotLayout;
+  SourceFile : IwbFile;
+  lPlan      : TwbFormIDChangePlan;
+  lLayout    : TwbSlotLayout;
 
   function Prepare: Boolean;
   var
-    s            : string;
-    Nodes        : TNodeArray;
-    NodeData     : PNavNodeData;
-
-    StartFormID  : TwbFormID;
-    EndFormID    : TwbFormID;
-    TakenFormIDs : array of Boolean;
-    i, j, k      : Integer;
-    c            : Cardinal;
-
-    lMainRecords     : TDynMainRecords;
-    MainRecord       : IwbMainRecord;
-    TargetMainRecord : IwbMainRecord;
-
-    NewFormID    : TwbFormID;
-    OldFormID    : TwbFormID;
-
-    PreserveObjectID : Boolean;
-    AllOrNothing     : Boolean;
-    AnyDelayed       : Boolean;
-    TargetIsLight      : Boolean;
-    PreservedCount   : Integer;
-
-    Signatures       : TStringList;
-
-    LowestFormID     : Cardinal;
+    s             : string;
+    Nodes         : TNodeArray;
+    NodeData      : PNavNodeData;
+    i             : Integer;
+    c             : Cardinal;
+    TargetIsLight : Boolean;
+    LowestFormID  : Cardinal;
   begin
-    LowestFormID := $800;
-
     Result := False;
 
     if not xeContext.Settings.EditAllowed then
@@ -12104,8 +11860,13 @@ var
     if not EditWarn then
       Exit;
 
-    PreserveObjectID := False;
-    AllOrNothing := False;
+    lPlan := Default(TwbFormIDChangePlan);
+    if Sender = mniNavRenumberFormIDsInject then
+      lPlan.Kind := fckInject
+    else if Sender = mniNavCompactFormIDs then
+      lPlan.Kind := fckCompact
+    else
+      lPlan.Kind := fckRenumber;
 
     if Sender = mniNavRenumberFormIDsInject then begin
       with TfrmModuleSelect.Create(Self) do try
@@ -12124,39 +11885,38 @@ var
         Caption := 'Please select the master you want to inject new records into...';
         if ShowModal <> mrOk then
           Exit;
-        TargetFile := SelectedModules[0]._File;
+        lPlan.Target := SelectedModules[0]._File;
 
         if MessageDlg('Do you want to try and preserve ObjectIDs?', mtConfirmation, mbYesNo, 0, mbNo) = mrYes then
-          PreserveObjectID := True;
-        if PreserveObjectID then
+          lPlan.Preserve := True;
+        if lPlan.Preserve then
           if MessageDlg('Do you want to abort if not all ObjectIDs can be preserved?', mtConfirmation, mbYesNo, 0, mbYes) = mrYes then
-            AllOrNothing := True;
+            lPlan.AllOrNothing := True;
       finally
         Free;
       end;
 
 
     end else
-      TargetFile := SourceFile;
+      lPlan.Target := SourceFile;
 
-    if TargetFile.IsUpdate then begin
-      ShowMessage('"'+TargetFile.Name+'" is an update module and can''t own any records.');
+    if lPlan.Target.IsUpdate then begin
+      ShowMessage('"'+lPlan.Target.Name+'" is an update module and can''t own any records.');
       Exit;
     end;
 
-    if TargetFile.AllowHardcodedRangeUse then
-      LowestFormID := 1;
+    LowestFormID := lPlan.Target.ObjectIDFloor;
 
-    if AllOrNothing or (Sender = mniNavCompactFormIDs) then
-      StartFormID := TwbFormID.FromCardinal(LowestFormID)
+    if lPlan.AllOrNothing or (lPlan.Kind = fckCompact) then
+      lPlan.Start := TwbFormID.FromCardinal(LowestFormID)
     else begin
       s := '';
-      TargetIsLight := TargetFile.IsLight or TargetFile.LoadOrderFileID.IsLightSlot;
+      TargetIsLight := lPlan.Target.TakesLightObjectIDs;
       repeat
         if s <> '' then
           ShowMessage('"'+s+'" is not a valid start FormID.')
         else begin
-          c := TargetFile.NextObjectID and $FFFFFF;
+          c := lPlan.Target.NextObjectID and $FFFFFF;
           if TargetIsLight then
             c := c and $FFF;
           if c < LowestFormID then
@@ -12175,185 +11935,49 @@ var
             Exit;
         end;
 
-        StartFormID := TwbFormID.FromStrDef(s, 0);
-      until (StartFormID.FileID[lLayout].FullSlot = 0) and not (StartFormID.ToCardinal < LowestFormID) and (not TargetIsLight or (StartFormID.ObjectID[lLayout] <= $FFF));
+        lPlan.Start := TwbFormID.FromStrDef(s, 0);
+      until (lPlan.Start.FileID[lLayout].FullSlot = 0) and not (lPlan.Start.ToCardinal < LowestFormID) and (not TargetIsLight or (lPlan.Start.ObjectID[lLayout] <= $FFF));
     end;
 
-    SetLength(MainRecords, SourceFile.RecordCount);
-    j := 0;
-    for i := Pred(SourceFile.RecordCount) downto 0 do begin
-      MainRecords[j] := SourceFile.Records[i];
-      if MainRecords[j].LoadOrderFormID.FileID[lLayout] = SourceFile.LoadOrderFileID then
-        Inc(j);
+    SourceFile.PlanFormIDChange(lPlan);
+    case lPlan.Refusal of
+      fcrNoOwnRecords, fcrNothingToChange: begin
+        ShowMessage('Nothing to do.');
+        Exit;
+      end;
+      fcrInUse: begin
+        ShowMessage(Format('The FormID [%s] which should be assigned to: ' + CRLF + CRLF +
+          '%s' + CRLF + CRLF +
+          'is already in use by:' + CRLF + CRLF +
+          '%s' + CRLF + CRLF +
+          'Operation aborted.', [lPlan.InUseFormID.ToString, lPlan.InUseRecord.Name, lPlan.InUseHolder.Name]));
+        Exit;
+      end;
+      fcrTooMany: begin
+        ShowMessage('The file contains too many new records for this operation.');
+        Exit;
+      end;
     end;
-    if j < 1 then begin
-      ShowMessage('Nothing to do.');
-      Exit;
-    end;
 
-    SetLength(MainRecords, j);
-
-    TakenFormIDs := nil;
-    SetLength(TakenFormIDs, j);
-
-    StartFormID.FileID[lLayout] := TargetFile.LoadOrderFileID;
-    HighFormID := StartFormID;
-    if Sender = mniNavCompactFormIDs then
-      EndFormID := TwbFormID.FromCardinal($FFF).ChangeFileID(lLayout, TargetFile.LoadOrderFileID)
-    else if not TargetFile.Equals(SourceFile) then begin
-      if TargetFile.IsLight then
-        EndFormID := TwbFormID.FromCardinal($FFF).ChangeFileID(lLayout, TargetFile.LoadOrderFileID)
+    s := '';
+    if lPlan.Preserve and not lPlan.AllOrNothing then begin
+      case lPlan.PreservedCount of
+        0 : s := ' No ObjectIDs could be preserved.';
+        1 : s := ' 1 ObjectID could be preserved.';
       else
-        EndFormID := TwbFormID.FromCardinal($FFFFFF).ChangeFileID(lLayout, TargetFile.LoadOrderFileID);
-    end else begin
-      EndFormID := StartFormID.Offset(lLayout, j);
-      HighFormID := EndFormID;
-    end;
-
-    if TargetFile.Equals(SourceFile) then
-      for i := Low(MainRecords) to High(MainRecords) do begin
-        OldFormID := MainRecords[i].LoadOrderFormID;
-        if (OldFormID >= StartFormID) and (OldFormID <= EndFormID) then begin
-          j := OldFormID - StartFormID;
-          if j > High(TakenFormIDs) then
-            SetLength(TakenFormIDs, Succ(j));
-          TakenFormIDs[j] := True;
-        end;
+        if lPlan.PreservedCount = Length(lPlan.Records) then
+          s := ' All ObjectIDs could be preserved.'
+        else
+          s := ' ' + lPlan.PreservedCount.ToString + ' ObjectIDs could be preserved.';
       end;
-
-    Signatures := TStringList.Create;
-    try
-      Signatures.Sorted := True;
-      Signatures.Duplicates := dupIgnore;
-      Signatures.Delimiter := ' ';
-
-      AnyDelayed := False;
-      PreservedCount := 0;
-      SetLength(lMainRecords, Length(MainRecords));
-      SetLength(TargetFormIDs, Length(MainRecords));
-      j := 0;
-      i := 0;
-      for k := High(MainRecords) downto Low(MainRecords) do begin
-        MainRecord := MainRecords[k];
-        OldFormID := MainRecord.LoadOrderFormID;
-
-        if TargetFile.Equals(SourceFile) then begin
-          if (OldFormID >= StartFormID) and (OldFormID <= EndFormID) then
-            Continue;
-
-          while (j <= High(TakenFormIDs)) and TakenFormIDs[j] do
-            Inc(j);
-          NewFormID := StartFormID.Offset(lLayout, j);
-          Inc(j);
-        end else begin
-          NewFormID := TwbFormID.Null;
-          TargetMainRecord := nil;
-          repeat
-            if PreserveObjectID then begin
-              if NewFormID.IsNull then
-                NewFormID := OldFormID.ChangeFileID(lLayout, TargetFile.LoadOrderFileID)
-              else
-                if AllOrNothing then begin
-                  ShowMessage(Format('The FormID [%s] which should be assigned to: ' + CRLF + CRLF +
-                    '%s' + CRLF + CRLF +
-                    'is already in use by:' + CRLF + CRLF +
-                    '%s' + CRLF + CRLF +
-                    'Operation aborted.', [NewFormID.ToString, MainRecord.Name, TargetMainRecord.Name]));
-                  Exit;
-                end else begin
-                  NewFormID := TwbFormID.Null;
-                  AnyDelayed := True;
-                  Break;
-                end;
-            end else begin
-              NewFormID := StartFormID.Offset(lLayout, j);
-              Inc(j);
-            end;
-            TargetMainRecord := TargetFile.ContainedRecordByLoadOrderFormID[NewFormID, True];
-          until not Assigned(TargetMainRecord);
-          TargetMainRecord := nil;
-        end;
-
-        if NewFormID > EndFormID then begin
-          ShowMessage('The file contains too many new records for this operation.');
-          Exit;
-        end;
-
-        if NewFormID > HighFormID then
-          HighFormID := NewFormID;
-
-        if NewFormID = OldFormID then
-          Continue;
-
-        if PreserveObjectID and not NewFormID.IsNull then
-          Inc(PreservedCount);
-
-        lMainRecords[i] := MainRecord;
-        TargetFormIDs[i] := NewFormID;
-        if Assigned(MainRecord) then
-          Signatures.Add(MainRecord.Signature);
-        Inc(i);
-      end;
-
-      SetLength(lMainRecords, i);
-      SetLength(TargetFormIDs, i);
-      MainRecords := lMainRecords;
-
-      if AnyDelayed then
-        for k := Low(MainRecords) to High(MainRecords) do begin
-          if not TargetFormIDs[k].IsNull then
-            Continue;
-
-          repeat
-            NewFormID := StartFormID.Offset(lLayout, j);
-            Inc(j);
-          until not Assigned(TargetFile.ContainedRecordByLoadOrderFormID[NewFormID, True]);
-
-          if NewFormID > EndFormID then begin
-            ShowMessage('The file contains too many new records for this operation.');
-            Exit;
-          end;
-
-          if NewFormID > HighFormID then
-            HighFormID := NewFormID;
-          TargetFormIDs[k] := NewFormID;
-        end;
-
-      Result := i > 0;
-      if not Result then
-        ShowMessage('Nothing to do.')
-      else begin
-        s := '';
-        if PreserveObjectID and not AllOrNothing then begin
-          case PreservedCount of
-            0 : s := ' No ObjectIDs could be preserved.';
-            1 : s := ' 1 ObjectID could be preserved.';
-          else
-            if PreservedCount = Length(MainRecords) then
-              s := ' All ObjectIDs could be preserved.'
-            else
-              s := ' ' + PreservedCount.ToString + ' ObjectIDs could be preserved.';
-          end;
-        end;
-        Result := MessageDlg('This operation will modify the FormID of '+i.ToString+' record(s).' + s + CRLF +
-          'Record(s) with the following signature(s) are affected: ' + Signatures.DelimitedText + CRLF + CRLF +
-          'WARNING: This will break existing save games that contain these FormID(s) and any module which uses "'+ SourceFile.FileName +'" as master and references them.' + CRLF + CRLF +
-          'Are you sure you wish to continue?', mtWarning, mbYesNo, 0, mbNo) = mrYes;
-      end;
-
-      if Result then
-        vstNav.Expanded[Nodes[0]] := False;
-    finally
-      Signatures.Free;
     end;
-  end;
+    Result := MessageDlg('This operation will modify the FormID of '+Length(lPlan.Records).ToString+' record(s).' + s + CRLF +
+      'Record(s) with the following signature(s) are affected: ' + lPlan.Signatures + CRLF + CRLF +
+      'WARNING: This will break existing save games that contain these FormID(s) and any module which uses "'+ SourceFile.FileName +'" as master and references them.' + CRLF + CRLF +
+      'Are you sure you wish to continue?', mtWarning, mbYesNo, 0, mbNo) = mrYes;
 
-  procedure UpdateNextObjectID;
-  begin
-    if TargetFile.IsEditable then begin
-      HighFormID := HighFormID.Next(lLayout);
-      TargetFile.NextObjectID := HighFormID.ObjectID[lLayout];
-    end;
+    if Result then
+      vstNav.Expanded[Nodes[0]] := False;
   end;
 
 begin
@@ -12361,64 +11985,13 @@ begin
   if Prepare then begin
     SourceFile.BuildOrLoadRef(False);
     PerformLongAction('Changing FormIDs', 'Processed Records: 0', procedure
-    var
-      AnyErrors                   : Boolean;
-      i,  k, l                    : Integer;
-      MainRecord                  : IwbMainRecord;
-      ReferencedBy                : TDynMainRecords;
-      Master                      : IwbMainRecord;
-      Overrides                   : TDynMainRecords;
-      NewFormID                   : TwbFormID;
-      OldFormID                   : TwbFormID;
     begin
-      AnyErrors := False;
-      for k := Low(MainRecords) to High(MainRecords) do begin
-        MainRecord := MainRecords[k];
-        OldFormID := MainRecord.LoadOrderFormID;
-        NewFormID := TargetFormIDs[k];
-
-        wbProgress('Changing FormID ['+OldFormID.ToDisplayString(lLayout)+'] in file "'+MainRecord._File.FileName+'" to ['+NewFormID.ToDisplayString(lLayout)+']');
-
-        Master := MainRecord.MasterOrSelf;
-        SetLength(ReferencedBy, Master.ReferencedByCount);
-        for i := 0 to Pred(Master.ReferencedByCount) do
-          ReferencedBy[i] := Master.ReferencedBy[i];
-
-        try
-          SetLength(Overrides, MainRecord.OverrideCount);
-          for l := 0 to Pred(MainRecord.OverrideCount) do
-            Overrides[l] := MainRecord.Overrides[l];
-
-          MainRecord.LoadOrderFormID := NewFormID;
-          if Length(Overrides) > 0 then begin
-            wbProgress('Record has '+Length(Overrides).ToString+' override(s)');
-            for l := Low(Overrides) to High(Overrides) do
-              Overrides[l].LoadOrderFormID := NewFormID;
-          end;
-
-          Overrides := nil;
-
-          wbTick;
-
-          if Length(ReferencedBy) > 0 then begin
-            wbProgress('Record is referenced by '+Length(ReferencedBy).ToString+' other record(s)');
-            ShowChangeReferencedBy(OldFormID, NewFormID, ReferencedBy, True );
-          end;
-        except
-          on E: Exception do begin
-            wbProgress('Error: ' + E.Message);
-            AnyErrors := True;
-          end;
-        end;
-
-        wbCurrentProgress := 'Processed Records: ' + Integer(k + 1).ToString;
-      end;
-      if AnyErrors then begin
+      if SourceFile.ApplyFormIDChange(lPlan) then begin
         pgMain.ActivePage := tbsMessages;
         wbProgress('!!! Errors have occured. It is highly recommended to exit without saving as partial changes might have occured !!!');
       end;
     end);
-    UpdateNextObjectID;
+    SourceFile.FinishFormIDChange(lPlan);
     vstNav.Invalidate;
   end;
 end;
@@ -13554,19 +13127,7 @@ begin
   AssignPersWrldChild := False;
   InheritConflictByParent := True;
 
-  if ConflictView.ModGroupsEnabled or ConflictView.OnlyMasterAndLeafs or xeQuickShowConflicts then begin
-    if ConflictView.ModGroupsEnabled then
-      wbProgress('Disabling ModGroups');
-    if ConflictView.OnlyMasterAndLeafs then
-      wbProgress('Disabling "Only Show Master and Leafs"');
-    if xeQuickShowConflicts then
-      wbProgress('Disabling "Quick Show Conflict" mode');
-    ConflictView.ModGroupsEnabled := False;
-    ConflictView.OnlyMasterAndLeafs := False;
-    ConflictView.QuickShowConflicts := False;
-    xeQuickShowConflicts := False;
-    ResetAllConflict;
-  end;
+  DisableConflictViewModes;
 
   FilterPreset := True;
   try
@@ -13639,19 +13200,7 @@ begin
   AssignPersWrldChild := False;
   InheritConflictByParent := True;
 
-  if ConflictView.ModGroupsEnabled or ConflictView.OnlyMasterAndLeafs or xeQuickShowConflicts then begin
-    if ConflictView.ModGroupsEnabled then
-      wbProgress('Disabling ModGroups');
-    if ConflictView.OnlyMasterAndLeafs then
-      wbProgress('Disabling "Only Show Master and Leafs"');
-    if xeQuickShowConflicts then
-      wbProgress('Disabling "Quick Show Conflict" mode');
-    ConflictView.ModGroupsEnabled := False;
-    ConflictView.OnlyMasterAndLeafs := False;
-    ConflictView.QuickShowConflicts := False;
-    xeQuickShowConflicts := False;
-    ResetAllConflict;
-  end;
+  DisableConflictViewModes;
 
   FilterPreset := True;
   FilterOnlyOne := True;
@@ -15129,6 +14678,23 @@ begin
   vstNav.Invalidate;
 end;
 
+procedure TfrmMain.DisableConflictViewModes;
+begin
+  if ConflictView.ModGroupsEnabled or ConflictView.OnlyMasterAndLeafs or xeQuickShowConflicts then begin
+    if ConflictView.ModGroupsEnabled then
+      wbProgress('Disabling ModGroups');
+    if ConflictView.OnlyMasterAndLeafs then
+      wbProgress('Disabling "Only Show Master and Leafs"');
+    if xeQuickShowConflicts then
+      wbProgress('Disabling "Quick Show Conflict" mode');
+    ConflictView.ModGroupsEnabled := False;
+    ConflictView.OnlyMasterAndLeafs := False;
+    ConflictView.QuickShowConflicts := False;
+    xeQuickShowConflicts := False;
+    ResetAllConflict;
+  end;
+end;
+
 procedure TfrmMain.ResetConflictOfAllFiles;
 var
   i     : Integer;
@@ -16582,6 +16148,15 @@ begin
   Close;
 end;
 
+procedure TfrmMain.EndQuickCleanAfterFailedSave;
+begin
+  if not xeAutoExit then
+    Exit;
+  QuickCleanSaveFailed := True;
+  CheckResult := 1;
+  tmrShutdown.Enabled := True;
+end;
+
 procedure TfrmMain.tmrStartupTimer(Sender: TObject);
 begin
   tmrStartup.Enabled := False;
@@ -17014,12 +16589,16 @@ begin
       end else if (xeToolMode in [tmMasterRestore, tmESPify]) then
         ChangesMade := RestorePluginsFromMaster
       else if (xeToolMode in [tmCheckForErrors, tmCheckForITM, tmCheckForDR]) then begin
-        if (xeToolMode in [tmCheckForITM, tmCheckForDR]) then
-          mniNavFilterForCleaning.Click;
-        JumpTo(Files[High(Files)].Header, False);
-        vstNav.ClearSelection;
-        vstNav.FocusedNode := vstNav.FocusedNode.Parent;
-        vstNav.Selected[vstNav.FocusedNode] := True;
+{$IFDEF XE_TEST_CONTROL_POINTS}
+        if (xeToolMode in [tmCheckForITM, tmCheckForDR]) and (xeTestSwitches.StateManifest <> '') then
+          TestWriteStateManifest(Files[High(Files)]);
+{$ENDIF}
+        if xeToolMode = tmCheckForErrors then begin
+          JumpTo(Files[High(Files)].Header, False);
+          vstNav.ClearSelection;
+          vstNav.FocusedNode := vstNav.FocusedNode.Parent;
+          vstNav.Selected[vstNav.FocusedNode] := True;
+        end;
         DoSetActiveRecord(nil);
         pgMain.ActivePage := tbsMessages;
         try
@@ -17029,21 +16608,38 @@ begin
               CheckResult := 127
             else
               CheckResult := ErrorsCount;
-          end else if xeToolMode = tmCheckForITM then begin
-            mniNavRemoveIdenticalToMasterClick(Nil);
-            if ITMcount>126 then
-              CheckResult := 127
-            else
-              CheckResult := ITMcount;
-          end else if xeToolMode = tmCheckForDR then begin
-            mniNavUndeleteAndDisableReferencesClick(Nil);
-            if DRcount>126 then
-              CheckResult := 127
-            else
-              CheckResult := DRcount;
-          end else
-            CheckResult := 255;
+          end else begin
+            UserWasActive := True;
+            DisableConflictViewModes;
+            var lClean := TwbQuickClean.Create(Files[High(Files)], ConflictView,
+              procedure(const aText: string) begin PostAddMessage(aText); end,
+              procedure(const aText: string) begin wbProgress(aText); end);
+            try
+              lClean.CountOnly := True;
+              PerformLongAction('', '', procedure
+              begin
+                lClean.Filter;
+                if xeToolMode = tmCheckForITM then
+                  lClean.RemoveIdentical
+                else
+                  lClean.Undelete;
+              end, True);
+              var lCount := lClean.Counts.Undeleted;
+              if xeToolMode = tmCheckForITM then
+                lCount := lClean.Counts.Removed;
+              if lCount>126 then
+                CheckResult := 127
+              else
+                CheckResult := lCount;
+            finally
+              lClean.Free;
+            end;
+          end;
         finally
+{$IFDEF XE_TEST_CONTROL_POINTS}
+          if (xeToolMode in [tmCheckForITM, tmCheckForDR]) and (xeTestSwitches.StateManifest <> '') then
+            TestWriteStateManifestEnd;
+{$ENDIF}
           xeContext.Settings.DontSave := True;
         end;
       end else if xeToolMode = tmMasterUpdate then
@@ -20125,7 +19721,7 @@ begin
 
         if xeContext.LoaderError then begin
 {$IFDEF XE_TEST_CONTROL_POINTS}
-          if xeTestSwitches.Conflicts or xeTestSwitches.NavCopy or xeTestSwitches.Merge then begin
+          if xeTestSwitches.Conflicts or xeTestSwitches.NavCopy or xeTestSwitches.Merge or xeTestSwitches.CopyInto or xeTestSwitches.Renumber then begin
             wbProgress('Test mode FAILED: an error occured while loading modules');
             CheckResult := 255;
             if xeAutoExit then
@@ -20228,6 +19824,10 @@ begin
           mniNavFilterConflicts.Click;
 
         if xeQuickClean then begin
+{$IFDEF XE_TEST_CONTROL_POINTS}
+          if xeTestSwitches.StateManifest <> '' then
+            TestWriteStateManifest(lModules.ModulesByLoadOrder(False).FilteredByFlag(mfTaggedForPluginMode)[0]._File);
+{$ENDIF}
           pnlNavContent.Visible := False;
           try
             mniNavFilterForCleaning.Click;
@@ -20246,8 +19846,10 @@ begin
                 WasUnsaved := True;
 
             if xeQuickCleanAutoSave then begin
-              if SaveChanged(True) >= srAbort then
+              if SaveChanged(True) >= srAbort then begin
+                EndQuickCleanAfterFailedSave;
                 Exit;
+              end;
 
               if WasUnsaved then begin
                 ResetAllConflict;
@@ -20268,8 +19870,10 @@ begin
                     WasUnsaved := True;
 
                 if xeQuickCleanAutoSave then begin
-                  if SaveChanged(True) >= srAbort then
+                  if SaveChanged(True) >= srAbort then begin
+                    EndQuickCleanAfterFailedSave;
                     Exit;
+                  end;
 
                   if WasUnsaved then begin
                     mniNavFilterForCleaning.Click;
@@ -20287,6 +19891,10 @@ begin
               mniNavLOManagersDirtyInfoClick(mniNavLOManagersDirtyInfo);
             end;
           finally
+{$IFDEF XE_TEST_CONTROL_POINTS}
+            if xeTestSwitches.StateManifest <> '' then
+              TestWriteStateManifestEnd;
+{$ENDIF}
             pnlNavContent.Visible := True;
             vstNav.Invalidate;
             xeQuickClean := False;
@@ -20356,6 +19964,15 @@ begin
         if xeTestSwitches.Merge then
           DoTestMerge;
 
+        if xeTestSwitches.CopyInto then
+          DoTestCopyInto;
+
+        if xeTestSwitches.Renumber then
+          if xeTestSwitches.RenumberCompareTo <> '' then
+            TLoaderThread.Create(xeTestSwitches.RenumberCompareTo, Files[High(Files)])
+          else
+            DoTestRenumber;
+
         if xeTestSwitches.Hide then
           DoTestHide;
 
@@ -20387,7 +20004,7 @@ begin
           PerformLongAction('Creating Delta Patch', '', procedure
           var
             Counts    : TwbDeltaPatchCounts;
-            DirtyInfo : PLOOTPluginInfo;
+            DirtyInfo : PwbDirtyInfo;
           begin
             xeQuickClean := True;
 
@@ -20405,18 +20022,7 @@ begin
                 ', Elapsed Time: ' + wbFormatElapsedTime( Now - wbStartTime));
 
               if Counts.Candidates > 0 then begin
-                DirtyInfo := nil;
-                for var i := Low(LOOTPluginInfos) to High(LOOTPluginInfos) do
-                  if (LOOTPluginInfos[i].Plugin = NewFile.FileName) and (LOOTPluginInfos[i].CRC32 = NewFile.CRC32) then begin
-                    DirtyInfo := @LOOTPluginInfos[i];
-                    Break;
-                  end;
-                if not Assigned(DirtyInfo) then begin
-                  SetLength(LOOTPluginInfos, Succ(Length(LOOTPluginInfos)));
-                  DirtyInfo := @LOOTPluginInfos[Pred(Length(LOOTPluginInfos))];
-                end;
-                DirtyInfo.Plugin := NewFile.FileName;
-                DirtyInfo.CRC32 := NewFile.CRC32;
+                DirtyInfo := wbDirtyInfoFor(LOOTPluginInfos, NewFile.FileName, NewFile.CRC32);
                 DirtyInfo.ITM := Counts.Removed;
               end;
             end;
@@ -20451,6 +20057,15 @@ begin
         if xeAutoExit then
           tmrShutdown.Enabled := True;
       end;
+
+      if xeTestSwitches.Renumber then
+        if xeContext.LoaderError then begin
+          wbProgress('Test Renumber mode FAILED: an error occured while loading the compare to module');
+          CheckResult := 255;
+          if xeAutoExit then
+            tmrShutdown.Enabled := True;
+        end else
+          DoTestRenumber;
 
       if xeTestSwitches.SaveContexts then begin
         if xeContext.LoaderError then begin
