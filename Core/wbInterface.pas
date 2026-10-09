@@ -1669,7 +1669,7 @@ type
 
   TwbFormIDChangeKind = (fckRenumber, fckInject, fckCompact);
 
-  TwbFormIDChangeRefusal = (fcrNone, fcrNoOwnRecords, fcrInUse, fcrTooMany, fcrNothingToChange);
+  TwbFormIDChangeRefusal = (fcrNone, fcrNoOwnRecords, fcrInUse, fcrNotPreservable, fcrTooMany, fcrNothingToChange);
 
   TwbFormIDChangePlan = record
     Kind           : TwbFormIDChangeKind;
@@ -1683,8 +1683,8 @@ type
     PreservedCount : Integer;
     Signatures     : string;
     Refusal        : TwbFormIDChangeRefusal;
+    RefusedRecord  : IwbMainRecord;
     InUseFormID    : TwbFormID;
-    InUseRecord    : IwbMainRecord;
     InUseHolder    : IwbMainRecord;
   end;
 
@@ -1805,6 +1805,7 @@ type
     procedure PlanFormIDChange(var aPlan: TwbFormIDChangePlan);
     function ApplyFormIDChange(const aPlan: TwbFormIDChangePlan): Boolean;
     procedure FinishFormIDChange(const aPlan: TwbFormIDChangePlan);
+    procedure BuildOrLoadRefOfDependents;
 
     function IsNewRecord(const aFileID: TwbFileID; aNew: Boolean): Boolean; overload;
     function IsNewRecord(const aFormID: TwbFormID; aNew: Boolean): Boolean; overload;

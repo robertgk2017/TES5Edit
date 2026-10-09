@@ -1006,6 +1006,7 @@ type
     procedure PlanFormIDChange(var aPlan: TwbFormIDChangePlan);
     function ApplyFormIDChange(const aPlan: TwbFormIDChangePlan): Boolean;
     procedure FinishFormIDChange(const aPlan: TwbFormIDChangePlan);
+    procedure BuildOrLoadRefOfDependents;
 
     function IsNewRecord(const aFileID: TwbFileID; aNew: Boolean): Boolean; overload;
     function IsNewRecord(const aFormID: TwbFormID; aNew: Boolean): Boolean; overload;
@@ -2744,6 +2745,7 @@ var
   lTaken      : array of Boolean;
   lStart      : TwbFormID;
   lEnd        : TwbFormID;
+  lFloor      : Cardinal;
   lOld        : TwbFormID;
   lNew        : TwbFormID;
   lRecord     : IwbMainRecord;
@@ -2752,6 +2754,15 @@ var
   lSignatures : TStringList;
   lPlanned    : TDictionary<Cardinal, Boolean>;
   i, j, k     : Integer;
+
+  procedure Refuse(aRefusal: TwbFormIDChangeRefusal);
+  begin
+    aPlan.Refusal := aRefusal;
+    aPlan.Records := nil;
+    aPlan.NewFormIDs := nil;
+    aPlan.PreservedCount := 0;
+  end;
+
 begin
   lLayout := flContextObj.SlotLayout;
   lSelf := Self;
@@ -2761,8 +2772,8 @@ begin
   aPlan.PreservedCount := 0;
   aPlan.Signatures := '';
   aPlan.Refusal := fcrNone;
+  aPlan.RefusedRecord := nil;
   aPlan.InUseFormID := TwbFormID.Null;
-  aPlan.InUseRecord := nil;
   aPlan.InUseHolder := nil;
 
   SetLength(lOwn, GetRecordCount);
@@ -2773,7 +2784,7 @@ begin
       Inc(j);
   end;
   if j < 1 then begin
-    aPlan.Refusal := fcrNoOwnRecords;
+    Refuse(fcrNoOwnRecords);
     Exit;
   end;
   SetLength(lOwn, j);
@@ -2793,6 +2804,7 @@ begin
     lEnd := lStart.Offset(lLayout, j);
     aPlan.HighFormID := lEnd;
   end;
+  lFloor := lTarget.ObjectIDFloor;
 
   if lTarget.Equals(lSelf) then
     for i := Low(lOwn) to High(lOwn) do begin
@@ -2833,13 +2845,23 @@ begin
         lHolder := nil;
         repeat
           if aPlan.Preserve then begin
-            if lNew.IsNull then
-              lNew := lOld.ChangeFileID(lLayout, lTarget.LoadOrderFileID)
-            else
+            if lNew.IsNull then begin
+              lNew := lOld.ChangeFileID(lLayout, lTarget.LoadOrderFileID);
+              if (lNew.ObjectID[lLayout] <> lOld.ObjectID[lLayout]) or (lNew > lEnd) or (lOld.ObjectID[lLayout] < lFloor) then
+                if aPlan.AllOrNothing then begin
+                  Refuse(fcrNotPreservable);
+                  aPlan.RefusedRecord := lRecord;
+                  Exit;
+                end else begin
+                  lNew := TwbFormID.Null;
+                  lAnyDelayed := True;
+                  Break;
+                end;
+            end else
               if aPlan.AllOrNothing then begin
-                aPlan.Refusal := fcrInUse;
+                Refuse(fcrInUse);
+                aPlan.RefusedRecord := lRecord;
                 aPlan.InUseFormID := lNew;
-                aPlan.InUseRecord := lRecord;
                 aPlan.InUseHolder := lHolder;
                 Exit;
               end else begin
@@ -2857,7 +2879,7 @@ begin
       end;
 
       if lNew > lEnd then begin
-        aPlan.Refusal := fcrTooMany;
+        Refuse(fcrTooMany);
         Exit;
       end;
 
@@ -2897,7 +2919,7 @@ begin
           until not lPlanned.ContainsKey(lNew.ToCardinal) and not Assigned(lTarget.ContainedRecordByLoadOrderFormID[lNew, True]);
 
           if lNew > lEnd then begin
-            aPlan.Refusal := fcrTooMany;
+            Refuse(fcrTooMany);
             Exit;
           end;
 
@@ -2913,7 +2935,7 @@ begin
     if i > 0 then
       aPlan.Signatures := lSignatures.DelimitedText
     else
-      aPlan.Refusal := fcrNothingToChange;
+      Refuse(fcrNothingToChange);
   finally
     lSignatures.Free;
   end;
@@ -3013,8 +3035,21 @@ end;
 
 procedure TwbFile.FinishFormIDChange(const aPlan: TwbFormIDChangePlan);
 begin
+  if aPlan.Refusal <> fcrNone then
+    Exit;
   if aPlan.Target.IsEditable then
     aPlan.Target.NextObjectID := aPlan.HighFormID.Next(flContextObj.SlotLayout).ObjectID[flContextObj.SlotLayout];
+end;
+
+procedure TwbFile.BuildOrLoadRefOfDependents;
+var
+  lFileName : string;
+  lFile     : IwbFile;
+begin
+  lFileName := GetFileName;
+  for lFile in flContextObj.Files do
+    if Assigned(lFile) and not (fsRefsBuild in lFile.FileStates) and lFile.HasMaster(lFileName) then
+      lFile.BuildOrLoadRef(False);
 end;
 
 procedure TwbFile.AddCopies(const aElements: TDynElements; var aResult: TDynElements; var aOptions: TwbCopyOptions);
@@ -26373,6 +26408,11 @@ begin
   Result := Default(TwbSaveWrite);
   Result.TargetName := aFile.FileNameOnDisk;
   Result.SaveName := Result.TargetName;
+  if (fsIsCompareLoad in aFile.FileStates) and not (fsIsDeltaPatch in aFile.FileStates) then begin
+    Result.Failed := True;
+    aReport('Error saving ' + Result.SaveName + ': a file loaded through Compare To can not be saved');
+    Exit;
+  end;
   Result.NeedsRename := FileExists(Settings.DataPath + Result.TargetName);
   if Result.NeedsRename then begin
     Result.SaveName := Result.TargetName + aSuffix;

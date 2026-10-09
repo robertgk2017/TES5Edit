@@ -11950,7 +11950,14 @@ var
           '%s' + CRLF + CRLF +
           'is already in use by:' + CRLF + CRLF +
           '%s' + CRLF + CRLF +
-          'Operation aborted.', [lPlan.InUseFormID.ToString, lPlan.InUseRecord.Name, lPlan.InUseHolder.Name]));
+          'Operation aborted.', [lPlan.InUseFormID.ToString, lPlan.RefusedRecord.Name, lPlan.InUseHolder.Name]));
+        Exit;
+      end;
+      fcrNotPreservable: begin
+        ShowMessage(Format('The ObjectID of:' + CRLF + CRLF +
+          '%s' + CRLF + CRLF +
+          'does not fit into "%s" and can not be preserved.' + CRLF + CRLF +
+          'Operation aborted.', [lPlan.RefusedRecord.Name, lPlan.Target.Name]));
         Exit;
       end;
       fcrTooMany: begin
@@ -11984,6 +11991,7 @@ begin
   lLayout := xeContext.SlotLayout;
   if Prepare then begin
     SourceFile.BuildOrLoadRef(False);
+    SourceFile.BuildOrLoadRefOfDependents;
     PerformLongAction('Changing FormIDs', 'Processed Records: 0', procedure
     begin
       if SourceFile.ApplyFormIDChange(lPlan) then begin
@@ -14811,7 +14819,8 @@ begin
   with TfrmFileSelect.Create(nil) do try
     try
       for i := Low(Files) to High(Files) do
-        if (Files[i].IsEditable) and (esUnsaved in Files[i].ElementStates) or xeContext.Settings.TestWrite then begin
+        if ((Files[i].IsEditable) and (esUnsaved in Files[i].ElementStates) or xeContext.Settings.TestWrite) and
+          not ((fsIsCompareLoad in Files[i].FileStates) and not (fsIsDeltaPatch in Files[i].FileStates)) then begin
           CheckListBox1.AddItem(Files[i].FileNameOnDisk, Pointer(Files[i]));
           CheckListBox1.Checked[Pred(CheckListBox1.Count)] := esUnsaved in Files[i].ElementStates;
           SetLength(FileType, Succ(Length(FileType))); FileType[High(FileType)] := 0;
